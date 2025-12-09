@@ -1,0 +1,117 @@
+# Lean 4 build artifacts
+.lake/
+lake-packages/
+build/
+.build/
+
+# Lean compiled files
+*.olean
+*.ilean
+*.trace
+*.hash
+
+# Lean cache and temporary files
+lakefile.olean
+.cache/
+_cache/
+
+# Lean verification outputs
+.verification/
+_verification/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.pdf
+*.out
+*.toc
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.nav
+*.snm
+*.vrb
+*.dvi
+*.ps
+*.bcf
+*.run.xml
+*.xdv
+
+# Backup files (all numbered variants)
+*.bak
+*.bak[0-9]*
+*.backup
+*.tmp
+*.experimental
+*_extractConstraints
+*_revert_rw
+*~
+*.swp
+*.swo
+*.old
+
+# AI assistant instruction duplicates (keep only CLAUDE.md)
+agents.md
+gemini.md
+
+# Development status tracking files
+SORRY_ELIMINATION_PLAN.md
+**/ASSUMPTION_4_*.md
+**/INTEGRATION_NOTES.md
+**/PRIMARY_PATH_COMPLETE.md
+**/ROOT_ISSUES_ANALYSIS.md
+**/REMAINING_SORRIES.md
+**/BRIDGE_STATUS.md
+
+# Outdated documentation
+docs/AXIOM_STATUS_ACTUAL.md
+docs/DEAD_CODE_ANALYSIS.md
+docs/QUICK_REFERENCE.md
+docs/WORKFLOW.md
+
+# Archive directories (old/experimental code)
+**/Archive/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+.vimrc.local
+.lvimrc
+.exrc
+
+# Script artifacts and tools
+scripts/tools/
+*.pyc
+__pycache__/
+*.so
+*.dylib
+
+# Temporary and cache directories
+tmp/
+temp/
+cache/
+.cache/
+
+# Documentation build artifacts
+docs/_build/
+docs/.doctrees/
+site/
+
+# Git artifacts
+*.orig
+*.rej
