@@ -44,6 +44,8 @@ Any uniform PPT inverter 𝓘 succeeding with non‑negligible probability can b
 
 See `docs/CONTRIBUTIONS.md` for full reviewer guidelines, contribution recognition (Co-authorship / Special Thanks / Thanks), and how to report issues.
 
+**Full source code**: The complete Lean 4 formalization (~94,000 lines, 171 files) and all documentation are available at: https://github.com/pmarreddy/StructuralOWF
+
 ---
 
 **Navigation: Full Path**
@@ -64,7 +66,7 @@ See `docs/CONTRIBUTIONS.md` for full reviewer guidelines, contribution recogniti
 
 **Alternative Navigation**  -  Two complementary layers with distinct roles:
 
-**For Reviewers**: See `CONTRIBUTIONS.md` for expectations, contribution recognition (Co-authorship / Special Thanks / Thanks), and reporting guidelines. For AI-assisted review (~10x faster), see `docs/AI_REVIEW_GUIDE.md`.
+**For Reviewers**: See `CONTRIBUTIONS.md` for expectations, contribution recognition (Co-authorship / Special Thanks / Thanks), and reporting guidelines. For AI-assisted review (~10x faster), see `docs/AI_REVIEW_GUIDE.md`. Full source: https://github.com/pmarreddy/StructuralOWF
 
 ### Dual-Layer Architecture: Lean (Authoritative) vs Paper (Conceptual)
 
