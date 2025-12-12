@@ -78,8 +78,8 @@ theorem digest_diff_of_parity_diff {n : Nat}
 /-! ## Planted World Uniqueness -/
 
 /-- Witness satisfies the plaintext CNF formula. -/
-def WitnessSatisfiesFormula (φ : CNF) (W : Witness) : Prop :=
-  φ.satisfies W.assignment
+def WitnessSatisfiesFormula (φ : CNF) (W : Witness φ.nvars) : Prop :=
+  φ.satisfies W.assignmentInf
 
 /-- **Strong compatibility**: World assignments match emergent configs from verified witness.
 
@@ -724,7 +724,7 @@ Therefore, at most ONE world can produce a canonical witness.
 
     **This is a simple definition**, matching the paper's (w, G_τ, Dig_τ) format.
 -/
-def IsCanonicalWitness (L : LStarInstanceFG) (W : Witness) : Prop :=
+def IsCanonicalWitness (L : LStarInstanceFG) (W : Witness L.n) : Prop :=
   LStarCanonicalVerifier L W ∧ W.digestBits.length > 0
 
 /-- **THEOREM: At most one world compatible with canonical witness** (for planted instances).
@@ -806,7 +806,7 @@ This theorem IS provable - it's standard reasoning about injective functions and
     - r has gate digests (r.gateDigests.length > 0)
 -/
 def IsPlantedWithWellFormedRandomness (L : LStarInstanceFG) : Prop :=
-  ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
+  ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
     WellFormedRandomness φ r ∧
     L = plant_n n φ r h_nvars h_dgLen ∧
     φ.nvars > 0 ∧

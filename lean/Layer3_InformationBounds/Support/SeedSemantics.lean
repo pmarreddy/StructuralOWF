@@ -37,7 +37,7 @@ open LStar
 /-! ## Basic Helpers (Fully Implemented) -/
 
 /-- Convert assignment to bit vector for first n variables. -/
-def assignmentToVector (a : Assignment) (n : Nat) : Vector Bool n :=
+def assignmentToVector (a : AssignmentInf) (n : Nat) : Vector Bool n :=
   Vector.ofFn (fun i => a i.val)
 
 /-- Convert Seed to bit vector. -/
@@ -509,7 +509,7 @@ computeSeed φ a v:
     Uses vertex index as decreasing measure (parents have smaller indices).
 
     **Implementation**: Well-founded recursion on v.val using Construction.parents_have_smaller_indices. -/
-noncomputable def computeSeedAtVertex (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : Assignment)
+noncomputable def computeSeedAtVertex (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf)
     (v : Fin (lstarStructureFromCNF φ h_nvars_pos numGates).dag.n)
     : Seed ((lstarStructureFromCNF φ h_nvars_pos numGates).seedWidth v) :=
   let L := lstarStructureFromCNF φ h_nvars_pos numGates

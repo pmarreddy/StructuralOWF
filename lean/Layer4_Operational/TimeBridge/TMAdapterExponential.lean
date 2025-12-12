@@ -296,7 +296,7 @@ ensuring the execution prefix reflects actual planted instance behavior.
     - revealedBits is empty (FG instances don't reveal bits)
 -/
 def ValidExecutionPrefix_flat
-    (L : LStarInstanceFG) (φ : CNF) (r : Randomness)
+    (L : LStarInstanceFG) (φ : CNF) (r : Randomness φ.nvars)
     (π : ExecutionPrefixReal L) : Prop :=
   -- Backward: computedConfigs come from emergentConfigAtGate_flat on r.assignment
   (∀ (psig : PSigma (fun v : Fin L.dag.n => Fin (2^(L.R v)))),
@@ -329,7 +329,7 @@ def ValidExecutionPrefix_flat
     **Validity**: By construction, all computedConfigs come from emergentConfigAtGate on r.assignment,
     which is exactly what ValidExecutionPrefix_flat requires. -/
 noncomputable def simpleCanonicalPlantedPrefix_flat
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (L : LStarInstanceFG)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (_h_wf : WellFormedRandomness_flat φ r)
@@ -381,7 +381,7 @@ noncomputable def simpleCanonicalPlantedPrefix_flat
 
     **Axiom count**: Uses NO custom axioms - purely definitional reasoning. -/
 theorem simple_canonical_planted_prefix_valid_flat
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (L : LStarInstanceFG)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (h_wf : WellFormedRandomness_flat φ r)
@@ -486,7 +486,7 @@ theorem simple_canonical_planted_prefix_valid_flat
     The other is `algspec_has_tm` (Church-Turing bridge).
 -/
 axiom planted_collision_impossibility_flat
-    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars) (h_wf : WellFormedRandomness_flat φ r)
     (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val)
     (h_incomplete : obs.isIncomplete)
@@ -497,7 +497,7 @@ axiom planted_collision_impossibility_flat
 
 /-- **Property 2 from validity**: computedConfigs come from emergentConfigAtGate_flat. -/
 theorem property2_from_validity_flat
-    (L : LStarInstanceFG) (φ : CNF) (r : Randomness)
+    (L : LStarInstanceFG) (φ : CNF) (r : Randomness φ.nvars)
     (π : ExecutionPrefixReal L)
     (h_valid : ValidExecutionPrefix_flat L φ r π)
     : ∀ (psig : PSigma (fun v : Fin L.dag.n => Fin (2^(L.R v)))),
@@ -510,7 +510,7 @@ theorem property2_from_validity_flat
 
 /-- **Property 3 from validity**: emergentConfigAtGate_flat outputs are in computedConfigs. -/
 theorem property3_from_validity_flat
-    (L : LStarInstanceFG) (φ : CNF) (r : Randomness)
+    (L : LStarInstanceFG) (φ : CNF) (r : Randomness φ.nvars)
     (π : ExecutionPrefixReal L)
     (h_valid : ValidExecutionPrefix_flat L φ r π)
     : ∀ (v : Fin L.dag.n) (g : Nat) (h_g : g < r.gateDigests.length)
@@ -523,7 +523,7 @@ theorem property3_from_validity_flat
 
 /-- **Property 5 from validity**: revealedBits is empty. -/
 theorem property5_from_validity_flat
-    (L : LStarInstanceFG) (φ : CNF) (r : Randomness)
+    (L : LStarInstanceFG) (φ : CNF) (r : Randomness φ.nvars)
     (π : ExecutionPrefixReal L)
     (h_valid : ValidExecutionPrefix_flat L φ r π)
     : π.revealedBits = [] :=
@@ -531,7 +531,7 @@ theorem property5_from_validity_flat
 
 /-- **Property 6 from validity**: Bit observation determinism (vacuously true). -/
 theorem property6_from_validity_flat
-    (L : LStarInstanceFG) (φ : CNF) (r : Randomness)
+    (L : LStarInstanceFG) (φ : CNF) (r : Randomness φ.nvars)
     (π : ExecutionPrefixReal L)
     (h_valid : ValidExecutionPrefix_flat L φ r π)
     : ∀ (bit1 bit2 : RevealedBit L),
@@ -618,7 +618,7 @@ theorem extractSyntheticConfigs_empty_when_no_bits
     5. extractConfigConstraints maps directly from computedConfigs
 -/
 theorem property1_from_validity_flat
-    (L : LStarInstanceFG) (φ : CNF) (r : Randomness)
+    (L : LStarInstanceFG) (φ : CNF) (r : Randomness φ.nvars)
     (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
     (h_valid : ValidExecutionPrefix_flat L φ r π)
     (h_R_pos : ∀ v ∈ C, L.R v > 0)
@@ -690,7 +690,7 @@ theorem property1_from_validity_flat
     - Property 6: Bit observation determinism (PROVEN - vacuously true)
 -/
 theorem executionPrefix_compatible_with_planted_flat :
-  ∀ (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+  ∀ (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars) (h_wf : WellFormedRandomness_flat φ r)
     (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
     (h_valid : ValidExecutionPrefix_flat L φ r π)
@@ -744,7 +744,7 @@ theorem executionPrefix_compatible_with_planted_flat :
 /-- **Property 4 EXTRACTED (flat)**: Collision impossibility for planted flat instances. -/
 theorem planted_observation_indistinguishability_impossible_flat
     (L : LStarInstanceFG)
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars) (h_wf : WellFormedRandomness_flat φ r)
     (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
     (h_valid : ValidExecutionPrefix_flat L φ r π)
@@ -773,7 +773,7 @@ theorem planted_observation_indistinguishability_impossible_flat
 
     **Trust boundary**: `executionPrefix_compatible_with_planted_flat` axiom. -/
 theorem parity_indistinguishability_using_canonical_prefix_flat
-    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars) (h_wf : WellFormedRandomness_flat φ r)
     (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val)
     (h_incomplete : obs.isIncomplete)
@@ -1207,7 +1207,7 @@ noncomputable def tmToWitnessFinder
     (h_maxPos_sufficient : ∀ t < haltTime, ∀ i : Fin k, (TMConfig.run M t).heads i ≤ maxPos)
     -- **PARAMETERS FOR h_configs_via_keyedness**:
     (v : {v // L.fg.gateReq v})  -- The FG gate we're tracking
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)  -- Planted instance
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)  -- Planted instance
     (φ : CNF)
     (h_correct : φ.satisfies (tmOutputWitness M haltTime extractWitness).assignment)
     (keyedness : KeyednessProperty L {v.val} haltTime)  -- Keyedness with bound = haltTime
@@ -1462,7 +1462,7 @@ This is not a mathematical gap: The values exist by h, we're just extracting the
     - Classical.choose_spec h : ∃ φ r, L = plant_flat n φ r ∧ ...
     - Second choose: Classical.choose (Classical.choose_spec h) extracts φ -/
 noncomputable def planted_φ_flat {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) : CNF :=
+    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) : CNF :=
   -- Step 1: Classical.choose h extracts the n witness
   -- Step 2: Classical.choose_spec h has type: ∃ φ r h_nvars, L = plant_flat (Classical.choose h) φ r h_nvars ∧ ...
   -- Step 3: Classical.choose (Classical.choose_spec h) extracts the φ witness
@@ -1479,7 +1479,7 @@ noncomputable def planted_φ_flat {L : LStarInstanceFG}
     - Classical.choose_spec (Classical.choose_spec h) : ∃ r, ...
     - Third choose: Classical.choose (Classical.choose_spec (Classical.choose_spec h)) extracts r -/
 noncomputable def planted_r_flat {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) : Randomness :=
+    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) : Randomness :=
   -- Step 1: Classical.choose h extracts the n witness
   -- Step 2: Classical.choose (Classical.choose_spec h) extracts the φ witness
   -- Step 3: Classical.choose_spec (Classical.choose_spec h) : ∃ r h_nvars, L = plant_flat n φ r h_nvars ∧ ...
@@ -1488,12 +1488,12 @@ noncomputable def planted_r_flat {L : LStarInstanceFG}
 
 /-- Extract n from planted instance hypothesis (noncomputable). -/
 noncomputable def planted_n_flat {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) : Nat :=
+    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) : Nat :=
   Classical.choose h
 
 /-- Extract h_nvars from planted instance hypothesis. -/
 noncomputable def planted_h_nvars_flat {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) : (planted_φ_flat h).nvars ≥ 4 :=
+    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) : (planted_φ_flat h).nvars ≥ 4 :=
   let spec1 := Classical.choose_spec h
   let spec2 := Classical.choose_spec spec1
   let spec3 := Classical.choose_spec spec2
@@ -1501,7 +1501,7 @@ noncomputable def planted_h_nvars_flat {L : LStarInstanceFG}
 
 /-- Extract L = plant_flat equality from planted instance hypothesis. -/
 lemma planted_L_eq_flat {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) :
+    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) :
     L = plant_flat (planted_n_flat h) (planted_φ_flat h) (planted_r_flat h) (planted_h_nvars_flat h) :=
   let spec1 := Classical.choose_spec h
   let spec2 := Classical.choose_spec spec1
@@ -1510,7 +1510,7 @@ lemma planted_L_eq_flat {L : LStarInstanceFG}
 
 /-- Extract WellFormedRandomness_flat from planted instance hypothesis. -/
 lemma planted_wf_flat {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) :
+    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) :
     WellFormedRandomness_flat (planted_φ_flat h) (planted_r_flat h) :=
   let spec1 := Classical.choose_spec h
   let spec2 := Classical.choose_spec spec1
@@ -1526,7 +1526,7 @@ lemma planted_wf_flat {L : LStarInstanceFG}
     For planted instances, gateReq v = true implies the interval condition.
     Uses explicit parameters (not planted_*_flat extractors) so subst works. -/
 lemma planted_gate_interval_flat' {L : LStarInstanceFG}
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (v : Fin L.dag.n)
     (h_gateReq : L.fg.gateReq v) :
@@ -1540,7 +1540,7 @@ lemma planted_gate_interval_flat' {L : LStarInstanceFG}
 
 /-- **Helper 2**: Derive gateIndex < numGates from planted interval. -/
 lemma planted_gateIndex_lt_numGates' {L : LStarInstanceFG}
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (v : Fin L.dag.n)
     (h_gateReq : L.fg.gateReq v) :
@@ -1556,7 +1556,7 @@ lemma nvars_pos_from_ge_4 (φ : CNF) (h_nvars : φ.nvars ≥ 4) : φ.nvars > 0 :
 
     Shows that the gate vertex index is valid in the DAG. -/
 lemma planted_vertex_in_dag' {L : LStarInstanceFG}
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (v : Fin L.dag.n)
     (h_gateReq : L.fg.gateReq v) :
@@ -1580,7 +1580,7 @@ lemma planted_vertex_in_dag' {L : LStarInstanceFG}
 
     L.R v = R_of_flat φ numGates v.val -/
 lemma planted_R_eq_formula' {L : LStarInstanceFG}
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (v : Fin L.dag.n) :
     L.R v = Foundations.R_of_flat φ r.gateDigests.length v.val :=
@@ -1761,7 +1761,7 @@ noncomputable def tmEmergentEncoder
     (M : TuringMachine k states alphabet)
     (v : {v // L.fg.gateReq v})
     (extractWitness : TMConfig M → Witness)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) :
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r) :
     LocalEncoder M L v :=
   { encode := fun cfg =>
       -- Extract assignment from current config
@@ -1825,7 +1825,7 @@ theorem tmEmergentEncoder_bounded
     (M : TuringMachine k states alphabet)
     (v : {v // L.fg.gateReq v})
     (extractWitness : TMConfig M → Witness)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4),
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
         L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (cfg : TMConfig M) :
     (tmEmergentEncoder L M v extractWitness h_planted).encode cfg < 2^(L.R v.val) := by
@@ -1929,7 +1929,7 @@ theorem tmEmergentEncoder_captures_value
     (t : Nat)
     (v : {v // L.fg.gateReq v})
     (extractWitness : TMConfig M → Witness)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_pos : (planted_φ_flat h_planted).nvars > 0)
     (cfg : Fin (2^(L.R v.val)))
     --  Use gate-relative index (v.val - (1 + φ.nvars)) to match tmEmergentEncoder
@@ -2010,9 +2010,9 @@ lemma tm_complete_obs_forces_realization
     (v : {v // L.fg.gateReq v})
     (obs : Observation L.toLStarInstanceFull v.val)
     (h_complete : obs.isComplete)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (φ : CNF)
-    (h_φ_match : ∃ (n : Nat) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_φ_match : ∃ (n : Nat) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_correct : φ.satisfies (tmOutputWitness M haltTime extractWitness).assignment)
     (h_encoding_respects_obs : ∀ (i : Fin (L.R v.val)),
         i ∈ obs.read_positions →
@@ -2046,9 +2046,9 @@ theorem tm_derive_sufficient_time
     (v : {v // L.fg.gateReq v})
     (obs : Observation L.toLStarInstanceFull v.val)
     (h_complete : obs.isComplete)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (φ : CNF)
-    (h_φ_match : ∃ (n : Nat) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_φ_match : ∃ (n : Nat) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_correct : φ.satisfies (tmOutputWitness M haltTime extractWitness).assignment)
     (h_encoding_respects_obs : ∀ (i : Fin (L.R v.val)),
         i ∈ obs.read_positions →
@@ -2267,12 +2267,12 @@ theorem exists_time_for_val_tmEmergentEncoder_encoded
     (extractWitness : TMConfig M → Witness)
     (L : LStarInstanceFG)
     (v : {v // L.fg.gateReq v})
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4),
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
         L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (_h_halts : (LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank |>
                 fun init => (TMConfig.step (M := M))^[haltTime] init).state ∈ M.halt)
     (φ : CNF)
-    (h_φ_match : ∃ (n : Nat) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_φ_match : ∃ (n : Nat) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_correct : φ.satisfies (TMAxioms.tmOutputWitnessEncoded M enc x haltTime h_k_pos h_blank extractWitness).assignment)
     : ∀ (val : Fin (2^(L.R v.val))),
         ∃ t < haltTime, (tmEmergentEncoder L M v extractWitness h_planted).encode
@@ -2391,12 +2391,12 @@ theorem fg_first_commit_time_lower_bound_encoded
     (extractWitness : TMConfig M → Witness)
     (L : LStarInstanceFG)
     (v : {v // L.fg.gateReq v})
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4),
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
         L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_halts : (LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank |>
                 fun init => (TMConfig.step (M := M))^[haltTime] init).state ∈ M.halt)
     (φ : CNF)
-    (h_φ_match : ∃ (n : Nat) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_φ_match : ∃ (n : Nat) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_correct : φ.satisfies (TMAxioms.tmOutputWitnessEncoded M enc x haltTime h_k_pos h_blank extractWitness).assignment)
     : haltTime ≥ 2 ^ (L.R v.val) := by
   classical
@@ -2441,12 +2441,12 @@ theorem fg_first_commit_time_lower_bound_sub_one_encoded
     (extractWitness : TMConfig M → Witness)
     (L : LStarInstanceFG)
     (v : {v // L.fg.gateReq v})
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4),
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
         L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_halts : (LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank |>
                 fun init => (TMConfig.step (M := M))^[haltTime] init).state ∈ M.halt)
     (φ : CNF)
-    (h_φ_match : ∃ (n : Nat) (r : Randomness) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_φ_match : ∃ (n : Nat) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_correct : φ.satisfies (TMAxioms.tmOutputWitnessEncoded M enc x haltTime h_k_pos h_blank extractWitness).assignment)
     : haltTime ≥ 2 ^ (L.R v.val) - 1 := by
   have := fg_first_commit_time_lower_bound_encoded M enc x haltTime h_k_pos h_blank
@@ -2547,7 +2547,7 @@ theorem tmEmergentEncoder_surjective_flat
     (M : TuringMachine k states alphabet)
     (v : {v // L.fg.gateReq v})
     (extractWitness : TMConfig M → Witness)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4),
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
         L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_extractWitness_surj : ∀ (bound : Nat) (σ : Assignment),
         (∀ i ≥ bound, σ i = false) →

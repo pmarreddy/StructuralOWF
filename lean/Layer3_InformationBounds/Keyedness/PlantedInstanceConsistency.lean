@@ -52,7 +52,7 @@ instances using those pure functions. -/
     **Why needed**: The returned R is computed inside emergentConfigAtGate's implementation,
     but we need to connect it to the definitional R_of to prove type equalities. -/
 lemma emergentConfigAtGate_R_component
-    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : Assignment) (gateIndex : Nat)
+    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf) (gateIndex : Nat)
     (R_ret : Nat) (cfg_ret : Fin (2^R_ret))
     (h_ret : emergentConfigAtGate φ h_nvars_pos numGates a gateIndex = some ⟨R_ret, cfg_ret⟩)
     : R_ret = R_of φ numGates (1 + φ.nvars + gateIndex) := by
@@ -97,10 +97,10 @@ lemma emergentConfigAtGate_R_component
     so their dag.n values are definitionally equal. Valid FG gates satisfy both
     index bounds and capacity constraints (R_v ≤ seedWidth_v). -/
 lemma emergentConfigAtGate_some_of_valid_fg_gate
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (v : {v // (plant_n n φ r h_nvars h_dgLen).fg.gateReq v}) :
-    ∃ R_val cfg, emergentConfigAtGate φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignment (v.val.val - (1 + φ.nvars)) = some ⟨R_val, cfg⟩ := by
+    ∃ R_val cfg, emergentConfigAtGate φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignmentInf (v.val.val - (1 + φ.nvars)) = some ⟨R_val, cfg⟩ := by
   -- Extract gate requirement: v is an FG gate in range [1+φ.nvars, 1+φ.nvars+numGates)
   have h_prop := v.property
   unfold plant_n at h_prop
@@ -154,7 +154,7 @@ lemma emergentConfigAtGate_some_of_valid_fg_gate
 
   -- Provide witnesses
   use L.R v_idx
-  use emergentBitsToConfig (extractEmergentBits (computeSeedAtVertex φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignment v_idx) (L.R v_idx) h_cap)
+  use emergentBitsToConfig (extractEmergentBits (computeSeedAtVertex φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignmentInf v_idx) (L.R v_idx) h_cap)
 
   -- Show the equality by unfolding and rewriting conditionals explicitly
   unfold emergentConfigAtGate
@@ -194,8 +194,8 @@ lemma emergentConfigAtGate_some_of_valid_fg_gate
     **Impact**: Eliminates axiom "OWF uses well-formed randomness" - now it's
     "OWF constructs well-formed randomness via this algorithm". -/
 theorem wellformed_randomness_exists
-    (φ : CNF) (a : Assignment)
-    (h_sat : φ.satisfies a)
+    (φ : CNF) (a : Assignment φ.nvars)
+    (h_sat : φ.satisfies a.extend)
     (numGates : Nat)
     (_h_pos : 0 < numGates)
     (h_single : numGates = 1)  -- Single-gate constraint
@@ -203,12 +203,12 @@ theorem wellformed_randomness_exists
     (dgLen : Nat)
     (h_dgLen_pos : dgLen > 0)
     (h_dgLen_ge_R : dgLen ≥ (Nat.log 2 φ.nvars)^2)  -- dgLen ≥ R for FG gates (QP profile)
-    : ∃ r : Randomness, WellFormedRandomness φ r := by
+    : ∃ r : Randomness φ.nvars, WellFormedRandomness φ r := by
   -- Step 1: Construct r.gateDigests by computing parity for each gate
   -- Pass numGates to emergentConfigAtGate for type consistency
   let gateDigests : List (Vector Bool dgLen) :=
     List.ofFn (fun (i : Fin numGates) =>
-      match emergentConfigAtGate φ φ.nvars_pos numGates a i.val with
+      match emergentConfigAtGate φ φ.nvars_pos numGates a.extend i.val with
       | none =>
           -- No config at this index - use default all-false
           Vector.replicate dgLen false
@@ -227,7 +227,7 @@ theorem wellformed_randomness_exists
     simp [gateDigests, List.length_ofFn]
     exact h_single
 
-  let r : Randomness := {
+  let r : Randomness φ.nvars := {
     dgLen := dgLen
     h_dgLen_pos := h_dgLen_pos
     assignment := a
@@ -245,9 +245,13 @@ theorem wellformed_randomness_exists
   unfold WellFormedRandomness
   simp only []
 
-  -- Now prove: φ.satisfies r.assignment ∧ (φ.clauses.length ≥ r.gateDigests.length ∧ ∀ ...)
+  -- Now prove: φ.satisfies r.assignmentInf ∧ (φ.clauses.length ≥ r.gateDigests.length ∧ ∀ ...)
   constructor
-  · exact h_sat  -- P1: φ.satisfies r.assignment (r.assignment = a by construction)
+  · -- P1: φ.satisfies r.assignmentInf (r.assignmentInf = a.extend by construction)
+    -- r.assignment = a, so r.assignmentInf = a.extend
+    have h_eq : r.assignmentInf = a.extend := rfl
+    rw [h_eq]
+    exact h_sat
   constructor
   · -- P2: φ.clauses.length ≥ r.gateDigests.length
     -- h_clauses : φ.clauses.length ≥ numGates, and r.gateDigests.length = numGates by construction
@@ -258,16 +262,17 @@ theorem wellformed_randomness_exists
     intro i h_i
     -- Establish definitional equalities
     have h_len_eq : r.gateDigests.length = numGates := by simp [r, gateDigests, List.length_ofFn]
-    have h_assign_eq : r.assignment = a := rfl
+    have h_assignInf_eq : r.assignmentInf = a.extend := rfl
 
     -- Rewrite using length equality
     have h_i_bound : i < numGates := by rw [← h_len_eq]; exact h_i
 
     -- Pattern match on emergentConfigAtGate
-    cases h_cfg : emergentConfigAtGate φ φ.nvars_pos numGates a i with
+    -- r.assignmentInf = a.extend by construction
+    cases h_cfg : emergentConfigAtGate φ φ.nvars_pos numGates r.assignmentInf i with
     | none =>
         -- When emergentConfigAtGate returns none, the requirement is True
-        simp only [h_len_eq, h_assign_eq, h_cfg]
+        simp only [h_len_eq, h_cfg]
     | some cfg_with_R =>
         obtain ⟨R_val, cfg⟩ := cfg_with_R
         -- Prove r.gateDigests[i] matches construction with ALL R bits
@@ -275,17 +280,20 @@ theorem wellformed_randomness_exists
             Vector.ofFn (fun (j : Fin dgLen) =>
               if h_j : j.val < R_val then CutConstraint.extractBit cfg ⟨j.val, h_j⟩ else false) := by
           simp only [r, gateDigests]
-          simp only [List.getElem_ofFn, h_cfg]
+          simp only [List.getElem_ofFn]
+          -- Rewrite using h_assignInf_eq to connect r.assignmentInf and a.extend
+          rw [h_assignInf_eq] at h_cfg
+          rw [h_cfg]
 
         -- Show the size is dgLen
         have h_digest_size : (r.gateDigests.get ⟨i, h_i⟩).size = dgLen := by
           simp only [r, gateDigests, List.getElem_ofFn]
 
         -- Rewrite goal with h_cfg to get the R_val and cfg into scope
-        simp only [h_len_eq, h_assign_eq, h_cfg]
+        simp only [h_len_eq, h_cfg]
 
         -- Use emergentConfigAtGate_R_component to show R_val = R_of φ numGates (1 + φ.nvars + i)
-        have h_R_comp := emergentConfigAtGate_R_component φ φ.nvars_pos numGates a i R_val cfg h_cfg
+        have h_R_comp := emergentConfigAtGate_R_component φ φ.nvars_pos numGates r.assignmentInf i R_val cfg h_cfg
         -- h_R_comp : R_val = R_of φ numGates (1 + φ.nvars + i)
 
         -- For FG gates, R_of gives (Nat.log 2 φ.nvars)^2
@@ -325,13 +333,13 @@ theorem wellformed_randomness_exists
           simp only [j.isLt, ↓reduceDIte]
 
 /-- **COROLLARY**: OWF uses constructible well-formed randomness. -/
-noncomputable def owf_randomness_for (φ : CNF) (a : Assignment) (h_sat : φ.satisfies a)
+noncomputable def owf_randomness_for (φ : CNF) (a : Assignment φ.nvars) (h_sat : φ.satisfies a.extend)
     (numGates : Nat) (h_pos : 0 < numGates) (h_single : numGates = 1) (h_clauses : φ.clauses.length ≥ numGates)
-    (dgLen : Nat) (h_dgLen_pos : dgLen > 0) (h_dgLen_ge_R : dgLen ≥ (Nat.log 2 φ.nvars)^2) : Randomness :=
+    (dgLen : Nat) (h_dgLen_pos : dgLen > 0) (h_dgLen_ge_R : dgLen ≥ (Nat.log 2 φ.nvars)^2) : Randomness φ.nvars :=
   Classical.choose (wellformed_randomness_exists φ a h_sat numGates h_pos h_single h_clauses dgLen h_dgLen_pos h_dgLen_ge_R)
 
 theorem owf_randomness_is_wellformed
-    (φ : CNF) (a : Assignment) (h_sat : φ.satisfies a)
+    (φ : CNF) (a : Assignment φ.nvars) (h_sat : φ.satisfies a.extend)
     (numGates : Nat) (h_pos : 0 < numGates) (h_single : numGates = 1) (h_clauses : φ.clauses.length ≥ numGates)
     (dgLen : Nat) (h_dgLen_pos : dgLen > 0) (h_dgLen_ge_R : dgLen ≥ (Nat.log 2 φ.nvars)^2)
     : WellFormedRandomness φ (owf_randomness_for φ a h_sat numGates h_pos h_single h_clauses dgLen h_dgLen_pos h_dgLen_ge_R) := by
@@ -370,7 +378,7 @@ the witness (used to prove FeasibleUnder is nonempty at acceptance).
 lemma planted_fg_gate_ge_clause_start
     (L : LStarInstanceFG)
     (v : Fin L.dag.n)
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
     (h_gate : L.fg.gateReq v = true)
@@ -390,7 +398,7 @@ lemma planted_fg_gate_ge_clause_start
 lemma planted_R_eq_R_of
     (L : LStarInstanceFG)
     (v : Fin L.dag.n)
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
     : L.R v = R_of φ r.gateDigests.length v.val := by
@@ -417,9 +425,10 @@ lemma planted_R_eq_R_of
     **Why here**: Depends on planted structure (emergentConfigAtGate, planted_R_eq),
     not on TM execution semantics. -/
 noncomputable def worldFromWitness
+    (n : Nat) (φ : CNF)
     (L : LStarInstanceFG)
-    (w : Witness)
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (w : Witness φ.nvars)
+    (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
     (_h_wf : WellFormedRandomness φ r)
@@ -431,7 +440,7 @@ noncomputable def worldFromWitness
   { assignment := fun v (h_in_C : v ∈ C) =>
       -- Compute gate-relative index (reverse of: v_nat = clause_start + g)
       let g := v.val - clause_start
-      match hx : emergentConfigAtGate φ (by omega : φ.nvars > 0) numGates w.assignment g with
+      match hx : emergentConfigAtGate φ (by omega : φ.nvars > 0) numGates w.assignmentInf g with
       | none =>
           -- No emergent config (shouldn't happen for well-formed FG gates, but we need totality)
           (0 : Fin (2^(L.R v)))
@@ -456,7 +465,7 @@ noncomputable def worldFromWitness
                 -- emergentConfigAtGate_R_component gives: R = R_of φ numGates (1 + φ.nvars + g)
                 -- We need: R = L.R v
                 -- Connection: v.val = clause_start + g = 1 + φ.nvars + g (by definition)
-                have h_R_component := emergentConfigAtGate_R_component φ (by omega : φ.nvars > 0) numGates w.assignment g R cfg hx
+                have h_R_component := emergentConfigAtGate_R_component φ (by omega : φ.nvars > 0) numGates w.assignmentInf g R cfg hx
                 -- h_R_component : R = R_of φ numGates (1 + φ.nvars + g)
                 -- For planted instances, L.R v = R_of φ numGates v.val
                 -- And v.val = clause_start + g = 1 + φ.nvars + g

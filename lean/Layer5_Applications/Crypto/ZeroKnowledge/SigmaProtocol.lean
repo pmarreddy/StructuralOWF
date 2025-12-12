@@ -36,20 +36,20 @@ structure Transcript where
   challenge : Challenge
   response : Response
 
-/-- Prover state. -/
-structure ProverState where
-  witness : ZKWitness
+/-- Prover state parametrized by nvars. -/
+structure ProverState (nvars : Nat) where
+  witness : ZKWitness nvars
   commitRandomness : List Bool
   h_valid : commitRandomness.length ≥ 2 * securityParam
 
 /-- Step 1: Generate commitment. -/
-noncomputable def proverCommit (stmt : Statement) (ps : ProverState)
+noncomputable def proverCommit (stmt : Statement) (ps : ProverState stmt.φ.nvars)
     (h_witness : NPRelation stmt ps.witness) : Commitment :=
   let bits := ps.commitRandomness.take securityParam
   ⟨bits, by rw [List.length_take]; have h := ps.h_valid; omega⟩
 
 /-- Step 2: Generate response. -/
-noncomputable def proverRespond (stmt : Statement) (ps : ProverState)
+noncomputable def proverRespond (stmt : Statement) (ps : ProverState stmt.φ.nvars)
     (c : Commitment) (e : Challenge) : Response :=
   let respValue := ps.commitRandomness.drop securityParam |>.take securityParam
   let auxData := ps.witness.r.structuralBits.take 64
@@ -63,7 +63,7 @@ noncomputable def verifierAccept (stmt : Statement) (t : Transcript) : Bool :=
   commitOK && responseOK && auxOK
 
 /-- Execute protocol. -/
-noncomputable def executeProtocol (stmt : Statement) (ps : ProverState)
+noncomputable def executeProtocol (stmt : Statement) (ps : ProverState stmt.φ.nvars)
     (h_witness : NPRelation stmt ps.witness)
     (e : Challenge) : Transcript × Bool :=
   let c := proverCommit stmt ps h_witness
@@ -72,7 +72,7 @@ noncomputable def executeProtocol (stmt : Statement) (ps : ProverState)
   (t, verifierAccept stmt t)
 
 /-- Completeness: honest prover always succeeds. -/
-theorem completeness (stmt : Statement) (ps : ProverState)
+theorem completeness (stmt : Statement) (ps : ProverState stmt.φ.nvars)
     (h_witness : NPRelation stmt ps.witness) (e : Challenge) :
     (executeProtocol stmt ps h_witness e).2 = true := by
   unfold executeProtocol verifierAccept proverCommit proverRespond
@@ -89,22 +89,22 @@ theorem completeness (stmt : Statement) (ps : ProverState)
 /-- Soundness: cheating prover fails. -/
 def IsSigmaSound (negligible : (Nat → Real) → Prop) : Prop :=
   ∀ (stmt : Statement),
-    (¬∃ w : ZKWitness, NPRelation stmt w) →
+    (¬∃ w : ZKWitness stmt.φ.nvars, NPRelation stmt w) →
     negligible (fun _n => (0 : Real))
 
 /-- Honest-verifier zero knowledge. -/
 def IsHVZK (negligible : (Nat → Real) → Prop) : Prop :=
-  ∀ (stmt : Statement) (w : ZKWitness) (_h : NPRelation stmt w),
+  ∀ (stmt : Statement) (w : ZKWitness stmt.φ.nvars) (_h : NPRelation stmt w),
     negligible (fun _n => (0 : Real))
 
 /-- Full zero knowledge. -/
 def IsFullZK (negligible : (Nat → Real) → Prop) : Prop :=
-  ∀ (stmt : Statement) (w : ZKWitness) (_h : NPRelation stmt w),
+  ∀ (stmt : Statement) (w : ZKWitness stmt.φ.nvars) (_h : NPRelation stmt w),
     negligible (fun _n => (0 : Real))
 
 /-- Complete ZK security. -/
 structure ZKSecure (negligible : (Nat → Real) → Prop) : Prop where
-  complete : ∀ (stmt : Statement) (ps : ProverState)
+  complete : ∀ (stmt : Statement) (ps : ProverState stmt.φ.nvars)
     (h : NPRelation stmt ps.witness) (e : Challenge),
     (executeProtocol stmt ps h e).2 = true
   sound : IsSigmaSound negligible

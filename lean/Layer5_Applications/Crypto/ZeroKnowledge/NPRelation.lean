@@ -21,14 +21,15 @@ structure Statement where
   h_nvars : φ.nvars ≥ 4
   x : LStarInstanceFG
 
-/-- Witness: randomness r. -/
-structure ZKWitness where
-  r : Randomness
-  h_dgLen : (φ : CNF) → r.dgLen = (Nat.log 2 φ.nvars) ^ 2
+/-- Witness: randomness r parametrized by nvars.
+    Track A Refactor: Witness is now tied to a specific nvars. -/
+structure ZKWitness (nvars : Nat) where
+  r : Randomness nvars
+  h_dgLen : r.dgLen = (Nat.log 2 nvars) ^ 2
 
 /-- R(⟨φ, x*⟩, r) := WellFormedRandomness(φ, r) ∧ plant(φ, r) = x*. -/
-def NPRelation (stmt : Statement) (w : ZKWitness) : Prop :=
+def NPRelation (stmt : Statement) (w : ZKWitness stmt.φ.nvars) : Prop :=
   WellFormedRandomness stmt.φ w.r ∧
-  plant_n 1 stmt.φ w.r stmt.h_nvars (w.h_dgLen stmt.φ) = stmt.x
+  plant_n 1 stmt.φ w.r stmt.h_nvars w.h_dgLen = stmt.x
 
 end LStar.ZK

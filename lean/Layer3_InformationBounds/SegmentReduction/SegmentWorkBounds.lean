@@ -203,7 +203,7 @@ We built the instances with this property. The "proof" checks the numbers match.
 
 Added φ.nvars ≥ 128 constraint required by plant_fg_R_ge_one.
 -/
-theorem plant_n_has_fg_wiring (n : Nat) (φ : CNF) (r : Randomness)
+theorem plant_n_has_fg_wiring (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 128)  -- Required for R_v > 0 proof
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (v : {v // (plant_n n φ r (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).fg.gateReq v}) :
@@ -260,7 +260,7 @@ theorem work_distribution_from_rwa_and_fg
     (h_wellformed : LStar.StructuralOWF.Theorems.CNFFamily.WellFormed Φ)
     (h_tight : ∀ n, n ≥ 128 → (Φ n).nvars = n)  -- Aligned family constraint
     (h_nonempty : ∀ n, n ≥ 128 → 0 < (Φ n).clauses.length)  -- Non-empty clauses for FG gate placement
-    : ∀ (n : ℕ) (r : Randomness) (A_inv : LStarInstanceFG → Randomness)
+    : ∀ (n : ℕ) (r : Randomness φ.nvars) (A_inv : LStarInstanceFG → Randomness)
         (C_A k_A C_Ext k_Ext : Nat)
         (h_meaningful_n : n ≥ 128)  -- Instance size sufficient for parameterized R_v = (log₂ n)²
         (h_nonzero_A : C_A ≥ 1)     -- Non-trivial adversary
@@ -443,7 +443,7 @@ theorem per_segment_unit_from_fg
     (h_wellformed : LStar.StructuralOWF.Theorems.CNFFamily.WellFormed Φ)
     (h_tight : ∀ n, n ≥ 128 → (Φ n).nvars = n)  -- Aligned family constraint
     (h_nonempty_clauses : ∀ n, n ≥ 128 → 0 < (Φ n).clauses.length)  -- Non-empty clauses for FG gate placement
-    : ∀ (n : ℕ) (r : Randomness) (A_inv : LStarInstanceFG → Randomness)
+    : ∀ (n : ℕ) (r : Randomness φ.nvars) (A_inv : LStarInstanceFG → Randomness)
         (C_A k_A C_Ext k_Ext : Nat)
     (h_meaningful_n : n ≥ 128)  -- Instance size sufficient for parameterized R_v = (log₂ n)²
     (h_nonzero_A : C_A ≥ 1)     -- Non-trivial adversary

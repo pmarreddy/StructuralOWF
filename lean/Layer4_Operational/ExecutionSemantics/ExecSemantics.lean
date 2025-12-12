@@ -202,7 +202,7 @@ open LStar.StructuralOWF
 remaining operational facts: injection over reachable cut‑configs and
 per‑segment unit work. -/
 theorem ExecSemantics.ofSecurityRun
-    (n : Nat) (φ : CNF) (r_star : Randomness)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
     (A_inv : LStarInstanceFG → Randomness)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
@@ -251,7 +251,7 @@ open LStar.StructuralOWF
 
 /-- Derive per‑segment unit work from a stronger FG work distribution bound. -/
 theorem perSegUnit_of_work_distribution
-    (n : Nat) (φ : CNF) (r_star : Randomness)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
     (A_inv : LStarInstanceFG → Randomness)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
@@ -271,7 +271,7 @@ theorem perSegUnit_of_work_distribution
 /-- Build the injection over reachable cut‑configurations for the security run
     from a tracked run with single‑run strategy and search completeness. -/
 theorem inj_from_tracking_for_security_run
-    (n : Nat) (φ : CNF) (r_star : Randomness)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
     (A_inv : LStarInstanceFG → Randomness)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
@@ -303,7 +303,7 @@ theorem inj_from_tracking_for_security_run
 This generalizes `inj_from_tracking_for_security_run` from singleton cuts to arbitrary cuts.
 The proof structure is identical - we just work with an arbitrary cut C instead of {v.val}. -/
 theorem inj_from_tracking_for_security_run_multigate
-    (n : Nat) (φ : CNF) (r_star : Randomness)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
     (A_inv : LStarInstanceFG → Randomness)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
@@ -488,7 +488,7 @@ open LStar.StructuralOWF
     This packages the four execution facts via `ExecSemantics.ofSecurityRun` and
     applies `time_lower_bound_closed_singleton`. -/
 theorem quantitative_closed_for_security_run
-    (n : Nat) (φ : CNF) (r_star : Randomness)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
     (A_inv : LStarInstanceFG → Randomness)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
@@ -532,7 +532,7 @@ open LStar
 open LStar.StructuralOWF
 
 theorem quantitative_closed_for_security_run_from_tracking
-    (n : Nat) (φ : CNF) (r_star : Randomness)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
     (A_inv : LStarInstanceFG → Randomness)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)

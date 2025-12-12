@@ -119,29 +119,74 @@ structure CNF where
   nvars_pos : nvars > 0  -- Non-triviality invariant: at least one variable
   deriving DecidableEq, Repr
 
-/-- **Assignment**: Truth value assignment to variables.
+/-- **Assignment**: Truth value assignment to n variables.
 
-    **Type**: Assignment = Nat → Bool (infinite total function)
+    **Type**: Assignment n = Fin n → Bool (FINITE function over n variables)
 
     **Mathematical Content**:
-    An assignment σ maps each variable index i to a boolean value σ(i).
+    An assignment σ maps each variable index i ∈ {0, ..., n-1} to a boolean value σ(i).
     - σ(i) = true means variable xᵢ is assigned TRUE
     - σ(i) = false means variable xᵢ is assigned FALSE
 
-    **Design Note - Why Infinite**:
-    We use total functions Nat → Bool rather than finite maps Fin n → Bool because:
-    1. **Simplifies composition**: No need to track domain sizes explicitly
-    2. **Extensionality**: Two assignments equal if they agree on all variables
-    3. **Padding is harmless**: Values beyond nvars don't affect satisfaction
+    **Design Note - Why Finite (Track A Refactor)**:
+    We use finite functions Fin n → Bool (not Nat → Bool) because:
+    1. **Complexity-theoretic correctness**: NP witnesses must be finite bit strings
+    2. **OWF domain/codomain**: One-way functions map {0,1}^m → {0,1}^n (finite!)
+    3. **Encoding soundness**: Cannot encode Nat → Bool as a polynomial-size bit string
 
-    For CNF φ with nvars = n, only the first n values σ(0), ..., σ(n-1) matter.
-    Values σ(n), σ(n+1), ... are ignored during evaluation (see `satisfies_of_agree_on_vars_wf`).
+    For CNF φ with nvars = n, exactly n values σ(0), ..., σ(n-1) exist.
+    Use `Assignment.extend` to convert to Nat → Bool when needed for evaluation.
 
     **Usage in OWF**:
     The Plant function embeds satisfying assignments as seeds. The injective encoding
-    `encodeAssignment n σ` captures the first n bits as a natural number (see below).
+    `encodeAssignmentFin n σ` captures all n bits as a natural number.
+
+    **Bitstring Representation**:
+    Assignment n ≅ Vector Bool n ≅ Fin (2^n) — all finite, encodable as poly(n) bits.
 -/
-def Assignment := Nat → Bool
+def Assignment (n : Nat) := Fin n → Bool
+
+/-- **Legacy Assignment**: Infinite assignment type for internal evaluation.
+
+    Used internally by Literal.eval, Clause.satisfies, CNF.satisfies.
+    External interfaces should use `Assignment n` (finite).
+
+    **Conversion**: Use `Assignment.extend` to convert finite → infinite.
+-/
+def AssignmentInf := Nat → Bool
+
+namespace Assignment
+
+/-- Extend finite assignment to infinite by padding with false.
+
+    **Mathematical Content**:
+    Given σ : Fin n → Bool, extend to σ' : Nat → Bool where:
+    - σ'(i) = σ(i) for i < n
+    - σ'(i) = false for i ≥ n
+
+    **Key Property**: For well-formed CNF φ with φ.nvars = n, satisfaction
+    is preserved: φ.satisfies (σ.extend) ↔ φ.satisfiesFinite σ
+-/
+def extend {n : Nat} (a : Assignment n) : AssignmentInf :=
+  fun i => if h : i < n then a ⟨i, h⟩ else false
+
+/-- Create assignment from infinite function by restricting to first n values. -/
+def ofInfinite (n : Nat) (f : AssignmentInf) : Assignment n :=
+  fun i => f i.val
+
+/-- Roundtrip: restrict then extend agrees on first n values. -/
+theorem extend_ofInfinite_agree (n : Nat) (f : AssignmentInf) (i : Nat) (hi : i < n) :
+    (ofInfinite n f).extend i = f i := by
+  simp [extend, ofInfinite, hi]
+
+/-- Two finite assignments equal iff they agree pointwise. -/
+theorem ext {n : Nat} (a b : Assignment n) (h : ∀ i, a i = b i) : a = b :=
+  funext h
+
+/-- Finite assignment from a function (convenience constructor). -/
+def mk {n : Nat} (f : Fin n → Bool) : Assignment n := f
+
+end Assignment
 
 /-!
 ## Assignment Encoding for OWF Security
@@ -180,12 +225,12 @@ inversion.
 - §9.3 "Poly-time analysis" - Encoding computable in poly time
 -/
 
-/-- **Encode assignment**: First n bits → natural number.
+/-- **Encode finite assignment**: All n bits → natural number.
 
-    **Function**: encodeAssignment n σ = ⌊σ(0)σ(1)...σ(n-1)⌋₂
+    **Function**: encodeAssignmentFin σ = ⌊σ(0)σ(1)...σ(n-1)⌋₂
 
     **Mathematical Content**:
-    Interprets the first n bits of σ as a binary number (little-endian):
+    Interprets all n bits of σ : Assignment n as a binary number (little-endian):
     - σ(0) is least significant bit (2^0 place)
     - σ(1) is next bit (2^1 place)
     - σ(n-1) is most significant bit (2^(n-1) place)
@@ -195,74 +240,95 @@ inversion.
     **Implementation**: Uses typed Seed representation for type safety and
     automatic range checking (result always < 2^n).
 
-    **Example**: encodeAssignment 4 σ where σ = [1,0,1,1, ...] (first 4 bits)
+    **Bijectivity**: This is a bijection Assignment n ≅ Fin (2^n), critical for OWF.
+
+    **Example**: encodeAssignmentFin σ where σ = [1,0,1,1] (4 bits)
     - Binary: 1011₂ (little-endian: 1 + 0·2 + 1·4 + 1·8)
     - Decimal: 1 + 4 + 8 = 13
     - Result: 13
 -/
-def encodeAssignment (n : Nat) (a : Assignment) : Nat :=
+def encodeAssignmentFin {n : Nat} (a : Assignment n) : Nat :=
   (ofBits n (fun i => a i)).val
 
-/-- **Encoding injectivity**: Assignment encoding is injective on first n bits.
+/-- **Decode natural to finite assignment**: Inverse of encodeAssignmentFin.
+
+    **Function**: decodeAssignmentFin k = σ where σ(i) = bit i of k
+
+    **Mathematical Content**:
+    Extracts bits from natural number k (little-endian):
+    - σ(0) = k mod 2
+    - σ(1) = (k / 2) mod 2
+    - σ(i) = (k / 2^i) mod 2
+
+    **Bijectivity**: This is the inverse of encodeAssignmentFin.
+-/
+def decodeAssignmentFin {n : Nat} (k : Fin (2^n)) : Assignment n :=
+  fun i => Seed.get k i
+
+/-- **Roundtrip theorem**: decode ∘ encode = id -/
+theorem decodeAssignmentFin_encodeAssignmentFin {n : Nat} (a : Assignment n) :
+    decodeAssignmentFin (ofBits n (fun i => a i)) = a := by
+  unfold decodeAssignmentFin
+  funext i
+  exact ofBits_get n (fun i => a i) i
+
+/-- **Legacy encode**: For compatibility, encode infinite assignment by taking first n bits. -/
+def encodeAssignment (n : Nat) (a : AssignmentInf) : Nat :=
+  (ofBits n (fun i => a i)).val
+
+/-- **Encoding injectivity for finite assignments**: Bijection implies injectivity.
 
     **Theorem Statement**:
     ```
-    encodeAssignment n a₁ = encodeAssignment n a₂
-    ⟹ ∀i < n, a₁ i = a₂ i
+    encodeAssignmentFin a₁ = encodeAssignmentFin a₂ ⟹ a₁ = a₂
     ```
 
     **Mathematical Content**:
-    If two assignments encode to the same natural number, they must be identical
-    on the first n coordinates. This is the contrapositive of encoding distinctness:
-    if a₁ and a₂ differ anywhere in first n bits, their encodings differ.
+    Finite assignments encode bijectively to Fin (2^n). Equal encodings mean equal
+    assignments—this is exact, not just "agree on first n bits".
 
     **Security Implication for OWF**:
     This theorem is **critical** for Plant function injectivity. The proof chain:
 
     1. Assume Plant(φ, r₁) = Plant(φ, r₂) (adversary found collision)
     2. Plant equality implies stride equality (by Plant definition)
-    3. Stride equality implies encodeAssignment φ.nvars r₁.assignment
-                              = encodeAssignment φ.nvars r₂.assignment
-    4. This theorem gives: r₁.assignment i = r₂.assignment i for all i < φ.nvars
+    3. Stride equality implies encodeAssignmentFin r₁.assignment
+                              = encodeAssignmentFin r₂.assignment
+    4. This theorem gives: r₁.assignment = r₂.assignment (exact equality!)
     5. Extractor uses this to show r₁ and r₂ encode the same witness
 
-    Thus, distinct witnesses → distinct encodings → distinct strides → distinct
-    planted instances, establishing Plant injectivity (core OWF property).
-
-    **Proof Strategy**:
-    1. Unfold encodeAssignment to get equality of Seed values
-    2. Use Seed extensionality (Fin.ext) to lift .val equality to Seed equality
-    3. Extract bit i from both seeds using ofBits_get lemma
-    4. Seed equality implies bit equality, giving a₁ i = a₂ i for each i < n
-
     **Trust Boundary**: Proven theorem (no axioms needed beyond standard foundations).
-    The injectivity is a mathematical fact following from Seed type design.
-
-    **Paper Reference**: Appendix A "Encoding injectivity for OWF security" - This
-    property is explicitly identified as security-critical for the OWF construction.
 -/
-theorem encodeAssignment_injective (n : Nat) (a1 a2 : Assignment)
+theorem encodeAssignmentFin_injective {n : Nat} (a1 a2 : Assignment n)
+    (h : encodeAssignmentFin a1 = encodeAssignmentFin a2) :
+    a1 = a2 := by
+  unfold encodeAssignmentFin at h
+  have hseed : ofBits n (fun i => a1 i) = ofBits n (fun i => a2 i) := by
+    apply Fin.ext
+    exact h
+  funext i
+  have h1 := ofBits_get n (fun i => a1 i) i
+  have h2 := ofBits_get n (fun i => a2 i) i
+  rw [hseed] at h1
+  rw [← h1, ← h2]
+
+/-- **Legacy injectivity**: For infinite assignments, encoding is injective on first n bits. -/
+theorem encodeAssignment_injective (n : Nat) (a1 a2 : AssignmentInf)
     (h : encodeAssignment n a1 = encodeAssignment n a2) :
     ∀ i < n, a1 i = a2 i := by
   intro i hi
-  -- Unfold encodeAssignment to expose underlying Seed equality
   unfold encodeAssignment at h
-  -- h : (ofBits n (fun i => a1 i)).val = (ofBits n (fun i => a2 i)).val
-  -- Use Seed extensionality: Seeds equal if their .val fields equal
   have hseed : ofBits n (fun i => a1 i) = ofBits n (fun i => a2 i) := by
-    apply Fin.ext  -- Fin (2^n) extensionality: equal iff underlying Nat equal
+    apply Fin.ext
     exact h
-  -- Extract bit i from both seeds using ofBits_get lemma
-  have h1 := ofBits_get n (fun i => a1 i) (Fin.mk i hi)  -- a1 i = bit i of seed1
-  have h2 := ofBits_get n (fun i => a2 i) (Fin.mk i hi)  -- a2 i = bit i of seed2
-  -- Seeds equal → their ith bits equal
-  rw [hseed] at h1  -- Now h1 and h2 both reference same seed
-  -- Conclude a1 i = a2 i by transitivity through seed bits
+  have h1 := ofBits_get n (fun i => a1 i) (Fin.mk i hi)
+  have h2 := ofBits_get n (fun i => a2 i) (Fin.mk i hi)
+  rw [hseed] at h1
   rw [← h1, ← h2]
 
 namespace Literal
 
-/-- **Evaluate literal**: Compute truth value under assignment.
+/-- **Evaluate literal**: Compute truth value under infinite assignment.
 
     **Function**: eval l σ returns the boolean value of literal l under assignment σ
 
@@ -279,9 +345,21 @@ namespace Literal
     - l = {var := 3, polarity := true}, σ(3) = true  → eval l σ = true (x₃ is true)
     - l = {var := 3, polarity := false}, σ(3) = true → eval l σ = false (¬x₃ is false)
     - l = {var := 5, polarity := false}, σ(5) = false → eval l σ = true (¬x₅ is true)
+
+    **Note**: Uses AssignmentInf (infinite). For finite assignments, use `.extend`.
 -/
-def eval (l : Literal) (σ : Assignment) : Bool :=
+def eval (l : Literal) (σ : AssignmentInf) : Bool :=
   if l.polarity then σ l.var else !(σ l.var)
+
+/-- Evaluate literal under finite assignment (requires variable in bounds). -/
+def evalFin {n : Nat} (l : Literal) (σ : Assignment n) (h : l.var < n) : Bool :=
+  if l.polarity then σ ⟨l.var, h⟩ else !(σ ⟨l.var, h⟩)
+
+/-- Evaluation via extend equals direct evaluation for in-bounds variables. -/
+theorem evalFin_eq_eval_extend {n : Nat} (l : Literal) (σ : Assignment n) (h : l.var < n) :
+    evalFin l σ h = eval l σ.extend := by
+  unfold evalFin eval Assignment.extend
+  simp [h]
 
 end Literal
 
@@ -304,8 +382,10 @@ namespace Clause
 
     **Computational Decidability**: See instance below—satisfaction is decidable
     (can be computed in finite time by checking each literal).
+
+    **Note**: Uses AssignmentInf (infinite). For finite assignments, use `.extend`.
 -/
-def satisfies (c : Clause) (σ : Assignment) : Prop :=
+def satisfies (c : Clause) (σ : AssignmentInf) : Prop :=
   ∃ l ∈ c.literals, Literal.eval l σ = true
 
 /-- **Decidable satisfaction**: Clause satisfaction is computationally decidable.
@@ -322,10 +402,20 @@ def satisfies (c : Clause) (σ : Assignment) : Prop :=
     **Computational Complexity**: O(|literals|) time—check each literal sequentially
     until finding one that's true, or conclude unsatisfied if all are false.
 -/
-instance decidable_satisfies (c : Clause) (σ : Assignment) :
+instance decidable_satisfies (c : Clause) (σ : AssignmentInf) :
   Decidable (c.satisfies σ) := by
   unfold satisfies
   infer_instance  -- Let Lean derive decidability automatically
+
+/-- Clause satisfaction under finite assignment (via extend). -/
+def satisfiesFin {n : Nat} (c : Clause) (σ : Assignment n) : Prop :=
+  c.satisfies σ.extend
+
+/-- Finite satisfaction is decidable. -/
+instance decidable_satisfiesFin {n : Nat} (c : Clause) (σ : Assignment n) :
+  Decidable (c.satisfiesFin σ) := by
+  unfold satisfiesFin
+  infer_instance
 
 end Clause
 
@@ -376,29 +466,41 @@ def WellFormed (φ : CNF) : Prop :=
     - **Satisfaction**: φ.satisfies σ (given σ, check if it works)
 
     Satisfaction is decidable (P), satisfiability is NP-complete.
+
+    **Note**: Uses AssignmentInf (infinite). For finite assignments, use `satisfiesFin`.
 -/
-def satisfies (φ : CNF) (σ : Assignment) : Prop :=
+def satisfies (φ : CNF) (σ : AssignmentInf) : Prop :=
   ∀ c ∈ φ.clauses, Clause.satisfies c σ
 
-/-- **SAT language**: Set of all satisfying assignments.
+/-- **Finite formula satisfaction**: Satisfaction under finite assignment.
 
-    **Definition**: SAT(φ) = {σ : Assignment | φ.satisfies σ}
+    For φ with nvars = n, this checks satisfaction using a finite assignment
+    of exactly n bits. This is the proper complexity-theoretic notion.
+-/
+def satisfiesFin (φ : CNF) (σ : Assignment φ.nvars) : Prop :=
+  φ.satisfies σ.extend
+
+/-- Finite satisfaction implies regular satisfaction via extend. -/
+theorem satisfiesFin_iff_satisfies_extend (φ : CNF) (σ : Assignment φ.nvars) :
+    φ.satisfiesFin σ ↔ φ.satisfies σ.extend := by
+  rfl
+
+/-- **SAT language (infinite)**: Set of all satisfying infinite assignments. -/
+def SAT (φ : CNF) : Set AssignmentInf :=
+  {σ | φ.satisfies σ}
+
+/-- **SAT language (finite)**: Set of all satisfying finite assignments.
+
+    **Definition**: SATFin(φ) = {σ : Assignment φ.nvars | φ.satisfiesFin σ}
 
     **Mathematical Content**:
-    The language SAT(φ) is the set of all assignments that satisfy φ.
-    - If φ is satisfiable, SAT(φ) is non-empty
-    - If φ is unsatisfiable, SAT(φ) = ∅
+    The finite SAT language is the set of all n-bit assignments that satisfy φ.
+    This is isomorphic to a subset of {0,1}^n, the proper complexity-theoretic notion.
 
-    **Usage in Reduction**:
-    The 3-SAT → L* reduction preserves languages:
-    - σ ∈ SAT(φ) ↔ there exists L* witness for L*(φ)
-
-    **Size Note**: SAT(φ) can be exponentially large (up to 2^nvars assignments).
-    The NP-completeness question asks whether SAT(φ) ≠ ∅ can be decided in
-    polynomial time (it cannot, assuming P ≠ NP).
+    **Size**: |SATFin(φ)| ≤ 2^(φ.nvars) (at most 2^n assignments)
 -/
-def SAT (φ : CNF) : Set Assignment :=
-  {σ | φ.satisfies σ}
+def SATFin (φ : CNF) : Set (Assignment φ.nvars) :=
+  {σ | φ.satisfiesFin σ}
 
 /-- **3-SAT restriction**: All clauses have at most 3 literals.
 
@@ -458,10 +560,10 @@ Note: The extensionality lemma without wellformedness has been removed.
 Use `satisfies_of_agree_on_vars_wf` with an explicit `WellFormed` hypothesis.
 -/
 
-/-- Satisfaction is preserved when assignments agree on all referenced variables,
+/-- Satisfaction is preserved when infinite assignments agree on all referenced variables,
     assuming well-formedness of the CNF. -/
 theorem satisfies_of_agree_on_vars_wf
-    (φ : CNF) (a1 a2 : Assignment)
+    (φ : CNF) (a1 a2 : AssignmentInf)
     (h_agree : ∀ i < φ.nvars, a1 i = a2 i)
     (h_sat : φ.satisfies a1)
     (wf : φ.WellFormed)
@@ -482,6 +584,11 @@ theorem satisfies_of_agree_on_vars_wf
     simpa [h_agree _ hvar_lt] using hl_eval
   · simp [h_pol] at hl_eval ⊢
     simpa [h_agree _ hvar_lt] using hl_eval
+
+/-- Finite assignments that are equal satisfy the same formulas. -/
+theorem satisfiesFin_ext (φ : CNF) (a1 a2 : Assignment φ.nvars)
+    (h_eq : a1 = a2) (h_sat : φ.satisfiesFin a1) : φ.satisfiesFin a2 := by
+  rw [← h_eq]; exact h_sat
 
 end CNF
 
@@ -517,7 +624,7 @@ namespace Literal
 def normalize (l : Literal) : Literal := l
 
 /-- Literal evaluation is preserved by normalization. -/
-theorem eval_normalize (l : Literal) (σ : Assignment) :
+theorem eval_normalize (l : Literal) (σ : AssignmentInf) :
     Literal.eval l σ = Literal.eval (normalize l) σ := by
   unfold normalize
   rfl
@@ -537,7 +644,7 @@ def normalize (c : Clause) : Clause :=
   { literals := LStar.List.eraseDupsRight (c.literals.map Literal.normalize) }
 
 /-- Deduplication preserves clause satisfaction. -/
-theorem satisfies_eraseDups (lits : List Literal) (σ : Assignment) :
+theorem satisfies_eraseDups (lits : List Literal) (σ : AssignmentInf) :
     Clause.satisfies { literals := lits } σ ↔
     Clause.satisfies { literals := LStar.List.eraseDupsRight lits } σ := by
   unfold Clause.satisfies
@@ -550,7 +657,7 @@ theorem satisfies_eraseDups (lits : List Literal) (σ : Assignment) :
 /-- Tautology clauses are always satisfied.
 
     A tautology contains both x and ¬x for some variable, so one must be true. -/
-theorem satisfies_of_tautology (c : Clause) (σ : Assignment)
+theorem satisfies_of_tautology (c : Clause) (σ : AssignmentInf)
     (h_taut : isTautology c = true) :
     Clause.satisfies c σ := by
   unfold isTautology at h_taut
@@ -580,7 +687,7 @@ theorem satisfies_of_tautology (c : Clause) (σ : Assignment)
       simp [hp₁, h]
 
 /-- Clause normalization preserves satisfaction. -/
-theorem satisfies_normalize (c : Clause) (σ : Assignment) :
+theorem satisfies_normalize (c : Clause) (σ : AssignmentInf) :
     Clause.satisfies c σ ↔ Clause.satisfies (normalize c) σ := by
   unfold normalize
   -- Step 1: Map Literal.normalize over literals
@@ -619,7 +726,7 @@ def normalize (φ : CNF) : CNF :=
   , nvars_pos := φ.nvars_pos }
 
 /-- Removing tautology clauses preserves satisfaction. -/
-theorem satisfies_filter_tautologies (clauses : List Clause) (σ : Assignment) :
+theorem satisfies_filter_tautologies (clauses : List Clause) (σ : AssignmentInf) :
     (∀ c ∈ clauses, Clause.satisfies c σ) ↔
     (∀ c ∈ clauses.filter (fun c => !Clause.isTautology c), Clause.satisfies c σ) := by
   constructor
@@ -637,7 +744,7 @@ theorem satisfies_filter_tautologies (clauses : List Clause) (σ : Assignment) :
       exact h c this
 
 /-- CNF normalization preserves satisfaction. -/
-theorem satisfies_normalize (φ : CNF) (σ : Assignment) :
+theorem satisfies_normalize (φ : CNF) (σ : AssignmentInf) :
     CNF.satisfies φ σ ↔ CNF.satisfies (normalize φ) σ := by
   unfold CNF.satisfies normalize
   simp only [LStar.List.mem_eraseDupsRight_iff]
@@ -675,7 +782,7 @@ theorem satisfies_normalize (φ : CNF) (σ : Assignment) :
     in the trust boundary. We can now safely normalize CNF formulas (removing
     tautologies, deduplicating clauses) with a PROVEN guarantee that the
     satisfiability problem remains equivalent. -/
-theorem normalize_semantically_faithful (φ : CNF) (σ : Assignment) :
+theorem normalize_semantically_faithful (φ : CNF) (σ : AssignmentInf) :
     CNF.satisfies φ σ ↔ CNF.satisfies (normalize φ) σ :=
   satisfies_normalize φ σ
 

@@ -67,7 +67,7 @@ def empty_clauses_cnf : CNF where
   nvars_pos := by decide
 
 /-- Empty CNF is satisfied by ANY assignment (vacuous truth). -/
-theorem empty_cnf_always_sat (a : Assignment) : empty_clauses_cnf.satisfies a := by
+theorem empty_cnf_always_sat (a : AssignmentInf) : empty_clauses_cnf.satisfies a := by
   unfold CNF.satisfies empty_clauses_cnf
   intro c hc
   cases hc  -- c ∈ [] → False, so no cases
@@ -147,14 +147,14 @@ def cnf_with_empty_clause : CNF where
   nvars_pos := by decide
 
 /-- Empty clause is never satisfied. -/
-theorem empty_clause_unsat (a : Assignment) :
+theorem empty_clause_unsat (a : AssignmentInf) :
     ¬ ({ literals := [] } : Clause).satisfies a := by
   unfold Clause.satisfies
   intro ⟨l, hl, _⟩
   cases hl
 
 /-- CNF with empty clause is unsatisfiable. -/
-theorem cnf_empty_clause_unsat (a : Assignment) :
+theorem cnf_empty_clause_unsat (a : AssignmentInf) :
     ¬ cnf_with_empty_clause.satisfies a := by
   unfold CNF.satisfies cnf_with_empty_clause
   intro h
@@ -180,7 +180,7 @@ def messy_cnf : CNF where
 def normalized := messy_cnf.normalize
 
 /-- Satisfaction is preserved by normalization. -/
-theorem norm_preserves_sat (a : Assignment) :
+theorem norm_preserves_sat (a : AssignmentInf) :
     messy_cnf.satisfies a ↔ normalized.satisfies a :=
   CNF.normalize_semantically_faithful messy_cnf a
 
@@ -191,8 +191,8 @@ end Normalization
 section EncodingEquivalence
 
 /-- Two assignments differing beyond nvars. -/
-def assign1 : Assignment := fun i => i % 2 == 0
-def assign2 : Assignment := fun i => if i < 5 then i % 2 == 0 else true
+def assign1 : AssignmentInf := fun i => i % 2 == 0
+def assign2 : AssignmentInf := fun i => if i < 5 then i % 2 == 0 else true
 
 /-- They agree on first 5 bits. -/
 theorem assigns_agree : ∀ i < 5, assign1 i = assign2 i := by

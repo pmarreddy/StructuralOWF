@@ -61,7 +61,7 @@ bit value at that coordinate matches the observed value.
 -/
 lemma worldFromWitness_satisfies_bit_constraints
     {L : LStarInstanceFG}
-    (n : Nat) (φ : CNF) (r : Randomness)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)

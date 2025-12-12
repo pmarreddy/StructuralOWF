@@ -112,7 +112,7 @@ class ExecutionSemanticsAdapter (Model : Type) (L : LStarInstanceFG) (φ : CNF) 
       (obs : Observation L.toLStarInstanceFull v.val)
       (_h_complete : obs.isComplete)
       (_h_correct : φ.satisfies (toWitnessFinder m).output.assignment)
-      (_h_planted : ∃ (n : Nat) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
+      (_h_planted : ∃ (n : Nat) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
       {bound : Nat}  -- Bound parameter (polymorphic)
       (keyedness : KeyednessProperty L {v.val} bound)
       (keyedStates : Finset Nat)  -- Changed from AlgorithmState to Nat
@@ -151,7 +151,7 @@ theorem abstract_visitation_example
     (obs : Observation L.toLStarInstanceFull v.val)
     (h_complete : obs.isComplete)
     (h_correct : φ.satisfies (@witnessFinderFromModel Model L φ adapter m).output.assignment)
-    (h_planted : ∃ (n : Nat) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
+    (h_planted : ∃ (n : Nat) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
     {bound : Nat}  -- Bound parameter (polymorphic)
     (keyedness : KeyednessProperty L {v.val} bound)
     (keyedStates : Finset Nat)  -- Changed from AlgorithmState to Nat

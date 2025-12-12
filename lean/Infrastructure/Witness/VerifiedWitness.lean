@@ -99,14 +99,14 @@ def totalRBits (L : LStarInstanceFG) : Nat :=
     then decodes the OAP-encoded formula.
 
     Note: This is the standard pattern for OAP decoding. -/
-noncomputable def decodeφFromAssignment (L : LStarInstanceFG) (a : Assignment) : CNF :=
+noncomputable def decodeφFromAssignment (L : LStarInstanceFG) (a : Assignment L.n) : CNF :=
   -- Build entropy from assignment (same pattern as LStarNP.entropyFromWitness)
   let entropy : (v : Fin L.dag.n) → LStar.Seed (L.seedWidth v) := fun v =>
     if v.val == 0 then
       LStar.ofBits _ (fun _ => false)
     else if v.val <= L.n then
       let varIdx := v.val - 1
-      let bit := a varIdx
+      let bit := a.extend varIdx
       LStar.ofBits _ (fun i => if i.val == 0 then bit else false)
     else
       LStar.ofBits _ (fun _ => false)
@@ -155,7 +155,7 @@ noncomputable def decodeφFromAssignment (L : LStarInstanceFG) (a : Assignment) 
     - `.exponential`: R = nvars - exponential hardness (default, stronger result)
     - `.qp`: R = (log₂ nvars)² - quasi-polynomial hardness
     Must match the profile used during planting for correct decoding. -/
-noncomputable def decodeφFromWitness (L : LStarInstanceFG) (W : Witness)
+noncomputable def decodeφFromWitness (L : LStarInstanceFG) (W : Witness L.n)
     (profile : Foundations.EmergenceProfile := .exponential) : CNF :=
   -- R = emergence rank at FG gates (= digest bits per gate)
   -- Computed via profile-specific formula for consistency
@@ -168,7 +168,7 @@ noncomputable def decodeφFromWitness (L : LStarInstanceFG) (W : Witness)
     else if v.val <= L.n then
       -- Variable: use assignment bit
       let varIdx := v.val - 1
-      let bit := W.assignment varIdx
+      let bit := W.assignmentInf varIdx
       LStar.ofBits _ (fun i => if i.val == 0 then bit else false)
     else if L.fg.gateReq v then
       -- FG Gate: use ALL R bits from digestBits (derived from assignment)
@@ -220,7 +220,7 @@ noncomputable def decodeφFromWitness (L : LStarInstanceFG) (W : Witness)
     decodeφFromRandomness can reason about entropy equality more easily.
 
     The structure matches plant_n_entropy exactly when L = plant_n n φ r ... -/
-noncomputable def decode_entropy_from_randomness (L : LStarInstanceFG) (r : Randomness)
+noncomputable def decode_entropy_from_randomness (L : LStarInstanceFG) (r : Randomness L.n)
     (h_dgLen_pos : 0 < r.dgLen)
     (v : Fin L.dag.n) : LStar.Seed (L.seedWidth v) :=
   let clause_start := 1 + L.n
@@ -231,7 +231,7 @@ noncomputable def decode_entropy_from_randomness (L : LStarInstanceFG) (r : Rand
   else if v.val <= L.n then
     -- Variable: assignment bit
     let varIdx := v.val - 1
-    let bit := r.assignment varIdx
+    let bit := r.assignmentInf varIdx
     LStar.ofBits _ (fun i => if i.val == 0 then bit else false)
   else if (clause_start ≤ v.val) ∧ (v.val < fg_end) then
     -- FG Gate: ALL R bits from digest (matches plant_n_entropy exactly!)
@@ -263,7 +263,7 @@ noncomputable def decode_entropy_from_randomness (L : LStarInstanceFG) (r : Rand
     For planted instances L = plant_n n φ r ..., this function will recover φ.
 
     Requires h_dgLen_pos : 0 < r.dgLen to ensure digest bits are accessible. -/
-noncomputable def decodeφFromRandomness (L : LStarInstanceFG) (r : Randomness)
+noncomputable def decodeφFromRandomness (L : LStarInstanceFG) (r : Randomness L.n)
     (h_dgLen_pos : 0 < r.dgLen) : CNF :=
   -- Use the named entropy function (extracted for proof convenience)
   let entropy := decode_entropy_from_randomness L r h_dgLen_pos
@@ -289,7 +289,7 @@ noncomputable def decodeφFromRandomness (L : LStarInstanceFG) (r : Randomness)
   LStar.OAP.decodeWithOAPDep L.encodedφ clauseSeedWidthFn getSeed
 
 /-- Helper: The key theorem we need: plant_n's encoded clause at index i equals encodeClause applied to original -/
-theorem plant_n_encoded_clause_eq (n : Nat) (φ : CNF) (r : Randomness)
+theorem plant_n_encoded_clause_eq (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (i : Nat) (h_i : i < φ.clauses.length) :
     let L := plant_n n φ r h_nvars_min h_dgLen
@@ -367,7 +367,7 @@ theorem plant_n_encoded_clause_eq (n : Nat) (φ : CNF) (r : Randomness)
   rw [h_getElem]
   -- Goal closed by the rewrite
 
-theorem plant_n_oap_decode (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_n_oap_decode (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     let h_dgLen_pos : 0 < r.dgLen := by
       rw [h_dgLen]
@@ -781,12 +781,12 @@ theorem plant_n_oap_decode (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : 
 
 /-- Build entropy from assignment (for seed computation).
     This mirrors the entropy pattern in decodeφFromAssignment. -/
-def entropyFromAssignment (L : LStarInstanceFG) (a : Assignment) (v : Fin L.dag.n) : Seed (L.seedWidth v) :=
+def entropyFromAssignment (L : LStarInstanceFG) (a : Assignment L.n) (v : Fin L.dag.n) : Seed (L.seedWidth v) :=
   if v.val == 0 then
     LStar.ofBits _ (fun _ => false)
   else if v.val <= L.n then
     let varIdx := v.val - 1
-    let bit := a varIdx
+    let bit := a.extend varIdx
     LStar.ofBits _ (fun i => if i.val == 0 then bit else false)
   else
     LStar.ofBits _ (fun _ => false)
@@ -831,7 +831,7 @@ lemma fgGatesList_mem_gateReq (L : LStarInstanceFG) (v : Fin L.dag.n)
     pre-computed (e.g., from a witness with digest bits). -/
 noncomputable def digestsFromAssignmentWithSeeds
     (L : LStarInstanceFG)
-    (a : Assignment)
+    (a : Assignment L.n)
     (seeds : (v : Fin L.dag.n) → Seed (L.seedWidth v))
     : List Bool :=
   -- Seed width function for clause indices (matches decodeφFromAssignment)
@@ -859,7 +859,7 @@ noncomputable def digestsFromAssignmentWithSeeds
     -- Compute emergent config using emergentConfigAtGate
     -- Note: gateIndex = v.val - (1 + L.n) for contiguous gates
     let gateIndex := v.val - (1 + L.n)
-    match emergentConfigAtGate φ L.encodedφ.nvars_pos (numGates L) a gateIndex with
+    match emergentConfigAtGate φ L.encodedφ.nvars_pos (numGates L) a.extend gateIndex with
     | none => List.replicate R false  -- Fallback: use L.R v bits
     | some ⟨R_cfg, cfg⟩ =>
         -- Use actual config bits, padded/truncated to L.R v
@@ -875,7 +875,7 @@ noncomputable def digestsFromAssignmentWithSeeds
     non-variable nodes. This is the standard pattern for OAP decoding. -/
 noncomputable def digestsFromAssignment
     (L : LStarInstanceFG)
-    (a : Assignment)
+    (a : Assignment L.n)
     : List Bool :=
   let seeds := LStar.LStarInstanceFull.computeSeedChain L.toLStarInstanceFull (entropyFromAssignment L a)
   digestsFromAssignmentWithSeeds L a seeds
@@ -902,12 +902,12 @@ noncomputable def digestsFromAssignment
     - SCL proves: algorithmic complexity (2^R states needed to solve)
 
     **Profile Parameter**: Must match the profile used during planting (default: exponential). -/
-def LStarVerifierFG (L : LStarInstanceFG) (W : Witness)
+def LStarVerifierFG (L : LStarInstanceFG) (W : Witness L.n)
     (profile : Foundations.EmergenceProfile := .exponential) : Prop :=
   -- Digest consistency: W.digestBits must match what assignment produces
   W.digestBits = digestsFromAssignment L W.assignment ∧
   -- Satisfiability: decoded formula must be satisfied by assignment
-  (decodeφFromWitness L W profile).satisfies W.assignment
+  (decodeφFromWitness L W profile).satisfies W.assignment.extend
 
 /-! ## Step 2: Proof-Carrying Witness Structure -/
 
@@ -922,7 +922,7 @@ def LStarVerifierFG (L : LStarInstanceFG) (W : Witness)
     This is an algorithmic complexity theorem, not a verifier-enforced search.
 
     **Profile Parameter**: Determines R computation (default: exponential). -/
-def entropyFromWitness (L : LStarInstanceFG) (W : Witness)
+def entropyFromWitness (L : LStarInstanceFG) (W : Witness L.n)
     (profile : Foundations.EmergenceProfile := .exponential)
     (v : Fin L.dag.n) : Seed (L.seedWidth v) :=
   -- R = emergence rank at FG gates (= digest bits per gate)
@@ -934,7 +934,7 @@ def entropyFromWitness (L : LStarInstanceFG) (W : Witness)
   else if v.val <= L.n then
     -- Variable: use assignment bit
     let varIdx := v.val - 1
-    let bit := W.assignment varIdx
+    let bit := W.assignmentInf varIdx
     LStar.ofBits _ (fun i => if i.val == 0 then bit else false)
   else if L.fg.gateReq v then
     -- FG Gate: use ALL R bits from digestBits (derived from assignment)
@@ -968,21 +968,21 @@ def entropyFromWitness (L : LStarInstanceFG) (W : Witness)
     -/
 structure VerifiedWitness (L : LStarInstanceFG) where
   /-- The underlying witness -/
-  w : Witness
+  w : Witness L.n
 
   /-- Proof that digests match the authoritative computation -/
   digest_correct : w.digestBits = digestsFromAssignmentWithSeeds L w.assignment
     (LStar.LStarInstanceFull.computeSeedChain L.toLStarInstanceFull (entropyFromWitness L w))
 
 /-- Structurally correct witness predicate. -/
-def HasCorrectDigests (L : LStarInstanceFG) (W : Witness) : Prop :=
+def HasCorrectDigests (L : LStarInstanceFG) (W : Witness L.n) : Prop :=
   W.digestBits = digestsFromAssignmentWithSeeds L W.assignment
     (LStar.LStarInstanceFull.computeSeedChain L.toLStarInstanceFull (entropyFromWitness L W))
 
 /-- Lift legacy witness to verified witness. -/
 noncomputable def VerifiedWitness.ofLegacy
     (L : LStarInstanceFG)
-    (W : Witness)
+    (W : Witness L.n)
     (h : HasCorrectDigests L W)
     : VerifiedWitness L :=
   { w := W
@@ -1006,7 +1006,7 @@ noncomputable def VerifiedWitness.ofLegacy
     This fallback ensures correct length regardless of emergentConfigAtGate behavior.
     Sum of L.R over FG gates = totalRBits L by definition. -/
 theorem digestsFromAssignmentWithSeeds_length_eq_totalRBits
-    (L : LStarInstanceFG) (a : Assignment)
+    (L : LStarInstanceFG) (a : Assignment L.n)
     (seeds : (v : Fin L.dag.n) → LStar.Seed (L.seedWidth v))
     : (digestsFromAssignmentWithSeeds L a seeds).length = totalRBits L := by
   unfold digestsFromAssignmentWithSeeds
@@ -1019,7 +1019,7 @@ theorem digestsFromAssignmentWithSeeds_length_eq_totalRBits
   let gateBitsFn := fun (v : Fin L.dag.n) (φ : CNF) (h_nvars : φ.nvars > 0) =>
     let R := L.R v
     let gateIndex := v.val - (1 + L.n)
-    match emergentConfigAtGate φ h_nvars (numGates L) a gateIndex with
+    match emergentConfigAtGate φ h_nvars (numGates L) a.extend gateIndex with
     | none => List.replicate R false
     | some ⟨R_cfg, cfg⟩ =>
         let bits := extractAllBits cfg
@@ -1084,7 +1084,7 @@ theorem digestsFromAssignmentWithSeeds_length_eq_totalRBits
   -- Step 1: Rewrite map lengths using h_len_specific
   have h_goal_transform : (List.map (fun v =>
           match emergentConfigAtGate (LStar.OAP.decodeWithOAPDep L.encodedφ clauseSeedWidthFn getSeed)
-            L.encodedφ.nvars_pos (numGates L) a (v.val - (1 + L.n)) with
+            L.encodedφ.nvars_pos (numGates L) a.extend (v.val - (1 + L.n)) with
           | none => List.replicate (L.R v) false
           | some ⟨R_cfg, cfg⟩ =>
               if (extractAllBits cfg).length = L.R v then extractAllBits cfg
@@ -1113,7 +1113,7 @@ theorem digestsFromAssignmentWithSeeds_length_eq_totalRBits
     This follows directly from digestsFromAssignmentWithSeeds_length_eq_totalRBits
     since digestsFromAssignment just computes seeds internally. -/
 theorem digestsFromAssignment_length_eq_totalRBits
-    (L : LStarInstanceFG) (a : Assignment)
+    (L : LStarInstanceFG) (a : Assignment L.n)
     : (digestsFromAssignment L a).length = totalRBits L := by
   unfold digestsFromAssignment
   exact digestsFromAssignmentWithSeeds_length_eq_totalRBits L a _
@@ -1137,7 +1137,7 @@ theorem verified_witness_length_eq_totalRBits
     Bridge theorem: Connects HasCorrectDigests to length equality. -/
 theorem correct_digests_implies_correct_length
     (L : LStarInstanceFG)
-    (W : Witness)
+    (W : Witness L.n)
     (h : HasCorrectDigests L W)
     : W.digestBits.length = totalRBits L := by
   -- HasCorrectDigests says W.digestBits = digestsFromAssignmentWithSeeds L W.assignment seeds
@@ -1195,7 +1195,7 @@ theorem totalRBits_eq_R_for_single_gate
     Precondition: Requires φ to have at least one clause (legitimate OWF requirement).
     This ensures the DAG has sufficient structure to place the FG gate. -/
 theorem numGates_eq_gateDigests_length_for_planted
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_clauses : 0 < φ.clauses.length)
     : numGates (plant_n n φ r h_nvars h_dgLen) = r.gateDigests.length := by
@@ -1277,7 +1277,7 @@ theorem numGates_eq_gateDigests_length_for_planted
     4. totalRBits = sum over FG gates = L.R v > 0
 -/
 theorem totalRBits_pos_for_planted
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_clauses : 0 < φ.clauses.length)
     : totalRBits (plant_n n φ r h_nvars h_dgLen) > 0 := by
@@ -1346,10 +1346,10 @@ theorem totalRBits_pos_for_planted
 
     Precondition: Requires φ to have at least one clause (legitimate OWF requirement). -/
 theorem correct_digests_length_eq_totalRBits_planted
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_clauses : 0 < φ.clauses.length)
-    (W : Witness)
+    (W : Witness φ.nvars)
     (h_correct : HasCorrectDigests (plant_n n φ r h_nvars h_dgLen) W)
     : W.digestBits.length = totalRBits (plant_n n φ r h_nvars h_dgLen) := by
   exact correct_digests_implies_correct_length (plant_n n φ r h_nvars h_dgLen) W h_correct
@@ -1373,19 +1373,19 @@ noncomputable def extractParityFromGateDigest {dgLen : Nat} (h_pos : 0 < dgLen) 
     For valid gate indices in planted instances with well-formed randomness,
     emergentConfigAtGate returns Some. -/
 theorem emergentConfigAtGate_isSome_for_planted_local
-    (φ : CNF) (r : Randomness) (h_wf : WellFormedRandomness φ r)
+    (φ : CNF) (r : Randomness φ.nvars) (h_wf : WellFormedRandomness φ r)
     (h_clauses : 0 < φ.clauses.length)
     (i : Fin r.gateDigests.length)
-    : (emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment i.val).isSome :=
+    : (emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment.extend i.val).isSome :=
   -- Direct application of PlantCore theorem (defined in LStar.StructuralOWF namespace)
   LStar.StructuralOWF.emergentConfigAtGate_isSome_for_planted φ r h_wf h_clauses i
 
 /-- Helper lemma: For valid gate indices in planted instances, emergentConfigAtGate returns some. -/
 lemma emergentConfigAtGate_some_of_valid_index
-    (φ : CNF) (r : Randomness) (h_wf : WellFormedRandomness φ r)
+    (φ : CNF) (r : Randomness φ.nvars) (h_wf : WellFormedRandomness φ r)
     (h_clauses : 0 < φ.clauses.length)
     (i : Nat) (h_i_bound : i < r.gateDigests.length)
-    : ∃ R_val cfg, emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment i = some ⟨R_val, cfg⟩ := by
+    : ∃ R_val cfg, emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment.extend i = some ⟨R_val, cfg⟩ := by
   -- Use the local theorem
   have h_isSome := emergentConfigAtGate_isSome_for_planted_local φ r h_wf h_clauses ⟨i, h_i_bound⟩
   -- Convert isSome to exists
@@ -1496,7 +1496,7 @@ decoded φ in LStarVerifier equals the decoded φ from decodeφFromAssignment.
     same entropy value (derived from the assignment).
 -/
 theorem entropyFromWitness_eq_entropyFromAssignment_on_source_variable
-    (L : LStarInstanceFG) (W : Witness) (v : Fin L.dag.n)
+    (L : LStarInstanceFG) (W : Witness L.n) (v : Fin L.dag.n)
     (h_source_or_var : v.val = 0 ∨ v.val ≤ L.n) :
     entropyFromWitness L W .exponential v = entropyFromAssignment L W.assignment v := by
   unfold entropyFromWitness entropyFromAssignment
@@ -1505,14 +1505,14 @@ theorem entropyFromWitness_eq_entropyFromAssignment_on_source_variable
   | inr h_var =>
     by_cases h_zero : v.val == 0
     · simp [h_zero]
-    · simp [h_zero, h_var]
+    · simp [h_zero, h_var, Witness.assignmentInf]
 
 /-- entropyFromWitness equals entropyFromAssignment on non-gate clause nodes.
 
     For v.val > L.n and L.fg.gateReq v = false (non-gate clause nodes),
     both functions return zero entropy. -/
 theorem entropyFromWitness_eq_entropyFromAssignment_on_non_gate_clause
-    (L : LStarInstanceFG) (W : Witness) (v : Fin L.dag.n)
+    (L : LStarInstanceFG) (W : Witness L.n) (v : Fin L.dag.n)
     (h_not_var : v.val > L.n) (h_not_gate : L.fg.gateReq v = false) :
     entropyFromWitness L W .exponential v = entropyFromAssignment L W.assignment v := by
   unfold entropyFromWitness entropyFromAssignment
@@ -1538,7 +1538,7 @@ theorem entropyFromWitness_eq_entropyFromAssignment_on_non_gate_clause
     Uses: computeSeedChain_ext_ancestors (only requires agreement on ancestors, not all smaller indices)
 -/
 theorem clause_seeds_eq_for_witness_and_assignment
-    (L : LStarInstanceFG) (W : Witness)
+    (L : LStarInstanceFG) (W : Witness L.n)
     (i : Nat) (h_i : 1 + L.n + i < L.dag.n)
     (h_not_gate : i ≥ numGates L)  -- Ensures target is a non-gate clause
     (h_target_not_gateReq : L.fg.gateReq ⟨1 + L.n + i, h_i⟩ = false)  -- Target is not in gateReq

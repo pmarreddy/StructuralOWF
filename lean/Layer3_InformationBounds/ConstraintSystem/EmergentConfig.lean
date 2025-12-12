@@ -79,7 +79,7 @@ open LStar LStar.StructuralOWF
     **Non-Circular**: NO reference to plant_n or r! Pure computation from φ, numGates, a.
 
     **Type Consistency**: Uses R_of φ numGates internally, matching plant_n exactly! -/
-noncomputable def emergentConfigAtGate (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : Assignment) (gateIndex : Nat)
+noncomputable def emergentConfigAtGate (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf) (gateIndex : Nat)
     : Option (@PSigma Nat (fun R => Fin (Nat.pow 2 R))) :=
   -- Get pure L* structure
   let L : LStarInstanceFull := lstarStructureFromCNF φ h_nvars_pos numGates
@@ -119,7 +119,7 @@ noncomputable def emergentConfigAtGate (φ : CNF) (h_nvars_pos : φ.nvars > 0) (
 
     This extracts the implicit constraint from the definition structure. -/
 lemma emergentConfigAtGate_some_implies_gateIndex_bound
-    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : Assignment) (gateIndex : Nat)
+    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf) (gateIndex : Nat)
     (R : Nat) (cfg : Fin (2^R))
     (h_some : emergentConfigAtGate φ h_nvars_pos numGates a gateIndex = some ⟨R, cfg⟩) :
     gateIndex < numGates := by
@@ -168,13 +168,16 @@ lemma emergentConfigAtGate_some_implies_gateIndex_bound
     **Type Consistency**: numGates = r.gateDigests.length ensures R values match
     plant_n exactly, eliminating ALL type mismatches!
 
+    **Track A Refactor**: Randomness is now parametrized by nvars. The assignment
+    is finite (Fin nvars → Bool) and is extended to infinite for satisfiability check.
+
     **Precondition**: Requires φ.nvars > 0, provided by CNF structure invariant. -/
-def WellFormedRandomness (φ : CNF) (r : Randomness) : Prop :=
+def WellFormedRandomness (φ : CNF) (r : Randomness φ.nvars) : Prop :=
   let numGates := r.gateDigests.length  -- Derive numGates from randomness structure
-  φ.satisfies r.assignment ∧
+  φ.satisfies r.assignmentInf ∧  -- Use extended (infinite) assignment for satisfiability
   φ.clauses.length ≥ numGates ∧  -- ARCHITECTURAL FIX: Clause count constraint (eliminates specification gaps)
   ∀ (i : Nat) (h : i < numGates),
-    match emergentConfigAtGate φ φ.nvars_pos numGates r.assignment i with
+    match emergentConfigAtGate φ φ.nvars_pos numGates r.assignmentInf i with
     | none => True  -- If no gate at this index, no requirement
     | some ⟨R, cfg⟩ =>
         -- **2^R BOTTLENECK**: ALL R bits of digest must match configuration
@@ -198,7 +201,7 @@ the usual R equality (both use `R_of φ numGates`).
     This mirrors the second component returned by `emergentConfigAtGate` but is
     defined for any vertex, not just FG gates. -/
 noncomputable def cfgAtVertex
-    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : Assignment)
+    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf)
     (v : Fin (lstarStructureFromCNF φ h_nvars_pos numGates).dag.n) :
     Fin (2^((lstarStructureFromCNF φ h_nvars_pos numGates).R v)) :=
   let L := lstarStructureFromCNF φ h_nvars_pos numGates
@@ -214,7 +217,7 @@ noncomputable def cfgAtVertex
     This can be transported (by casting along R equalities) to a `CutWorld` for
     a planted instance `plant_n n φ r`. -/
 noncomputable def cutAssignmentFrom
-    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : Assignment)
+    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf)
     (C : Finset (Fin (lstarStructureFromCNF φ h_nvars_pos numGates).dag.n)) :
     (∀ v : Fin (lstarStructureFromCNF φ h_nvars_pos numGates).dag.n,
       v ∈ C → Fin (2^((lstarStructureFromCNF φ h_nvars_pos numGates).R v))) :=
@@ -269,7 +272,7 @@ Infrastructure is purely constructive. Security assumption lives in Security.lea
 
     **NO AXIOMS**: Pure wrapper, delegates to emergentConfigAtGate. -/
 noncomputable def emergentConfigAtVertex
-    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : Assignment) (vertexIdx : Nat)
+    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf) (vertexIdx : Nat)
     : Option (Σ' R, Fin (2^R)) :=
   let clause_start := 1 + φ.nvars
   -- Check if vertexIdx is in the gate range
@@ -288,7 +291,7 @@ noncomputable def emergentConfigAtVertex
 
     **Proof**: Direct from definition (unfold + split). -/
 theorem emergentConfigAtVertex_eq_atGate
-    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : Assignment) (vertexIdx : Nat)
+    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf) (vertexIdx : Nat)
     (h_range : 1 + φ.nvars ≤ vertexIdx ∧ vertexIdx < 1 + φ.nvars + numGates) :
     emergentConfigAtVertex φ h_nvars_pos numGates a vertexIdx =
       emergentConfigAtGate φ h_nvars_pos numGates a (vertexIdx - (1 + φ.nvars)) := by
@@ -312,7 +315,7 @@ theorem emergentConfigAtVertex_eq_atGate
 
     **NO AXIOMS**: Pure definitional unfolding proof. -/
 theorem emergentConfigAtVertex_R_component
-    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : Assignment) (vertexIdx : Nat)
+    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf) (vertexIdx : Nat)
     {R_v : Nat} {cfg : Fin (2^R_v)}
     (h_some : emergentConfigAtVertex φ h_nvars_pos numGates a vertexIdx = some ⟨R_v, cfg⟩) :
     let L := lstarStructureFromCNF φ h_nvars_pos numGates

@@ -32,7 +32,7 @@ open Classical
 
 /-- Encode randomness to a bit vector. Format: [assignment (n)][gate digest (dgLen)][structural (64)].
     Total size: n + dgLen + 64. -/
-def randomnessToBits (n : Nat) (r : Randomness) : Bits (n + r.dgLen + 64) :=
+def randomnessToBits (n : Nat) (r : Randomness n) : Bits (n + r.dgLen + 64) :=
   let gateDigest := r.gateDigests.head (by
     intro h_empty; have := r.h_single_gate; simp [h_empty] at this)
   let structBits := r.structuralBits.take 64
@@ -41,7 +41,7 @@ def randomnessToBits (n : Nat) (r : Randomness) : Bits (n + r.dgLen + 64) :=
     simp [structBits, List.length_take, h_min]
   Vector.ofFn fun idx : Fin (n + r.dgLen + 64) =>
     if h_assign : idx.val < n then
-      r.assignment idx.val
+      r.assignment ⟨idx.val, h_assign⟩
     else if h_gate : idx.val < n + r.dgLen then
       let pos : Nat := idx.val - n
       have h_pos_lt : pos < r.dgLen := by omega
@@ -54,10 +54,10 @@ def randomnessToBits (n : Nat) (r : Randomness) : Bits (n + r.dgLen + 64) :=
       structBits.get ⟨pos, h_pos_struct⟩
 
 /-- Decode bits to randomness. The dgLen parameter specifies the digest length. -/
-def bitsToRandomness (n dgLen : Nat) (h_dgLen_pos : dgLen > 0) (w : Bits (n + dgLen + 64)) : Randomness where
+def bitsToRandomness (n dgLen : Nat) (h_dgLen_pos : dgLen > 0) (w : Bits (n + dgLen + 64)) : Randomness n where
   dgLen := dgLen
   h_dgLen_pos := h_dgLen_pos
-  assignment i := if h : i < n then w.get ⟨i, by omega⟩ else false
+  assignment := fun i => w.get ⟨i.val, by omega⟩
   gateDigests := [Vector.ofFn fun i : Fin dgLen => w.get ⟨n + i.val, by omega⟩]
   structuralBits := List.ofFn fun (i : Fin 64) => w.get ⟨n + dgLen + i.val, by omega⟩
   h_sufficient_salts := by simp
@@ -65,7 +65,7 @@ def bitsToRandomness (n dgLen : Nat) (h_dgLen_pos : dgLen > 0) (w : Bits (n + dg
 
 /-- Specialized version for flat profile where dgLen = 64.
     Returns Bits (n + 128) directly, avoiding type coercion overhead. -/
-def randomnessToBits_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64) : Bits (n + 128) :=
+def randomnessToBits_flat (n : Nat) (r : Randomness n) (h_dgLen : r.dgLen = 64) : Bits (n + 128) :=
   let gateDigest := r.gateDigests.head (by
     intro h_empty; have := r.h_single_gate; simp [h_empty] at this)
   let structBits := r.structuralBits.take 64
@@ -74,7 +74,7 @@ def randomnessToBits_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64) : 
     simp [structBits, List.length_take, h_min]
   Vector.ofFn fun idx : Fin (n + 128) =>
     if h_assign : idx.val < n then
-      r.assignment idx.val
+      r.assignment ⟨idx.val, h_assign⟩
     else if h_gate : idx.val < n + 64 then
       let pos : Nat := idx.val - n
       have h_pos_lt : pos < 64 := by omega
@@ -88,23 +88,22 @@ def randomnessToBits_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64) : 
       structBits.get ⟨pos, h_pos_struct⟩
 
 /-- Assignment roundtrip for flat profile (dgLen = 64). -/
-theorem assignment_roundtrip_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64)
+theorem assignment_roundtrip_flat (n : Nat) (r : Randomness n) (h_dgLen : r.dgLen = 64)
     (φ : CNF) (h_nvars_eq : φ.nvars = n) :
-    ∀ i < φ.nvars,
+    ∀ (i : Fin n),
       (bitsToRandomness n 64 (by omega) (randomnessToBits_flat n r h_dgLen)).assignment i = r.assignment i := by
-  intro i h_i
-  have h_i_lt_n : i < n := by rw [← h_nvars_eq]; exact h_i
+  intro i
   simp only [bitsToRandomness, randomnessToBits_flat, Vector.get_ofFn]
-  simp [h_i_lt_n]
+  simp only [dif_pos i.isLt]
 
 /-! ### Round-trip Properties (Fully Parametric) -/
 
-theorem assignment_roundtrip (n : Nat) (r : Randomness) :
-    ∀ i < n,
+theorem assignment_roundtrip (n : Nat) (r : Randomness n) :
+    ∀ (i : Fin n),
       (bitsToRandomness n r.dgLen r.h_dgLen_pos (randomnessToBits n r)).assignment i = r.assignment i := by
-  intro i h_i
+  intro i
   simp only [bitsToRandomness, randomnessToBits, Vector.get_ofFn]
-  simp [h_i]
+  simp only [dif_pos i.isLt]
 
 private lemma extract_singleton {α : Type*} (l : List α) (h : l.length = 1) :
     ∃ a, l = [a] := by
@@ -115,7 +114,7 @@ private lemma extract_singleton {α : Type*} (l : List α) (h : l.length = 1) :
     | nil => exact ⟨head, rfl⟩
     | cons _ _ => simp at h
 
-theorem gateDigests_roundtrip (n : Nat) (r : Randomness) :
+theorem gateDigests_roundtrip (n : Nat) (r : Randomness n) :
     (bitsToRandomness n r.dgLen r.h_dgLen_pos (randomnessToBits n r)).gateDigests = r.gateDigests := by
   obtain ⟨g, hg⟩ := extract_singleton r.gateDigests r.h_single_gate
   -- LHS is [Vector.ofFn fun i => ...] and RHS is [g] (by hg)
@@ -158,7 +157,7 @@ theorem gateDigests_roundtrip (n : Nat) (r : Randomness) :
     -- g.get ⟨j, _⟩ = g[j] is definitional
     rfl
 
-theorem structuralBits_roundtrip_take64 (n : Nat) (r : Randomness) :
+theorem structuralBits_roundtrip_take64 (n : Nat) (r : Randomness n) :
     (bitsToRandomness n r.dgLen r.h_dgLen_pos (randomnessToBits n r)).structuralBits.take 64 =
     r.structuralBits.take 64 := by
   simp only [bitsToRandomness, randomnessToBits]
@@ -180,18 +179,18 @@ theorem structuralBits_roundtrip_take64 (n : Nat) (r : Randomness) :
 /-! ### Flat Profile Round-trip Properties (dgLen = 64) -/
 
 /-- Gate digests length preservation for flat profile. -/
-theorem gateDigests_length_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64) :
+theorem gateDigests_length_flat (n : Nat) (r : Randomness n) (h_dgLen : r.dgLen = 64) :
     (bitsToRandomness n 64 (by omega) (randomnessToBits_flat n r h_dgLen)).gateDigests.length =
     r.gateDigests.length := by
   simp only [bitsToRandomness, List.length_singleton, r.h_single_gate]
 
 /-- Helper: r.gateDigests is non-empty (from h_single_gate). -/
-theorem randomness_gateDigests_nonempty (r : Randomness) : r.gateDigests ≠ [] := by
+theorem randomness_gateDigests_nonempty {n : Nat} (r : Randomness n) : r.gateDigests ≠ [] := by
   intro h; have := r.h_single_gate; simp [h] at this
 
 /-- Gate digest bit equality for flat profile.
     Shows that decoded digest bits equal original digest bits (accounting for dgLen). -/
-theorem gateDigest_bits_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64)
+theorem gateDigest_bits_flat (n : Nat) (r : Randomness n) (h_dgLen : r.dgLen = 64)
     (j : Nat) (hj : j < 64) :
     ((bitsToRandomness n 64 (by omega) (randomnessToBits_flat n r h_dgLen)).gateDigests.head
       (by simp only [bitsToRandomness]; exact List.cons_ne_nil _ _)).get ⟨j, hj⟩ =
@@ -259,7 +258,7 @@ theorem resizeDigestGeneral_of_transported_list_get (target_len : Nat) {s1 s2 : 
     **Proof strategy**: Both sides are singleton lists. Use element-wise equality
     via `gateDigest_bits_flat` and helper lemmas for transport on vectors.
 -/
-theorem gateDigests_roundtrip_flat_eq (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64) :
+theorem gateDigests_roundtrip_flat_eq (n : Nat) (r : Randomness n) (h_dgLen : r.dgLen = 64) :
     (bitsToRandomness n 64 (by omega) (randomnessToBits_flat n r h_dgLen)).gateDigests =
     (h_dgLen ▸ r.gateDigests) := by
   -- Both sides have type List (Vector Bool 64)
@@ -309,7 +308,7 @@ theorem gateDigests_roundtrip_flat_eq (n : Nat) (r : Randomness) (h_dgLen : r.dg
   · rfl  -- [] = []
 
 /-- Structural bits roundtrip (take 64) for flat profile (dgLen = 64). -/
-theorem structuralBits_roundtrip_take64_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64) :
+theorem structuralBits_roundtrip_take64_flat (n : Nat) (r : Randomness n) (h_dgLen : r.dgLen = 64) :
     (bitsToRandomness n 64 (by omega) (randomnessToBits_flat n r h_dgLen)).structuralBits.take 64 =
     r.structuralBits.take 64 := by
   simp only [bitsToRandomness, randomnessToBits_flat]
@@ -329,7 +328,7 @@ theorem structuralBits_roundtrip_take64_flat (n : Nat) (r : Randomness) (h_dgLen
     simp [h1, h2]
 
 /-- The dgLen of the roundtrip decoded Randomness is 64 for flat profile. -/
-theorem dgLen_roundtrip_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64) :
+theorem dgLen_roundtrip_flat (n : Nat) (r : Randomness n) (h_dgLen : r.dgLen = 64) :
     (bitsToRandomness n 64 (by omega) (randomnessToBits_flat n r h_dgLen)).dgLen = 64 := rfl
 
 /-- Helper: bitsToRandomness always has non-empty gateDigests. -/
@@ -341,7 +340,7 @@ theorem bitsToRandomness_gateDigests_nonempty (n dgLen : Nat) (h : dgLen > 0) (w
 /-- Gate digests head bit equality for flat profile.
     The first (and only) gate digest is recovered bit-for-bit.
     Uses the existing gateDigest_bits_flat lemma with a simpler interface. -/
-theorem gateDigest_head_eq_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 64)
+theorem gateDigest_head_eq_flat (n : Nat) (r : Randomness n) (h_dgLen : r.dgLen = 64)
     (j : Nat) (hj : j < 64) :
     ((bitsToRandomness n 64 (by omega) (randomnessToBits_flat n r h_dgLen)).gateDigests.head
       (bitsToRandomness_gateDigests_nonempty n 64 (by omega) _)).get ⟨j, hj⟩ =
@@ -350,7 +349,7 @@ theorem gateDigest_head_eq_flat (n : Nat) (r : Randomness) (h_dgLen : r.dgLen = 
   gateDigest_bits_flat n r h_dgLen j hj
 
 /-- The dgLen of the roundtrip decoded Randomness equals r.dgLen when using general encoding. -/
-theorem dgLen_roundtrip_general (n : Nat) (r : Randomness) :
+theorem dgLen_roundtrip_general (n : Nat) (r : Randomness n) :
     (bitsToRandomness n r.dgLen r.h_dgLen_pos (randomnessToBits n r)).dgLen = r.dgLen := rfl
 
 #print axioms assignment_roundtrip

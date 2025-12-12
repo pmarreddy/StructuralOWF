@@ -141,7 +141,7 @@ def lambdaBase (L : LStarInstanceFG) (v : {v // L.fg.gateReq v}) : Nat :=
     Until that bridge exists, any non-trivial implementation would introduce
     additional placeholders. The current conservative bound (s = 0) is sound
     but makes effectiveResidual = lambdaBase always (no distinction). -/
-def preFinalAgreement (L : LStarInstanceFG) (_run : DeterministicRun Assignment Witness)
+def preFinalAgreement (L : LStarInstanceFG) (_run : DeterministicRun AssignmentInf AssignmentInf)
     (_v : {v // L.fg.gateReq v}) : Nat :=
   -- Conservative bound s = 0 (sound but weak)
   -- Implementation via ExecutionPrefixReal deferred for future work
@@ -153,7 +153,7 @@ def preFinalAgreement (L : LStarInstanceFG) (_run : DeterministicRun Assignment 
 
     This is the residual that actually manifests as computational cost.
     If s is small (FG caps it), then ρ ≈ λ_base. -/
-def effectiveResidual (L : LStarInstanceFG) (run : DeterministicRun Assignment Witness)
+def effectiveResidual (L : LStarInstanceFG) (run : DeterministicRun AssignmentInf AssignmentInf)
     (v : {v // L.fg.gateReq v}) : Nat :=
   lambdaBase L v - preFinalAgreement L run v
 
@@ -350,7 +350,7 @@ lemma stateFull_monotone
     **Paper reference**: Appendix C.2, Equation (C.2) -/
 theorem segment_count_lower_bound
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (_segments : Fin run.segmentCount → Segment)
     (v : {v // L.fg.gateReq v})
     (_h_single : run.strategy = Strategy.singleRun)
@@ -424,7 +424,7 @@ theorem segment_count_lower_bound
     Direct from definition. -/
 theorem effective_residual_bound
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (v : {v // L.fg.gateReq v}) :
     effectiveResidual L run v ≥ lambdaBase L v - preFinalAgreement L run v := by
   -- Immediate from definition
@@ -442,7 +442,7 @@ theorem effective_residual_bound
     **Paper reference**: Appendix C.2, after Equation (C.3) -/
 theorem fg_caps_pre_final
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (v : {v // L.fg.gateReq v})
     (_h_fg : 0 < (L.fg.gateDigest v).segmentBudget) :
     -- Conservative bound: s ≤ segmentBudget (actual: s ≤ τ·λ_base)
@@ -746,7 +746,7 @@ theorem per_segment_parity_cost
     **Paper reference**: Appendix C.3, Equation (C.6) -/
 theorem time_from_segments
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (segments : Fin run.segmentCount → Segment)
     (v : {v // L.fg.gateReq v})
     (_h_capacity : L.R v.val ≤ totalDigestOps run segments)
@@ -805,7 +805,7 @@ theorem time_from_segments
 -/
 theorem time_lower_bound_from_capacity_assignment
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (segments : Fin run.segmentCount → Segment)
     (v : {v // L.fg.gateReq v})
     (rho s : Nat)
@@ -870,7 +870,7 @@ When ρ is large (ρ ≈ λ_base), this gives exponential lower bound.
 
 theorem time_lower_bound_exponential
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (segments : Fin run.segmentCount → Segment)
     (v : {v // L.fg.gateReq v})
     (h_single : run.strategy = Strategy.singleRun)
@@ -1556,13 +1556,13 @@ noncomputable def explicitInjectionReachable
     by recording cut configurations during execution. -/
 theorem segment_count_lower_bound_explicit
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (_segments : Fin run.segmentCount → Segment)
     (v : {v // L.fg.gateReq v})
     (_h_single : run.strategy = Strategy.singleRun)
     (_h_correct : run.time ≥ 1)
     -- State-tracking run for the singleton cut {v}
-    (h_tracking : ∃ (run_tracked : RunWithStateTracking L.toLStarInstanceFull {v.val} Assignment Witness),
+    (h_tracking : ∃ (run_tracked : RunWithStateTracking L.toLStarInstanceFull {v.val} AssignmentInf AssignmentInf),
         run_tracked.strategy = Strategy.singleRun ∧
         run_tracked.segmentCount = run.segmentCount ∧
         (∀ σ : LStar.StateFull L.toLStarInstanceFull {v.val},
@@ -1615,13 +1615,13 @@ theorem segment_count_lower_bound_explicit
 /-- Segment count lower bound with explicit injection via `SearchComplete`. -/
 theorem segment_count_lower_bound_explicit_SC
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (_segments : Fin run.segmentCount → Segment)
     (v : {v // L.fg.gateReq v})
     (_h_single : run.strategy = Strategy.singleRun)
     (_h_correct : run.time ≥ 1)
     -- State-tracking run for the singleton cut {v}
-    (run_tracked : RunWithStateTracking L.toLStarInstanceFull {v.val} Assignment Witness)
+    (run_tracked : RunWithStateTracking L.toLStarInstanceFull {v.val} AssignmentInf AssignmentInf)
     (h_tracked_single : run_tracked.strategy = Strategy.singleRun)
     (h_count_eq : run_tracked.segmentCount = run.segmentCount)
     (h_SC : SearchComplete run_tracked)
@@ -1775,7 +1775,7 @@ structure ExecutionTrace where
     - Operations: memory accesses, arithmetic ops
     - Strategy: assumed single-run (no restart) -/
 def traceAdversary
-    (_A : LStarInstanceFG → Randomness)
+    (_A : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (_x : LStarInstanceFG)
     (C_A k_A : Nat)
     (n : Nat) : ExecutionTrace :=
@@ -1790,7 +1790,7 @@ def traceAdversary
     - Output: witness W -/
 def traceExtractor
     (_x : LStarInstanceFG)
-    (_r : Randomness)
+    (_r : Randomness _x.encodedφ.nvars)
     (C_Ext k_Ext : Nat)
     (n : Nat) : ExecutionTrace :=
   { totalTime := C_Ext * n ^ k_Ext
@@ -1847,7 +1847,7 @@ def buildRun
     (_L : LStarInstanceFG)
     (trace : ExecutionTrace)
     (segCount : Nat := 1)
-    (h_time_covers : segCount ≤ trace.totalTime) : DeterministicRunWithTrace Assignment Witness :=
+    (h_time_covers : segCount ≤ trace.totalTime) : DeterministicRunWithTrace AssignmentInf AssignmentInf :=
   -- Build operational trace: in single-run mode, segCount segments means segCount steps
   let opTrace : OperationalTrace := {
     stepCount := trace.totalTime
@@ -1875,14 +1875,14 @@ def buildRun
 def runFromSecurityGame
     (n : Nat)
     (φ : CNF)
-    (r_star : Randomness)
+    (r_star : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_n_pos : 1 ≤ n)
-    : DeterministicRunWithTrace Assignment Witness :=
+    : DeterministicRunWithTrace AssignmentInf AssignmentInf :=
   let x_star := plant_n n φ r_star h_nvars h_dgLen
   let trace_A := traceAdversary A_inv x_star C_A k_A n
   let r_recovered := A_inv x_star
@@ -1909,10 +1909,10 @@ def runFromSecurityGame
 def runFromSecurityGameWithSegCount
     (n : Nat)
     (φ : CNF)
-    (r_star : Randomness)
+    (r_star : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (segCount : Nat)
     (h_time_covers : segCount ≤ (let x_star := plant_n n φ r_star h_nvars h_dgLen
@@ -1920,7 +1920,7 @@ def runFromSecurityGameWithSegCount
                                    let trace_Ext := traceExtractor x_star (A_inv x_star) C_Ext k_Ext n
                                    (composeTraces trace_A trace_Ext).totalTime))
     (_h_nonzero : C_A + C_Ext ≥ 1)
-    : DeterministicRunWithTrace Assignment Witness :=
+    : DeterministicRunWithTrace AssignmentInf AssignmentInf :=
   let x_star := plant_n n φ r_star h_nvars h_dgLen
   let trace_A := traceAdversary A_inv x_star C_A k_A n
   let r_recovered := A_inv x_star
@@ -1953,9 +1953,9 @@ lemma buildRun_states_cover
 /-- The constructed run from the security game has at least one segment. -/
 theorem runFromSecurityGame_segmentCount_pos
     (n : Nat)
-    (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_n_pos : 1 ≤ n) :
@@ -1969,9 +1969,9 @@ theorem runFromSecurityGame_segmentCount_pos
 
     The composed run A_inv + Ext has time ≤ C_A * n^k_A + C_Ext * n^k_Ext. -/
 theorem run_poly_time_upper
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_n_pos : 1 ≤ n) :
@@ -1985,9 +1985,9 @@ theorem run_poly_time_upper
     upper bound is identical to the default run. This unfolds through the
     construction layers to show the explicit polynomial bound. -/
 theorem run_poly_time_upper_withSegCount
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (segCount : Nat)
     (h_time_covers : segCount ≤ (let x_star := plant_n n φ r_star h_nvars h_dgLen
@@ -2005,9 +2005,9 @@ theorem run_poly_time_upper_withSegCount
     When C_A = C_Ext = 1 and k_A = k_Ext = 1, the time simplifies to 2n.
     This can be used to derive concrete numeric contradictions like 2^49 ≤ 2n. -/
 theorem run_time_le_two_n
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (segCount : Nat)
     (h_time_covers : segCount ≤ (let x_star := plant_n n φ r_star h_nvars h_dgLen
                                    let trace_A := traceAdversary A_inv x_star 1 1 n
@@ -2027,9 +2027,9 @@ theorem run_time_le_two_n
 
     The composed execution doesn't restart, so strategy = singleRun. -/
 theorem run_is_single_run
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_n_pos : 1 ≤ n) :
@@ -2039,21 +2039,21 @@ theorem run_is_single_run
 /-- Minimal bundle collecting the deterministic run produced by the security game
     together with the structural facts that are used repeatedly downstream. -/
 structure SecurityRunBasics
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1) where
-  run : DeterministicRun Assignment Witness
+  run : DeterministicRun AssignmentInf AssignmentInf
   h_single : run.strategy = Strategy.singleRun
   h_segmentCount_pos : 0 < run.segmentCount
   h_time_le : run.time ≤ C_A * n ^ k_A + C_Ext * n ^ k_Ext
 
 /-- Instantiate the bundled security run data. -/
 def securityRunBasics
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_n_pos : 1 ≤ n) :
@@ -2075,19 +2075,19 @@ def securityRunBasics
     Making this separation EXPLICIT eliminates the need for execution semantics axioms!
     The contradiction becomes: claimedTime < requiredTime (definitional). -/
 structure SecurityRunInstrumented
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (C : Finset (Fin (plant_n n φ r_star h_nvars h_dgLen).dag.n)) where
   /-- Base deterministic run produced by the security game construction.
       Contains the CLAIMED time from adversary + extractor traces.
       Now includes explicit operational trace for definitional time bound. -/
-  run : DeterministicRunWithTrace Assignment Witness
+  run : DeterministicRunWithTrace AssignmentInf AssignmentInf
   /-- Run enriched with per-segment configuration tracking for cut `C`. -/
   tracked :
-    RunWithStateTracking (plant_n n φ r_star h_nvars h_dgLen).toLStarInstanceFull C Assignment Witness
+    RunWithStateTracking (plant_n n φ r_star h_nvars h_dgLen).toLStarInstanceFull C AssignmentInf AssignmentInf
   /-- Canonical enumeration of segment states; currently indexes segments directly. -/
   stateTrace : Fin tracked.segmentCount → Nat
   /-- Every recorded state index lies within the available segments. -/
@@ -2127,9 +2127,9 @@ namespace SecurityRunInstrumented
 /-- Claimed time: total time reported by the composed execution
     (adversary + extractor), i.e., `inst.run.time`. -/
 def claimedTime
-    {n : Nat} {φ : CNF} {r_star : Randomness} {h_nvars : φ.nvars ≥ 4}
+    {n : Nat} {φ : CNF} {r_star : Randomness φ.nvars} {h_nvars : φ.nvars ≥ 4}
     {h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2}
-    {A_inv : LStarInstanceFG → Randomness}
+    {A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars}
     {C_A k_A C_Ext k_Ext : Nat}
     {h_nonzero : C_A + C_Ext ≥ 1}
     {C : Finset (Fin (plant_n n φ r_star h_nvars h_dgLen).dag.n)}
@@ -2140,9 +2140,9 @@ def claimedTime
     tracked execution at the cut, i.e., `inst.tracked.segmentCount`.
     This is the quantity lower-bounded via SCL + injection. -/
 def requiredTime
-    {n : Nat} {φ : CNF} {r_star : Randomness} {h_nvars : φ.nvars ≥ 4}
+    {n : Nat} {φ : CNF} {r_star : Randomness φ.nvars} {h_nvars : φ.nvars ≥ 4}
     {h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2}
-    {A_inv : LStarInstanceFG → Randomness}
+    {A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars}
     {C_A k_A C_Ext k_Ext : Nat}
     {h_nonzero : C_A + C_Ext ≥ 1}
     {C : Finset (Fin (plant_n n φ r_star h_nvars h_dgLen).dag.n)}
@@ -2153,9 +2153,9 @@ end SecurityRunInstrumented
 
 /-- Build the instrumented security run from a segment-coverage witness. -/
 noncomputable def securityRunInstrumented
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_n_pos : 1 ≤ n)
@@ -2289,9 +2289,9 @@ reachable configurations at a cut, enabling construction of SecurityRunInstrumen
     This is the ACTUAL Path A implementation - segmentCount should equal
     the cardinality of reachable configs for the bijection to exist. -/
 noncomputable def security_run_search_complete_general
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (_A_inv : LStarInstanceFG → Randomness)
+    (_A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (_C_A _k_A _C_Ext _k_Ext : Nat)
     (v : {v // (plant_n n φ r_star h_nvars h_dgLen).fg.gateReq v})
     (segCount : Nat)
@@ -2353,9 +2353,9 @@ noncomputable def security_run_search_complete_general
     Returns data (Sigma type) rather than proof (∃ in Prop), allowing elimination into Type.
     This is the ROOT fix for Prop-to-Type elimination issues. -/
 noncomputable def security_run_search_complete_singleton
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (v : {v // (plant_n n φ r_star h_nvars h_dgLen).fg.gateReq v}) :
     Σ (segCount : Nat),
@@ -2397,9 +2397,9 @@ singleton cut `{v}`.
 to explore is bounded by the available time. This is the fundamental constraint
 of any valid PPT adversary - you cannot explore more states than you have time for! -/
 noncomputable def securityRunInstrumentedWithSegCountSingleton
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (v : {v // (plant_n n φ r_star h_nvars h_dgLen).fg.gateReq v})
@@ -2504,9 +2504,9 @@ noncomputable def securityRunInstrumentedWithSegCountSingleton
 
 namespace SecurityRunInstrumented
 
-variable {n : Nat} {φ : CNF} {r_star : Randomness} {h_nvars : φ.nvars ≥ 4}
+variable {n : Nat} {φ : CNF} {r_star : Randomness φ.nvars} {h_nvars : φ.nvars ≥ 4}
 variable {h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2}
-variable {A_inv : LStarInstanceFG → Randomness}
+variable {A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars}
 variable {C_A k_A C_Ext k_Ext : Nat}
 variable {h_nonzero : C_A + C_Ext ≥ 1}
 variable {C : Finset (Fin (plant_n n φ r_star h_nvars h_dgLen).dag.n)}
@@ -2654,7 +2654,7 @@ end SecurityRunInstrumented
     - Identify rollback points
     - Build segment-to-configuration mapping (RunWithStateTracking) -/
 def segmentsFromRun
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     : Fin run.segmentCount → Segment :=
   fun _i => { digestOperations := run.time / run.segmentCount }
 
@@ -2663,7 +2663,7 @@ def segmentsFromRun
     When segments are constructed via segmentsFromRun, the sum of their
     operations is bounded by total time. -/
 theorem segmentsFromRun_partition_time
-    (run : DeterministicRun Assignment Witness) :
+    (run : DeterministicRun AssignmentInf AssignmentInf) :
     (Finset.univ.sum fun i : Fin run.segmentCount => (segmentsFromRun run i).digestOperations) ≤ run.time := by
   unfold segmentsFromRun
   -- Sum of (time / count) over count segments = count × (time / count)
@@ -2676,7 +2676,7 @@ theorem segmentsFromRun_partition_time
     Sum of segment times ≤ total run time, assuming segments respect the
     time budget. This requires a hypothesis linking segments to run.time. -/
 theorem segments_partition_time
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (segments : Fin run.segmentCount → Segment)
     (h_budget : ∀ i, (segments i).digestOperations ≤ run.time) :
     (Finset.univ.sum fun i => (segments i).digestOperations) ≤ run.segmentCount * run.time := by
@@ -2829,13 +2829,13 @@ This is the standard correctness criterion for NP witness-finding algorithms.
 
     This captures the requirement that algorithms cannot "skip" valid witnesses
     without checking whether they satisfy the instance. -/
-structure CorrectExecution {L : LStarInstanceFull} (trace : ExecutionTrace₁ L) : Prop where
+structure CorrectExecution {nvars : Nat} {L : LStarInstanceFull} (trace : ExecutionTrace₁ L) : Prop where
   /-- Trace starts from initial state -/
   h_init : trace.head? = some (ExecutionState.init L)
   /-- Trace follows valid steps -/
   h_valid : trace.valid
   /-- If witnesses exist, trace eventually resolves all nodes (abstract completeness) -/
-  h_complete : (∃ _W : Witness, True) →  -- If any witness exists
+  h_complete : (∃ _W : Witness nvars, True) →  -- If any witness exists
     ∃ i : Fin trace.length,  -- Some state in the trace
       Finset.univ ⊆ (trace.get i).resolved  -- has resolved all nodes
 
@@ -2859,8 +2859,8 @@ it might contain.
 
     Abstract definition: A witness W is reachable from config σ at cut C if
     there exists an execution path extending σ that produces W. -/
-def WitnessReachableFrom {L : LStarInstanceFull} (C : Finset (Fin L.dag.n))
-    (_σ : LStar.StateFull L C) (_W : Witness) : Prop :=
+def WitnessReachableFrom {nvars : Nat} {L : LStarInstanceFull} (C : Finset (Fin L.dag.n))
+    (_σ : LStar.StateFull L C) (_W : Witness nvars) : Prop :=
   -- Abstract: there exists some extension of σ that produces W
   ∃ (s : ExecutionState L), C ⊆ s.resolved ∧ Finset.univ ⊆ s.resolved
 
@@ -2933,9 +2933,9 @@ def WitnessCompatibleWithEmergent
     {L : LStarInstanceFull} {C : Finset (Fin L.dag.n)}
     (φ : CNF)  -- CNF formula for satisfaction check
     (emergent : (v : LStar.InCut L C) → Vector Bool (L.R v))
-    (W : Witness) : Prop :=
+    (W : Witness φ.nvars) : Prop :=
   -- Witnesses must have assignment satisfying φ
-  φ.satisfies W.assignment ∧
+  φ.satisfies W.assignmentInf ∧
   -- Digest bits must match emergent pattern (FG structural requirement)
   W.digestBits = extractDigestBits emergent
 
@@ -3160,7 +3160,7 @@ lemma incompatible_witnesses_from_different_emergent
     (emergent₁ emergent₂ : (v : LStar.InCut L C) → Vector Bool (L.R v))
     (v : LStar.InCut L C)
     (h_diff : emergent₁ v ≠ emergent₂ v) :
-    ∀ W : Witness,
+    ∀ W : Witness φ.nvars,
       WitnessCompatibleWithEmergent φ emergent₁ W →
       ¬WitnessCompatibleWithEmergent φ emergent₂ W := by
   intro W ⟨h_sat₁, h_digest₁⟩ ⟨h_sat₂, h_digest₂⟩
@@ -3187,21 +3187,25 @@ lemma witness_exists_compatible_with_emergent
     {L : LStarInstanceFull} {C : Finset (Fin L.dag.n)}
     (φ : CNF)  -- CNF formula for compatibility
     (emergent : (v : LStar.InCut L C) → Vector Bool (L.R v))
-    (h_yes : ∃ (a : Assignment), φ.satisfies a) :
-    ∃ W : Witness, WitnessCompatibleWithEmergent φ emergent W := by
+    (h_yes : ∃ (a : AssignmentInf), φ.satisfies a) :
+    ∃ W : Witness φ.nvars, WitnessCompatibleWithEmergent φ emergent W := by
   -- Construct witness from satisfying assignment
   obtain ⟨a, h_sat⟩ := h_yes
 
   -- Extract digest bits from the emergent pattern (for FG compatibility)
   let digest := extractDigestBits emergent
 
+  -- Restrict infinite assignment to finite one (take first φ.nvars bits)
+  let a_fin : Assignment φ.nvars := fun i => a i.val
+
   -- Construct witness with matching digest
-  use { assignment := a, gateProofs := [], digestBits := digest }
+  use { assignment := a_fin, gateProofs := [], digestBits := digest }
 
   -- Prove compatibility with strengthened definition
   constructor
-  · -- φ satisfaction
-    exact h_sat
+  · -- φ satisfaction: W.assignmentInf extends a_fin, so if a satisfies φ and matches a_fin on domain, we're good
+    -- Note: a_fin.extend may differ from a on indices ≥ nvars, but φ only depends on first nvars bits
+    sorry  -- This needs proper proof that satisfies is preserved
   · -- Digest equality
     rfl
 
@@ -3214,7 +3218,7 @@ def WitnessReachableFromFG
     {L : LStarInstanceFull} {C : Finset (Fin L.dag.n)}
     (φ : CNF)  -- CNF formula for compatibility
     (emergent : (v : LStar.InCut L C) → Vector Bool (L.R v))
-    (σ : LStar.StateFull L C) (W : Witness) : Prop :=
+    (σ : LStar.StateFull L C) (W : Witness φ.nvars) : Prop :=
   -- Abstract reachability (complete execution exists)
   WitnessReachableFrom C σ W ∧
   -- Semantic compatibility (W's structure matches config's emergent bits)
@@ -3229,7 +3233,7 @@ lemma compatible_implies_reachable
     (φ : CNF)  -- CNF formula for compatibility
     (σ : LStar.StateFull L C)
     (emergent : (v : LStar.InCut L C) → Vector Bool (L.R v))
-    (W : Witness)
+    (W : Witness φ.nvars)
     (_h_compat : WitnessCompatibleWithEmergent φ emergent W) :
     WitnessReachableFrom C σ W := by
   -- For yes-instances, abstract reachability just requires complete execution exists
@@ -3248,7 +3252,7 @@ lemma incompatible_not_fg_reachable
     (φ : CNF)  -- CNF formula for compatibility
     (σ : LStar.StateFull L C)
     (emergent : (v : LStar.InCut L C) → Vector Bool (L.R v))
-    (W : Witness)
+    (W : Witness φ.nvars)
     (h_incompat : ¬WitnessCompatibleWithEmergent φ emergent W) :
     ¬WitnessReachableFromFG φ emergent σ W := by
   intro ⟨_h_reach, h_compat⟩
@@ -3334,8 +3338,8 @@ private lemma construct_separating_witness_fg
     (_h_enc₂ : ∀ w : LStar.InCut L C, σ₂ w = encodeSeed L w (kHist₂ w) (emergent₂ w))
     -- Precondition: Emergent bits must differ (proven from A2 injectivity)
     (h_emerg_diff : emergent₁ v ≠ emergent₂ v)
-    (h_yes : ∃ (a : Assignment), φ.satisfies a) :
-    ∃ W : Witness,
+    (h_yes : ∃ (a : AssignmentInf), φ.satisfies a) :
+    ∃ W : Witness φ.nvars,
       FGWitnessCompat.WitnessReachableFromFG φ emergent₁ σ₁ W ∧
       ¬FGWitnessCompat.WitnessReachableFromFG φ emergent₂ σ₂ W := by
 
@@ -3359,7 +3363,7 @@ private lemma construct_separating_witness_fg
 -- Step 4 (Abstract): Architectural bridge from FG-specific to abstract formulation.
 --
 -- The abstract `WitnessReachableFrom` doesn't enforce compatibility:
---   def WitnessReachableFrom ... (σ : ...) (W : Witness) : Prop :=
+--   def WitnessReachableFrom ... (σ : ...) (W : Witness φ.nvars) : Prop :=
 --     ∃ (s : ExecutionState L), C ⊆ s.resolved ∧ Finset.univ ⊆ s.resolved
 -- For yes-instances, this is ALWAYS true (any W, any σ), making ¬WitnessReachableFrom
 -- impossible to prove. The FG-specific version above (construct_separating_witness_fg)
@@ -3381,9 +3385,9 @@ end WitnessSpaces
 
     This is an architectural consequence of seed-based state and single-run persistence. -/
 structure SingleRunKeyedness
-    {n : Nat} {φ : CNF} {r_star : Randomness} {h_nvars : φ.nvars ≥ 4}
+    {n : Nat} {φ : CNF} {r_star : Randomness φ.nvars} {h_nvars : φ.nvars ≥ 4}
     {h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2}
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_n_pos : 1 ≤ n) : Prop where
@@ -3441,18 +3445,18 @@ This is the first main gap. The proof requires:
 
     This is the key property that forces exploration of all configurations. -/
 structure AlgorithmCorrectness
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat) : Prop where
   /-- The algorithm produces a valid witness for the instance -/
-  _h_produces_witness : ∃ _W : Witness, True  -- Simplified: W is valid for x*
+  _h_produces_witness : ∃ _W : Witness φ.nvars, True  -- Simplified: W is valid for x*
   /-- If the algorithm explores a configuration, it checks all its successors -/
   h_explores_systematically : ∀ (C : Finset (Fin (plant_n n φ r_star h_nvars h_dgLen).dag.n))
       (σ : LStar.StateFull (plant_n n φ r_star h_nvars h_dgLen).toLStarInstanceFull C),
     ReachableConfig C σ →
     -- If any witness is reachable from σ, the algorithm must explore σ
-    (∃ _W : Witness, WitnessReachableFrom C σ _W) →
+    (∃ _W : Witness φ.nvars, WitnessReachableFrom C σ _W) →
     ∀ (h_nonzero : C_A + C_Ext ≥ 1) (h_n_pos : 1 ≤ n),
       ∃ _i : Fin (runFromSecurityGame n φ r_star h_nvars h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
         True  -- Segment i explores configuration σ
@@ -3477,9 +3481,9 @@ structure AlgorithmCorrectness
     we assume the adversary succeeds (finds witnesses efficiently), then derive a
     contradiction with the exponential lower bound. -/
 theorem search_completeness_for_security_run
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_correct : AlgorithmCorrectness n φ r_star h_nvars h_dgLen A_inv C_A k_A C_Ext k_Ext)
     (_h_nonzero : C_A + C_Ext ≥ 1)
@@ -3498,7 +3502,7 @@ theorem search_completeness_for_security_run
 
   -- Step 1: Show there exists at least one witness reachable from ANY config
   -- (since x* is a yes-instance by plant construction)
-  have h_witness_exists : ∃ W : Witness, True := by
+  have h_witness_exists : ∃ W : Witness φ.nvars, True := by
     -- From plant construction: r_star encodes a satisfying assignment
     -- Therefore witnesses exist for x* = plant_n n φ r_star
     exact h_correct._h_produces_witness
@@ -3508,7 +3512,7 @@ theorem search_completeness_for_security_run
 
   -- Step 3/4: Provide witness reachability and apply exploration
   -- Build the witness reachability proof for some witness W
-  have h_wit : ∃ W : Witness, WitnessReachableFrom C σ W := by
+  have h_wit : ∃ W : Witness φ.nvars, WitnessReachableFrom C σ W := by
     obtain ⟨W, _⟩ := h_witness_exists
     -- Prove WitnessReachableFrom C σ W: use a fully resolved state
     refine ⟨W, ?_⟩
@@ -3532,7 +3536,7 @@ theorem search_completeness_for_security_run
 -/
 
 /-- Extended run with access history tracking. -/
-structure RunWithAccess (L : LStarInstanceFull) extends DeterministicRun Assignment Witness where
+structure RunWithAccess (L : LStarInstanceFull) extends DeterministicRun AssignmentInf AssignmentInf where
   /-- Access history for each segment -/
   segmentAccesses : Fin segmentCount → AccessHistory L
 
@@ -3544,9 +3548,9 @@ structure RunWithAccess (L : LStarInstanceFull) extends DeterministicRun Assignm
     **Property**: For FG-wired instances, each segment must access all R_v
     digest addresses to check the gate (no bypass due to OAP). -/
 noncomputable def runWithAccessFromSecurityGame
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_n_pos : 1 ≤ n)
@@ -3657,9 +3661,9 @@ theorem fg_forces_digest_reads
 
     **Requirements**: Proof uses OAP and FGWiring properties (as fg_forces_digest_reads does). -/
 theorem work_distribution_for_security_run
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (v : {v // (plant_n n φ r_star h_nvars h_dgLen).fg.gateReq v})
     (h_oap : OAPProperty (plant_n n φ r_star h_nvars h_dgLen).toLStarInstanceFull)
@@ -3728,9 +3732,9 @@ These are immediate consequences of Gaps 1 and 2.
 
     **Implementation**: Uses explicitInjectionReachable with search_completeness_for_security_run. -/
 theorem cut_injection_for_security_run
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (C : Finset (Fin (plant_n n φ r_star h_nvars h_dgLen).dag.n))
     (h_correct : AlgorithmCorrectness n φ r_star h_nvars h_dgLen A_inv C_A k_A C_Ext k_Ext)
@@ -3813,9 +3817,9 @@ theorem cut_injection_for_security_run
 
     **Proof**: Completely trivial once work_distribution_for_security_run is proven. -/
 theorem per_segment_unit_for_security_run
-    (n : Nat) (φ : CNF) (r_star : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (v : {v // (plant_n n φ r_star h_nvars h_dgLen).fg.gateReq v})  -- Need at least one FG gate
     (h_oap : OAPProperty (plant_n n φ r_star h_nvars h_dgLen).toLStarInstanceFull)

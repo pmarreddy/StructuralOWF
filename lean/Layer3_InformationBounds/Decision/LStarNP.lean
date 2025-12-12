@@ -75,7 +75,7 @@ open LStar.Complexity
     traverse the FG gate. See SCLNode.lean for the pigeonhole argument.
 
     **Profile Parameter**: Determines R computation (default: exponential). -/
-def entropyFromWitness (L : LStarInstanceFG) (W : Witness)
+def entropyFromWitness (L : LStarInstanceFG) (W : Witness L.n)
     (profile : Foundations.EmergenceProfile := .exponential)
     (v : Fin L.dag.n) : Seed (L.seedWidth v) :=
   -- R = emergence rank at FG gates (= digest bits per gate)
@@ -84,10 +84,10 @@ def entropyFromWitness (L : LStarInstanceFG) (W : Witness)
   if v.val == 0 then
     -- Source
     LStar.ofBits _ (fun _ => false)
-  else if v.val <= L.n then
+  else if h_var : v.val <= L.n then
     -- Variable: use assignment bit
     let varIdx := v.val - 1
-    let bit := W.assignment varIdx
+    let bit := if h : varIdx < L.n then W.assignment ⟨varIdx, h⟩ else false
     LStar.ofBits _ (fun i => if i.val == 0 then bit else false)
   else if L.fg.gateReq v then
     -- FG Gate: use ALL R bits from digestBits
@@ -122,7 +122,7 @@ assignment satisfies its CNF?
 
 **Profile Parameter**: Determines R computation (default: exponential). -/
 def LStarLang (profile : Foundations.EmergenceProfile := .exponential) : LStarInstanceFG → Prop :=
-  fun L => ∃ W : Witness,
+  fun L => ∃ W : Witness L.n,
     -- Compute seeds
     let entropy := entropyFromWitness L W profile
     let seeds := LStar.LStarInstanceFull.computeSeedChain L.toLStarInstanceFull entropy
@@ -135,8 +135,8 @@ def LStarLang (profile : Foundations.EmergenceProfile := .exponential) : LStarIn
       else
         LStar.ofBits _ (fun _ => false)
     let φ := LStar.OAP.decodeWithOAPDep L.encodedφ (clauseSeedWidthFn L) getSeed
-    -- Check satisfaction
-    φ.satisfies W.assignment
+    -- Check satisfaction (use infinite extension of assignment)
+    φ.satisfies W.assignmentInf
 
 /-- **Basic Verifier**: Check CNF satisfaction only.
 
@@ -146,7 +146,7 @@ def LStarLang (profile : Foundations.EmergenceProfile := .exponential) : LStarIn
     for OWF security (which requires digest checking).
 
     **Profile Parameter**: Determines R computation (default: exponential). -/
-def LStarVerifier (L : LStarInstanceFG) (W : Witness)
+def LStarVerifier (L : LStarInstanceFG) (W : Witness L.n)
     (profile : Foundations.EmergenceProfile := .exponential) : Prop :=
   -- Compute seeds from witness
   let entropy := entropyFromWitness L W profile
@@ -162,8 +162,8 @@ def LStarVerifier (L : LStarInstanceFG) (W : Witness)
 
   let φ := LStar.OAP.decodeWithOAPDep L.encodedφ (clauseSeedWidthFn L) getSeed
 
-  -- Check satisfaction
-  φ.satisfies W.assignment
+  -- Check satisfaction (use infinite extension of assignment)
+  φ.satisfies W.assignmentInf
 
 /-- **Canonical Verifier**: Check CNF satisfaction AND digest consistency.
 
@@ -189,7 +189,7 @@ def LStarVerifier (L : LStarInstanceFG) (W : Witness)
 
     **Profile Parameter**: Determines R computation (default: exponential).
 -/
-def LStarCanonicalVerifier (L : LStarInstanceFG) (W : Witness)
+def LStarCanonicalVerifier (L : LStarInstanceFG) (W : Witness L.n)
     (profile : Foundations.EmergenceProfile := .exponential) : Prop :=
   -- Digest consistency: W.digestBits must match what assignment produces
   W.digestBits = Foundations.digestsFromAssignment L W.assignment ∧
@@ -208,11 +208,21 @@ For complexity-theoretic NP with resource bounds, see:
 - `prefixLang_in_np_parametric` (ParametricBitstringBridge.lean) -/
 theorem LStar_in_NP : InNP LStarLang := by
   refine ⟨?cert⟩
-  refine ⟨Witness, LStarVerifier, ?_⟩
+  -- Use Sigma type to bundle n with witness, since VerifierCert needs a fixed Type
+  refine ⟨Σ n, Witness n, fun L ⟨n, W⟩ =>
+    if h : n = L.n then LStarVerifier L (h ▸ W) else False, ?_⟩
   intro L
   constructor
-  · intro h; exact h
-  · intro h; exact h
+  · intro ⟨W, hW⟩
+    refine ⟨⟨L.n, W⟩, ?_⟩
+    simp only [dif_pos rfl]
+    exact hW
+  · intro ⟨⟨n, W⟩, hW⟩
+    by_cases h : n = L.n
+    · simp only [h, dif_pos rfl] at hW
+      exact ⟨h ▸ W, hW⟩
+    · simp only [h, dif_neg h] at hW
+      exact False.elim hW
 
 /-! ## Axiom Verification
 

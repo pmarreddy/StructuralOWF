@@ -15,7 +15,7 @@ open LStar.StructuralOWF (Randomness plant_n)
 /-- Extract φ from planted instance hypothesis (noncomputable).
     Local definition to avoid circular imports with TMEncoderDefs. -/
 noncomputable def planted_φ {L : LStar.StructuralOWF.LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : LStar.CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) : LStar.CNF :=
+    (h : ∃ (n : Nat) (φ : LStar.CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) : LStar.CNF :=
   Classical.choose (Classical.choose_spec h)
 
 /-!
@@ -185,7 +185,7 @@ structure WitnessFinder (L : LStarInstanceFG) where
 
       No uniqueness required: If multiple witnesses exist, algorithm
       can output any of them. We only care that some valid witness is found. -/
-  output : Witness
+  output : Witness L.n
 
   /-- Correctness: the output witness satisfies the underlying CNF formula.
 
@@ -200,7 +200,7 @@ structure WitnessFinder (L : LStarInstanceFG) where
       Note: For planted instances L = plant_n n φ r ..., the formula is φ.
       This can be extracted via planted_φ given a planted hypothesis.
       The structure requires that SOME CNF formula exists that the output satisfies. -/
-  h_correct : ∃ (φ : CNF), φ.satisfies output.assignment
+  h_correct : ∃ (φ : CNF), φ.satisfies output.assignmentInf
 
   /-- Configurations explored at each cut during execution.
 
@@ -251,8 +251,8 @@ structure WitnessFinder (L : LStarInstanceFG) where
   h_complete_obs_forces_full_exploration :
     ∀ (v : Fin L.dag.n) (obs : Observation L.toLStarInstanceFull v),
       obs.isComplete →
-      (∃ φ : CNF, φ.satisfies output.assignment) →
-      (∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) →
+      (∃ φ : CNF, φ.satisfies output.assignmentInf) →
+      (∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) →
       configsExploredAtCut {v} = Finset.univ
 
 /-! ### Important: Role of configsExploredAtCut in Main Proof

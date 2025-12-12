@@ -36,6 +36,12 @@ we provide extractors to get n, φ, r, and the equality.
 These use Classical.choose to extract witnesses noncomputably.
 -/
 
+/-- Planted instance hypothesis type alias for cleaner signatures. -/
+abbrev PlantedHyp (L : LStarInstanceFG) :=
+  ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
+    L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r
+
 /-- Extract φ from planted instance hypothesis (noncomputable).
 
     **Extraction path**:
@@ -44,31 +50,27 @@ These use Classical.choose to extract witnesses noncomputably.
     - First choose: Classical.choose h extracts n
     - Classical.choose_spec h : ∃ φ r, L = plant_n n φ r ... ∧ ...
     - Second choose: Classical.choose (Classical.choose_spec h) extracts φ -/
-noncomputable def planted_φ {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) : CNF :=
+noncomputable def planted_φ {L : LStarInstanceFG} (h : PlantedHyp L) : CNF :=
   Classical.choose (Classical.choose_spec h)
 
 /-- Extract r from planted instance hypothesis (noncomputable). -/
-noncomputable def planted_r {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) : Randomness :=
+noncomputable def planted_r {L : LStarInstanceFG} (h : PlantedHyp L) : Randomness (planted_φ h).nvars :=
   Classical.choose (Classical.choose_spec (Classical.choose_spec h))
 
 /-- Extract n from planted instance hypothesis (noncomputable). -/
-noncomputable def planted_n {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) : Nat :=
+noncomputable def planted_n {L : LStarInstanceFG} (h : PlantedHyp L) : Nat :=
   Classical.choose h
 
 /-- Extract h_nvars from planted instance hypothesis. -/
-noncomputable def planted_h_nvars {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) : (planted_φ h).nvars ≥ 4 :=
+noncomputable def planted_h_nvars {L : LStarInstanceFG} (h : PlantedHyp L) : (planted_φ h).nvars ≥ 4 :=
   let spec1 := Classical.choose_spec h
   let spec2 := Classical.choose_spec spec1
   let spec3 := Classical.choose_spec spec2
   Classical.choose spec3
 
 /-- Extract h_dgLen from planted instance hypothesis. -/
-noncomputable def planted_h_dgLen {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) : (planted_r h).dgLen = (Nat.log 2 (planted_φ h).nvars) ^ 2 :=
+noncomputable def planted_h_dgLen {L : LStarInstanceFG} (h : PlantedHyp L) :
+    (planted_r h).dgLen = (Nat.log 2 (planted_φ h).nvars) ^ 2 :=
   let spec1 := Classical.choose_spec h
   let spec2 := Classical.choose_spec spec1
   let spec3 := Classical.choose_spec spec2
@@ -76,8 +78,7 @@ noncomputable def planted_h_dgLen {L : LStarInstanceFG}
   Classical.choose spec4
 
 /-- Extract L = plant_n equality from planted instance hypothesis. -/
-lemma planted_L_eq {L : LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) :
+lemma planted_L_eq {L : LStarInstanceFG} (h : PlantedHyp L) :
     L = plant_n (planted_n h) (planted_φ h) (planted_r h) (planted_h_nvars h) (planted_h_dgLen h) :=
   let spec1 := Classical.choose_spec h
   let spec2 := Classical.choose_spec spec1
@@ -96,10 +97,10 @@ Extracts witness from final TM configuration.
     **Design**: Runs TM to haltTime and applies extractWitness to final config.
 
     **Usage**: Used by SegmentSequentiality.lean and TMAdapter.lean. -/
-noncomputable def tmOutputWitness
+noncomputable def tmOutputWitness {nvars : Nat}
     (M : TuringMachine k states alphabet)
     (haltTime : Nat)
-    (extractWitness : TMConfig M → Witness) : Witness :=
+    (extractWitness : TMConfig M → Witness nvars) : Witness nvars :=
   let finalCfg := TMConfig.run M haltTime
   extractWitness finalCfg
 
@@ -120,15 +121,15 @@ Maps TM configurations to emergent configuration values for planted instances.
     3. Return as Nat (in range 0..2^R_v-1)
 
     **Instance-specific**: Requires extractWitness parameter (caller provides). -/
-noncomputable def tmEmergentEncoder
+noncomputable def tmEmergentEncoder {nvars : Nat}
     (M : TuringMachine k states alphabet)
     (v : {v // L.fg.gateReq v})
-    (extractWitness : TMConfig M → Witness)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) :
+    (extractWitness : TMConfig M → Witness nvars)
+    (h_planted : PlantedHyp L) :
     LocalEncoder M L v :=
   { encode := fun cfg =>
-      -- Extract assignment from current config
-      let assignment := (extractWitness cfg).assignment
+      -- Extract assignment from current config (convert to infinite for emergentConfigAtGate)
+      let assignmentInf := (extractWitness cfg).assignmentInf
 
       -- For planted instances, compute emergent config using the pure function
       let φ := planted_φ h_planted
@@ -150,7 +151,7 @@ noncomputable def tmEmergentEncoder
       let gateIndex := v.val - clause_start
 
       -- Call the pure emergent config function
-      match emergentConfigAtGate φ h_pos numGates assignment gateIndex with
+      match emergentConfigAtGate φ h_pos numGates assignmentInf gateIndex with
       | some ⟨R_v, cfg⟩ => cfg.val
       | none => 0  -- Fallback (should never happen for valid gates)
   }

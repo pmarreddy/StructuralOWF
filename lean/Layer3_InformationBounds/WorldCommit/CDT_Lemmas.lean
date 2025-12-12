@@ -288,7 +288,7 @@ This proves the hypothesis needed for bit_independence_from_A3.
     **Fix summary**: Original blocker "Need FG-specific bound R_v ≥ (log₂ n)²" is now
     resolved by importing and applying plant_fg_R_eq_lambdaBaseSize from Plant.lean. -/
 theorem polynomial_work_bounds_refutations_for_plant
-    (n_sec : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n_sec : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (v : {v // (plant_n n_sec φ r h_nvars h_dgLen).fg.gateReq v})
     (W_total : Nat)

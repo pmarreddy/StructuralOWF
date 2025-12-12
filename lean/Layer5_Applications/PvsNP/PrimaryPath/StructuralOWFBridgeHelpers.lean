@@ -22,7 +22,7 @@ lemma computeSeedAtVertex_ext
     (φ : CNF)
     (h_nvars_pos : φ.nvars > 0)
     (numGates : Nat)
-    (a1 a2 : LStar.Assignment)
+    (a1 a2 : LStar.AssignmentInf)
     (h_agree : ∀ i < φ.nvars, a1 i = a2 i)
     (v : Fin (LStar.StructuralOWF.Foundations.lstarStructureFromCNF φ h_nvars_pos numGates).dag.n) :
     LStar.StructuralOWF.Foundations.computeSeedAtVertex φ h_nvars_pos numGates a1 v =
@@ -156,8 +156,8 @@ theorem emergentConfig_assignment_extension
     (φ : CNF)
     (h_nvars_pos : φ.nvars > 0)
     (numGates : Nat)
-    (a_sat : LStar.Assignment)
-    (r_assignment : LStar.Assignment)
+    (a_sat : LStar.AssignmentInf)
+    (r_assignment : LStar.AssignmentInf)
     (h_extend : ∀ i < φ.nvars, r_assignment i = a_sat i)
     (gate_idx : Nat) :
     LStar.StructuralOWF.Foundations.emergentConfigAtGate φ h_nvars_pos numGates r_assignment gate_idx =

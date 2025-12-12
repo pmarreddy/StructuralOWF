@@ -108,20 +108,20 @@ namespace RandomnessN
     defaulting out-of-range indices to `false`.
 
 Uses numVars parameter to correctly extend assignment to the number of CNF variables. -/
-def extendAssign (numVars : Nat) (σ : Fin numVars → Bool) : Assignment :=
+def extendAssign (numVars : Nat) (σ : Fin numVars → Bool) : AssignmentInf :=
   fun i => if h : i < numVars then σ ⟨i, h⟩ else false
 
-/-- Convert `RandomnessN dgLen 1 numVars` to the full `Randomness`.
+/-- Convert `RandomnessN dgLen 1 numVars` to the full `Randomness numVars`.
     With the single-gate constraint, numGates = 1.
 
     Uses numVars for assignment extension to correctly represent CNFs with many variables.
     The dgLen parameter specifies digest length (e.g., (log n)² for QP-sharp).
 
     **Note**: Pads structuralBits with zeros to meet the 64-bit salt requirement. -/
-def toRandomness (dgLen numVars : Nat) (h_dgLen_pos : dgLen > 0) (r : RandomnessN dgLen 1 numVars) : Randomness :=
+def toRandomness (dgLen numVars : Nat) (h_dgLen_pos : dgLen > 0) (r : RandomnessN dgLen 1 numVars) : Randomness numVars :=
   { dgLen := dgLen
     h_dgLen_pos := h_dgLen_pos
-    assignment := extendAssign numVars r.assignment  -- Extends assignment to numVars variables
+    assignment := r.assignment  -- Now Fin numVars → Bool matches Assignment numVars
     gateDigests := r.gateDigests.toList
     -- Pad structuralBits to length 64 (required for h_sufficient_salts)
     structuralBits := r.structuralBits.toList ++ List.replicate 63 false

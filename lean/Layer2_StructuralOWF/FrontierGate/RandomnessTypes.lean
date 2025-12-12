@@ -9,10 +9,16 @@ import Mathlib.Data.Nat.Log
 This module defines the randomness input type for the planting function f: r ↦ x*.
 
 **Structure**: The randomness r ∈ {0,1}^m decomposes as:
+- `nvars`: Number of variables (the n parameter)
 - `dgLen`: Digest length parameter (scales with security profile)
-- `assignment`: Boolean assignment to n variables
+- `assignment`: Boolean assignment to n variables (FINITE: Fin nvars → Bool)
 - `gateDigests`: FG digest values (single dgLen-bit digest)
 - `structuralBits`: Cryptographic salts (≥64 bits)
+
+**Track A Refactor (Bitstring Encoding)**:
+Assignment is now `LStar.Assignment nvars = Fin nvars → Bool` (finite!), not `Nat → Bool`.
+This is required for proper complexity-theoretic formalization where witnesses must be
+finite bit strings that can be encoded in {0,1}^poly(n).
 
 **Security Profiles**:
 - QP-Sharp: dgLen = (log₂ n)² yields quasi-polynomial bounds
@@ -31,22 +37,26 @@ the fg_emergence_bound invariant Σ_{v∈C} R_v ≤ R_fg.
 -/
 namespace LStar.StructuralOWF
 
-/-- Boolean assignment mapping variable indices to truth values. -/
-abbrev Assignment := Nat → Bool
+-- Re-export the finite Assignment type from CNF.lean
+-- Assignment n = Fin n → Bool (finite, encodable as n bits)
+-- AssignmentInf = Nat → Bool (infinite, for internal evaluation)
 
 /-- Randomness structure for the planting function f: r ↦ x*.
 
 Represents r ∈ {0,1}^m with security constraints enforced at the type level.
-The parametric digest length dgLen enables different security profiles. -/
-structure Randomness where
+The parametric nvars and dgLen enable different CNF sizes and security profiles.
+
+**Track A**: Now parametrized by nvars, with finite assignment type. -/
+structure Randomness (nvars : Nat) where
   /-- Digest length parameter, scaling with security profile. -/
   dgLen : Nat
 
   /-- Positivity constraint ensuring meaningful parity computation. -/
   h_dgLen_pos : dgLen > 0
 
-  /-- Satisfying assignment for the embedded 3-SAT formula. -/
-  assignment : Assignment
+  /-- Satisfying assignment for the embedded 3-SAT formula.
+      FINITE: exactly nvars bits, encodable as {0,1}^nvars. -/
+  assignment : LStar.Assignment nvars
 
   /-- Gate digests: list of dgLen-bit vectors (constrained to length 1). -/
   gateDigests : List (Vector Bool dgLen)
@@ -60,6 +70,10 @@ structure Randomness where
 
   /-- Single gate constraint required by fg_emergence_bound invariant. -/
   h_single_gate : gateDigests.length = 1
+
+/-- Convert finite assignment in Randomness to infinite for evaluation. -/
+def Randomness.assignmentInf {nvars : Nat} (r : Randomness nvars) : LStar.AssignmentInf :=
+  r.assignment.extend
 
 /-- QP-Sharp profile digest length: (log₂ n)². -/
 def qpDigestLen (nvars : Nat) : Nat :=
@@ -115,8 +129,12 @@ structure GateProofItem where
 
 /-- Witness for L* verification: W = (assignment, gateProofs, digestBits).
 
+    **Track A Refactor**: Now parametrized by `nvars` with FINITE assignment type.
+    This is required for proper complexity-theoretic formalization where witnesses
+    must be finite bit strings in {0,1}^poly(n).
+
     **What each field is**:
-    - `assignment`: The satisfying assignment α for the CNF formula φ
+    - `assignment`: The satisfying assignment α for the CNF formula φ (FINITE: nvars bits)
     - `gateProofs`: Per-bit gate proof items (which gate, which position, what value)
     - `digestBits`: The dgLen-bit digest value for the FG gate(s)
 
@@ -147,9 +165,10 @@ structure GateProofItem where
     multi-gate extensions but is unused in current single-gate proofs.
 
     See: Paper §10.4.1, Appendix C.1.1 -/
-structure Witness where
-  /-- Satisfying assignment α for the CNF formula φ. -/
-  assignment : Assignment
+structure Witness (nvars : Nat) where
+  /-- Satisfying assignment α for the CNF formula φ.
+      FINITE: exactly nvars bits, encodable as {0,1}^nvars. -/
+  assignment : LStar.Assignment nvars
 
   /-- Per-bit gate proof items. For single-gate instances, can be `[]` because
       the path structure is implicit (only one FG gate exists). -/
@@ -158,6 +177,10 @@ structure Witness where
   /-- The dgLen-bit digest value for verification. For single-gate instances,
       this is the full digest that the verifier recomputes and compares. -/
   digestBits : List Bool
+
+/-- Convert finite assignment in Witness to infinite for evaluation. -/
+def Witness.assignmentInf {nvars : Nat} (w : Witness nvars) : LStar.AssignmentInf :=
+  w.assignment.extend
 
 end LStar.StructuralOWF
 

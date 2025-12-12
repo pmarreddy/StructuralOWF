@@ -56,7 +56,7 @@ Extends DeterministicRun with explicit state tracking to support proofs.
     **Abstraction level**: We don't specify HOW states are computed, just that
     there exists a coherent mapping satisfying certain properties. -/
 structure TrackedRun (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) extends
-    DeterministicRun Assignment Witness where
+    DeterministicRun (Assignment L.n) (Witness L.n) where
   /-- State at each time step.
 
       **Interpretation**: During execution, at time t, the algorithm was in state
@@ -2034,11 +2034,11 @@ theorem witness_finder_soundness_from_execution
     (h_lambda_pos : lambda ≥ 1)
     (h_would_be_exhaustive : ∀ (run : TrackedRun L C),
       run.time = W.time →
-      φ.satisfies W.output.assignment →
+      φ.satisfies W.output.assignmentInf →
       ∃ (configs : Finset (ConfigSpace L C)),
         configs.card = 2 ^ lambda ∧
         (∀ cfg ∈ configs, RunCoversConfig run cfg))
-    : ¬(φ.satisfies W.output.assignment) := by
+    : ¬(φ.satisfies W.output.assignmentInf) := by
   intro h_correct
 
   have h_lambda_from_residual : lambda = C.sum (fun v => L.R v) := by

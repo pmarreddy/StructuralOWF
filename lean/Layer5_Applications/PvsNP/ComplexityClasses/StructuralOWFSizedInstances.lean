@@ -8,8 +8,12 @@ Provides `Sized` typeclass instances for types used in OWF security proofs.
 
 **Instances**:
 - `LStarInstanceFG`: size = dag.n (number of DAG vertices)
-- `Randomness`: size = assignment support + digest length + structural bits
-- `Witness`: size = assignment support + proof count + digest bits + 1
+- `Randomness nvars`: size = nvars (assignment bits) + digest length + structural bits
+- `Witness nvars`: size = nvars (assignment bits) + proof count + digest bits + 1
+
+**Track A Refactor**: Randomness and Witness are now parametrized by nvars with finite
+assignment type (Fin nvars → Bool). The size measure now uses nvars directly instead
+of computing support size.
 
 **Trust Boundary**: Definitional instances with no axioms.
 -/
@@ -20,8 +24,9 @@ open LStar.StructuralOWF.Foundations
 open LStar.StructuralOWF
 
 /-- Compute assignment support size (positions with true values).
-    Bounded by 128 as upper estimate for finite support. -/
-def assignment_support_size (assignment : Nat → Bool) : Nat :=
+    Bounded by 128 as upper estimate for finite support.
+    Used for AssignmentInf (infinite) type. -/
+def assignment_support_size (assignment : LStar.AssignmentInf) : Nat :=
   (List.range 128).filter (fun i => assignment i = true) |>.length
 
 /-- DAG size bounds: dag.n ≥ L.n for any LStarInstanceFG. -/
@@ -37,35 +42,26 @@ instance : Sized LStarInstanceFG where
     have h_n_pos : 0 < L.n := L.n_pos
     omega
 
-/-- Sized instance for Randomness.
-    Size measure: total encoding length. -/
-instance : Sized Randomness where
+/-- Sized instance for Randomness nvars.
+    Size measure: nvars + digest length + structural bits.
+    The nvars directly gives the assignment encoding length (finite assignment is nvars bits).
+    Note: The size is always positive due to h_sufficient_salts (≥64 structural bits). -/
+instance (nvars : Nat) : Sized (Randomness nvars) where
   size r :=
-    let assignment_size := assignment_support_size r.assignment
-    let gate_digests_size := r.gateDigests.foldl (fun acc (_d : Vector Bool r.dgLen) => acc + r.dgLen) 0
-    let structural_size := r.structuralBits.length
-    assignment_size + gate_digests_size + structural_size
+    nvars + r.gateDigests.foldl (fun acc (_d : Vector Bool r.dgLen) => acc + r.dgLen) 0 + r.structuralBits.length
   size_pos r := by
-    simp [assignment_support_size]
-    have h_gate : r.gateDigests.foldl (fun acc (_d : Vector Bool r.dgLen) => acc + r.dgLen) 0 ≥ r.dgLen := by
-      have h_single : r.gateDigests.length = 1 := r.h_single_gate
-      obtain ⟨d, hd⟩ := List.length_eq_one_iff.mp h_single
-      simp [hd]
-    have h_dgLen_pos : r.dgLen > 0 := r.h_dgLen_pos
     have h_struct : r.structuralBits.length ≥ 64 := r.h_sufficient_salts
     omega
 
-/-- Sized instance for Witness.
-    Size measure: total encoding length + 1 for positivity. -/
-instance : Sized Witness where
+/-- Sized instance for Witness nvars.
+    Size measure: nvars + proof count + digest bits + 1.
+    The nvars directly gives the assignment encoding length (finite assignment is nvars bits).
+    Note: The size is always positive due to the +1. -/
+instance (nvars : Nat) : Sized (Witness nvars) where
   size w :=
-    let assignment_size := assignment_support_size w.assignment
-    let gate_proofs_size := w.gateProofs.foldl (fun acc _p => acc + 1) 0
-    let digest_bits_size := w.digestBits.length
-    assignment_size + gate_proofs_size + digest_bits_size + 1
+    nvars + w.gateProofs.foldl (fun acc _p => acc + 1) 0 + w.digestBits.length + 1
   size_pos _w := by
-    simp only [assignment_support_size]
-    omega
+    omega  -- +1 ensures positivity
 
 #print axioms Sized
 

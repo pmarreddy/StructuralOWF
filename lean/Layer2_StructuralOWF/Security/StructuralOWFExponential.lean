@@ -398,7 +398,7 @@ any polynomial-size subset S ⊂ {0,...,λ-1} leaves at least two configs indist
 
 **Trust boundary**: 0 axioms (proven from A2 injectivity + parity commitment). -/
 theorem planted_exponential_hardness_from_subset
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (v : {v // (plant_flat n φ r h_nvars).fg.gateReq v})
     (S : Finset (Fin ((plant_flat n φ r h_nvars).R v.val)))
     (h_strict_subset : S.card < (plant_flat n φ r h_nvars).R v.val)
@@ -445,7 +445,7 @@ theorem planted_exponential_hardness_from_subset
 
     **Usage**: Bridge from parity ambiguity to correctness impossibility. -/
 theorem planted_exponential_requires_complete_observation
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (v : {v // (plant_flat n φ r h_nvars).fg.gateReq v})
     (readBits : Nat)
     (h_incomplete : readBits < (plant_flat n φ r h_nvars).R v.val)
@@ -534,7 +534,7 @@ private noncomputable def tmToWitnessFinder_flat
     (maxPos : Nat)
     (extractWitness : Foundations.TMConfig M → Witness)
     (h_halts : (Foundations.TMConfig.run M haltTime).state ∈ M.halt)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4),
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
                    L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
     (h_correct : (Foundations.FlatProfile.planted_φ_flat h_planted).satisfies (Foundations.tmOutputWitness M haltTime extractWitness).assignment)
     (h_time_pos : haltTime > 0)
@@ -754,7 +754,7 @@ private theorem computedConfigs_bounded_by_gates_flat
     (haltTime : Nat)
     (extractWitness : Foundations.TMConfig M → Witness)
     (C : Finset (Fin L.dag.n))
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_tm_correct : φ.satisfies (Foundations.tmOutputWitness M haltTime extractWitness).assignment)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (h_wf : WellFormedRandomness φ r)

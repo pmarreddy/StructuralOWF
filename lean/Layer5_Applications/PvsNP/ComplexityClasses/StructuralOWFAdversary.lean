@@ -58,11 +58,11 @@ open Sized
 
     **Trust Boundary**: 0 axioms (structural property of well-formed encodings)
 -/
-def NontrivialComputation
+def NontrivialComputation (nvars : Nat)
     {tapeCount : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
     [Fintype alphabet] [DecidableEq alphabet]
     (M : TuringMachine tapeCount states alphabet)
-    (extractWitness : TMConfig M → Witness)
+    (extractWitness : TMConfig M → Witness nvars)
     {coins : Nat} (encoding : TMInputEncodingBase (Fin coins × LStarInstanceFG) alphabet)
     (h_tape_pos : 0 < tapeCount)
     (h_blank : M.blank = encoding.blank) : Prop :=
@@ -71,7 +71,7 @@ def NontrivialComputation
     φ.nvars ≥ 4 →
     LStar.CNF.HasPositiveClause φ →
     let init_cfg := initWithEncodingBase M encoding (c, x) h_tape_pos h_blank
-    φ.satisfies (extractWitness ((TMConfig.step (M := M))^[haltTime] init_cfg)).assignment →
+    φ.satisfies (extractWitness ((TMConfig.step (M := M))^[haltTime] init_cfg)).assignmentInf →
     haltTime ≥ 2
 
 /-- OWF-specific PPT adversary with assignment correspondence.
@@ -81,8 +81,8 @@ def NontrivialComputation
 
     **Type Specialization**:
     - α = LStarInstanceFG (L* instances with Frontier Gate)
-    - β = Randomness (has .assignment : Assignment)
-    - γ = Witness (has .assignment : Assignment)
+    - β = Randomness nvars (has .assignment : Assignment nvars)
+    - γ = Witness nvars (has .assignment : Assignment nvars)
 
     **Assignment Correspondence**: The `assignment_correspondence` field proves that
     for encoded-input TM execution, extractWitness produces the same assignment as run.
@@ -92,9 +92,9 @@ def NontrivialComputation
     **Usage**: OWF security proofs (OWFExponential, OWFQP) use StructuralOWFAdversary
     to work with the concrete OWF types and derive tm_algorithm_correspondence.
 -/
-structure StructuralOWFAdversary where
+structure StructuralOWFAdversary (nvars : Nat) where
   /-- The underlying generic PPT adversary. -/
-  base : PPTAdversary LStarInstanceFG Randomness Witness
+  base : PPTAdversary LStarInstanceFG (Randomness nvars) (Witness nvars)
 
   /-- **ASSIGNMENT CORRESPONDENCE**: extractWitness produces same assignment as run.
 
@@ -153,15 +153,15 @@ structure StructuralOWFAdversary where
       produces a satisfying assignment for L.φ.
 
       **Trust Boundary**: 0 axioms (structural requirement, not assumption) -/
-  nontrivial_computation : NontrivialComputation base.M base.extractWitness
+  nontrivial_computation : NontrivialComputation nvars base.M base.extractWitness
       base.encoding.input base.h_tape_pos base.h_blank_consistent
 
   /-- **EXTRACTWITNESS COVERS BOUNDED ASSIGNMENTS**: extractWitness can produce any
       assignment with bounded support.
 
-      **Statement**: For any bound and any assignment σ with support ≤ bound
+      **Statement**: For any bound and any infinite assignment σ with support ≤ bound
       (i.e., σ i = false for all i ≥ bound), there exists a TM configuration cfg
-      such that (extractWitness cfg).assignment = σ.
+      such that (extractWitness cfg).assignmentInf = σ.
 
       **Purpose**: Structural requirement enabling encoder completeness proofs.
       Combined with A3 emergence (full-rank matrices), this proves that the emergent
@@ -174,39 +174,39 @@ structure StructuralOWFAdversary where
       σ_target encodes val : Fin (2^R) and thus has support ≤ R bits.
 
       **Trust Boundary**: 0 axioms (structural requirement, not assumption) -/
-  extractWitness_covers_bounded_assignments : ∀ (bound : Nat) (σ : LStar.Assignment),
+  extractWitness_covers_bounded_assignments : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
       (∀ i ≥ bound, σ i = false) →
-      ∃ cfg : TMConfig base.M, (base.extractWitness cfg).assignment = σ
+      ∃ cfg : TMConfig base.M, (base.extractWitness cfg).assignmentInf = σ
 
 /-- Extract the TM from an OWF adversary. -/
-abbrev StructuralOWFAdversary.M (A : StructuralOWFAdversary) := A.base.M
+abbrev StructuralOWFAdversary.M {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.M
 
 /-- Extract witness function from an OWF adversary. -/
-abbrev StructuralOWFAdversary.extractWitness (A : StructuralOWFAdversary) := A.base.extractWitness
+abbrev StructuralOWFAdversary.extractWitness {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.extractWitness
 
 /-- Extract run function from an OWF adversary. -/
-abbrev StructuralOWFAdversary.run (A : StructuralOWFAdversary) := A.base.run
+abbrev StructuralOWFAdversary.run {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.run
 
 /-- Number of coins in an OWF adversary. -/
-abbrev StructuralOWFAdversary.num_coins (A : StructuralOWFAdversary) := A.base.num_coins
+abbrev StructuralOWFAdversary.num_coins {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.num_coins
 
 /-- Time bound function from an OWF adversary. -/
-abbrev StructuralOWFAdversary.time_bound (A : StructuralOWFAdversary) := A.base.time_bound
+abbrev StructuralOWFAdversary.time_bound {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.time_bound
 
 /-- Uniform polynomial constant C from an OWF adversary. -/
-abbrev StructuralOWFAdversary.C (A : StructuralOWFAdversary) := A.base.C
+abbrev StructuralOWFAdversary.C {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.C
 
 /-- Uniform polynomial exponent k from an OWF adversary. -/
-abbrev StructuralOWFAdversary.k (A : StructuralOWFAdversary) := A.base.k
+abbrev StructuralOWFAdversary.k {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.k
 
 /-- Polynomial bound from an OWF adversary. -/
-abbrev StructuralOWFAdversary.poly (A : StructuralOWFAdversary) := A.base.poly
+abbrev StructuralOWFAdversary.poly {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.poly
 
 /-- Tape count from an OWF adversary. -/
-abbrev StructuralOWFAdversary.tapeCount (A : StructuralOWFAdversary) := A.base.tapeCount
+abbrev StructuralOWFAdversary.tapeCount {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.tapeCount
 
 /-- Coins positivity from an OWF adversary. -/
-abbrev StructuralOWFAdversary.coins_pos (A : StructuralOWFAdversary) := A.base.coins_pos
+abbrev StructuralOWFAdversary.coins_pos {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.coins_pos
 
 -- Axiom Audits
 #print axioms StructuralOWFAdversary

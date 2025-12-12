@@ -143,11 +143,11 @@ theorem build3SATReductionDAG_acyclic (φ : CNF) (numGates : Nat := 1) :
 
     For n ≤ dgLen: encodes all n assignment bits (rest padded with false)
     For n > dgLen: encodes first dgLen bits (sufficient for injectivity on those bits) -/
-def assignmentToDigestN (dgLen : Nat) (n : Nat) (assignment : Assignment) : Vector Bool dgLen :=
+def assignmentToDigestN (dgLen : Nat) (n : Nat) (assignment : AssignmentInf) : Vector Bool dgLen :=
   Vector.ofFn (fun i : Fin dgLen => if h : i.val < n then assignment i.val else false)
 
 /-- Legacy 64-bit version of assignmentToDigest for backward compatibility -/
-def assignmentToDigest (n : Nat) (assignment : Assignment) : Vector Bool 64 :=
+def assignmentToDigest (n : Nat) (assignment : AssignmentInf) : Vector Bool 64 :=
   assignmentToDigestN 64 n assignment
 
 /-- XOR two dgLen-bit vectors componentwise. -/
@@ -159,7 +159,7 @@ def xorDigest (v1 v2 : Vector Bool 64) : Vector Bool 64 :=
   xorDigestN v1 v2
 
 /-- Injectivity of assignmentToDigestN: equal digests imply equal assignments on first min(n,dgLen) bits -/
-theorem assignmentToDigestN_injective (dgLen n : Nat) (a1 a2 : Assignment)
+theorem assignmentToDigestN_injective (dgLen n : Nat) (a1 a2 : AssignmentInf)
     (h_eq : assignmentToDigestN dgLen n a1 = assignmentToDigestN dgLen n a2) :
     ∀ i < min n dgLen, a1 i = a2 i := by
   intro i hi
@@ -172,7 +172,7 @@ theorem assignmentToDigestN_injective (dgLen n : Nat) (a1 a2 : Assignment)
   exact h_elem
 
 /-- Injectivity of assignmentToDigest: equal digests imply equal assignments on first min(n,64) bits -/
-theorem assignmentToDigest_injective (n : Nat) (a1 a2 : Assignment)
+theorem assignmentToDigest_injective (n : Nat) (a1 a2 : AssignmentInf)
     (h_eq : assignmentToDigest n a1 = assignmentToDigest n a2) :
     ∀ i < min n 64, a1 i = a2 i := by
   unfold assignmentToDigest at h_eq
@@ -283,7 +283,7 @@ theorem resizeDigest_injective
 /-- Every Randomness has at least one FG gate digest.
 
     This follows from the single-gate constraint: r.gateDigests.length = 1. -/
-theorem structural_owf_nonempty_gates (_n : Nat) (r : Randomness) : 0 < r.gateDigests.length := by
+theorem structural_owf_nonempty_gates {nvars : Nat} (r : Randomness nvars) : 0 < r.gateDigests.length := by
   rw [r.h_single_gate]
   decide
 
@@ -351,7 +351,7 @@ def plant_n_encode_cnf (φ : CNF) (numGates : Nat) (dag : DAG)
     entropy on source and variable nodes, which are the only ancestors of clause nodes.
     Therefore, clause seeds computed from this entropy equal those computed during decoding.
 -/
-def plant_n_entropy (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+def plant_n_entropy (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (dag : DAG) (seedWidth_val : Fin dag.n → Nat) :
     (v : Fin dag.n) → Seed (seedWidth_val v) :=
@@ -365,7 +365,7 @@ def plant_n_entropy (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
     else if v.val <= φ.nvars then
       -- Variable node (1..nvars): entropy from assignment
       let varIdx := v.val - 1
-      let bit := r.assignment varIdx
+      let bit := r.assignmentInf varIdx  -- Use infinite extension for Nat indexing
       LStar.ofBits _ (fun i => if i.val == 0 then bit else false)
     else if (clause_start ≤ v.val) ∧ (v.val < fg_end) then
       -- FG Gate: entropy from ALL R bits of gateDigest (2^R bottleneck!)
@@ -395,7 +395,7 @@ def plant_n_entropy (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
     Requires r.dgLen = (log₂ nvars)² for QP profile digest length matching.
 
     See `StructuralOWFDomain`, `InversionSuccess`, `parseBits` below for total OWF extension. -/
-noncomputable def plant_n (_n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+noncomputable def plant_n (_n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) : LStarInstanceFG :=
   -- ═══════════════════════════════════════════════════════════════════════════
   -- PHASE 1: DAG and Parameter Setup
@@ -830,7 +830,7 @@ substitute any valid proof without re-elaboration.
 
     See: Layer5_Applications/PvsNP/QP/StructuralOWFBridgeQP.lean for usage context.
 -/
-theorem plant_n_h_dgLen_irrel (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_n_h_dgLen_irrel (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h₁ h₂ : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     plant_n n φ r h_nvars_min h₁ = plant_n n φ r h_nvars_min h₂ := by
   -- Proof irrelevance: h₁ and h₂ are proofs of the same Prop, hence equal
@@ -844,28 +844,28 @@ theorem plant_n_h_dgLen_irrel (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min
     Note: With OAP, the formula φ is encoded (seed-locked) in encodedφ.
     To recover the plaintext φ, one must decode using the correct seeds,
     which requires knowing the satisfying assignment. -/
-theorem plant_n_encodedφ_nvars (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_n_encodedφ_nvars (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     (plant_n n φ r h_nvars_min h_dgLen).encodedφ.nvars = φ.nvars := by
   unfold plant_n plant_n_encode_cnf LStar.OAP.encodeWithOAPDep
   rfl
 
 /-- The encodedφ.clauses.length field equals the input formula's clauses.length. -/
-theorem plant_n_encodedφ_clauses_length (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_n_encodedφ_clauses_length (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     (plant_n n φ r h_nvars_min h_dgLen).encodedφ.clauses.length = φ.clauses.length := by
   unfold plant_n
   exact LStar.OAP.encodeWithOAPDep_clauses_length φ _ _
 
 /-- The DAG size of a planted instance. -/
-theorem plant_n_dag_n (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_n_dag_n (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     (plant_n n φ r h_nvars_min h_dgLen).dag.n = Construction.totalNodes φ.nvars φ.clauses.length := by
   unfold plant_n build3SATReductionDAG Construction.build3SATReductionDAG
   rfl
 
 /-- The n field of a planted instance equals the number of variables. -/
-theorem plant_n_n (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_n_n (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     (plant_n n φ r h_nvars_min h_dgLen).n = φ.nvars := by
   unfold plant_n
@@ -874,7 +874,7 @@ theorem plant_n_n (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars 
 /-- The gate digest segmentBudget is constant (Nat.log 2 φ.nvars)², independent of branch taken.
     The bits encode parity (one-way), which provides injectivity without leaking assignment. -/
 theorem plant_n_gateDigest_segmentBudget_eq
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (v : {v // (plant_n n φ r h_nvars_min h_dgLen).fg.gateReq v}) :
     ((plant_n n φ r h_nvars_min h_dgLen).fg.gateDigest v).segmentBudget =
@@ -884,7 +884,7 @@ theorem plant_n_gateDigest_segmentBudget_eq
   split_ifs <;> rfl
 
 /-- Every planted instance is FG-wired. -/
-theorem plant_fg_wired (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_fg_wired (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_nonempty : 0 < r.gateDigests.length)
     (_h_nvars : φ.nvars ≥ 4)
@@ -923,7 +923,7 @@ theorem plant_fg_wired (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.n
 
 /-- For any FG gate in a planted instance, the emergent bit count R v is at least 1. -/
 theorem plant_fg_R_ge_one
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (v : {v // (plant_n n φ r h_nvars_min h_dgLen).fg.gateReq v})
     (h_nvars : φ.nvars ≥ 128) :
@@ -977,7 +977,7 @@ theorem plant_fg_R_ge_one
 
 /-- For any FG gate in a planted instance, R v equals (log₂ φ.nvars)². -/
 theorem plant_fg_R_eq_lambdaBaseSize
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (v : {v // (plant_n n φ r h_nvars_min h_dgLen).fg.gateReq v}) :
     (plant_n n φ r h_nvars_min h_dgLen).R v.val = (Nat.log 2 φ.nvars) ^ 2 := by
@@ -1025,7 +1025,7 @@ theorem plant_fg_R_eq_lambdaBaseSize
 /-- Construct an FG gate witness for a planted instance.
 
     Returns the first clause node as the FG gate witness. -/
-def plant_fg_gate_witness (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+def plant_fg_gate_witness (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_clauses : 0 < φ.clauses.length) :
     {v // (plant_n n φ r h_nvars_min h_dgLen).fg.gateReq v} := by
@@ -1050,12 +1050,12 @@ def plant_fg_gate_witness (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : �
 
 /-- Planting is computable in polynomial time in the formula size. -/
 theorem plant_poly_time (_n : Nat) (φ : CNF) :
-    ∃ C k : Nat, ∀ _r : Randomness,
+    ∃ C k : Nat, ∀ _r : Randomness φ.nvars,
       let m := φ.nvars
       let ops := m * m + m + (m + 1) * 64
       ops ≤ C * (m + 1) ^ k := by
   use 200, 3
-  intro r m ops
+  intro _r m ops
   have hsum : ops = m * m + 65 * m + 64 := by
     simp [ops, Nat.add_mul]
     ring
@@ -1079,13 +1079,13 @@ private theorem poly_bound_helper (m : Nat) : m * m + 65 * m + 64 ≤ 200 * (m +
 
 
 /-- If randomness contains a satisfying assignment, the planted instance is satisfiable. -/
-theorem plant_yes_instance (_n : Nat) (φ : CNF) (r : Randomness) (_h_nvars_min : φ.nvars ≥ 4)
-    (_h_sat : φ.satisfies r.assignment) :
+theorem plant_yes_instance (_n : Nat) (φ : CNF) (r : Randomness φ.nvars) (_h_nvars_min : φ.nvars ≥ 4)
+    (_h_sat : φ.satisfies r.assignmentInf) :
     True := by
   trivial
 
 /-- Planting is deterministic. -/
-theorem plant_deterministic (n : Nat) (φ : CNF) (r : Randomness) (_h_nvars_min : φ.nvars ≥ 4) :
+theorem plant_deterministic (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (_h_nvars_min : φ.nvars ≥ 4) :
     plant_n n φ r = plant_n n φ r := rfl
 
 /-!
@@ -1149,7 +1149,7 @@ When all three match, the planted instances are structurally identical.
 
 /-- Helper: DAG equality when gateDigests.length is equal.
     The DAG depends on φ and numGates (= r.gateDigests.length). -/
-theorem plant_n_dag_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
+theorem plant_n_dag_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen1 : r1.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_dgLen2 : r2.dgLen = (Nat.log 2 φ.nvars) ^ 2)
@@ -1159,7 +1159,7 @@ theorem plant_n_dag_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
   simp only [plant_n, h_gates_len]
 
 /-- Helper: pools equality when structuralBits.take 64 and gateDigests.length are equal. -/
-theorem plant_n_pools_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
+theorem plant_n_pools_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen1 : r1.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_dgLen2 : r2.dgLen = (Nat.log 2 φ.nvars) ^ 2)
@@ -1180,7 +1180,7 @@ theorem plant_n_pools_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
   exact heq_of_eq h_pools_eq
 
 /-- Helper: seedWidth equality when gateDigests.length is equal. -/
-theorem plant_n_seedWidth_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
+theorem plant_n_seedWidth_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen1 : r1.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_dgLen2 : r2.dgLen = (Nat.log 2 φ.nvars) ^ 2)
@@ -1201,7 +1201,7 @@ theorem plant_n_seedWidth_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
   exact heq_of_eq h_eq
 
 /-- Helper: R equality when gateDigests.length is equal. -/
-theorem plant_n_R_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
+theorem plant_n_R_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen1 : r1.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_dgLen2 : r2.dgLen = (Nat.log 2 φ.nvars) ^ 2)
@@ -1219,7 +1219,7 @@ theorem plant_n_R_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
 /-- Helper: gateReq equality when gateDigests.length is equal.
 
     gateReq depends only on φ.nvars and r.gateDigests.length, not on seeds or encoding. -/
-theorem plant_n_gateReq_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
+theorem plant_n_gateReq_heq (n : Nat) (φ : CNF) (r1 r2 : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen1 : r1.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_dgLen2 : r2.dgLen = (Nat.log 2 φ.nvars) ^ 2)
@@ -1254,7 +1254,7 @@ private lemma subtype_heq_val' {α : Type*} {p q : α → Prop} (a : Subtype p) 
     gateDigest functions are HEq (assuming equal DAG structure).
 
     This is a component-level lemma used to prove FG HEq without full instance equality. -/
-theorem plant_n_gateDigest_heq_of_gateDigests_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
+theorem plant_n_gateDigest_heq_of_gateDigests_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen1 : r1.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_dgLen2 : r2.dgLen = (Nat.log 2 φ.nvars) ^ 2)
@@ -1291,7 +1291,7 @@ theorem plant_n_gateDigest_heq_of_gateDigests_eq (n : Nat) (φ : CNF) (r1 r2 : R
 
     **Trust Boundary**: 0 axioms (structural equality). -/
 theorem plant_fg_eq_of_instance_eq
-    (n : Nat) (φ : CNF) (h_nvars_min : φ.nvars ≥ 4) (r1 r2 : Randomness)
+    (n : Nat) (φ : CNF) (h_nvars_min : φ.nvars ≥ 4) (r1 r2 : Randomness φ.nvars)
     (h_dgLen1 : r1.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_dgLen2 : r2.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_eq : plant_n n φ r1 h_nvars_min h_dgLen1 = plant_n n φ r2 h_nvars_min h_dgLen2) :
@@ -1310,7 +1310,7 @@ theorem plant_fg_eq_of_instance_eq
     digest equality. The domain constraint ensures any valid preimage has a
     satisfying assignment. -/
 theorem plant_gateDigest_heq_of_instance_eq
-    (n : Nat) (φ : CNF) (h_nvars_min : φ.nvars ≥ 4) (r1 r2 : Randomness)
+    (n : Nat) (φ : CNF) (h_nvars_min : φ.nvars ≥ 4) (r1 r2 : Randomness φ.nvars)
     (h_dgLen1 : r1.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_dgLen2 : r2.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_eq : plant_n n φ r1 h_nvars_min h_dgLen1 = plant_n n φ r2 h_nvars_min h_dgLen2) :
@@ -1342,13 +1342,13 @@ noncomputable def emergentConfigFromWorld
   ω.assignment v h_in
 
 /-- Planted instances satisfy property A2 (encoding injectivity). -/
-theorem plant_satisfies_A2 (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_satisfies_A2 (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     Properties.satisfies_A2 (plant_n n φ r h_nvars_min h_dgLen).toLStarInstanceFull := by
   exact Properties.L_satisfies_A2 (plant_n n φ r h_nvars_min h_dgLen).toLStarInstanceFull
 
 /-- Planted instances satisfy property A3 (full rank emergence). -/
-theorem plant_satisfies_A3 (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_satisfies_A3 (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     Properties.satisfies_A3 (plant_n n φ r h_nvars_min h_dgLen).toLStarInstanceFull := by
   exact Properties.L_satisfies_A3 (plant_n n φ r h_nvars_min h_dgLen).toLStarInstanceFull
@@ -1366,7 +1366,7 @@ abbrev BitString := List Bool
 
 /-- OWF domain predicate: valid inputs are well-formed.
     Note: WellFormedRandomness already implies φ.satisfies r.assignment (first conjunct). -/
-def StructuralOWFDomain (φ : CNF) (r : Randomness) : Prop :=
+def StructuralOWFDomain (φ : CNF) (r : Randomness φ.nvars) : Prop :=
   Foundations.WellFormedRandomness φ r
 
 /-- Inversion success predicate for the OWF game.
@@ -1378,12 +1378,12 @@ def StructuralOWFDomain (φ : CNF) (r : Randomness) : Prop :=
 
     Both checks are poly-time. This is the ONLY difference from standard OWF. -/
 def InversionSuccess (φ : CNF) (h_nvars : φ.nvars ≥ 4)
-    (target : LStarInstanceFG) (r' : Randomness)
+    (target : LStarInstanceFG) (r' : Randomness φ.nvars)
     (h_dgLen : r'.dgLen = (Nat.log 2 φ.nvars) ^ 2) : Prop :=
   plant_n φ.nvars φ r' h_nvars h_dgLen = target ∧ StructuralOWFDomain φ r'
 
 /-- plant_n satisfies the domain constraint by construction. -/
-theorem plant_n_in_domain (φ : CNF) (r : Randomness)
+theorem plant_n_in_domain (φ : CNF) (r : Randomness φ.nvars)
     (h_wf : Foundations.WellFormedRandomness φ r) :
     StructuralOWFDomain φ r := h_wf
 
@@ -1395,7 +1395,7 @@ theorem plant_n_in_domain (φ : CNF) (r : Randomness)
     Domain membership must still be checked via StructuralOWFDomain/InversionSuccess.
 
     Note: Requires nvars ≥ 4 for dgLen > 0. -/
-def parseBits (nvars : Nat) (h_nvars : nvars ≥ 4) (bits : BitString) : Option Randomness :=
+def parseBits (nvars : Nat) (h_nvars : nvars ≥ 4) (bits : BitString) : Option (Randomness nvars) :=
   let dgLen := qpDigestLen nvars
   if _h_len : bits.length ≥ nvars + dgLen + 64 then  -- assignment + digest + structural
     let assignmentBits := bits.take nvars
@@ -1403,8 +1403,9 @@ def parseBits (nvars : Nat) (h_nvars : nvars ≥ 4) (bits : BitString) : Option 
     let digestBits := remaining.take dgLen
     let structBits := remaining.drop dgLen
     if h_struct : structBits.length ≥ 64 then
-      let assignment : Assignment := fun i =>
-        if hi : i < assignmentBits.length then assignmentBits.get ⟨i, hi⟩ else false
+      -- Build finite assignment from first nvars bits
+      let assignment : LStar.Assignment nvars := fun i =>
+        if hi : i.val < assignmentBits.length then assignmentBits.get ⟨i.val, hi⟩ else false
       let digest : Vector Bool dgLen := Vector.ofFn fun i =>
         digestBits.getD i.val false
       have h_dgLen_pos : dgLen > 0 := qpDigestLen_pos nvars h_nvars
@@ -1433,8 +1434,8 @@ theorem parseBits_dgLen (nvars : Nat) (h_nvars : nvars ≥ 4) (bits : BitString)
     by_cases h2 : ((bits.drop nvars).drop (qpDigestLen nvars)).length ≥ 64
     · simp only [dif_pos h2, Option.some.injEq] at h_eq
       -- h_eq : { dgLen := qpDigestLen nvars, ... } = r
-      -- After subst, goal becomes qpDigestLen nvars = (Nat.log 2 nvars) ^ 2
-      subst r
+      -- Use cases on h_eq to substitute r
+      cases h_eq
       exact qpDigestLen_eq_log_squared nvars
     · simp only [dif_neg h2] at h_eq
       -- h_eq : none = some r, contradiction
@@ -1460,10 +1461,10 @@ For planted instances, emergentConfigAtGate returns Some for all valid gate indi
 
 /-- For planted instances, emergentConfigAtGate returns Some for all valid gate indices. -/
 theorem emergentConfigAtGate_isSome_for_planted
-    (φ : CNF) (r : Randomness) (_h_wf : Foundations.WellFormedRandomness φ r)
+    (φ : CNF) (r : Randomness φ.nvars) (_h_wf : Foundations.WellFormedRandomness φ r)
     (h_clauses : 0 < φ.clauses.length)
     (i : Fin r.gateDigests.length) :
-    (Foundations.emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment i.val).isSome := by
+    (Foundations.emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignmentInf i.val).isSome := by
   have h_numGates : r.gateDigests.length = 1 := r.h_single_gate
   have h_i_zero : i.val = 0 := by
     have h_bound : i.val < 1 := by
@@ -1506,19 +1507,19 @@ the `plant_n_oap_decode` axiom in VerifiedWitness.lean.
 -/
 
 /-- The DAG in a planted instance equals the 3-SAT reduction DAG with numGates. -/
-theorem plant_n_dag_eq_build (n : Nat) (φ : CNF) (r : Randomness)
+theorem plant_n_dag_eq_build (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     (plant_n n φ r h_nvars_min h_dgLen).dag = build3SATReductionDAG φ r.gateDigests.length := by
   rfl
 
 /-- The underlying LStarInstanceFull structure from a planted instance. -/
-theorem plant_n_toLStarInstanceFull_dag (n : Nat) (φ : CNF) (r : Randomness)
+theorem plant_n_toLStarInstanceFull_dag (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     (plant_n n φ r h_nvars_min h_dgLen).toLStarInstanceFull.dag = build3SATReductionDAG φ r.gateDigests.length := by
   rfl
 
 /-- The seed width function in a planted instance. -/
-theorem plant_n_seedWidth_eq (n : Nat) (φ : CNF) (r : Randomness)
+theorem plant_n_seedWidth_eq (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     (plant_n n φ r h_nvars_min h_dgLen).seedWidth =
     (fun v : Fin (build3SATReductionDAG φ r.gateDigests.length).n =>
@@ -1526,7 +1527,7 @@ theorem plant_n_seedWidth_eq (n : Nat) (φ : CNF) (r : Randomness)
   rfl
 
 /-- plant_n uses plant_n_entropy for seed computation (by definition). -/
-theorem plant_n_uses_entropy (n : Nat) (φ : CNF) (r : Randomness)
+theorem plant_n_uses_entropy (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     True := trivial
 
@@ -1539,7 +1540,7 @@ theorem plant_n_uses_entropy (n : Nat) (φ : CNF) (r : Randomness)
 
     The difference is only in FG gate nodes, which are NOT ancestors of clause nodes.
 -/
-theorem plant_n_entropy_agrees_with_decode (φ : CNF) (r : Randomness)
+theorem plant_n_entropy_agrees_with_decode (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (dag : DAG) (seedWidth_val : Fin dag.n → Nat)
     (v : Fin dag.n) (h_not_fg : v.val = 0 ∨ v.val ≤ φ.nvars) :
@@ -1547,7 +1548,7 @@ theorem plant_n_entropy_agrees_with_decode (φ : CNF) (r : Randomness)
     (if v.val == 0 then LStar.ofBits _ (fun _ => false)
      else if v.val <= φ.nvars then
        let varIdx := v.val - 1
-       let bit := r.assignment varIdx
+       let bit := r.assignmentInf varIdx  -- Use infinite extension for Nat indexing
        LStar.ofBits _ (fun i => if i.val == 0 then bit else false)
      else LStar.ofBits _ (fun _ => false)) := by
   unfold plant_n_entropy
@@ -1564,7 +1565,7 @@ theorem plant_n_entropy_agrees_with_decode (φ : CNF) (r : Randomness)
 /-- The encodedφ field of plant_n equals the extracted encoding function.
     This is definitional - the only computation is that seeds are computed by
     computeSeedChain with the plant_n_entropy function. -/
-theorem plant_n_encodedφ_eq (n : Nat) (φ : CNF) (r : Randomness)
+theorem plant_n_encodedφ_eq (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     (plant_n n φ r h_nvars_min h_dgLen).encodedφ =
     let numGates := r.gateDigests.length
@@ -1594,7 +1595,7 @@ theorem plant_n_encodedφ_eq (n : Nat) (φ : CNF) (r : Randomness)
     **Implementation Note**: Uses increased maxHeartbeats to handle the deeply nested
     let-bindings in plant_n. The proof is definitionally true but requires extra computation
     time to verify due to the complex structure. -/
-theorem plant_n_eq_of_randomness_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
+theorem plant_n_eq_of_randomness_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 4)
     (h_dgLen1 : r1.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_dgLen2 : r2.dgLen = (Nat.log 2 φ.nvars) ^ 2)
@@ -1602,7 +1603,7 @@ theorem plant_n_eq_of_randomness_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
     (h_gateDigests_len : r1.gateDigests.length = r2.gateDigests.length)
     (h_gateDigests_eq : ∀ (i : Nat) (h1 : i < r1.gateDigests.length) (h2 : i < r2.gateDigests.length),
         HEq (r1.gateDigests.get ⟨i, h1⟩) (r2.gateDigests.get ⟨i, h2⟩))
-    (h_assignment : ∀ i < φ.nvars, r1.assignment i = r2.assignment i)
+    (h_assignment : ∀ i : Fin φ.nvars, r1.assignment i = r2.assignment i)
     (h_structural : r1.structuralBits.take 64 = r2.structuralBits.take 64) :
     plant_n n φ r1 h_nvars h_dgLen1 = plant_n n φ r2 h_nvars h_dgLen2 := by
   -- Case split on r1 and r2 to expose their fields
@@ -1652,7 +1653,10 @@ theorem plant_n_eq_of_randomness_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness)
         · have h_varIdx : v.val - 1 < φ.nvars := by
             simp only [beq_eq_false_iff_ne, ne_eq, not_true_eq_false, ↓reduceIte] at h0
             omega
-          exact h_assignment (v.val - 1) h_varIdx
+          -- Need to show a1.extend (v.val - 1) = a2.extend (v.val - 1)
+          -- Since v.val - 1 < φ.nvars, extend returns a ⟨v.val - 1, h_varIdx⟩
+          simp only [Randomness.assignmentInf, Assignment.extend, h_varIdx, ↓reduceDIte]
+          exact h_assignment ⟨v.val - 1, h_varIdx⟩
         · rfl
       · -- v > nvars: either gate range or tree
         simp only [h0, h1, ↓reduceIte]

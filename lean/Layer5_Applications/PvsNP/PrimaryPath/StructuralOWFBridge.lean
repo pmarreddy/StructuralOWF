@@ -255,7 +255,7 @@ theorem bitsToRandomness_exp_dgLen_ge_nvars (n : Nat) (h_n_pos : n > 0)
     Inverse of bitsToRandomness_exp.
 
     **Key property**: This encodes ALL n digest bits, enabling full 2^n hardness proofs. -/
-noncomputable def randomnessToBits_exp (n : Nat) (r : Randomness)
+noncomputable def randomnessToBits_exp (n : Nat) (r : Randomness φ.nvars)
     (h_dgLen : r.dgLen = n) : Bits (expWLen n) :=
   let gateDigest := r.gateDigests.head (by
     intro h_empty; have := r.h_single_gate; simp [h_empty] at this)
@@ -289,7 +289,7 @@ noncomputable def randomnessToBits_exp (n : Nat) (r : Randomness)
     - randomnessToBits_exp places r.assignment i at position i for i < n
     - extractBitsFlat preserves bit positions
     - bitsToRandomness extracts position i when i < n -/
-theorem assignment_roundtrip_exp (n : Nat) (h_n_pos : n > 0) (r : Randomness)
+theorem assignment_roundtrip_exp (n : Nat) (h_n_pos : n > 0) (r : Randomness φ.nvars)
     (h_dgLen : r.dgLen = n) (φ : CNF) (h_nvars_eq : φ.nvars = n) :
     ∀ i < φ.nvars,
       (bitsToRandomness_exp n h_n_pos (randomnessToBits_exp n r h_dgLen)).assignment i =
@@ -349,7 +349,7 @@ private lemma list_get_heq_of_transport {α : Nat → Type*} {n m : Nat}
     3. structuralBits.take 64 (plant_flat only uses first 64 bits)
     Therefore plant_flat equality follows by congruence.
 -/
-lemma randomness_encoding_plant_equiv (n : Nat) (φ : CNF) (r : Randomness)
+lemma randomness_encoding_plant_equiv (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 4)
     (h_nvars_eq : φ.nvars = n) :
     plant_flat n φ (bitsToRandomness n r.dgLen r.h_dgLen_pos (randomnessToBits n r)) h_nvars =
@@ -403,7 +403,7 @@ lemma randomness_encoding_plant_equiv (n : Nat) (φ : CNF) (r : Randomness)
     **Proof strategy**: Uses `cases h_dgLen` to convert propositional equality
     (r.dgLen = 64) to definitional equality, enabling dependent type unification.
 -/
-lemma randomness_encoding_plant_equiv_flat (n : Nat) (φ : CNF) (r : Randomness)
+lemma randomness_encoding_plant_equiv_flat (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_dgLen : r.dgLen = 64)
     (h_nvars : φ.nvars ≥ 4)
     (h_nvars_eq : φ.nvars = n) :
@@ -479,7 +479,7 @@ private lemma vector_type_cast_getElem_exp {α : Type*} {n m : Nat} (h_nm : n = 
     Types: r'.gateDigests : List (Vector Bool (expDgLen n)) = List (Vector Bool n)
            r.gateDigests : List (Vector Bool r.dgLen)
     Since h_dgLen : r.dgLen = n, we prove HEq via type transport. -/
-theorem gateDigests_heq_roundtrip_exp (n : Nat) (h_n_pos : n > 0) (r : Randomness)
+theorem gateDigests_heq_roundtrip_exp (n : Nat) (h_n_pos : n > 0) (r : Randomness φ.nvars)
     (h_dgLen : r.dgLen = n) :
     let r' := bitsToRandomness_exp n h_n_pos (randomnessToBits_exp n r h_dgLen)
     r'.gateDigests.length = r.gateDigests.length ∧
@@ -531,7 +531,7 @@ theorem gateDigests_heq_roundtrip_exp (n : Nat) (h_n_pos : n > 0) (r : Randomnes
 
 /-- StructuralBits roundtrip for exponential profile.
     The encoding roundtrip preserves structuralBits.take 64 exactly. -/
-theorem structuralBits_roundtrip_exp (n : Nat) (h_n_pos : n > 0) (r : Randomness)
+theorem structuralBits_roundtrip_exp (n : Nat) (h_n_pos : n > 0) (r : Randomness φ.nvars)
     (h_dgLen : r.dgLen = n) :
     (bitsToRandomness_exp n h_n_pos (randomnessToBits_exp n r h_dgLen)).structuralBits.take 64 =
     r.structuralBits.take 64 := by
@@ -574,7 +574,7 @@ theorem structuralBits_roundtrip_exp (n : Nat) (h_n_pos : n > 0) (r : Randomness
     - `bitsToRandomness_exp n h_n_pos w` decodes to Randomness with dgLen = n
 
     The roundtrip preserves what matters for plant_flat equality. -/
-lemma randomness_encoding_plant_equiv_exp (n : Nat) (h_n_pos : n > 0) (φ : CNF) (r : Randomness)
+lemma randomness_encoding_plant_equiv_exp (n : Nat) (h_n_pos : n > 0) (φ : CNF) (r : Randomness φ.nvars)
     (h_dgLen : r.dgLen = n)
     (h_nvars : φ.nvars ≥ 4)
     (h_nvars_eq : φ.nvars = n) :
@@ -1850,7 +1850,7 @@ theorem structural_owf_inversion_not_in_fp
   -- First, show that A_inv succeeds on any planted instance WITH SATISFACTION HYPOTHESIS
   -- Key: For domain-constrained OWF, we only need success on wellformed randomness
   -- **Exponential Profile**: Randomness comes from bitsToRandomness_exp with dgLen = n
-  have h_A_inv_succeeds : ∀ (r : Randomness),
+  have h_A_inv_succeeds : ∀ (r : Randomness φ.nvars),
       r.dgLen = dgLen_n →  -- Exponential dgLen = n_test
       (Φ n_test).satisfies r.assignment →  -- Domain constraint on input
       let L := plant_flat 1 (Φ n_test) r (by
@@ -2475,7 +2475,7 @@ theorem structural_owf_implies_fpnefnp
   -- Define type family as planted instances from Φ
   -- This enables bounding dag.n via the CNF family structure
   let α : Nat → Type := fun n =>
-    {L : LStarInstanceFG // ∃ (h_n : n ≥ 128) (r : Randomness),
+    {L : LStarInstanceFG // ∃ (h_n : n ≥ 128) (r : Randomness φ.nvars),
       L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega)}
 
   -- Sized instance for the subtype
@@ -2736,7 +2736,7 @@ theorem structural_owf_implies_fpnefnp
 
     -- Construct f_base using Classical.decidable to handle the subtype constraint (exponential)
     let f_base : ∀ n, LStarInstanceFG → Bits (expWLen n) := fun n L =>
-      @dite _ (∃ (h_n : n ≥ 128) (r : Randomness), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
+      @dite _ (∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
         (Classical.dec _)
         (fun h => f_lifted n ⟨L, h⟩)
         (fun _ => Vector.replicate (expWLen n) false)
@@ -2751,8 +2751,8 @@ theorem structural_owf_implies_fpnefnp
       have h_n_ge_128 : n ≥ 128 := Nat.le_trans (Nat.le_max_left 128 N₀_lifted) h_n
       have h_n_ge_N₀ : n ≥ N₀_lifted := Nat.le_trans (Nat.le_max_right 128 N₀_lifted) h_n
       -- h_rel : StructuralOWFInversionRelation_exp unfolds to (when n ≥ 128): L = plant_flat n (Φ n) (bitsToRandomness_exp n w) ...
-      -- Need: ∃ (h_n : n ≥ 128) (r : Randomness), L = plant_flat n (Φ n) r ...
-      have h_planted : ∃ (h_n : n ≥ 128) (r : Randomness), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega) := by
+      -- Need: ∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r ...
+      have h_planted : ∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega) := by
         unfold StructuralOWFInversionRelation_exp at h_rel
         simp only [h_n_ge_128, dite_true] at h_rel
         obtain ⟨h_plant_eq, _h_sat⟩ := h_rel
@@ -2779,7 +2779,7 @@ theorem structural_owf_implies_fpnefnp
         run := fun c input =>
           let n := input.fst
           let L := input.snd
-          @dite _ (∃ (h_n : n ≥ 128) (r : Randomness), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
+          @dite _ (∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
             (Classical.dec _)
             (fun h => M_lifted.run c ⟨n, ⟨L, h⟩⟩)
             (fun _ => ⟨n, Vector.replicate (expWLen n) false⟩)
@@ -2798,7 +2798,7 @@ theorem structural_owf_implies_fpnefnp
            -- Output is either M_lifted.run (planted) or ⟨n, replicate⟩ (default)
            let n := input.fst
            let L := input.snd
-           show Sized.size (@dite _ (∃ (h_n : n ≥ 128) (r : Randomness), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
+           show Sized.size (@dite _ (∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
                   (Classical.dec _)
                   (fun h => M_lifted.run c ⟨n, ⟨L, h⟩⟩)
                   (fun _ => ⟨n, Vector.replicate (expWLen n) false⟩))

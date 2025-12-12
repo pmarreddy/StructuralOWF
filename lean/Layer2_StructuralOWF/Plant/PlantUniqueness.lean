@@ -45,7 +45,7 @@ open LStar.StructuralOWF.Foundations (R_of)
     (via unpredictability - different worlds produce different digests).
 -/
 def WorldFullyCompatibleWithWitness {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
-    (ω : CutWorld L C) (W : Witness) : Prop :=
+    (ω : CutWorld L C) (W : Witness L.n) : Prop :=
   ∀ (v : Fin L.dag.n) (h_gate : L.fg.gateReq v) (h_in_C : v ∈ C),
     let cfg := ω.assignment v h_in_C
     let computed_digest := fgDigestBit cfg
@@ -74,7 +74,7 @@ This section develops machinery to show that seed assignment uniquely determines
     `plant_injectivity_on_gateDigests` theorem.
 -/
 lemma variable_node_config_existence
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (v : Fin (plant_n n φ r h_nvars h_dgLen).dag.n)
     (_h_var : 1 ≤ v.val ∧ v.val ≤ φ.nvars) :
@@ -127,7 +127,7 @@ def isSource {L : LStarInstanceFull} (v : Fin L.dag.n) : Prop :=
     4. Therefore: A found the planted assignment (exponentially unlikely by random search)
 -/
 def IsPlantedWorld {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
-    (φ : CNF) (W : Witness) (_r : Randomness) (ω : CutWorld L C) : Prop :=
+    (φ : CNF) (W : Witness φ.nvars) (_r : Randomness φ.nvars) (ω : CutWorld L C) : Prop :=
   WitnessSatisfiesFormula φ W
 
 /-! ## Uniqueness via Unpredictability

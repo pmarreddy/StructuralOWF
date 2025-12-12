@@ -83,7 +83,7 @@ def BoundedSolutions (Φ : CNFFamily) (c : ℕ) : Prop :=
     -- This is a semantic property; in practice verified by construction
     -- (e.g., planted SAT with unique solution, crypto reductions)
     ∃ (bound : ℕ), bound ≤ n^c ∧
-      ∀ (a : Assignment), (Φ n).satisfies a →
+      ∀ (a : AssignmentInf), (Φ n).satisfies a →
         -- This assignment is one of at most 'bound' many
         True  -- Placeholder: actual counting requires finite assignment space
 

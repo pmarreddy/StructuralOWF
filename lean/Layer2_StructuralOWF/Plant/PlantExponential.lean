@@ -97,7 +97,7 @@ private lemma binary_foldl_bound (bits : List Bool) (n : Nat) (h_len : bits.leng
     ALL dgLen bits flow through the FG gate to create the 2^R information bottleneck.
     The difference is R_v = nvars (exponential) vs R_v = (log n)² (QP).
 -/
-def plant_flat_entropy (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+def plant_flat_entropy (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (dag : DAG) (seedWidth_val : Fin dag.n → Nat) :
     (v : Fin dag.n) → LStar.Seed (seedWidth_val v) :=
   fun v =>
@@ -199,7 +199,7 @@ theorem plant_flat_encode_cnf_ext (φ : CNF) (numGates : Nat) (dag : DAG)
     - Adversary time: Must exceed 2^n (exponential)
 
     **Type**: Returns LStarInstanceFG (same as plant_n) -/
-noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4) : LStarInstanceFG :=
+noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4) : LStarInstanceFG :=
   -- Use flat R-profile (exponential): R = nvars
   let numGates := r.gateDigests.length
   let R_val := Foundations.R_of_flat φ numGates
@@ -594,7 +594,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min
 
     Precondition: Requires φ to have at least one clause (legitimate OWF requirement). -/
 theorem numGates_eq_gateDigests_length_for_planted_flat
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_clauses : 0 < φ.clauses.length)
     : Foundations.numGates (plant_flat n φ r h_nvars) = r.gateDigests.length := by
   unfold Foundations.numGates
@@ -651,9 +651,9 @@ theorem numGates_eq_gateDigests_length_for_planted_flat
 
     Precondition: Requires φ to have at least one clause (legitimate OWF requirement). -/
 theorem correct_digests_length_eq_totalRBits_planted_flat
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_clauses : 0 < φ.clauses.length)
-    (W : Witness)
+    (W : Witness φ.nvars)
     (h_correct : Foundations.HasCorrectDigests (plant_flat n φ r h_nvars) W)
     : W.digestBits.length = Foundations.totalRBits (plant_flat n φ r h_nvars) := by
   exact Foundations.correct_digests_implies_correct_length (plant_flat n φ r h_nvars) W h_correct
@@ -674,7 +674,7 @@ private lemma planted_gateReq_true_iff_interval_flat
   simp [plant_flat]
 
 /-- **Flat mode R values equal nvars at FG gates**. -/
-theorem plant_flat_R_eq_nvars (n : Nat) (φ : CNF) (r : Randomness)
+theorem plant_flat_R_eq_nvars (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (v : Fin (plant_flat n φ r h_nvars_min).dag.n)
     (h_is_fg : (plant_flat n φ r h_nvars_min).fg.gateReq v) :
     (plant_flat n φ r h_nvars_min).R v = φ.nvars := by
@@ -721,7 +721,7 @@ theorem plant_flat_R_eq_nvars (n : Nat) (φ : CNF) (r : Randomness)
 
     This is the flat-profile analog of `totalRBits_pos_for_planted` from VerifiedWitness.lean. -/
 theorem totalRBits_pos_for_planted_flat
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_clauses : 0 < φ.clauses.length)
     : Foundations.totalRBits (plant_flat n φ r h_nvars) > 0 := by
   -- Get the single FG gate
@@ -762,7 +762,7 @@ theorem totalRBits_pos_for_planted_flat
     This is the key lemma for instantiating the parametric OWF theorem.
     It proves that plant_flat achieves lambda ≥ n (exponential bound).
 -/
-theorem plant_flat_lambdaBase_eq_nvars (n : Nat) (φ : CNF) (r : Randomness)
+theorem plant_flat_lambdaBase_eq_nvars (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4)
     (v_fg : {v // (plant_flat n φ r h_nvars_min).fg.gateReq v}) :
     Foundations.lambdaBase (plant_flat n φ r h_nvars_min) v_fg ≥ φ.nvars := by
@@ -784,7 +784,7 @@ theorem plant_flat_lambdaBase_eq_nvars (n : Nat) (φ : CNF) (r : Randomness)
 
     **Proof**: The first clause position (clause_start) is an FG gate, and
     segmentBudget = φ.nvars ≥ 4 > 0 for flat profile. -/
-theorem plant_fg_wired_flat (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4)
+theorem plant_fg_wired_flat (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (h_nonempty : 0 < r.gateDigests.length)
     (h_clauses : 0 < φ.clauses.length) :
     ∃ (v : {v // (plant_flat n φ r h_nvars_min).fg.gateReq v}),
@@ -862,7 +862,7 @@ theorem plant_flat_gateDigest_heq_of_instance_eq
   exact h_eq ▸ HEq.rfl
 
 /-- **Flat profile preserves n field**: The planted instance's n field equals φ.nvars. -/
-theorem plant_flat_n (n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4) :
+theorem plant_flat_n (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4) :
     (plant_flat n φ r h_nvars_min).n = φ.nvars := by
   unfold plant_flat
   rfl
@@ -1353,7 +1353,7 @@ which returns R = n (not (log n)² as in QP).
 
     **CNF Well-Formedness**: Requires φ.WellFormed (all literal indices < nvars).
     This ensures the planted instance has valid DAG parent structure. -/
-def WellFormedRandomness_flat (φ : CNF) (r : Randomness) : Prop :=
+def WellFormedRandomness_flat (φ : CNF) (r : Randomness φ.nvars) : Prop :=
   let numGates := r.gateDigests.length
   φ.WellFormed ∧  -- CNF well-formedness: all literal indices < nvars
   φ.satisfies r.assignment ∧
@@ -1369,17 +1369,17 @@ def WellFormedRandomness_flat (φ : CNF) (r : Randomness) : Prop :=
         ∀ (j : Fin R), digest[j.val]? = some (CutConstraint.extractBit cfg j)
 
 /-- WellFormedRandomness_flat implies CNF well-formedness. -/
-theorem WellFormedRandomness_flat_wf (φ : CNF) (r : Randomness)
+theorem WellFormedRandomness_flat_wf (φ : CNF) (r : Randomness φ.nvars)
     (h : WellFormedRandomness_flat φ r) : φ.WellFormed :=
   h.1
 
 /-- WellFormedRandomness_flat implies formula satisfaction. -/
-theorem WellFormedRandomness_flat_satisfies (φ : CNF) (r : Randomness)
+theorem WellFormedRandomness_flat_satisfies (φ : CNF) (r : Randomness φ.nvars)
     (h : WellFormedRandomness_flat φ r) : φ.satisfies r.assignment :=
   h.2.1
 
 /-- WellFormedRandomness_flat implies dgLen ≥ nvars. -/
-theorem WellFormedRandomness_flat_dgLen_ge_nvars (φ : CNF) (r : Randomness)
+theorem WellFormedRandomness_flat_dgLen_ge_nvars (φ : CNF) (r : Randomness φ.nvars)
     (h : WellFormedRandomness_flat φ r) : r.dgLen ≥ φ.nvars :=
   h.2.2.2.1
 
@@ -1429,7 +1429,7 @@ theorem extractRevealedBitsFromWitness_flat_eq_empty
 /-- Flat version: R values in plant_flat equal R_of_flat formula. -/
 theorem planted_R_eq_R_of_flat
     (L : LStarInstanceFG) (v : Fin L.dag.n)
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars) :
     L.R v = Foundations.R_of_flat φ (r.gateDigests.length) v.val := by
   subst h_L_eq
@@ -1438,7 +1438,7 @@ theorem planted_R_eq_R_of_flat
 /-- Flat version: FG gates are above clause boundary. -/
 theorem planted_fg_gate_ge_clause_start_flat
     (L : LStarInstanceFG) (v : Fin L.dag.n)
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (h_gate : L.fg.gateReq v) :
     1 + φ.nvars ≤ v.val := by
@@ -1454,7 +1454,7 @@ theorem planted_fg_gate_ge_clause_start_flat
 noncomputable def worldFromWitness_flat
     (L : LStarInstanceFG)
     (w : Witness)
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (_h_wf : WellFormedRandomness φ r)
     (C : Finset (Fin L.dag.n))
@@ -1515,7 +1515,7 @@ noncomputable def worldFromWitness_flat
 
     ~130 lines mechanical adaptation. -/
 noncomputable def extractComputedConfigsFromWitness_flat
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (L : LStarInstanceFG)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (h_wf : WellFormedRandomness φ r)
@@ -1605,7 +1605,7 @@ noncomputable def extractComputedConfigsFromWitness_flat
     Adapted from TMToExecutionPrefix.lean:mem_computedConfigs_decompose. -/
 theorem mem_computedConfigs_decompose_flat
     (L : LStarInstanceFG)
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (h_wf : WellFormedRandomness φ r)
     (w : Witness)
@@ -1763,7 +1763,7 @@ Since plant_flat and plant_n have different R-profiles, we need parallel infrast
 
     **Properties**: Same structural checks as IsPlantedWithWellFormedRandomness -/
 def IsPlantedFlat (L : LStarInstanceFG) : Prop :=
-  ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4),
+  ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
     WellFormedRandomness φ r ∧
     L = plant_flat n φ r h_nvars ∧
     φ.nvars > 0 ∧
@@ -1997,7 +1997,7 @@ They prove plant_flat satisfies the same structural properties as plant_n.
     This enables using planted_gateReq_true_iff_interval_generic. -/
 @[simp]
 theorem plant_flat_gateReq_formula
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4) (v : Fin (plant_flat n φ r h_nvars).dag.n)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (v : Fin (plant_flat n φ r h_nvars).dag.n)
     : (plant_flat n φ r h_nvars).fg.gateReq v = decide ((1 + φ.nvars) ≤ v.val ∧ v.val < (1 + φ.nvars) + r.gateDigests.length) := by
   -- plant_flat.gateReq is defined as exactly this formula
   -- The definition expands to the decide expression via simp
@@ -2021,7 +2021,7 @@ noncomputable def tmExecutionToPrefix_flat
     (haltTime : Nat)
     (extractWitness : Foundations.TMConfig M → Witness)
     (C : Finset (Fin L.dag.n))
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_tm_correct : φ.satisfies (Foundations.tmOutputWitness M haltTime extractWitness).assignment)
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (h_wf : WellFormedRandomness φ r)
@@ -2037,7 +2037,7 @@ noncomputable def tmExecutionToPrefix_flat
     Flat-mode analog of TMToExecutionPrefix.planted_implies_nonempty_digestBits_verified. -/
 theorem planted_implies_nonempty_digestBits_verified_flat
     {L : LStarInstanceFG}
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4),
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
                    0 < φ.clauses.length ∧ L = plant_flat n φ r h_nvars ∧ WellFormedRandomness φ r)
     (vw : Foundations.VerifiedWitness L)
     (_h_satisfies : (Classical.choose (Classical.choose_spec h_planted)).satisfies vw.w.assignment)

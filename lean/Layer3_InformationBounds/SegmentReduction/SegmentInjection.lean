@@ -177,7 +177,7 @@ the keyedness property is about the SEMANTIC requirement, not the claimed count.
 The contradiction between requirement (exponential) and claim (1) is what
 drives the OWF proof. -/
 theorem keyedness_for_plant_n_security_run
-    (n : Nat) (φ : CNF) (r : Randomness)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 128)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (A_inv : LStarInstanceFG → Randomness)
@@ -211,7 +211,7 @@ These theorems make the contradiction explicit:
 
 /-- runFromSecurityGame has exactly 1 segment by definition. -/
 theorem runFromSecurityGame_segmentCount_eq_one
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 128)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 128)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (A_inv : LStarInstanceFG → Randomness)
     (C_A k_A C_Ext k_Ext : Nat) (h_nonzero : C_A + C_Ext ≥ 1) (h_n_pos : 1 ≤ n)

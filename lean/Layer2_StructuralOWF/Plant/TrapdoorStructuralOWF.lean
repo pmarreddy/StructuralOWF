@@ -71,7 +71,7 @@ def mkUnitClause (i : Nat) (pol : Bool) : Clause :=
 
 /-- Create unit clauses encoding assignment x on first n variables.
     For each i < n: if x(i) then (xᵢ), else (¬xᵢ). -/
-def mkUnitClauses (n : Nat) (x : Assignment) : List Clause :=
+def mkUnitClauses (n : Nat) (x : AssignmentInf) : List Clause :=
   (List.range n).map (fun i => mkUnitClause i (x i))
 
 /-- Generate a CNF formula from a known satisfying assignment.
@@ -82,25 +82,25 @@ def mkUnitClauses (n : Nat) (x : Assignment) : List Clause :=
 
     This is the simplest construction using unit clauses.
     More sophisticated versions could add random 3-SAT clauses for structure. -/
-def generateCNF (n : Nat) (x : Assignment) (h_n : n ≥ 4) : CNF :=
+def generateCNF (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) : CNF :=
   { nvars := n
     clauses := mkUnitClauses n x
     nvars_pos := by omega }
 
 /-- Unit clause satisfaction: a unit clause (l) is satisfied iff l evaluates to true. -/
-theorem unitClause_satisfied (i : Nat) (pol : Bool) (x : Assignment) :
+theorem unitClause_satisfied (i : Nat) (pol : Bool) (x : AssignmentInf) :
     Clause.satisfies (mkUnitClause i pol) x ↔ (if pol then x i else !(x i)) = true := by
   unfold mkUnitClause Clause.satisfies Literal.eval
   simp only [List.mem_singleton, exists_eq_left]
 
 /-- Unit clause from assignment is satisfied by that assignment. -/
-theorem unitClause_satisfied_by_generator (i : Nat) (x : Assignment) :
+theorem unitClause_satisfied_by_generator (i : Nat) (x : AssignmentInf) :
     Clause.satisfies (mkUnitClause i (x i)) x := by
   rw [unitClause_satisfied]
   cases x i <;> simp
 
 /-- All unit clauses from assignment are satisfied by that assignment. -/
-theorem mkUnitClauses_satisfied (n : Nat) (x : Assignment) :
+theorem mkUnitClauses_satisfied (n : Nat) (x : AssignmentInf) :
     ∀ c ∈ mkUnitClauses n x, Clause.satisfies c x := by
   intro c hc
   unfold mkUnitClauses at hc
@@ -113,23 +113,23 @@ theorem mkUnitClauses_satisfied (n : Nat) (x : Assignment) :
     This is the key lemma enabling Structural OWF:
     Alice generates φ from x → φ.satisfies x (by this theorem)
     → WellFormedRandomness conditions met → existing OWF hardness applies -/
-theorem generateCNF_satisfied (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
+theorem generateCNF_satisfied (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) :
     (generateCNF n x h_n).satisfies x := by
   unfold generateCNF CNF.satisfies
   exact mkUnitClauses_satisfied n x
 
 /-- The generated CNF has the specified number of variables. -/
-theorem generateCNF_nvars (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
+theorem generateCNF_nvars (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) :
     (generateCNF n x h_n).nvars = n := rfl
 
 /-- The generated CNF has enough variables for L* (≥ 4). -/
-theorem generateCNF_nvars_ge_4 (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
+theorem generateCNF_nvars_ge_4 (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) :
     (generateCNF n x h_n).nvars ≥ 4 := by
   simp only [generateCNF_nvars]
   exact h_n
 
 /-- The generated CNF is well-formed (all variable indices in bounds). -/
-theorem generateCNF_wellformed (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
+theorem generateCNF_wellformed (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) :
     (generateCNF n x h_n).WellFormed := by
   unfold generateCNF CNF.WellFormed mkUnitClauses mkUnitClause
   intro c hc l hl
@@ -140,13 +140,13 @@ theorem generateCNF_wellformed (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
   exact hi
 
 /-- The generated CNF has n clauses (one per variable). -/
-theorem generateCNF_num_clauses (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
+theorem generateCNF_num_clauses (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) :
     (generateCNF n x h_n).clauses.length = n := by
   unfold generateCNF mkUnitClauses
   simp only [List.length_map, List.length_range]
 
 /-- Generation is polynomial time (linear in n). -/
-theorem generateCNF_poly_size (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
+theorem generateCNF_poly_size (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) :
     (generateCNF n x h_n).clauses.length ≤ n := by
   rw [generateCNF_num_clauses]
 
@@ -166,7 +166,7 @@ structure TrapdoorKeypair where
   /-- Internal CNF formula (OAP-encoded as part of x* = Plant(pk, r)) -/
   pk : CNF
   /-- Private key: the satisfying assignment -/
-  sk : Assignment
+  sk : AssignmentInf
   /-- Proof that sk satisfies pk -/
   h_sat : pk.satisfies sk
   /-- Proof pk has enough variables for L* -/
@@ -177,18 +177,18 @@ structure TrapdoorKeypair where
     Alice picks random x, generates φ = generateCNF(x).
     - Publishes pk = Plant(φ, r) — OAP-encoded instance (φ is seed-locked)
     - Keeps sk = x -/
-def keygen (n : Nat) (x : Assignment) (h_n : n ≥ 4) : TrapdoorKeypair :=
+def keygen (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) : TrapdoorKeypair :=
   { pk := generateCNF n x h_n
     sk := x
     h_sat := generateCNF_satisfied n x h_n
     h_nvars := generateCNF_nvars_ge_4 n x h_n }
 
 /-- Public key from keygen has the security parameter as nvars. -/
-theorem keygen_pk_nvars (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
+theorem keygen_pk_nvars (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) :
     (keygen n x h_n).pk.nvars = n := generateCNF_nvars n x h_n
 
 /-- Public key from keygen is well-formed. -/
-theorem keygen_pk_wellformed (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
+theorem keygen_pk_wellformed (n : Nat) (x : AssignmentInf) (h_n : n ≥ 4) :
     (keygen n x h_n).pk.WellFormed := generateCNF_wellformed n x h_n
 
 /-! ## Forward and Inverse Operations -/
@@ -196,7 +196,7 @@ theorem keygen_pk_wellformed (n : Nat) (x : Assignment) (h_n : n ≥ 4) :
 /-- Forward direction (public operation): compute Plant(pk, r).
 
     Anyone with public key pk can compute this. -/
-noncomputable def forward (T : TrapdoorKeypair) (r : Randomness)
+noncomputable def forward (T : TrapdoorKeypair) (r : Randomness T.pk.nvars)
     (h_dgLen : r.dgLen = (Nat.log 2 T.pk.nvars) ^ 2) : LStarInstanceFG :=
   plant_n T.pk.nvars T.pk r T.h_nvars h_dgLen
 
@@ -208,7 +208,7 @@ noncomputable def forward (T : TrapdoorKeypair) (r : Randomness)
     **Key**: Computes the correct emergent digest from T.sk using emergentConfigAtGate,
     ensuring WellFormedRandomness is satisfied. -/
 noncomputable def mkRandomnessFromSk (T : TrapdoorKeypair) (structBits : List Bool)
-    (h_struct : structBits.length ≥ 64) : Randomness :=
+    (h_struct : structBits.length ≥ 64) : Randomness T.pk.nvars :=
   have h_dgLen_pos : (Nat.log 2 T.pk.nvars) ^ 2 > 0 := by
     have := qpDigestLen_pos T.pk.nvars T.h_nvars
     simp only [qpDigestLen] at this
@@ -233,7 +233,7 @@ noncomputable def mkRandomnessFromSk (T : TrapdoorKeypair) (structBits : List Bo
             false)
   { dgLen := dgLen
     h_dgLen_pos := h_dgLen_pos
-    assignment := T.sk
+    assignment := Assignment.ofInfinite T.pk.nvars T.sk
     gateDigests := [gateDigest]
     structuralBits := structBits
     h_sufficient_salts := h_struct
@@ -245,10 +245,10 @@ theorem mkRandomnessFromSk_dgLen (T : TrapdoorKeypair) (structBits : List Bool)
     (mkRandomnessFromSk T structBits h_struct).dgLen = (Nat.log 2 T.pk.nvars) ^ 2 := by
   rfl
 
-/-- Randomness from secret key uses the secret assignment. -/
+/-- Randomness from secret key uses the secret assignment (converted to finite). -/
 theorem mkRandomnessFromSk_assignment (T : TrapdoorKeypair) (structBits : List Bool)
     (h_struct : structBits.length ≥ 64) :
-    (mkRandomnessFromSk T structBits h_struct).assignment = T.sk := by
+    (mkRandomnessFromSk T structBits h_struct).assignment = Assignment.ofInfinite T.pk.nvars T.sk := by
   rfl
 
 /-! ## Security: Inherited from L* OWF

@@ -238,7 +238,7 @@ seed chain, extraction is just decoding the planted structure.
 
     **Key property**: If f(r) = x*, then Ext(x*, r) produces a valid witness
     for x* in polynomial time. -/
-def extract (L : LStarInstanceFG) (r : Randomness) : Witness :=
+def extract {nvars : Nat} (L : LStarInstanceFG) (r : Randomness nvars) : Witness nvars :=
   { assignment := r.assignment
     gateProofs :=
       -- Extract only up to the instance's DAG size; ignore extra digests.
@@ -271,7 +271,7 @@ The extractor must satisfy two key properties:
 -/
 
 /-- Convenience: extract produces witnesses with the same assignment as input -/
-theorem extract_preserves_assignment (L : LStarInstanceFG) (r : Randomness) :
+theorem extract_preserves_assignment {nvars : Nat} (L : LStarInstanceFG) (r : Randomness nvars) :
     (extract L r).assignment = r.assignment := by
   simp [extract]
 
@@ -279,11 +279,11 @@ theorem extract_preserves_assignment (L : LStarInstanceFG) (r : Randomness) :
 
     This connects the planting function to the extractor, completing the
     OWF security reduction loop. -/
-theorem plant_extract_correct (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+theorem plant_extract_correct (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_sat : φ.satisfies r.assignment) :
+    (h_sat : φ.satisfies r.assignment.extend) :
     let x := plant_n n φ r h_nvars h_dgLen
-    φ.satisfies (extract x r).assignment := by
+    φ.satisfies (extract x r).assignment.extend := by
   intro x
   rw [extract_preserves_assignment]
   exact h_sat
@@ -304,7 +304,7 @@ theorem plant_extract_correct (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : �
     **Polynomial base**: We use (φ.nvars + φ.nclauses + 1) as the honest
     input size measure, since both nvars and nclauses contribute to DAG size. -/
 theorem extract_poly_time_planted
-    (n : Nat) (φ : CNF) (r_star : Randomness) (_r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars) (_r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
     let L := LStar.StructuralOWF.plant_n n φ r_star h_nvars h_dgLen
     ∃ C k : Nat,
@@ -352,7 +352,7 @@ theorem extract_poly_time_planted
   _ = 4 * m^3 := by ring
 
 /-- The extractor is deterministic: same inputs always produce same output -/
-theorem extract_deterministic (L : LStarInstanceFG) (r : Randomness) :
+theorem extract_deterministic {nvars : Nat} (L : LStarInstanceFG) (r : Randomness nvars) :
     extract L r = extract L r := rfl
 
 
