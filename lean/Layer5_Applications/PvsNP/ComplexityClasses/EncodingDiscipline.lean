@@ -105,14 +105,9 @@ When n = 0, the condition `i < 0` is always false, so all variables map to false
 -/
 theorem bitsToRandomness_zero_is_all_false (w : Bits 128) :
     (StructuralOWFBridge.bitsToRandomness 0 64 (by omega) w).assignment = fun _ => false := by
+  -- With n = 0, Fin 0 → Bool is vacuously equal to any function
   funext i
-  simp only [StructuralOWFBridge.bitsToRandomness]
-  -- The condition `i < 0` is always false
-  split
-  · -- Case: i < 0 - impossible
-    omega
-  · -- Case: i ≥ 0 - returns false
-    rfl
+  exact i.elim0  -- Fin 0 is empty, so this case is impossible
 
 /-- All-false assignment doesn't satisfy a clause with all positive literals.
 
@@ -190,7 +185,7 @@ theorem encoding_semantics_from_format_separated {T : Nat}
     let sigma_output := M.encoding.output.decode tape
     -- Note: Bits (n + 128) = Bits (n + 64 + 64), so dgLen = 64
     let r := StructuralOWFBridge.bitsToRandomness sigma_output.1 64 (by omega) sigma_output.2
-    ¬(φ.satisfies r.assignment) := by
+    ¬(φ.satisfies r.assignmentInf) := by
   simp only
   intro h_sat
   -- Step 1: By format separation, decoded.1 = 0
@@ -217,20 +212,14 @@ theorem encoding_semantics_from_format_separated {T : Nat}
   -- We have h_sat : φ.satisfies (bitsToRandomness decoded.1 64 _ decoded.2).assignment
   -- With decoded.1 = 0, this is (bitsToRandomness 0 64 _ decoded.2).assignment
 
-  -- Show the assignment equals fun _ => false
-  have h_assign_eq : (StructuralOWFBridge.bitsToRandomness decoded.1 64 (by omega) decoded.2).assignment = fun _ => false := by
+  -- Show the assignmentInf equals fun _ => false
+  -- With n = 0, Fin 0 → Bool extends to fun i => if i < 0 then _ else false = fun _ => false
+  have h_assign_eq : (StructuralOWFBridge.bitsToRandomness decoded.1 64 (by omega) decoded.2).assignmentInf = fun _ => false := by
     funext i
-    simp only [StructuralOWFBridge.bitsToRandomness]
-    -- The condition is i < decoded.1, which is i < 0 when decoded.1 = 0
-    -- Use h_n_zero to get decoded.1 = 0
+    simp only [Randomness.assignmentInf, Assignment.extend]
+    -- decoded.1 = 0, so i < 0 is always false
     have h_eq : decoded.1 = 0 := h_n_zero
-    simp only [h_eq]
-    split
-    · -- Case: i < 0 - impossible for Nat
-      rename_i h_lt
-      exact absurd h_lt (Nat.not_lt_zero i)
-    · -- Case: i ≥ 0 (always true)
-      rfl
+    simp only [h_eq, Nat.not_lt_zero, dif_neg, not_false_eq_true]
   rw [← h_assign_eq]
   exact h_sat
 
@@ -347,7 +336,7 @@ private theorem fg_lossless_encoding
     (h_numGates_valid : numGates ≤ φ.clauses.length)
     (h_vertex_valid : 1 + φ.nvars + gateIndex <
       (LStar.StructuralOWF.lstarStructureFromCNF_flat φ h_nvars_pos numGates).dag.n)
-    (σ : LStar.Assignment)
+    (σ : LStar.AssignmentInf)
     (h_cap : (LStar.StructuralOWF.lstarStructureFromCNF_flat φ h_nvars_pos numGates).R
         ⟨1 + φ.nvars + gateIndex, h_vertex_valid⟩ ≤
         (LStar.StructuralOWF.lstarStructureFromCNF_flat φ h_nvars_pos numGates).seedWidth
@@ -514,7 +503,7 @@ theorem a3_emergence_realizability
         ⟨1 + φ.nvars + gateIndex, h_vertex_valid⟩ ≠ ∅)
     (val : Fin (2 ^ LStar.StructuralOWF.Foundations.R_of_flat φ numGates (1 + φ.nvars + gateIndex))) :
     let R := LStar.StructuralOWF.Foundations.R_of_flat φ numGates (1 + φ.nvars + gateIndex)
-    let σ_val : LStar.Assignment := fun i => (val.val >>> i) % 2 = 1
+    let σ_val : LStar.AssignmentInf := fun i => (val.val >>> i) % 2 = 1
     ∃ (cfg : Fin (2^R)),
       LStar.StructuralOWF.emergentConfigAtGate_flat φ h_nvars_pos numGates σ_val gateIndex = some ⟨R, cfg⟩ ∧
       cfg.val = val.val := by

@@ -456,8 +456,392 @@ lemma list_bool_encode_len (l : List Bool) :
 
 /-! ### Component Encoding Bounds -/
 
+/-- foldl addition accumulator lemma: foldl (· + ·) init l = init + foldl (· + ·) 0 l -/
+lemma foldl_add_init (init : Nat) (l : List Nat) :
+    List.foldl (· + ·) init l = init + List.foldl (· + ·) 0 l := by
+  induction l generalizing init with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.foldl_cons, Nat.zero_add]
+    rw [iht (init + h)]
+    rw [iht h]
+    ring
+
+/-- Generic foldl accumulator lemma for additive functions. -/
+lemma foldl_additive_init {α : Type*} (f : α → Nat) (init : Nat) (l : List α) :
+    List.foldl (fun acc x => acc + f x) init l = init + List.foldl (fun acc x => acc + f x) 0 l := by
+  induction l generalizing init with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.foldl_cons, Nat.zero_add]
+    rw [iht (init + f h)]
+    rw [iht (f h)]
+    ring
+
+/-- Helper: flatMap encodeNat length bound. -/
+lemma flatMap_encodeNat_len (l : List Nat) :
+    (l.flatMap encodeNat).length ≤ 3 * l.length + 2 * l.foldl (· + ·) 0 := by
+  induction l with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.flatMap_cons, List.length_append, List.foldl_cons]
+    rw [foldl_add_init]
+    have h_enc : (encodeNat h).length ≤ 2 * h + 3 := encodeNat_len_bound h
+    have h_len : (h :: t).length = 1 + t.length := by simp [List.length_cons]; omega
+    omega
+
+/-- List Nat encoding length bound. -/
+lemma list_nat_encode_len (l : List Nat) :
+    (@Encodable.encode (List Nat) _ l).length ≤ 4 * l.length + 2 * l.foldl (· + ·) 0 + 1 := by
+  show (List.replicate l.length true ++ [false] ++ l.flatMap encodeNat).length ≤ _
+  simp only [List.length_append, List.length_replicate, List.length_singleton]
+  have h := flatMap_encodeNat_len l
+  omega
+
+/-- foldl for List (List Nat) accumulator lemma. -/
+lemma foldl_list_nat_init (init : Nat) (l : List (List Nat)) :
+    List.foldl (fun acc inner => acc + inner.length + inner.foldl (· + ·) 0) init l =
+    init + List.foldl (fun acc inner => acc + inner.length + inner.foldl (· + ·) 0) 0 l := by
+  induction l generalizing init with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.foldl_cons, Nat.zero_add]
+    rw [iht (init + h.length + h.foldl (· + ·) 0)]
+    rw [iht (h.length + h.foldl (· + ·) 0)]
+    ring
+
+/-- foldl accumulator lemma for list-list inner lengths and sums. -/
+lemma foldl_inner_len_sum_init (init : Nat) (l : List (List Nat)) :
+    List.foldl (fun acc inner => acc + 4 * inner.length + 2 * inner.foldl (· + ·) 0) init l =
+    init + List.foldl (fun acc inner => acc + 4 * inner.length + 2 * inner.foldl (· + ·) 0) 0 l := by
+  induction l generalizing init with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.foldl_cons, Nat.zero_add]
+    rw [iht (init + 4 * h.length + 2 * h.foldl (· + ·) 0)]
+    rw [iht (4 * h.length + 2 * h.foldl (· + ·) 0)]
+    ring
+
+/-- Helper: flatMap for List (List Nat) encoding length bound.
+    Note: Uses coefficient 4 for inner lengths, 2 for inner sums to match list_nat_encode_len. -/
+lemma flatMap_list_nat_encode_len (l : List (List Nat)) :
+    (l.flatMap (@Encodable.encode (List Nat) _)).length ≤
+      l.length + l.foldl (fun acc inner => acc + 4 * inner.length + 2 * inner.foldl (· + ·) 0) 0 := by
+  induction l with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.flatMap_cons, List.length_append, List.foldl_cons]
+    have h_inner := list_nat_encode_len h
+    have h_len : (h :: t).length = 1 + t.length := by simp [List.length_cons]; omega
+    rw [foldl_inner_len_sum_init]
+    omega
+
+/-- List (List Nat) encoding length bound. -/
+lemma list_list_nat_encode_len (l : List (List Nat)) :
+    (@Encodable.encode (List (List Nat)) _ l).length ≤
+      2 * l.length + l.foldl (fun acc inner => acc + 4 * inner.length + 2 * inner.foldl (· + ·) 0) 0 + 1 := by
+  show (List.replicate l.length true ++ [false] ++ l.flatMap Encodable.encode).length ≤ _
+  simp only [List.length_append, List.length_replicate, List.length_singleton]
+  have h := flatMap_list_nat_encode_len l
+  omega
+
+/-- RawDAG encoding length bound. -/
+lemma rawDAG_encode_len (d : RawDAG) :
+    (@Encodable.encode RawDAG _ d).length ≤
+      2 * d.n + 2 * d.parents.length +
+      d.parents.foldl (fun acc l => acc + 4 * l.length + 2 * l.foldl (· + ·) 0) 0 + 4 := by
+  show (encodeNat d.n ++ @Encodable.encode (List (List Nat)) _ d.parents).length ≤ _
+  simp only [List.length_append]
+  have h_n : (encodeNat d.n).length ≤ 2 * d.n + 3 := encodeNat_len_bound d.n
+  have h_parents := list_list_nat_encode_len d.parents
+  omega
+
+/-- RawEmergenceMatrix encoding length bound. -/
+lemma rawEmergenceMatrix_encode_len (m : RawEmergenceMatrix) :
+    (@Encodable.encode RawEmergenceMatrix _ m).length ≤
+      2 * m.R + 2 * m.n + 2 * m.bits.length + 7 := by
+  show (encodeNat m.R ++ encodeNat m.n ++ @Encodable.encode (List Bool) _ m.bits).length ≤ _
+  simp only [List.length_append]
+  have h_R : (encodeNat m.R).length ≤ 2 * m.R + 3 := encodeNat_len_bound m.R
+  have h_n : (encodeNat m.n).length ≤ 2 * m.n + 3 := encodeNat_len_bound m.n
+  have h_bits : (@Encodable.encode (List Bool) _ m.bits).length = 2 * m.bits.length + 1 :=
+    list_bool_encode_len m.bits
+  omega
+
+/-- foldl for RawEmergenceMatrix list accumulator lemma. -/
+lemma foldl_rawEmergenceMatrix_init (init : Nat) (l : List RawEmergenceMatrix) :
+    List.foldl (fun acc m => acc + m.R + m.n + m.bits.length) init l =
+    init + List.foldl (fun acc m => acc + m.R + m.n + m.bits.length) 0 l := by
+  induction l generalizing init with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.foldl_cons, Nat.zero_add]
+    rw [iht (init + h.R + h.n + h.bits.length)]
+    rw [iht (h.R + h.n + h.bits.length)]
+    ring
+
+/-- Helper: flatMap for RawEmergenceMatrix list. -/
+lemma flatMap_rawEmergenceMatrix_encode_len (l : List RawEmergenceMatrix) :
+    (l.flatMap (@Encodable.encode RawEmergenceMatrix _)).length ≤
+      7 * l.length + 2 * l.foldl (fun acc m => acc + m.R + m.n + m.bits.length) 0 := by
+  induction l with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.flatMap_cons, List.length_append, List.foldl_cons]
+    rw [foldl_rawEmergenceMatrix_init]
+    have h_enc := rawEmergenceMatrix_encode_len h
+    have h_len : (h :: t).length = 1 + t.length := by simp [List.length_cons]; omega
+    omega
+
+/-- List RawEmergenceMatrix encoding length bound. -/
+lemma list_rawEmergenceMatrix_encode_len (l : List RawEmergenceMatrix) :
+    (@Encodable.encode (List RawEmergenceMatrix) _ l).length ≤
+      8 * l.length + 2 * l.foldl (fun acc m => acc + m.R + m.n + m.bits.length) 0 + 1 := by
+  show (List.replicate l.length true ++ [false] ++ l.flatMap Encodable.encode).length ≤ _
+  simp only [List.length_append, List.length_replicate, List.length_singleton]
+  have h := flatMap_rawEmergenceMatrix_encode_len l
+  omega
+
+/-- RawPoolConfig encoding length bound. -/
+lemma rawPoolConfig_encode_len (p : RawPoolConfig) :
+    (@Encodable.encode RawPoolConfig _ p).length ≤ 2 * p.stride + 3 := by
+  show (encodeNat p.stride).length ≤ _
+  exact encodeNat_len_bound p.stride
+
+/-- RawLStarInstanceFull encoding length bound. -/
+lemma rawLStarInstanceFull_encode_len (r : RawLStarInstanceFull) :
+    (@Encodable.encode RawLStarInstanceFull _ r).length ≤
+      2 * r.n + 2 * r.dag.n + 2 * r.dag.parents.length +
+      r.dag.parents.foldl (fun acc l => acc + 4 * l.length + 2 * l.foldl (· + ·) 0) 0 +
+      4 * r.seedWidth.length + 2 * r.seedWidth.foldl (· + ·) 0 +
+      4 * r.R.length + 2 * r.R.foldl (· + ·) 0 +
+      8 * r.emergence.length + 2 * r.emergence.foldl (fun acc m => acc + m.R + m.n + m.bits.length) 0 +
+      2 * r.pools.stride + 15 := by
+  show (encodeNat r.n ++ Encodable.encode r.dag ++ Encodable.encode r.seedWidth ++
+        Encodable.encode r.R ++ Encodable.encode r.emergence ++ Encodable.encode r.pools).length ≤ _
+  simp only [List.length_append]
+  have h_n := encodeNat_len_bound r.n
+  have h_dag := rawDAG_encode_len r.dag
+  have h_sw := list_nat_encode_len r.seedWidth
+  have h_R := list_nat_encode_len r.R
+  have h_em := list_rawEmergenceMatrix_encode_len r.emergence
+  have h_pools := rawPoolConfig_encode_len r.pools
+  omega
+
+/-- EncodedLiteral encoding length bound. -/
+lemma encodedLiteral_encode_len (lit : EncodedLiteral) :
+    (@Encodable.encode EncodedLiteral _ lit).length ≤ 2 * lit.maskedVar + 4 := by
+  show (encodeNat lit.maskedVar ++ @Encodable.encode Bool _ lit.maskedPolarity).length ≤ _
+  simp only [List.length_append]
+  have h_var := encodeNat_len_bound lit.maskedVar
+  have h_pol : (@Encodable.encode Bool _ lit.maskedPolarity).length = 1 := bool_encode_len lit.maskedPolarity
+  omega
+
+/-- foldl for EncodedLiteral list accumulator lemma. -/
+lemma foldl_encodedLiteral_init (init : Nat) (l : List EncodedLiteral) :
+    List.foldl (fun acc lit => acc + lit.maskedVar) init l =
+    init + List.foldl (fun acc lit => acc + lit.maskedVar) 0 l := by
+  induction l generalizing init with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.foldl_cons, Nat.zero_add]
+    rw [iht (init + h.maskedVar)]
+    rw [iht h.maskedVar]
+    ring
+
+/-- Helper: flatMap for EncodedLiteral list. -/
+lemma flatMap_encodedLiteral_encode_len (l : List EncodedLiteral) :
+    (l.flatMap (@Encodable.encode EncodedLiteral _)).length ≤
+      4 * l.length + 2 * l.foldl (fun acc lit => acc + lit.maskedVar) 0 := by
+  induction l with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.flatMap_cons, List.length_append, List.foldl_cons]
+    rw [foldl_encodedLiteral_init]
+    have h_enc := encodedLiteral_encode_len h
+    have h_len : (h :: t).length = 1 + t.length := by simp [List.length_cons]; omega
+    omega
+
+/-- List EncodedLiteral encoding length bound. -/
+lemma list_encodedLiteral_encode_len (l : List EncodedLiteral) :
+    (@Encodable.encode (List EncodedLiteral) _ l).length ≤
+      5 * l.length + 2 * l.foldl (fun acc lit => acc + lit.maskedVar) 0 + 1 := by
+  show (List.replicate l.length true ++ [false] ++ l.flatMap Encodable.encode).length ≤ _
+  simp only [List.length_append, List.length_replicate, List.length_singleton]
+  have h := flatMap_encodedLiteral_encode_len l
+  omega
+
+/-- EncodedClause encoding length bound.
+    Note: We include the maskedVar sum since it affects encoding length. -/
+lemma encodedClause_encode_len (c : EncodedClause) :
+    (@Encodable.encode EncodedClause _ c).length ≤
+      5 * c.literals.length + 2 * c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0 + 1 := by
+  show (@Encodable.encode (List EncodedLiteral) _ c.literals).length ≤ _
+  have h := list_encodedLiteral_encode_len c.literals
+  omega
+
+/-- foldl for EncodedClause list accumulator lemma. -/
+lemma foldl_encodedClause_init (init : Nat) (l : List EncodedClause) :
+    List.foldl (fun acc c => acc + c.literals.length) init l =
+    init + List.foldl (fun acc c => acc + c.literals.length) 0 l := by
+  induction l generalizing init with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.foldl_cons, Nat.zero_add]
+    rw [iht (init + h.literals.length)]
+    rw [iht h.literals.length]
+    ring
+
+/-- foldl for totalMaskedVarSum accumulator lemma. -/
+lemma foldl_maskedVar_clause_init (init : Nat) (l : List EncodedClause) :
+    List.foldl (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) init l =
+    init + List.foldl (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0 l := by
+  induction l generalizing init with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.foldl_cons, Nat.zero_add]
+    rw [iht (init + h.literals.foldl (fun acc lit => acc + lit.maskedVar) 0)]
+    rw [iht (h.literals.foldl (fun acc lit => acc + lit.maskedVar) 0)]
+    ring
+
+/-- Helper: flatMap for EncodedClause list - tracks both literal count and maskedVar sum. -/
+lemma flatMap_encodedClause_encode_len (l : List EncodedClause) :
+    (l.flatMap (@Encodable.encode EncodedClause _)).length ≤
+      l.length +
+      5 * l.foldl (fun acc c => acc + c.literals.length) 0 +
+      2 * l.foldl (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0 := by
+  induction l with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.flatMap_cons, List.length_append, List.foldl_cons]
+    rw [foldl_encodedClause_init, foldl_maskedVar_clause_init]
+    have h_enc := encodedClause_encode_len h
+    -- Help omega see: (h :: t).length = 1 + t.length
+    have h_len : (h :: t).length = 1 + t.length := by simp [List.length_cons]; omega
+    omega
+
+/-- List EncodedClause encoding length bound. -/
+lemma list_encodedClause_encode_len (l : List EncodedClause) :
+    (@Encodable.encode (List EncodedClause) _ l).length ≤
+      2 * l.length +
+      5 * l.foldl (fun acc c => acc + c.literals.length) 0 +
+      2 * l.foldl (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0 + 1 := by
+  show (List.replicate l.length true ++ [false] ++ l.flatMap Encodable.encode).length ≤ _
+  simp only [List.length_append, List.length_replicate, List.length_singleton]
+  have h := flatMap_encodedClause_encode_len l
+  omega
+
+/-- EncodedCNF encoding length bound. -/
+lemma encodedCNF_encode_len (φ : EncodedCNF) :
+    (@Encodable.encode EncodedCNF _ φ).length ≤
+      2 * φ.nvars + 2 * φ.clauses.length +
+      5 * φ.clauses.foldl (fun acc c => acc + c.literals.length) 0 +
+      2 * φ.clauses.foldl (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0 + 5 := by
+  show (encodeNat φ.nvars ++ @Encodable.encode (List EncodedClause) _ φ.clauses).length ≤ _
+  simp only [List.length_append]
+  have h_nvars := encodeNat_len_bound φ.nvars
+  have h_clauses := list_encodedClause_encode_len φ.clauses
+  omega
+
+/-- RawGateDigest encoding length bound. -/
+lemma rawGateDigest_encode_len (g : RawGateDigest) :
+    (@Encodable.encode RawGateDigest _ g).length ≤ 2 * g.segmentBudget + 2 * g.bits.length + 4 := by
+  show (encodeNat g.segmentBudget ++ @Encodable.encode (List Bool) _ g.bits).length ≤ _
+  simp only [List.length_append]
+  have h_budget := encodeNat_len_bound g.segmentBudget
+  have h_bits := list_bool_encode_len g.bits
+  omega
+
+/-- Option α encoding length: 1 for none, 1 + encode α for some. -/
+lemma option_encode_len_none {α : Type} [Encodable α] :
+    (@Encodable.encode (Option α) _ none).length = 1 := rfl
+
+lemma option_encode_len_some {α : Type} [Encodable α] (x : α) :
+    (@Encodable.encode (Option α) _ (some x)).length = 1 + (Encodable.encode x).length := by
+  show ([true] ++ Encodable.encode x).length = _
+  simp only [List.length_append, List.length_singleton]
+
+/-- Option RawGateDigest encoding length bound - none case. -/
+lemma option_rawGateDigest_encode_len_none :
+    (@Encodable.encode (Option RawGateDigest) _ none).length = 1 := option_encode_len_none
+
+/-- Option RawGateDigest encoding length bound - some case. -/
+lemma option_rawGateDigest_encode_len_some (g : RawGateDigest) :
+    (@Encodable.encode (Option RawGateDigest) _ (some g)).length ≤ 2 * g.segmentBudget + 2 * g.bits.length + 5 := by
+  rw [option_encode_len_some]
+  have h := rawGateDigest_encode_len g
+  omega
+
+/-- Size contribution from an optional gate digest. -/
+def optionGateDigestSize (o : Option RawGateDigest) : Nat :=
+  match o with
+  | none => 0
+  | some g => g.segmentBudget + g.bits.length
+
+/-- foldl for Option RawGateDigest list accumulator lemma. -/
+lemma foldl_optionGateDigest_init (init : Nat) (l : List (Option RawGateDigest)) :
+    List.foldl (fun acc o => acc + optionGateDigestSize o) init l =
+    init + List.foldl (fun acc o => acc + optionGateDigestSize o) 0 l := by
+  induction l generalizing init with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.foldl_cons, Nat.zero_add]
+    -- LHS: foldl f (init + g h) t = (init + g h) + foldl f 0 t  (by iht)
+    -- RHS: init + foldl f (g h) t = init + (g h + foldl f 0 t)  (by iht)
+    rw [iht (init + optionGateDigestSize h)]
+    rw [iht (optionGateDigestSize h)]
+    ring
+
+/-- Helper: flatMap for Option RawGateDigest list. -/
+lemma flatMap_option_rawGateDigest_encode_len (l : List (Option RawGateDigest)) :
+    (l.flatMap (@Encodable.encode (Option RawGateDigest) _)).length ≤
+      l.length + 5 * l.length + 2 * l.foldl (fun acc o => acc + optionGateDigestSize o) 0 := by
+  induction l with
+  | nil => simp
+  | cons h t iht =>
+    simp only [List.flatMap_cons, List.length_append, List.foldl_cons]
+    rw [foldl_optionGateDigest_init]
+    -- Unfold optionGateDigestSize in IH so omega sees same form as goal
+    simp only [optionGateDigestSize] at iht
+    -- Help omega see length relation: (h :: t).length = 1 + t.length
+    have h_len : (h :: t).length = 1 + t.length := by simp [List.length_cons]; omega
+    cases h with
+    | none =>
+      simp only [option_rawGateDigest_encode_len_none, optionGateDigestSize]
+      omega
+    | some g =>
+      have h_enc := option_rawGateDigest_encode_len_some g
+      simp only [optionGateDigestSize]
+      omega
+
+/-- List (Option RawGateDigest) encoding length bound. -/
+lemma list_option_rawGateDigest_encode_len (l : List (Option RawGateDigest)) :
+    (@Encodable.encode (List (Option RawGateDigest)) _ l).length ≤
+      7 * l.length + 2 * l.foldl (fun acc o => acc + optionGateDigestSize o) 0 + 1 := by
+  show (List.replicate l.length true ++ [false] ++ l.flatMap Encodable.encode).length ≤ _
+  simp only [List.length_append, List.length_replicate, List.length_singleton]
+  have h := flatMap_option_rawGateDigest_encode_len l
+  omega
+
+/-- RawFrontierGateConfig encoding length bound. -/
+lemma rawFrontierGateConfig_encode_len (fg : RawFrontierGateConfig) :
+    (@Encodable.encode RawFrontierGateConfig _ fg).length ≤
+      2 * fg.gateReq.length + 7 * fg.gateDigests.length +
+      2 * fg.gateDigests.foldl (fun acc o => acc + optionGateDigestSize o) 0 + 2 := by
+  show (@Encodable.encode (List Bool) _ fg.gateReq ++ @Encodable.encode (List (Option RawGateDigest)) _ fg.gateDigests).length ≤ _
+  simp only [List.length_append]
+  have h_req := list_bool_encode_len fg.gateReq
+  have h_dig := list_option_rawGateDigest_encode_len fg.gateDigests
+  omega
+
+/-- Helper: total maskedVar sum across all literals in all clauses. -/
+def totalMaskedVarSum (clauses : List EncodedClause) : Nat :=
+  clauses.foldl (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0
+
 /-- The total "data size" of a RawLStarInstanceFG - counts all numeric values and list lengths.
-    This is an upper bound on what needs to be encoded. -/
+    This is an upper bound on what needs to be encoded.
+
+    Note: Includes totalMaskedVarSum to account for literal variable indices in encoding. -/
 noncomputable def rawDataSize (r : RawLStarInstanceFG) : Nat :=
   r.base.n +
   r.base.dag.n + r.base.dag.parents.length + r.base.dag.parents.foldl (fun acc l => acc + l.length + l.foldl (· + ·) 0) 0 +
@@ -465,19 +849,566 @@ noncomputable def rawDataSize (r : RawLStarInstanceFG) : Nat :=
   r.base.R.length + r.base.R.foldl (· + ·) 0 +
   r.base.emergence.length + r.base.emergence.foldl (fun acc m => acc + m.R + m.n + m.bits.length) 0 +
   r.base.pools.stride +
-  r.encodedφ.nvars + r.encodedφ.clauses.length + r.encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 +
-  r.fg.gateReq.length + r.fg.gateDigests.length
+  r.encodedφ.nvars + r.encodedφ.clauses.length +
+  r.encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 +
+  totalMaskedVarSum r.encodedφ.clauses +  -- NEW: accounts for literal variable indices
+  r.fg.gateReq.length + r.fg.gateDigests.length +
+  r.fg.gateDigests.foldl (fun acc o => acc + optionGateDigestSize o) 0
+
+/-- RawLStarInstanceFG encoding length bound - combines all component bounds. -/
+lemma rawLStarInstanceFG_encode_len (r : RawLStarInstanceFG) :
+    (@Encodable.encode RawLStarInstanceFG _ r).length ≤
+      2 * r.base.n + 2 * r.base.dag.n + 2 * r.base.dag.parents.length +
+      r.base.dag.parents.foldl (fun acc l => acc + 4 * l.length + 2 * l.foldl (· + ·) 0) 0 +
+      4 * r.base.seedWidth.length + 2 * r.base.seedWidth.foldl (· + ·) 0 +
+      4 * r.base.R.length + 2 * r.base.R.foldl (· + ·) 0 +
+      8 * r.base.emergence.length + 2 * r.base.emergence.foldl (fun acc m => acc + m.R + m.n + m.bits.length) 0 +
+      2 * r.base.pools.stride +
+      2 * r.encodedφ.nvars + 2 * r.encodedφ.clauses.length +
+      5 * r.encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 +
+      2 * r.encodedφ.clauses.foldl (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0 +
+      2 * r.fg.gateReq.length + 7 * r.fg.gateDigests.length +
+      2 * r.fg.gateDigests.foldl (fun acc o => acc + optionGateDigestSize o) 0 + 24 := by
+  show (Encodable.encode r.base ++ Encodable.encode r.encodedφ ++ Encodable.encode r.fg).length ≤ _
+  simp only [List.length_append]
+  have h_base := rawLStarInstanceFull_encode_len r.base
+  have h_phi := encodedCNF_encode_len r.encodedφ
+  have h_fg := rawFrontierGateConfig_encode_len r.fg
+  omega
 
 /-- Encoding length is bounded by a linear function of raw data size.
-    Each piece of data contributes at most O(1) encoding overhead. -/
-axiom encoding_linear_in_data : ∀ (r : RawLStarInstanceFG),
-    (Encodable.encode r).length ≤ 8 * rawDataSize r + 100
+    Each piece of data contributes at most a constant factor encoding overhead.
+
+    The proof relates the encoding bound (with various coefficients like 4x, 5x, 8x)
+    to rawDataSize (which uses coefficient 1x) by noting that the max coefficient is 8. -/
+theorem encoding_linear_in_data : ∀ (r : RawLStarInstanceFG),
+    (Encodable.encode r).length ≤ 8 * rawDataSize r + 100 := by
+  intro r
+  have h := rawLStarInstanceFG_encode_len r
+  -- The key observation: each encoding term ≤ 8 * its rawDataSize contribution
+  -- For dag.parents: foldl(4*L + 2*S) ≤ 4 * foldl(L + S) since 4L + 2S ≤ 4(L + S)
+  -- For other components: coefficients are ≤ 8
+  -- Expand rawDataSize and compare term by term
+  simp only [rawDataSize, totalMaskedVarSum]
+  -- The dag.parents foldl has different form, need to relate them
+  -- foldl(4*L + 2*S) ≤ 4 * foldl(L + S) when L, S ≥ 0
+  have h_parents_bound :
+      r.base.dag.parents.foldl (fun acc l => acc + 4 * l.length + 2 * l.foldl (· + ·) 0) 0 ≤
+      4 * r.base.dag.parents.foldl (fun acc l => acc + l.length + l.foldl (· + ·) 0) 0 := by
+    induction r.base.dag.parents with
+    | nil => simp
+    | cons hd tl ih =>
+      simp only [List.foldl_cons, Nat.zero_add]
+      -- Use accumulator lemmas
+      rw [foldl_inner_len_sum_init, foldl_list_nat_init]
+      have h1 : 4 * hd.length + 2 * hd.foldl (· + ·) 0 ≤ 4 * (hd.length + hd.foldl (· + ·) 0) := by omega
+      omega
+  omega
+
+/-- Helper bounds on L* construction components.
+
+    These bounds come from the L* construction (PlantCore.lean):
+    - seedWidth values are bounded by construction parameters
+    - R values (emergence ranks) are bounded by O(n)
+    - encodedφ has O(n) clauses with O(1) literals each (3-SAT)
+    - GateDigest bits are bounded by segment budgets which are O(n)
+
+    For a fully verified bound, these would be derived from construction lemmas.
+    Here we state them as a trusted axiom to isolate the construction-specific bounds. -/
+axiom lstar_component_bounds (L : LStarInstanceFG) :
+    -- seedWidth values bounded
+    (∀ v, L.seedWidth v ≤ L.dag.n) ∧
+    -- R values (emergence ranks) bounded
+    (∀ v, L.R v ≤ L.dag.n) ∧
+    -- Emergence matrix bits bounded (R × seedWidth ≤ n²)
+    (∀ v, L.R v * L.seedWidth v ≤ L.dag.n * L.dag.n) ∧
+    -- encodedφ clauses bounded
+    (L.encodedφ.clauses.length ≤ L.dag.n) ∧
+    -- Total literals bounded
+    (L.encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 ≤ 3 * L.dag.n) ∧
+    -- maskedVar values bounded by nvars
+    (∀ c ∈ L.encodedφ.clauses, ∀ lit ∈ c.literals, lit.maskedVar ≤ L.encodedφ.nvars) ∧
+    -- pools.stride bounded
+    (L.pools.stride ≤ L.dag.n) ∧
+    -- GateDigest bounds
+    (∀ i (h : L.fg.gateReq i), (L.fg.gateDigest ⟨i, h⟩).segmentBudget ≤ L.dag.n) ∧
+    (∀ i (h : L.fg.gateReq i), (L.fg.gateDigest ⟨i, h⟩).bits.toList.length ≤ L.dag.n)
+
+/-! ### Helper lemmas for rawDataSize_poly_bound -/
+
+/-- Bound on foldl sum: if f x ≤ bound for all x in list, then foldl (acc + f x) 0 ≤ length * bound.
+    Uses a helper to carry the accumulator bound through induction. -/
+lemma foldl_bounded_sum_aux {α : Type*} (f : α → Nat) (bound : Nat) (l : List α)
+    (h : ∀ x : α, x ∈ l → f x ≤ bound) (acc : Nat) :
+    l.foldl (fun a x => a + f x) acc ≤ acc + l.length * bound := by
+  induction l generalizing acc with
+  | nil => simp
+  | cons hd tl ih =>
+    simp only [List.foldl_cons, List.length_cons]
+    have mem_hd : hd ∈ hd :: tl := List.mem_cons_self
+    have h_hd : f hd ≤ bound := h hd mem_hd
+    have h_tl : ∀ x : α, x ∈ tl → f x ≤ bound := by
+      intro x mem_x
+      exact h x (List.mem_cons_of_mem hd mem_x)
+    have ih_result := ih h_tl (acc + f hd)
+    -- ih_result: foldl (acc + f hd) tl ≤ (acc + f hd) + tl.length * bound
+    -- Goal: foldl (acc + f hd) tl ≤ acc + (tl.length + 1) * bound
+    -- Need: (acc + f hd) + tl.length * bound ≤ acc + (tl.length + 1) * bound
+    -- Which is: f hd + tl.length * bound ≤ (tl.length + 1) * bound = tl.length * bound + bound
+    -- Which is: f hd ≤ bound ✓
+    have h_chain : (acc + f hd) + tl.length * bound ≤ acc + (tl.length + 1) * bound := by
+      have : (tl.length + 1) * bound = tl.length * bound + bound := by ring
+      omega
+    omega
+
+lemma foldl_bounded_sum {α : Type*} (f : α → Nat) (bound : Nat) (l : List α)
+    (h : ∀ x : α, x ∈ l → f x ≤ bound) : l.foldl (fun acc x => acc + f x) 0 ≤ l.length * bound := by
+  have := foldl_bounded_sum_aux f bound l h 0
+  simp at this
+  exact this
+
+/-- Bound on foldl (· + ·) for Nat list when each element is bounded. -/
+lemma foldl_nat_bounded_aux (bound : Nat) (l : List Nat) (h : ∀ x : Nat, x ∈ l → x ≤ bound) (acc : Nat) :
+    l.foldl (· + ·) acc ≤ acc + l.length * bound := by
+  induction l generalizing acc with
+  | nil => simp
+  | cons hd tl ih =>
+    simp only [List.foldl_cons, List.length_cons]
+    have mem_hd : hd ∈ hd :: tl := List.mem_cons_self
+    have h_hd : hd ≤ bound := h hd mem_hd
+    have h_tl : ∀ x : Nat, x ∈ tl → x ≤ bound := by
+      intro x mem_x
+      exact h x (List.mem_cons_of_mem hd mem_x)
+    have ih_result := ih h_tl (acc + hd)
+    have h_chain : (acc + hd) + tl.length * bound ≤ acc + (tl.length + 1) * bound := by
+      have : (tl.length + 1) * bound = tl.length * bound + bound := by ring
+      omega
+    omega
+
+lemma foldl_nat_bounded (bound : Nat) (l : List Nat) (h : ∀ x : Nat, x ∈ l → x ≤ bound) :
+    l.foldl (· + ·) 0 ≤ l.length * bound := by
+  have := foldl_nat_bounded_aux bound l h 0
+  simp at this
+  exact this
+
+/-- Parent list length is bounded by n. -/
+lemma parent_list_length_bound (n : Nat) (parents : Fin n → Finset (Fin n)) (i : Fin n) :
+    ((parents i).toList.map (·.val)).length ≤ n := by
+  simp only [List.length_map]
+  have h1 : (parents i).toList.length = (parents i).card := Finset.length_toList (parents i)
+  rw [h1]
+  have h2 : (Finset.univ : Finset (Fin n)).card = n := Finset.card_fin n
+  calc (parents i).card ≤ (Finset.univ : Finset (Fin n)).card :=
+          Finset.card_le_card (Finset.subset_univ (parents i))
+    _ = n := h2
+
+/-- Parent list sum is bounded by n². -/
+lemma parent_list_sum_bound (n : Nat) (parents : Fin n → Finset (Fin n)) (i : Fin n) :
+    ((parents i).toList.map (·.val)).foldl (· + ·) 0 ≤ n * n := by
+  have h_vals : ∀ x : Nat, x ∈ (parents i).toList.map (·.val) → x ≤ n := by
+    intro x hx
+    simp only [List.mem_map, Finset.mem_toList] at hx
+    obtain ⟨j, _, rfl⟩ := hx
+    exact Nat.le_of_lt j.isLt
+  have h_bound := foldl_nat_bounded n ((parents i).toList.map (·.val)) h_vals
+  have h_len := parent_list_length_bound n parents i
+  -- h_bound: foldl ≤ length * n
+  -- h_len: length ≤ n
+  -- Need: length * n ≤ n * n (follows from h_len)
+  have h_mult : ((parents i).toList.map (·.val)).length * n ≤ n * n :=
+    Nat.mul_le_mul_right n h_len
+  omega
+
+/-- Bound on parent foldl: sum over all (length + sum) ≤ n² + n³. -/
+lemma parents_foldl_bound (n : Nat) (parents : Fin n → Finset (Fin n)) :
+    ((List.finRange n).map (fun i => (parents i).toList.map (·.val))).foldl
+      (fun acc l => acc + l.length + l.foldl (· + ·) 0) 0 ≤ n * n + n * n * n := by
+  have h_per_elem : ∀ i : Fin n,
+      let l := (parents i).toList.map (·.val)
+      l.length + l.foldl (· + ·) 0 ≤ n + n * n := by
+    intro i
+    have h1 := parent_list_length_bound n parents i
+    have h2 := parent_list_sum_bound n parents i
+    omega
+  have h_mem_bound : ∀ l ∈ (List.finRange n).map (fun i => (parents i).toList.map (·.val)),
+      l.length + l.foldl (· + ·) 0 ≤ n + n * n := by
+    intro l hl
+    simp only [List.mem_map, List.mem_finRange, true_and] at hl
+    obtain ⟨i, rfl⟩ := hl
+    exact h_per_elem i
+  have h_len : ((List.finRange n).map (fun i => (parents i).toList.map (·.val))).length = n := by
+    simp [List.length_map, List.length_finRange]
+  -- foldl_bounded_sum uses (fun acc x => acc + f x), we need to show equality with (fun acc l => acc + l.length + l.foldl (· + ·) 0)
+  -- They differ in association: acc + l.length + ... vs acc + (l.length + ...)
+  have h_foldl_eq : ((List.finRange n).map (fun i => (parents i).toList.map (·.val))).foldl
+        (fun acc l => acc + l.length + l.foldl (· + ·) 0) 0 =
+      ((List.finRange n).map (fun i => (parents i).toList.map (·.val))).foldl
+        (fun acc l => acc + (l.length + l.foldl (· + ·) 0)) 0 := by
+    congr 1
+    ext acc l
+    ring
+  rw [h_foldl_eq]
+  have h_main := foldl_bounded_sum (fun l => l.length + l.foldl (· + ·) 0) (n + n * n)
+    ((List.finRange n).map (fun i => (parents i).toList.map (·.val))) h_mem_bound
+  simp only [h_len] at h_main
+  calc ((List.finRange n).map (fun i => (parents i).toList.map (·.val))).foldl
+        (fun acc l => acc + (l.length + l.foldl (· + ·) 0)) 0
+      ≤ n * (n + n * n) := h_main
+    _ = n * n + n * n * n := by ring
+
+/-- Bound on mapped foldl sum when each element is bounded. -/
+lemma mapped_foldl_sum_bound {α : Type*} (n : Nat) (l : List α) (f : α → Nat) (bound : Nat)
+    (h_len : l.length = n) (h_bound : ∀ x ∈ l, f x ≤ bound) :
+    (l.map f).foldl (· + ·) 0 ≤ n * bound := by
+  -- Convert (l.map f).foldl (· + ·) to l.foldl (fun acc x => acc + f x)
+  have h_vals : ∀ x ∈ l.map f, x ≤ bound := by
+    intro x hx
+    simp only [List.mem_map] at hx
+    obtain ⟨y, hy, rfl⟩ := hx
+    exact h_bound y hy
+  have h := foldl_nat_bounded bound (l.map f) h_vals
+  have h_map_len : (l.map f).length = n := by simp [h_len]
+  simp only [h_map_len] at h
+  exact h
+
+/-- Emergence matrix size bound. -/
+lemma emergence_size_bound (n : Nat) (L : LStarInstanceFG) (h_n : L.dag.n = n)
+    (h_R : ∀ v, L.R v ≤ n) (h_sw : ∀ v, L.seedWidth v ≤ n) (i : Fin n) :
+    let m := toRawEmergenceMatrix (L.emergence (h_n ▸ i))
+    m.R + m.n + m.bits.length ≤ 2 * n + n * n := by
+  simp only [toRawEmergenceMatrix]
+  have hR : L.R (h_n ▸ i) ≤ n := h_R _
+  have hSW : L.seedWidth (h_n ▸ i) ≤ n := h_sw _
+  have h_bits_len : ((List.finRange (L.R (h_n ▸ i))).flatMap
+      (fun r => (List.finRange (L.seedWidth (h_n ▸ i))).map
+        (fun c => (L.emergence (h_n ▸ i)).matrix r c == 1))).length =
+      L.R (h_n ▸ i) * L.seedWidth (h_n ▸ i) := by
+    simp only [List.length_flatMap, List.length_finRange, List.length_map]
+    -- Need: sum of R copies of SW = R * SW
+    -- Use List.sum_const for constant map
+    have h_sum : ((List.finRange (L.R (h_n ▸ i))).map (fun _ => L.seedWidth (h_n ▸ i))).sum =
+        (List.finRange (L.R (h_n ▸ i))).length * L.seedWidth (h_n ▸ i) := by
+      have : ∀ (l : List (Fin (L.R (h_n ▸ i)))),
+          (l.map (fun _ => L.seedWidth (h_n ▸ i))).sum = l.length * L.seedWidth (h_n ▸ i) := by
+        intro l
+        induction l with
+        | nil => simp
+        | cons _ tl ih => simp only [List.map_cons, List.sum_cons, List.length_cons, ih]; ring
+      exact this _
+    simp only [List.length_finRange] at h_sum
+    exact h_sum
+  rw [h_bits_len]
+  have : L.R (h_n ▸ i) * L.seedWidth (h_n ▸ i) ≤ n * n := Nat.mul_le_mul hR hSW
+  omega
+
+/-- Emergence foldl bound. -/
+lemma emergence_foldl_bound (n : Nat) (L : LStarInstanceFG) (h_n : L.dag.n = n)
+    (h_R : ∀ v, L.R v ≤ n) (h_sw : ∀ v, L.seedWidth v ≤ n) :
+    ((List.finRange n).map (fun i => toRawEmergenceMatrix (L.emergence (h_n ▸ i)))).foldl
+      (fun acc m => acc + m.R + m.n + m.bits.length) 0 ≤ 2 * n * n + n * n * n := by
+  have h_per : ∀ i : Fin n,
+      let m := toRawEmergenceMatrix (L.emergence (h_n ▸ i))
+      m.R + m.n + m.bits.length ≤ 2 * n + n * n :=
+    fun i => emergence_size_bound n L h_n h_R h_sw i
+  have h_mem_bound : ∀ m ∈ (List.finRange n).map (fun i => toRawEmergenceMatrix (L.emergence (h_n ▸ i))),
+      m.R + m.n + m.bits.length ≤ 2 * n + n * n := by
+    intro m hm
+    simp only [List.mem_map, List.mem_finRange, true_and] at hm
+    obtain ⟨i, rfl⟩ := hm
+    exact h_per i
+  have h_len : ((List.finRange n).map (fun i => toRawEmergenceMatrix (L.emergence (h_n ▸ i)))).length = n := by
+    simp [List.length_map, List.length_finRange]
+  -- Convert foldl function form to match foldl_bounded_sum
+  have h_foldl_eq : ((List.finRange n).map (fun i => toRawEmergenceMatrix (L.emergence (h_n ▸ i)))).foldl
+        (fun acc m => acc + m.R + m.n + m.bits.length) 0 =
+      ((List.finRange n).map (fun i => toRawEmergenceMatrix (L.emergence (h_n ▸ i)))).foldl
+        (fun acc m => acc + (m.R + m.n + m.bits.length)) 0 := by
+    congr 1
+    ext acc m
+    ring
+  rw [h_foldl_eq]
+  have h_main := foldl_bounded_sum (fun m : RawEmergenceMatrix => m.R + m.n + m.bits.length) (2 * n + n * n)
+    ((List.finRange n).map (fun i => toRawEmergenceMatrix (L.emergence (h_n ▸ i)))) h_mem_bound
+  simp only [h_len] at h_main
+  calc ((List.finRange n).map (fun i => toRawEmergenceMatrix (L.emergence (h_n ▸ i)))).foldl
+        (fun acc m => acc + (m.R + m.n + m.bits.length)) 0
+      ≤ n * (2 * n + n * n) := h_main
+    _ = 2 * n * n + n * n * n := by ring
+
+/-- GateDigest foldl bound. -/
+lemma gateDigest_foldl_bound (n : Nat) (L : LStarInstanceFG) (h_n : L.dag.n = n)
+    (h_dgBudget : ∀ i (h : L.fg.gateReq i), (L.fg.gateDigest ⟨i, h⟩).segmentBudget ≤ n)
+    (h_dgBits : ∀ i (h : L.fg.gateReq i), (L.fg.gateDigest ⟨i, h⟩).bits.toList.length ≤ n) :
+    ((List.finRange n).map (fun i =>
+      if h : L.fg.gateReq (h_n ▸ i) then some (toRawGateDigest (L.fg.gateDigest ⟨h_n ▸ i, h⟩))
+      else none)).foldl (fun acc o => acc + optionGateDigestSize o) 0 ≤ 2 * n * n := by
+  have h_per : ∀ i : Fin n, optionGateDigestSize
+      (if h : L.fg.gateReq (h_n ▸ i) then some (toRawGateDigest (L.fg.gateDigest ⟨h_n ▸ i, h⟩))
+       else none) ≤ 2 * n := by
+    intro i
+    split_ifs with h_req
+    · simp only [optionGateDigestSize, toRawGateDigest]
+      have hb := h_dgBudget (h_n ▸ i) h_req
+      have hbits := h_dgBits (h_n ▸ i) h_req
+      omega
+    · simp [optionGateDigestSize]
+  have h_mem_bound : ∀ o ∈ (List.finRange n).map (fun i =>
+      if h : L.fg.gateReq (h_n ▸ i) then some (toRawGateDigest (L.fg.gateDigest ⟨h_n ▸ i, h⟩))
+      else none), optionGateDigestSize o ≤ 2 * n := by
+    intro o ho
+    simp only [List.mem_map, List.mem_finRange, true_and] at ho
+    obtain ⟨i, rfl⟩ := ho
+    exact h_per i
+  have h_len : ((List.finRange n).map (fun i =>
+      if h : L.fg.gateReq (h_n ▸ i) then some (toRawGateDigest (L.fg.gateDigest ⟨h_n ▸ i, h⟩))
+      else none)).length = n := by
+    simp [List.length_map, List.length_finRange]
+  have h_main := foldl_bounded_sum optionGateDigestSize (2 * n) _ h_mem_bound
+  simp only [h_len] at h_main
+  calc ((List.finRange n).map (fun i =>
+        if h : L.fg.gateReq (h_n ▸ i) then some (toRawGateDigest (L.fg.gateDigest ⟨h_n ▸ i, h⟩))
+        else none)).foldl (fun acc o => acc + optionGateDigestSize o) 0
+      ≤ n * (2 * n) := h_main
+    _ = 2 * n * n := by ring
+
+/-- Helper: foldl maskedVar on literals equals foldl on mapped list. -/
+private lemma foldl_maskedVar_eq_map (lits : List EncodedLiteral) :
+    lits.foldl (fun acc lit => acc + lit.maskedVar) 0 = (lits.map (·.maskedVar)).foldl (· + ·) 0 := by
+  induction lits with
+  | nil => simp
+  | cons l ls ih =>
+    simp only [List.map_cons, List.foldl_cons, Nat.zero_add]
+    rw [foldl_add_init, foldl_encodedLiteral_init, ih]
+
+/-- Helper: clause maskedVar sum bounded by literals.length * bound. -/
+private lemma clause_maskedVar_bound (c : EncodedClause) (bound : Nat)
+    (h : ∀ lit ∈ c.literals, lit.maskedVar ≤ bound) :
+    c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0 ≤ c.literals.length * bound := by
+  rw [foldl_maskedVar_eq_map]
+  have h_map := foldl_nat_bounded bound (c.literals.map (·.maskedVar))
+    (by intro x hx; simp only [List.mem_map] at hx; obtain ⟨lit, hlit, rfl⟩ := hx; exact h lit hlit)
+  simp only [List.length_map] at h_map
+  exact h_map
+
+/-- MaskedVar sum bound.
+    Uses the bound that each maskedVar ≤ n and total literals ≤ 3n. -/
+lemma maskedVar_sum_bound (n : Nat) (L : LStarInstanceFG)
+    (h_nvars : L.encodedφ.nvars ≤ n)
+    (h_lits : L.encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 ≤ 3 * n)
+    (h_masked : ∀ c ∈ L.encodedφ.clauses, ∀ lit ∈ c.literals, lit.maskedVar ≤ L.encodedφ.nvars) :
+    totalMaskedVarSum L.encodedφ.clauses ≤ 3 * n * n := by
+  simp only [totalMaskedVarSum]
+  -- Each maskedVar ≤ nvars ≤ n
+  have h_each : ∀ c ∈ L.encodedφ.clauses, ∀ lit ∈ c.literals, lit.maskedVar ≤ n := by
+    intro c hc lit hlit
+    calc lit.maskedVar ≤ L.encodedφ.nvars := h_masked c hc lit hlit
+      _ ≤ n := h_nvars
+  -- Main bound: totalMaskedVarSum ≤ (total literals) * n
+  have h_bound : L.encodedφ.clauses.foldl
+      (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0 ≤
+      L.encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 * n := by
+    -- Prove by induction on the clause list
+    have h_main : ∀ (clauses : List EncodedClause),
+        (∀ c ∈ clauses, ∀ lit ∈ c.literals, lit.maskedVar ≤ n) →
+        clauses.foldl (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0 ≤
+        clauses.foldl (fun acc c => acc + c.literals.length) 0 * n := by
+      intro clauses h_cls_bound
+      induction clauses with
+      | nil => simp
+      | cons hd tl ih =>
+        simp only [List.foldl_cons, Nat.zero_add]
+        have h_hd_bound : ∀ lit ∈ hd.literals, lit.maskedVar ≤ n :=
+          fun lit hlit => h_cls_bound hd List.mem_cons_self lit hlit
+        have h_hd := clause_maskedVar_bound hd n h_hd_bound
+        have h_tl_bound : ∀ c ∈ tl, ∀ lit ∈ c.literals, lit.maskedVar ≤ n :=
+          fun c hc lit hlit => h_cls_bound c (List.mem_cons_of_mem hd hc) lit hlit
+        have ih' := ih h_tl_bound
+        -- Use accumulator lemmas to simplify
+        rw [foldl_maskedVar_clause_init, foldl_encodedClause_init]
+        calc hd.literals.foldl (fun acc lit => acc + lit.maskedVar) 0 +
+              tl.foldl (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0
+            ≤ hd.literals.length * n + tl.foldl (fun acc c => acc + c.literals.length) 0 * n := by
+              have := h_hd; have := ih'; omega
+          _ = (hd.literals.length + tl.foldl (fun acc c => acc + c.literals.length) 0) * n := by ring
+    exact h_main L.encodedφ.clauses h_each
+  calc L.encodedφ.clauses.foldl
+        (fun acc c => acc + c.literals.foldl (fun acc lit => acc + lit.maskedVar) 0) 0
+      ≤ L.encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 * n := h_bound
+    _ ≤ (3 * n) * n := Nat.mul_le_mul_right n h_lits
+    _ = 3 * n * n := by ring
 
 /-- Raw data size of toRawLStarInstanceFG L is bounded by O(n³) where n = L.dag.n.
-    This captures that all components of L have polynomial size.
-    The constant 300 is chosen so that 8 * 300 + overhead < 3072. -/
-axiom rawDataSize_poly_bound : ∀ (L : LStarInstanceFG),
-    rawDataSize (toRawLStarInstanceFG L) ≤ 300 * (L.dag.n + 1) ^ 3
+
+    This captures that all components of L have polynomial size. The proof uses
+    structural bounds from the L* construction (via lstar_component_bounds).
+
+    Component analysis (let n = dag.n):
+    - base.n: ≤ n (from dag_size_ge_n)
+    - dag components: O(n²) (n vertices, each with ≤n parents)
+    - seedWidth, R: O(n²) (n values, each ≤ n)
+    - emergence: O(n³) (n matrices, each ≤ n² bits)
+    - pools: O(n)
+    - encodedφ: O(n²) (O(n) clauses × O(1) literals × O(n) var indices)
+    - fg: O(n²) (n elements, each ≤ n bits)
+
+    Total: O(n³), well within 300 * (n+1)³. -/
+theorem rawDataSize_poly_bound : ∀ (L : LStarInstanceFG),
+    rawDataSize (toRawLStarInstanceFG L) ≤ 300 * (L.dag.n + 1) ^ 3 := by
+  intro L
+  -- Get construction bounds from the axiom
+  obtain ⟨h_sw, h_R, h_em_bound, h_clauses, h_lits, h_masked, h_stride, h_dgBudget, h_dgBits⟩ :=
+    lstar_component_bounds L
+  -- Abbreviations
+  let n := L.dag.n
+  have h_n : L.dag.n = n := rfl
+  have h_n_bound : L.n ≤ n := L.dag_size_ge_n
+  have h_nvars : L.encodedφ.nvars = L.n := L.h_n_eq_nvars.symm
+  have h_nvars_le : L.encodedφ.nvars ≤ n := by rw [h_nvars]; exact h_n_bound
+  -- Component bounds
+  have h1 : (toRawLStarInstanceFG L).base.n ≤ n := h_n_bound
+  have h2 : (toRawLStarInstanceFG L).base.dag.n = n := rfl
+  have h3 : (toRawLStarInstanceFG L).base.dag.parents.length = n := by
+    simp only [toRawLStarInstanceFG, toRawLStarInstanceFull, toRawDAG, List.length_map, List.length_finRange, h_n]
+  have h4 : (toRawLStarInstanceFG L).base.dag.parents.foldl
+      (fun acc l => acc + l.length + l.foldl (· + ·) 0) 0 ≤ n * n + n * n * n := by
+    simp only [toRawLStarInstanceFG, toRawLStarInstanceFull, toRawDAG]
+    exact parents_foldl_bound n L.dag.parents
+  have h5 : (toRawLStarInstanceFG L).base.seedWidth.length = n := by
+    simp only [toRawLStarInstanceFG, toRawLStarInstanceFull, List.length_map, List.length_finRange, h_n]
+  have h6 : (toRawLStarInstanceFG L).base.seedWidth.foldl (· + ·) 0 ≤ n * n := by
+    simp only [toRawLStarInstanceFG, toRawLStarInstanceFull]
+    exact mapped_foldl_sum_bound n (List.finRange n) L.seedWidth n
+      (List.length_finRange) (fun x _ => h_sw x)
+  have h7 : (toRawLStarInstanceFG L).base.R.length = n := by
+    simp only [toRawLStarInstanceFG, toRawLStarInstanceFull, List.length_map, List.length_finRange, h_n]
+  have h8 : (toRawLStarInstanceFG L).base.R.foldl (· + ·) 0 ≤ n * n := by
+    simp only [toRawLStarInstanceFG, toRawLStarInstanceFull]
+    exact mapped_foldl_sum_bound n (List.finRange n) L.R n
+      (List.length_finRange) (fun x _ => h_R x)
+  have h9 : (toRawLStarInstanceFG L).base.emergence.length = n := by
+    simp only [toRawLStarInstanceFG, toRawLStarInstanceFull, List.length_map, List.length_finRange, h_n]
+  have h10 : (toRawLStarInstanceFG L).base.emergence.foldl
+      (fun acc m => acc + m.R + m.n + m.bits.length) 0 ≤ 2 * n * n + n * n * n := by
+    simp only [toRawLStarInstanceFG, toRawLStarInstanceFull]
+    exact emergence_foldl_bound n L h_n h_R h_sw
+  have h11 : (toRawLStarInstanceFG L).base.pools.stride ≤ n := h_stride
+  have h12 : (toRawLStarInstanceFG L).encodedφ.nvars ≤ n := h_nvars_le
+  have h13 : (toRawLStarInstanceFG L).encodedφ.clauses.length ≤ n := h_clauses
+  have h14 : (toRawLStarInstanceFG L).encodedφ.clauses.foldl
+      (fun acc c => acc + c.literals.length) 0 ≤ 3 * n := h_lits
+  have h15 : totalMaskedVarSum (toRawLStarInstanceFG L).encodedφ.clauses ≤ 3 * n * n := by
+    simp only [toRawLStarInstanceFG]
+    exact maskedVar_sum_bound n L h_nvars_le h_lits h_masked
+  have h16 : (toRawLStarInstanceFG L).fg.gateReq.length = n := by
+    simp only [toRawLStarInstanceFG, toRawFrontierGateConfig, List.length_map, List.length_finRange, h_n]
+  have h17 : (toRawLStarInstanceFG L).fg.gateDigests.length = n := by
+    simp only [toRawLStarInstanceFG, toRawFrontierGateConfig, List.length_map, List.length_finRange, h_n]
+  have h18 : (toRawLStarInstanceFG L).fg.gateDigests.foldl
+      (fun acc o => acc + optionGateDigestSize o) 0 ≤ 2 * n * n := by
+    simp only [toRawLStarInstanceFG, toRawFrontierGateConfig]
+    exact gateDigest_foldl_bound n L h_n h_dgBudget h_dgBits
+  -- Total bound calculation
+  -- rawDataSize = sum of 18 component bounds
+  -- Linear terms (n): h1=n, h2=n, h3=n, h5=n, h7=n, h9=n, h16=n, h17=n → 8n exact
+  --                   h11≤n, h12≤n, h13≤n → 3n bounded
+  --                   h14≤3n → 3n bounded
+  -- Total linear: 8n + 3n + 3n = 14n
+  -- Quadratic terms (n²): h4 has n², h6≤n², h8≤n², h10 has 2n², h15≤3n², h18≤2n²
+  -- Total quadratic: 1 + 1 + 1 + 2 + 3 + 2 = 10n²
+  -- Cubic terms (n³): h4 has n³, h10 has n³ → 2n³
+  -- Total: 14n + 10n² + 2n³
+  have h_sum : rawDataSize (toRawLStarInstanceFG L) ≤ 14 * n + 10 * n * n + 2 * n * n * n := by
+    -- Define abbreviations for components (abstract away structure access)
+    let c1 := (toRawLStarInstanceFG L).base.n
+    let c2 := (toRawLStarInstanceFG L).base.dag.n
+    let c3 := (toRawLStarInstanceFG L).base.dag.parents.length
+    let c4 := (toRawLStarInstanceFG L).base.dag.parents.foldl (fun acc l => acc + l.length + l.foldl (· + ·) 0) 0
+    let c5 := (toRawLStarInstanceFG L).base.seedWidth.length
+    let c6 := (toRawLStarInstanceFG L).base.seedWidth.foldl (· + ·) 0
+    let c7 := (toRawLStarInstanceFG L).base.R.length
+    let c8 := (toRawLStarInstanceFG L).base.R.foldl (· + ·) 0
+    let c9 := (toRawLStarInstanceFG L).base.emergence.length
+    let c10 := (toRawLStarInstanceFG L).base.emergence.foldl (fun acc m => acc + m.R + m.n + m.bits.length) 0
+    let c11 := (toRawLStarInstanceFG L).base.pools.stride
+    let c12 := (toRawLStarInstanceFG L).encodedφ.nvars
+    let c13 := (toRawLStarInstanceFG L).encodedφ.clauses.length
+    let c14 := (toRawLStarInstanceFG L).encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0
+    let c15 := totalMaskedVarSum (toRawLStarInstanceFG L).encodedφ.clauses
+    let c16 := (toRawLStarInstanceFG L).fg.gateReq.length
+    let c17 := (toRawLStarInstanceFG L).fg.gateDigests.length
+    let c18 := (toRawLStarInstanceFG L).fg.gateDigests.foldl (fun acc o => acc + optionGateDigestSize o) 0
+    -- Establish bounds on each component
+    have b1 : c1 ≤ n := h1
+    have b2 : c2 ≤ n := le_of_eq h2
+    have b3 : c3 ≤ n := le_of_eq h3
+    have b4 : c4 ≤ n * n + n * n * n := h4
+    have b5 : c5 ≤ n := le_of_eq h5
+    have b6 : c6 ≤ n * n := h6
+    have b7 : c7 ≤ n := le_of_eq h7
+    have b8 : c8 ≤ n * n := h8
+    have b9 : c9 ≤ n := le_of_eq h9
+    have b10 : c10 ≤ 2 * n * n + n * n * n := h10
+    have b11 : c11 ≤ n := h11
+    have b12 : c12 ≤ n := h12
+    have b13 : c13 ≤ n := h13
+    have b14 : c14 ≤ 3 * n := h14
+    have b15 : c15 ≤ 3 * n * n := h15
+    have b16 : c16 ≤ n := le_of_eq h16
+    have b17 : c17 ≤ n := le_of_eq h17
+    have b18 : c18 ≤ 2 * n * n := h18
+    -- rawDataSize equals sum of components
+    have h_eq : rawDataSize (toRawLStarInstanceFG L) =
+        c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13 + c14 + c15 + c16 + c17 + c18 := rfl
+    -- Sum of bounds: 14n + 10n² + 2n³
+    -- Build explicit bound on sum
+    have h_bound : c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13 + c14 + c15 + c16 + c17 + c18
+        ≤ n + n + n + (n * n + n * n * n) + n + n * n + n + n * n + n + (2 * n * n + n * n * n) + n + n + n + 3 * n + 3 * n * n + n + n + 2 * n * n := by
+      -- Apply Nat.add_le_add repeatedly
+      apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add
+      apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add
+      apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add
+      apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add
+      apply Nat.add_le_add
+      exact b1; exact b2; exact b3; exact b4; exact b5; exact b6; exact b7; exact b8
+      exact b9; exact b10; exact b11; exact b12; exact b13; exact b14; exact b15; exact b16
+      exact b17; exact b18
+    have h_simplify : n + n + n + (n * n + n * n * n) + n + n * n + n + n * n + n + (2 * n * n + n * n * n) + n + n + n + 3 * n + 3 * n * n + n + n + 2 * n * n
+        = 14 * n + 10 * n * n + 2 * n * n * n := by ring
+    rw [h_eq]
+    calc c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13 + c14 + c15 + c16 + c17 + c18
+        ≤ n + n + n + (n * n + n * n * n) + n + n * n + n + n * n + n + (2 * n * n + n * n * n) + n + n + n + 3 * n + 3 * n * n + n + n + 2 * n * n := h_bound
+      _ = 14 * n + 10 * n * n + 2 * n * n * n := h_simplify
+  -- 14n + 10n² + 2n³ ≤ 300 * (n+1)³
+  -- (n+1)³ = n³ + 3n² + 3n + 1, so 300(n+1)³ = 300n³ + 900n² + 900n + 300
+  -- Coefficient check: 2 ≤ 300, 10 ≤ 900, 14 ≤ 900, 0 ≤ 300 ✓
+  have h_final : 14 * n + 10 * n * n + 2 * n * n * n ≤ 300 * (n + 1) ^ 3 := by
+    -- Prove by showing coefficient comparison
+    have h_expand : 300 * (n + 1) ^ 3 = 300 * n * n * n + 900 * n * n + 900 * n + 300 := by ring
+    rw [h_expand]
+    -- Now prove: 14n + 10n² + 2n³ ≤ 300n³ + 900n² + 900n + 300
+    -- This is: 2n³ + 10n² + 14n ≤ 300n³ + 900n² + 900n + 300
+    -- Subtract LHS from both sides (in Nat, show RHS - adjusted ≥ 0)
+    have h1 : 2 * n * n * n ≤ 300 * n * n * n := by
+      have step1 : 2 * n ≤ 300 * n := Nat.mul_le_mul_right n (by decide : 2 ≤ 300)
+      have step2 : 2 * n * n ≤ 300 * n * n := Nat.mul_le_mul_right n step1
+      exact Nat.mul_le_mul_right n step2
+    have h2 : 10 * n * n ≤ 900 * n * n := by
+      have step1 : 10 * n ≤ 900 * n := Nat.mul_le_mul_right n (by decide : 10 ≤ 900)
+      exact Nat.mul_le_mul_right n step1
+    have h3 : 14 * n ≤ 900 * n := Nat.mul_le_mul_right n (by decide : 14 ≤ 900)
+    have h4 : (0 : Nat) ≤ 300 := by decide
+    calc 14 * n + 10 * n * n + 2 * n * n * n
+        = 2 * n * n * n + 10 * n * n + 14 * n + 0 := by ring
+      _ ≤ 300 * n * n * n + 900 * n * n + 900 * n + 300 := by
+        apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add
+        exact h1; exact h2; exact h3; exact h4
+  -- Connect n to L.dag.n for final goal
+  calc rawDataSize (toRawLStarInstanceFG L)
+      ≤ 14 * n + 10 * n * n + 2 * n * n * n := h_sum
+    _ ≤ 300 * (n + 1) ^ 3 := h_final
+    _ = 300 * (L.dag.n + 1) ^ 3 := by rw [← h_n]
+
+#print axioms rawDataSize_poly_bound
 
 /-! ### Complexity Class Integration Check -/
 

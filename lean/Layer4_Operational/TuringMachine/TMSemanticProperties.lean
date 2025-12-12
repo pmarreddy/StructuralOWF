@@ -47,8 +47,8 @@ lemma tm_at_zero_is_init (M : TuringMachine k states alphabet) :
 
     **Proof**: By definition of tmOutputWitness and tm_at_zero_is_init.
 -/
-lemma tm_zero_steps_no_change (M : TuringMachine k states alphabet)
-    (extractWitness : TMConfig M → Witness) :
+lemma tm_zero_steps_no_change {nvars : Nat} (M : TuringMachine k states alphabet)
+    (extractWitness : TMConfig M → Witness nvars) :
   tmOutputWitness M 0 extractWitness = extractWitness (TMConfig.init M) := by
   unfold tmOutputWitness
   rw [tm_at_zero_is_init]
@@ -65,10 +65,10 @@ lemma tm_zero_steps_no_change (M : TuringMachine k states alphabet)
     tm_overhead) remain as definitional axioms in TMAxioms.lean since they require
     semantic constraints about what "meaningful computation" means.
 -/
-theorem tm_nontrivial_computation_base
+theorem tm_nontrivial_computation_base {nvars : Nat}
     (M : TuringMachine 1 states alphabet)
     (haltTime : Nat)
-    (extractWitness : TMConfig M → Witness)
+    (extractWitness : TMConfig M → Witness nvars)
     (h_diff : tmOutputWitness M haltTime extractWitness ≠ extractWitness (TMConfig.init M))
     : haltTime ≥ 1 := by
   by_contra h_contra
