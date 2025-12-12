@@ -3178,22 +3178,20 @@ def SameSegment (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
 
 ### 12.12 Keyedness (Layer 3)
 
-**Definition**: `WorldCompatibleWithWitness` (Layer3_InformationBounds/Keyedness/AcceptanceUniqueness.lean)
+**Definition**: `WitnessSatisfiesFormula` (Layer3_InformationBounds/Keyedness/AcceptanceUniqueness.lean)
 
 ```lean
-def WorldCompatibleWithWitness {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
-    (φ : CNF) (_ω : CutWorld L C) (W : Witness) : Prop :=
+def WitnessSatisfiesFormula (φ : CNF) (W : Witness) : Prop :=
   φ.satisfies W.assignment
 ```
 
-**Mathematical Object**: World-witness correspondence
-- **Formula**: World is compatible with witness iff witness satisfies CNF
-- **Uniqueness**: A2 (Injectivity) ensures unique witness per world
-- **Usage**: Witness extraction relies on world-witness bijection
+**Mathematical Object**: Witness validity check
+- **Formula**: Witness satisfies the CNF formula
+- **Note**: For world-constraining compatibility, use `WorldCompatibleWithVerifiedWitness`
 
 **Why Moderate**: Infrastructure for witness uniqueness, keyed is more fundamental
 
-**Theory**: Bijection (set theory)
+**Theory**: SAT satisfiability
 
 ---
 

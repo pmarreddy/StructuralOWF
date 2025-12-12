@@ -81,15 +81,6 @@ theorem digest_diff_of_parity_diff {n : Nat}
 def WitnessSatisfiesFormula (φ : CNF) (W : Witness) : Prop :=
   φ.satisfies W.assignment
 
-/-- **Deprecated** (misleading name): this predicate ignores `ω`.
-
-Use `WitnessSatisfiesFormula` for the underlying check, or
-`WorldCompatibleWithVerifiedWitness` when you actually need constraints on `ω`. -/
-@[deprecated "Use WitnessSatisfiesFormula (ignores ω) or WorldCompatibleWithVerifiedWitness (constrains ω)."]
-def WorldCompatibleWithWitness {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
-    (φ : CNF) (_ω : CutWorld L C) (W : Witness) : Prop :=
-  WitnessSatisfiesFormula φ W
-
 /-- **Strong compatibility**: World assignments match emergent configs from verified witness.
 
     **Definition**: A world ω is strongly compatible with a VerifiedWitness vw if:
@@ -98,8 +89,6 @@ def WorldCompatibleWithWitness {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
 
     **This is provable for planted instances**: emergentConfigAtVertex is deterministic,
     so there's exactly one world strongly compatible with a given VerifiedWitness.
-
-    **Key difference from WorldCompatibleWithWitness**: This ACTUALLY constrains ω!
 
     **ARCHITECTURE FIX**: Uses emergentConfigAtVertex (vertex-indexed API) instead of
     emergentConfigAtGate. This ensures psigma_val.fst = L.R v holds definitionally!
