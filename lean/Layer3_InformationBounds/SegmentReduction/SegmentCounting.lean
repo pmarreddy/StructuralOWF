@@ -114,7 +114,7 @@ witness. This bounds the "pre-final agreement" s.
 
     **Why this matters**: Effective residual ρ = λ - s. Larger s → smaller ρ
     → fewer segments needed. FG keeps s small → ρ large → exponential segments. -/
-def PreFinalAgreement (_L : LStarInstanceFG) (run : DeterministicRun Assignment Witness) : Nat :=
+def PreFinalAgreement (_L : LStarInstanceFG) (run : DeterministicRun AssignmentInf AssignmentInf) : Nat :=
   run.preFinalAgreement
 
 /-- Effective residual: unresolved information after pre-final agreement.
@@ -126,7 +126,7 @@ def PreFinalAgreement (_L : LStarInstanceFG) (run : DeterministicRun Assignment 
 
     **Paper connection**: Appendix C.2 shows ρ ≥ λ_base - τ·λ_base.
     For constant τ, ρ = Θ(λ_base), maintaining exponential hardness. -/
-def EffectiveResidual (L : LStarInstanceFG) (run : DeterministicRun Assignment Witness)
+def EffectiveResidual (L : LStarInstanceFG) (run : DeterministicRun AssignmentInf AssignmentInf)
     (v : {v // L.fg.gateReq v}) : Nat :=
   lambdaBase L v - PreFinalAgreement L run
 
@@ -168,7 +168,7 @@ theorem construct_run_and_segments_from_witness_finder
     (L : LStarInstanceFG)
     (W : WitnessFinder L)
     (_v : {v // L.fg.gateReq v})
-    : ∃ (run : DeterministicRun Assignment Witness)
+    : ∃ (run : DeterministicRun AssignmentInf AssignmentInf)
         (segments : Fin run.segmentCount → Segment),
         run.strategy = Strategy.singleRun ∧
         run.time = W.time ∧
@@ -177,7 +177,7 @@ theorem construct_run_and_segments_from_witness_finder
         (∀ i, (segments i).digestOperations ≥ 1) ∧
         run.time ≥ (∑ i, (segments i).digestOperations) := by
   -- Construct run with conservative parameters
-  let run : DeterministicRun Assignment Witness := {
+  let run : DeterministicRun AssignmentInf AssignmentInf := {
     strategy := Strategy.singleRun
     segmentCount := W.states_visited
     preFinalAgreement := 0
@@ -259,7 +259,7 @@ theorem witnessFinderImpliesExponentialSegments
         (trackedRunFromWitnessFinder L W C lambda h_residual h_lambda_pos)
         (Fintype.elems : Finset (ConfigSpace L C)))
     : ∃ (coverage : SingleRunCoverage L W C lambda)
-        (run : DeterministicRun Assignment Witness)
+        (run : DeterministicRun AssignmentInf AssignmentInf)
         (segments : Fin run.segmentCount → Segment),
         coverage =
           singleRunCoverageFromFullExhaustive L W C lambda h_residual h_lambda_pos h_exhaustive ∧
@@ -386,7 +386,7 @@ theorem witnessFinder_has_exponential_segment_decomposition
           h_lambda_pos)
         (Fintype.elems : Finset (ConfigSpace L {v.val})))
     : ∃ (coverage : SingleRunCoverage L W {v.val} lambda)
-        (run : DeterministicRun Assignment Witness)
+        (run : DeterministicRun AssignmentInf AssignmentInf)
         (segments : Fin run.segmentCount → Segment),
         coverage =
           singleRunCoverageFromFullExhaustive L W {v.val} lambda

@@ -7,8 +7,10 @@ import Layer0_Foundations.Base.CNF
 import Layer3_InformationBounds.Keyedness.AcceptanceUniqueness  -- For build3SATReductionDAG_size_bound
 import Layer3_InformationBounds.ConstraintSystem.EmergentConfig  -- For emergentConfigAtGate
 import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridgeHelpers  -- For computeSeedAtVertex_ext
+import Layer5_Applications.PvsNP.ComplexityClasses.Encoding.LStarEncoding
 import Layer5_Applications.PvsNP.PrimaryPath.EncodingHelpers  -- For encoding round-trip lemmas
 import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFSizedInstances  -- For consistent Sized instances
+import Layer5_Applications.PvsNP.ComplexityClasses.BitEncoding
 import Layer5_Applications.PvsNP.ComplexityClasses.RandAdv  -- For Church–Turing bridge algspec_has_tm
 import Layer4_Operational.TuringMachine.TMAxioms  -- For plant_equality_tm_exists
 import Layer5_Applications.PvsNP.ComplexityClasses.EncodingDiscipline  -- For encoding format separation

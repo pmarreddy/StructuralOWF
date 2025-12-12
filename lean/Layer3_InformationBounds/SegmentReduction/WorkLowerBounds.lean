@@ -3187,7 +3187,8 @@ lemma witness_exists_compatible_with_emergent
     {L : LStarInstanceFull} {C : Finset (Fin L.dag.n)}
     (φ : CNF)  -- CNF formula for compatibility
     (emergent : (v : LStar.InCut L C) → Vector Bool (L.R v))
-    (h_yes : ∃ (a : AssignmentInf), φ.satisfies a) :
+    (h_yes : ∃ (a : AssignmentInf), φ.satisfies a)
+    (h_wf : φ.WellFormed) :
     ∃ W : Witness φ.nvars, WitnessCompatibleWithEmergent φ emergent W := by
   -- Construct witness from satisfying assignment
   obtain ⟨a, h_sat⟩ := h_yes
@@ -3203,9 +3204,14 @@ lemma witness_exists_compatible_with_emergent
 
   -- Prove compatibility with strengthened definition
   constructor
-  · -- φ satisfaction: W.assignmentInf extends a_fin, so if a satisfies φ and matches a_fin on domain, we're good
-    -- Note: a_fin.extend may differ from a on indices ≥ nvars, but φ only depends on first nvars bits
-    sorry  -- This needs proper proof that satisfies is preserved
+  · -- φ satisfaction: a_fin.extend agrees with a on first nvars indices
+    -- For well-formed CNF, satisfaction only depends on first nvars indices
+    apply LStar.CNF.satisfies_of_agree_on_vars_wf φ a a_fin.extend _ h_sat h_wf
+    -- Show a and a_fin.extend agree on indices < nvars
+    intro i hi
+    -- a_fin.extend i = a_fin ⟨i, hi⟩ = a ⟨i, hi⟩.val = a i
+    simp only [Assignment.extend, hi, dif_pos]
+    rfl
   · -- Digest equality
     rfl
 
@@ -3338,13 +3344,14 @@ private lemma construct_separating_witness_fg
     (_h_enc₂ : ∀ w : LStar.InCut L C, σ₂ w = encodeSeed L w (kHist₂ w) (emergent₂ w))
     -- Precondition: Emergent bits must differ (proven from A2 injectivity)
     (h_emerg_diff : emergent₁ v ≠ emergent₂ v)
-    (h_yes : ∃ (a : AssignmentInf), φ.satisfies a) :
+    (h_yes : ∃ (a : AssignmentInf), φ.satisfies a)
+    (h_wf : φ.WellFormed) :
     ∃ W : Witness φ.nvars,
       FGWitnessCompat.WitnessReachableFromFG φ emergent₁ σ₁ W ∧
       ¬FGWitnessCompat.WitnessReachableFromFG φ emergent₂ σ₂ W := by
 
   -- Construct witness compatible with emergent₁
-  obtain ⟨W, h_compat₁⟩ := FGWitnessCompat.witness_exists_compatible_with_emergent φ emergent₁ h_yes
+  obtain ⟨W, h_compat₁⟩ := FGWitnessCompat.witness_exists_compatible_with_emergent φ emergent₁ h_yes h_wf
 
   use W
   constructor

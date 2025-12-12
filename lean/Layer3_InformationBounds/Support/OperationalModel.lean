@@ -129,7 +129,7 @@ def buildRunWithTrace
     (segCount : Nat)
     (h_pos : 0 < segCount)
     (preFinalAgr : Nat := 0) :
-    DeterministicRunWithTrace Assignment Witness :=
+    DeterministicRunWithTrace AssignmentInf AssignmentInf :=
   { strategy := strategy
     segmentCount := segCount
     preFinalAgreement := preFinalAgr

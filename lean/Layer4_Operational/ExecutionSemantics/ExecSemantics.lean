@@ -30,7 +30,7 @@ theorem nvars_ge_4_of_ge_128 {φ : CNF} (h : φ.nvars ≥ 128) : φ.nvars ≥ 4 
 /-- Minimal execution‑semantics hypotheses for a fixed cut `C`. -/
 structure ExecSemantics
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (segments : Fin run.segmentCount → Segment)
     (C : Finset (Fin L.dag.n)) : Prop where
   /-- Total time lower‑bounds sum of per‑segment parity operations. -/
@@ -47,7 +47,7 @@ structure ExecSemantics
 /-- Cut‑based closed bound (local proof, base 2). -/
 theorem time_lower_bound_from_cut_local
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (segments : Fin run.segmentCount → Segment)
     (C : Finset (Fin L.dag.n))
     (h : ExecSemantics L run segments C) :
@@ -110,7 +110,7 @@ theorem time_lower_bound_from_cut_local
 /-- Closed quantitative bound from the ExecSemantics capsule. -/
 theorem time_lower_bound_closed
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (segments : Fin run.segmentCount → Segment)
     (C : Finset (Fin L.dag.n))
     (h : ExecSemantics L run segments C) :
@@ -122,7 +122,7 @@ theorem time_lower_bound_closed
 theorem time_lower_bound_closed_singleton
     (L : LStarInstanceFG)
     (v : {v // L.fg.gateReq v})
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (segments : Fin run.segmentCount → Segment)
     (h : ExecSemantics L run segments {v.val}) :
     ∃ (c : ℝ) (_hc : 1 < c), (run.time : ℝ) ≥ c ^ (lambdaBase L v : ℕ) := by
@@ -158,7 +158,7 @@ each segment contributes at least one unit, then the runtime is at least
 the number of segments. -/
 theorem time_ge_segmentCount
     (L : LStarInstanceFG)
-    (run : DeterministicRun Assignment Witness)
+    (run : DeterministicRun AssignmentInf AssignmentInf)
     (segments : Fin run.segmentCount → Segment)
     (C : Finset (Fin L.dag.n))
     (h : ExecSemantics L run segments C)
@@ -203,7 +203,7 @@ remaining operational facts: injection over reachable cut‑configs and
 per‑segment unit work. -/
 theorem ExecSemantics.ofSecurityRun
     (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
@@ -252,7 +252,7 @@ open LStar.StructuralOWF
 /-- Derive per‑segment unit work from a stronger FG work distribution bound. -/
 theorem perSegUnit_of_work_distribution
     (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
@@ -272,14 +272,14 @@ theorem perSegUnit_of_work_distribution
     from a tracked run with single‑run strategy and search completeness. -/
 theorem inj_from_tracking_for_security_run
     (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_nvars : φ.nvars ≥ 128)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (v : {v // (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).fg.gateReq v})
-    (run_tracked : RunWithStateTracking (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} Assignment Witness)
+    (run_tracked : RunWithStateTracking (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} AssignmentInf AssignmentInf)
     (h_tracked_single : run_tracked.strategy = Strategy.singleRun)
     (h_count_eq : run_tracked.segmentCount = (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount)
     (h_search_complete : ∀ σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val},
@@ -304,14 +304,14 @@ This generalizes `inj_from_tracking_for_security_run` from singleton cuts to arb
 The proof structure is identical - we just work with an arbitrary cut C instead of {v.val}. -/
 theorem inj_from_tracking_for_security_run_multigate
     (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_nvars : φ.nvars ≥ 128)
     (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (C : Finset (Fin (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).dag.n))
-    (run_tracked : RunWithStateTracking (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C Assignment Witness)
+    (run_tracked : RunWithStateTracking (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C AssignmentInf AssignmentInf)
     (h_tracked_single : run_tracked.strategy = Strategy.singleRun)
     (h_count_eq : run_tracked.segmentCount = (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount)
     (h_search_complete : ∀ σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C,
@@ -335,8 +335,8 @@ section InstrumentedSecurityRun
 
 namespace SecurityRunInstrumented
 
-variable {n : Nat} {φ : CNF} {r_star : Randomness}
-variable {A_inv : LStarInstanceFG → Randomness}
+variable {n : Nat} {φ : CNF} {r_star : Randomness φ.nvars}
+variable {A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars}
 variable {C_A k_A C_Ext k_Ext : Nat}
 variable {h_nonzero : C_A + C_Ext ≥ 1}
 variable {h_nvars : φ.nvars ≥ 128}
@@ -489,7 +489,7 @@ open LStar.StructuralOWF
     applies `time_lower_bound_closed_singleton`. -/
 theorem quantitative_closed_for_security_run
     (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
@@ -533,7 +533,7 @@ open LStar.StructuralOWF
 
 theorem quantitative_closed_for_security_run_from_tracking
     (n : Nat) (φ : CNF) (r_star : Randomness φ.nvars)
-    (A_inv : LStarInstanceFG → Randomness)
+    (A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars)
     (C_A k_A C_Ext k_Ext : Nat)
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
@@ -545,7 +545,7 @@ theorem quantitative_closed_for_security_run_from_tracking
         (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥
         (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).R v.val)
     -- Tracked run for `{v}` with single-run strategy and reachable-surject completeness
-    (run_tracked : RunWithStateTracking (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} Assignment Witness)
+    (run_tracked : RunWithStateTracking (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} AssignmentInf AssignmentInf)
     (h_tracked_single : run_tracked.strategy = Strategy.singleRun)
     (h_count_eq : run_tracked.segmentCount = (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount)
     (h_search_complete : ∀ σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val},
@@ -641,8 +641,8 @@ theorem time_ge_segmentCount_from_searchComplete
     But since inst.run.time ≤ 2n and inst.tracked.segmentCount ≥ 2^49,
     this is impossible for n ≥ 128, n < 2^48 → contradiction. -/
 theorem time_ge_segmentCount_for_instrumented
-    {n : Nat} {φ : CNF} {r_star : Randomness}
-    {A_inv : LStarInstanceFG → Randomness}
+    {n : Nat} {φ : CNF} {r_star : Randomness φ.nvars}
+    {A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars}
     {C_A k_A C_Ext k_Ext : Nat}
     {h_nonzero : C_A + C_Ext ≥ 1}
     {h_nvars : φ.nvars ≥ 128}

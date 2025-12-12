@@ -97,9 +97,9 @@ def WorldCompatibleWithVerifiedWitness
     {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
     (φ : CNF)  -- CNF formula for satisfaction check
     (ω : CutWorld L C) (vw : VerifiedWitness L) : Prop :=
-  φ.satisfies vw.w.assignment ∧
+  φ.satisfies vw.w.assignmentInf ∧
   ∀ (v : Fin L.dag.n) (h_in : v ∈ C),
-    match h_emergent : emergentConfigAtVertex φ φ.nvars_pos (numGates L) vw.w.assignment v.val with
+    match h_emergent : emergentConfigAtVertex φ φ.nvars_pos (numGates L) vw.w.assignmentInf v.val with
     | some psigma_val =>
         -- Compare underlying Nat values to avoid type mismatch
         -- For planted instances where L.R v = psigma_val.fst, this is equivalent to Fin equality
@@ -188,7 +188,7 @@ noncomputable def worldFromVerifiedWitness
     : CutWorld L C :=
   { assignment := fun v _h_in =>
       -- Compute emergent config at v from the witness assignment
-      match h_cfg : emergentConfigAtVertex φ φ.nvars_pos (numGates L) vw.w.assignment v.val with
+      match h_cfg : emergentConfigAtVertex φ φ.nvars_pos (numGates L) vw.w.assignmentInf v.val with
       | some psigma_val =>
           -- Construct a Fin (2^(L.R v)) from the Nat value
           -- For planted instances, psigma_val.fst = L.R v, so this preserves the value
@@ -215,7 +215,7 @@ theorem worldFromVerifiedWitness_strongly_compatible
     (φ : CNF)  -- CNF formula for satisfaction check and emergent config
     (C : Finset (Fin L.dag.n))
     (vw : VerifiedWitness L)
-    (h_satisfies : φ.satisfies vw.w.assignment)
+    (h_satisfies : φ.satisfies vw.w.assignmentInf)
     (h_planted : ∃ n r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
     (h_nonempty_φ : φ.clauses.length > 0)
     : WorldCompatibleWithVerifiedWitness φ (worldFromVerifiedWitness L φ C vw) vw := by
@@ -281,7 +281,7 @@ theorem worldFromVerifiedWitness_strongly_compatible
               rw [← h_dag_eq]
               exact v.isLt
 
-            have h_from_theorem := emergentConfigAtVertex_R_component φ φ.nvars_pos (numGates L) vw.w.assignment v.val h_some h_L_dag h_gate.1 h_gate.2
+            have h_from_theorem := emergentConfigAtVertex_R_component φ φ.nvars_pos (numGates L) vw.w.assignmentInf v.val h_some h_L_dag h_gate.1 h_gate.2
 
             -- h_from_theorem: psigma_val.fst = (lstarStructureFromCNF φ (numGates L)).R ⟨v.val, _⟩
             -- We need: psigma_val.fst = L.R v
@@ -299,9 +299,13 @@ theorem worldFromVerifiedWitness_strongly_compatible
                     rw [← h_φ_eq]
                     exact h_nonempty_φ
                   have h_numGates_eq : numGates L = r.gateDigests.length := by
-                    rw [h_L_eq]
-                    exact numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen h_nonempty
-                  rw [h_φ_eq, h_numGates_eq]
+                    have h1 :
+                        numGates L = numGates (plant_n n φ r h_nvars h_dgLen) := by
+                      simpa using congrArg numGates h_L_eq
+                    have h2 : numGates (plant_n n φ r h_nvars h_dgLen) = r.gateDigests.length :=
+                      numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen h_nonempty
+                    exact h1.trans h2
+                  simpa [h_numGates_eq]  -- avoid rewriting φ (dependent in r)
               _ = L.R v := (h_L_R v).symm
           · -- v is not a gate vertex - contradiction with h_some
             -- emergentConfigAtVertex returns Some only when vertexIdx is in gate range
@@ -346,10 +350,12 @@ theorem worldFromVerifiedWitness_strongly_compatible
           have h_φ_eq : φ = φ := rfl
           have h_nonempty : φ.clauses.length > 0 := by rw [← h_φ_eq]; exact h_nonempty_φ
           have h_numGates_eq : numGates L = r.gateDigests.length := by
-            -- Use numGates_eq_gateDigests_length_for_planted (need φ clauses nonempty)
-            calc numGates L
-                = numGates (plant_n n φ r h_nvars h_dgLen') := by rw [h_L_eq]
-              _ = r.gateDigests.length := numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen' h_nonempty
+            have h1 :
+                numGates L = numGates (plant_n n φ r h_nvars h_dgLen') := by
+              simpa using congrArg numGates h_L_eq
+            have h2 : numGates (plant_n n φ r h_nvars h_dgLen') = r.gateDigests.length :=
+              numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen' h_nonempty
+            exact h1.trans h2
 
           have h_L_dag : v.val < (lstarStructureFromCNF φ φ.nvars_pos (numGates L)).dag.n := by
             -- L.dag = (plant_n ...).dag = build3SATReductionDAG φ
@@ -372,7 +378,7 @@ theorem worldFromVerifiedWitness_strongly_compatible
             rw [← h_dag_n_eq]
             exact h_L_dag
 
-          have h_from_theorem := emergentConfigAtVertex_R_component φ φ.nvars_pos (numGates L) vw.w.assignment v.val h_some h_L_dag h_gate.1 h_gate.2
+          have h_from_theorem := emergentConfigAtVertex_R_component φ φ.nvars_pos (numGates L) vw.w.assignmentInf v.val h_some h_L_dag h_gate.1 h_gate.2
 
           calc psigma_val.fst
               = (lstarStructureFromCNF φ φ.nvars_pos (numGates L)).R ⟨v.val, h_L_dag⟩ := h_from_theorem
@@ -380,7 +386,7 @@ theorem worldFromVerifiedWitness_strongly_compatible
                 -- lstarStructureFromCNF defines R as R_of
                 rfl
             _ = R_of φ r.gateDigests.length v.val := by
-                rw [h_φ_eq, h_numGates_eq]
+                simpa [h_numGates_eq]  -- avoid rewriting φ (dependent in r)
             _ = L.R v := (h_L_R v).symm
         · -- Not a gate vertex - contradiction (same as above)
           exfalso
@@ -430,7 +436,7 @@ theorem strong_compatibility_implies_uniqueness
 
   -- h₁_constraint and h₂_constraint are match expressions
   -- Case split on emergentConfigAtVertex to simplify them
-  cases h_emergent : emergentConfigAtVertex φ φ.nvars_pos (numGates L) vw.w.assignment v.val with
+  cases h_emergent : emergentConfigAtVertex φ φ.nvars_pos (numGates L) vw.w.assignmentInf v.val with
   | none =>
       -- emergentConfigAtVertex returned none
       -- This contradicts h_C_gates: v is a gate, so emergentConfigAtVertex should return Some
@@ -456,22 +462,25 @@ theorem strong_compatibility_implies_uniqueness
 
       -- numGates L = r.gateDigests.length for planted instances
       have h_numGates_eq : numGates L = r.gateDigests.length := by
-        -- Use h_nonempty_φ directly since φ is the parameter
-        calc numGates L
-            = numGates (plant_n n φ r h_nvars h_dgLen) := by rw [h_L_eq]
-          _ = r.gateDigests.length := numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen h_nonempty_φ
+        have h1 :
+            numGates L = numGates (plant_n n φ r h_nvars h_dgLen) := by
+          simpa using congrArg numGates h_L_eq
+        have h2 : numGates (plant_n n φ r h_nvars h_dgLen) = r.gateDigests.length :=
+          numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen h_nonempty_φ
+        exact h1.trans h2
 
       -- emergentConfigAtVertex checks the same range condition
       -- Unfold to see the if-then-else
       unfold emergentConfigAtVertex at h_emergent
       have h_φ_eq : φ = φ := rfl
-      rw [h_φ_eq, h_numGates_eq] at h_emergent
+      -- Use simp (handles dependent occurrences more robustly than rw).
+      simp [h_φ_eq, h_numGates_eq] at h_emergent
 
       -- Now h_emergent is: (if h : ... then emergentConfigAtGate ... else none) = none
       -- We know from h_gate_range that the condition is true, so the if simplifies to then branch
       -- Use h_gate_range to rewrite the if-then-else
       simp only [h_gate_range, ↓reduceIte] at h_emergent
-      -- Now h_emergent is: emergentConfigAtGate φ r.gateDigests.length vw.w.assignment gateIdx = none
+      -- Now h_emergent is: emergentConfigAtGate φ r.gateDigests.length vw.w.assignmentInf gateIdx = none
       -- where gateIdx = v.val - clause_start
       -- emergentConfigAtGate can return none in 3 cases:
       -- 1. gateIdx >= numGates - ruled out by h_gate_range (range check passed)
@@ -538,8 +547,12 @@ theorem strong_compatibility_implies_uniqueness
 
       -- For planted instances, L.dag = build3SATReductionDAG φ = L_struct.dag
       have h_dag_eq : L.dag = L_struct.dag := by
-        rw [h_L_eq]
-        rfl  -- Both use build3SATReductionDAG φ
+        -- Avoid rewriting the whole dependent structure; project out the DAG field.
+        have h1 : L.dag = (plant_n n φ r h_nvars h_dgLen).dag := by
+          simpa using congrArg (fun L : LStarInstanceFG => L.dag) h_L_eq
+        -- Definitionally, lstarStructureFromCNF and plant_n share the same DAG construction.
+        -- L_struct was extracted from lstarStructureFromCNF, so its DAG matches plant_n's DAG.
+        exact h1.trans rfl
 
       -- Transport v to L_struct.dag using this equality
       have h_v_struct : v.val < L_struct.dag.n := by
