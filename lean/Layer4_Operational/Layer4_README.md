@@ -923,9 +923,6 @@ import Layer4_Operational.TuringMachine.TuringMachineSemantics
 -- For exponential time lower bound (dual-path):
 import Layer4_Operational.TimeBridge.TMToExecutionPrefix
 
--- For QP profile adapter:
-import Layer4_Operational.TimeBridge.TMAdapterQP
-
 -- For Exponential profile adapter:
 import Layer4_Operational.TimeBridge.TMAdapterExponential
 
@@ -961,11 +958,11 @@ theorem my_time_bound (M : TuringMachine k states alphabet) :
 ### Using TM Adapters
 
 ```lean
-import Layer4_Operational.TimeBridge.TMAdapterQP
+import Layer4_Operational.TimeBridge.TMAdapterExponential
 
 -- TM adapter provides ExecutionSemanticsAdapter instance
 instance : ExecutionSemanticsAdapter (TuringMachine 3 states alphabet) L :=
-  tmAdapterQP
+  tmAdapterExponential
 
 -- Use adapter to prove keyedness → visitation
 theorem my_visitation_proof (M : TuringMachine 3 states alphabet)

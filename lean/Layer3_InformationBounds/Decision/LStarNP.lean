@@ -6,7 +6,7 @@ import Layer1_Construction.Core.OAPEncoding
 import Layer1_Construction.Core.SeedChain
 import Layer1_Construction.Core.InstanceOps
 import Infrastructure.Witness.VerifiedWitness
-import Layer3_InformationBounds.Randomness.RanksQP
+import Layer3_InformationBounds.Randomness.RanksCore
 
 /-! ## LStarNP: L* ∈ NP Membership Proof (Logical NP)
 

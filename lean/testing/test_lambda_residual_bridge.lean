@@ -1,4 +1,4 @@
-import Layer3_InformationBounds.Randomness.RanksQP
+import Layer3_InformationBounds.Randomness.RanksCore
 import Layer3_InformationBounds.Randomness.RanksExponential
 import Layer0_Foundations.Base.CNF
 import Layer1_Construction.Bridge.LStarToNodeData

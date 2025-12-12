@@ -8,7 +8,7 @@ import Mathlib.Data.Vector.Basic
 
 -- Import R_of for centralized R computation
 -- This ensures type consistency between pure structure and planted instances
-import Layer3_InformationBounds.Randomness.RanksQP
+import Layer3_InformationBounds.Randomness.RanksCore
 
 /-! ## SeedSemantics: Pure Functions for Emergent Configuration (Non-Circular)
 

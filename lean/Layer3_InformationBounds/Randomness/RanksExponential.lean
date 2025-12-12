@@ -1,5 +1,5 @@
 import Layer0_Foundations.Base.CNF
-import Layer3_InformationBounds.Randomness.RanksQP
+import Layer3_InformationBounds.Randomness.RanksCore
 import Layer3_InformationBounds.Support.Probability
 import Layer3_InformationBounds.Support.SquareLePowProven
 import Mathlib.Data.Nat.Log
@@ -10,39 +10,19 @@ import Mathlib.Data.Nat.Log
 
 **Formula**: R_v = n (full security parameter) at FG gates, 0 elsewhere.
 
-**Key Result**: Changing R formula from (log₂ n)² to n amplifies 2^λ bound from quasi-polynomial n^{log n} to exponential 2^n.
+**Key Result**: With R = n, the 2^λ bound gives exponential 2^n lower bound.
 
-**Visual Intuition - How R_v Formula Controls Bound Strength**:
+**Visual Intuition - Exponential Bound Strength**:
 ```
-Same Construction, Different R Formula:
-
-QP-Sharp Profile (RanksQP.lean):
+Exponential Profile:
 ┌─────────────────────────────────────────────┐
-│  FG Gate: R_v = (log₂ n)²                  │  Weaker R
-│                                             │
-│  Example (n = 256):                         │
-│    R_v = (log₂ 256)² = 8² = 64 bits        │
-│    λ = 64 (residual)                        │
-│    Bound: 2^λ = 2^64 ≈ 10^19               │  ← Quasi-polynomial
-│           = 256^8 = n^{log n}               │     (sufficient for P≠NP)
-└─────────────────────────────────────────────┘
-
-Exponential Profile (this file):
-┌─────────────────────────────────────────────┐
-│  FG Gate: R_v = n                           │  Stronger R
+│  FG Gate: R_v = n                           │
 │                                             │
 │  Example (n = 256):                         │
 │    R_v = 256 bits (FULL parameter)         │
 │    λ = 256 (residual)                       │
 │    Bound: 2^λ = 2^256 ≈ 10^77              │  ← Exponential
-│           >> 256^8 ≈ 10^19                  │     (much stronger!)
 └─────────────────────────────────────────────┘
-
-Gap: 2^256 / 256^8 = 2^192 ≈ 10^58 (astronomically stronger!)
-
-Key Insight: SAME proof framework (A1-A5, SCL, segment reduction),
-            DIFFERENT R formula → DIFFERENT asymptotic bound
-            This demonstrates R-parametric construction!
 ```
 
 **Concrete Example - n=256 Security Parameter**:
@@ -50,33 +30,20 @@ Key Insight: SAME proof framework (A1-A5, SCL, segment reduction),
 Given: 3-SAT formula with n = 256 variables
 
 Step 1: Compute R_v at FG gate
-  - QP-Sharp: R_v = (log₂ 256)² = 8² = 64 bits
-  - Exponential: R_v = 256 bits (FULL parameter)
+  - R_v = 256 bits (FULL parameter)
 
-Step 2: Compute residual λ (assume q_v = 0 for FG digest-only)
-  - QP-Sharp: λ = R_v - q_v = 64 - 0 = 64 bits
-  - Exponential: λ = R_v - q_v = 256 - 0 = 256 bits
+Step 2: Compute residual λ (q_v = 0 for FG digest-only)
+  - λ = R_v - q_v = 256 - 0 = 256 bits
 
 Step 3: Apply SCL bound (from SCLNode.lean)
-  - QP-Sharp: |State| ≥ 2^λ = 2^64 ≈ 1.8 × 10^19 states
-  - Exponential: |State| ≥ 2^λ = 2^256 ≈ 1.2 × 10^77 states
+  - |State| ≥ 2^λ = 2^256 ≈ 1.2 × 10^77 states
 
 Step 4: Compare to polynomial time (assume p(n) = n^10)
   - Polynomial: p(256) = 256^10 ≈ 1.2 × 10^24 steps
-  - QP bound: 2^64 ≈ 1.8 × 10^19 steps < 10^24 (NOT sufficient alone!)
   - Exp bound: 2^256 ≈ 1.2 × 10^77 steps >> 10^24 (VASTLY exceeds!)
-
-Note: QP profile uses n^{log n} = 256^8 ≈ 1.8 × 10^19 bound (not shown above),
-      which DOES suffice for P≠NP proof. Exponential profile is much stronger.
 ```
 
-**Comparison to QP Profile**:
-| Profile | R_v Formula | λ (n=256) | Bound | Sufficiency |
-|---------|-------------|-----------|-------|-------------|
-| QP-Sharp (RanksQP) | (log₂ n)² | 64 | 2^64 ≈ 10^19 = n^{log n} | Proves P≠NP ✓ |
-| Exponential (this file) | n | 256 | 2^256 ≈ 10^77 | Much stronger ⭐ |
-
-**Why both profiles**: Demonstrates R-parametric construction (same framework, different R formulas → different bounds).
+This profile is the primary (and only) active profile used in the P≠NP proof.
 
 **Real-World Analogy - Cryptographic Key Space**:
 ```

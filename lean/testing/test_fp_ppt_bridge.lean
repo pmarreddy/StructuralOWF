@@ -1,4 +1,4 @@
-import Layer2_StructuralOWF.Security.StructuralOWFQP
+import Layer2_StructuralOWF.Security.StructuralOWFExponential
 import Layer5_Applications.PvsNP.ComplexityClasses.PPTAdversary
 import Layer5_Applications.PvsNP.ComplexityClasses.RandAdv
 import Layer5_Applications.PvsNP.ComplexityClasses.ComplexityClasses

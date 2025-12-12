@@ -2,31 +2,27 @@ import Layer0_Foundations.Base.CNF
 import Layer0_Foundations.Base.BoundedSecurityParam  -- For Nat.log_two_four_eq_two
 import Mathlib.Data.Nat.Log
 
-/-! ## RanksQP: QP-Sharp Profile Rank Function (R = (log₂ n)²)
+/-! ## RanksCore: Core Rank Function Infrastructure
 
-**Main Definition**: `R_of φ numGates v` - QP-sharp emergence rank function.
-
-**Formula**: R_v = (log₂ n)² at FG gates, 0 elsewhere.
+**Main Definitions**:
+- `EmergenceProfile` - Enum for profile selection (exponential used)
+- `computeR` - Profile-parametric R computation
+- `R_of` - Base rank function (R = (log₂ n)² formula, kept for reference)
+- `is_fg_gate` - FG gate position predicate
 
 **Why extracted**: Breaks circular dependencies (PlantCore ↔ Foundations). Pure rank computation
 used by Plant.lean, SeedSemantics.lean, EmergentConfig.lean.
 
 **FG Placement**: Gates at clause layer (positions [clause_start, clause_start + numGates)).
-- FG gates: R_v = (log₂ nvars)² (QP-sharp configuration space)
+- FG gates: R_v > 0 (emergence requirement)
 - Non-FG nodes: R_v = 0 (sources, variables, non-FG clauses, reduction tree)
 
-**Correctness**:
-- FG gates have R_v > 0 ✓ (emergence requirement)
-- Non-FG nodes have R_v = 0 ✓ (no emergence)
-- Matches plant_n R field ✓ (type consistency)
+**Trust Boundary**: Axiom-free (pure function definitions).
 
-**Trust Boundary**: Axiom-free (pure function definition).
+**Used by**: PlantCore.lean, SeedSemantics.lean, RanksExponential.lean
 
-**Paper**: §6 "R_v Emergence Ranks", §8 "QP-Sharp Profile (R = (log n)²)"
-
-**Used by**: PlantCore.lean, SeedSemantics.lean, EmergentConfig.lean
-
-See Layer3_InformationBounds/Layer3_README.md for rank function context and dual profile architecture.
+Note: The exponential profile (R = n) is defined in RanksExponential.lean and is the
+active profile used in the P≠NP proof.
 -/
 
 namespace LStar.StructuralOWF.Foundations

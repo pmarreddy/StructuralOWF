@@ -1,6 +1,6 @@
 import Layer5_Applications.Crypto.PRG.HardcoreBit
 import Layer0_Foundations.Base.CNF  -- Use actual CNF from Layer0
-import Layer2_StructuralOWF.Security.StructuralOWFQP  -- Import Layer2 security theorem
+import Layer2_StructuralOWF.Security.StructuralOWFExponential  -- Import Layer2 security theorem
 import Layer5_Applications.PvsNP.PrimaryPath.EncodingHelpers  -- For bitsToRandomness, randomnessToBits
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Real.Sqrt

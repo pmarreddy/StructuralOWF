@@ -62,16 +62,17 @@ Key: Shows HOW the algorithm spent its time (elimination by elimination)
 5. TM cannot distinguish them -> outputs same answer for both -> wrong on at least one -> contradicts correctness
 6. Therefore: must visit ALL 2^R configurations -> time >= 2^R
 
-**Key Axiom**: `collision_indistinguishability_under_incomplete_observation`
+**Key Axiom**: `executionPrefix_compatible_with_planted_flat`
 ```lean
-axiom collision_indistinguishability_under_incomplete_observation
-    (L : LStarInstanceFG) ...
-    (h_missing : forall t < haltTime, encodeConfig (step^[t] init) != val.val)
-    (h_correct : phi.satisfies (extractWitness (step^[haltTime] init)).assignment)
-    : False
+axiom executionPrefix_compatible_with_planted_flat
+    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) ...
+    (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
+    (h_valid : ValidExecutionPrefix_flat L φ r π)
+    -- Returns 6 properties including collision impossibility
 ```
-- **Nature**: Information-theoretic bound from A2 injectivity
-- **Risk**: Low (established mathematics)
+- **Nature**: Execution prefix bridge with validity guard
+- **Risk**: Low (properties derive from A2 injectivity)
+- **Sound Design**: `ValidExecutionPrefix_flat` ties π to r.assignment BEFORE quantification
 
 ---
 
@@ -125,7 +126,9 @@ Current pairings are design choices:
 ### Semantic (Exponential) -- 2 Axioms
 
 1. **`algspec_has_tm`** (RandAdv.lean) -- Church-Turing bridge
-2. **`collision_indistinguishability_under_incomplete_observation`** (TMAdapterExponential.lean) -- Info-theoretic bound
+2. **`executionPrefix_compatible_with_planted_flat`** (TMAdapterExponential.lean) -- Execution prefix bridge (SOUND)
+   - Guards with `ValidExecutionPrefix_flat` that ties π to r.assignment
+   - Replaces deprecated `collision_indistinguishability_under_incomplete_observation` (TM-based, had quantification order vulnerability)
 
 ### Execution (QP) -- 2 Axioms
 
@@ -190,7 +193,7 @@ A: Independent verification. If one has a subtle flaw, the other likely doesn't.
 A: Yes, architectures are orthogonal to R_v. Not implemented but theoretically possible.
 
 **Q: Key axiom difference?**
-A: Semantic uses info-theoretic bound; Execution uses operational bridge. Different trust bases.
+A: Both now use execution prefix bridges with validity guards (`ValidExecutionPrefix_flat` for exponential, `ValidExecutionPrefix` for QP). The guards ensure π is tied to r.assignment before quantification, preventing adversarial construction.
 
 ---
 
@@ -205,4 +208,4 @@ Two independent proofs -> increased confidence in P≠NP result.
 
 ---
 
-**Last Updated**: 2025-12-09
+**Last Updated**: 2025-12-12

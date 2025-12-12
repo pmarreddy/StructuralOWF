@@ -17,5 +17,4 @@ import Layer2_StructuralOWF.Plant.PlantUniqueness
 import Layer2_StructuralOWF.Extractor.Extractor
 
 -- Security proofs
-import Layer2_StructuralOWF.Security.StructuralOWFQP
 import Layer2_StructuralOWF.Security.StructuralOWFExponential

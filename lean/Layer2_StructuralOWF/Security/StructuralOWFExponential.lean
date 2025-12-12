@@ -1868,10 +1868,21 @@ theorem f_is_structural_owf_exponential_flat
     have h_φ_match : ∃ (n' : Nat) (r' : Randomness) (h_nvars' : (Φ n.val).nvars ≥ 4),
         L = plant_flat n' (Φ n.val) r' h_nvars' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, rfl, h_r_star_wellformed⟩
+
+    -- Construct ValidExponentialRun for the axiom (only encoder_bounded needed)
+    have h_valid : Foundations.FlatProfile.ValidExponentialRun A.base.M L v_fg
+        (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input L A.base.h_tape_pos A.base.h_blank_consistent)
+        haltTime extractWitness (Foundations.FlatProfile.tmEmergentEncoder L A.base.M v_fg extractWitness h_planted_inst).encode := {
+      encoder_bounded := fun t =>
+        Foundations.FlatProfile.tmEmergentEncoder_bounded L A.base.M v_fg extractWitness h_planted_inst
+          ((Foundations.TMConfig.step (M := A.base.M))^[t]
+            (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input L A.base.h_tape_pos A.base.h_blank_consistent))
+    }
+
     exact Foundations.FlatProfile.fg_first_commit_time_lower_bound_encoded
       A.base.M A.base.encoding.input L haltTime A.base.h_tape_pos A.base.h_blank_consistent
       h_tm_time_pos extractWitness L v_fg h_planted_inst h_halts_enc (Φ n.val) h_φ_match h_tm_correct
-      C_axiom k_axiom h_C_axiom_pos h_k_axiom_pos h_uniform_bound h_enc_complete
+      C_axiom k_axiom h_C_axiom_pos h_k_axiom_pos h_uniform_bound h_valid
 
   -- Upper bound: Polynomial time from PPT adversary
   -- The adversary's uniform time bound provides haltTime ≤ C_uniform * L.n ^ k_uniform
@@ -2451,10 +2462,21 @@ theorem f_is_structural_owf_exponential_true
     have h_φ_match : ∃ (n' : Nat) (r' : Randomness) (h_nvars' : (Φ n.val).nvars ≥ 4),
         L = plant_flat n' (Φ n.val) r' h_nvars' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, rfl, h_r_star_wellformed⟩
+
+    -- Construct ValidExponentialRun for the axiom (only encoder_bounded needed)
+    have h_valid : Foundations.FlatProfile.ValidExponentialRun A.base.M L v_fg
+        (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input L A.base.h_tape_pos A.base.h_blank_consistent)
+        haltTime extractWitness (Foundations.FlatProfile.tmEmergentEncoder L A.base.M v_fg extractWitness h_planted_inst).encode := {
+      encoder_bounded := fun t =>
+        Foundations.FlatProfile.tmEmergentEncoder_bounded L A.base.M v_fg extractWitness h_planted_inst
+          ((Foundations.TMConfig.step (M := A.base.M))^[t]
+            (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input L A.base.h_tape_pos A.base.h_blank_consistent))
+    }
+
     exact Foundations.FlatProfile.fg_first_commit_time_lower_bound_encoded
       A.base.M A.base.encoding.input L haltTime A.base.h_tape_pos A.base.h_blank_consistent
       h_tm_time_pos extractWitness L v_fg h_planted_inst h_halts_enc (Φ n.val) h_φ_match h_tm_correct
-      C_axiom k_axiom h_C_axiom_pos h_k_axiom_pos h_uniform_bound h_enc_complete
+      C_axiom k_axiom h_C_axiom_pos h_k_axiom_pos h_uniform_bound h_valid
 
   -- Upper bound
   have h_L_n_eq : L.n = (Φ n.val).nvars := by

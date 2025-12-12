@@ -1,7 +1,7 @@
 import Layer2_StructuralOWF.FrontierGate.FrontierGate
 import Layer2_StructuralOWF.FrontierGate.RandomnessTypes
 import Layer2_StructuralOWF.FrontierGate.VectorHelpers
-import Layer3_InformationBounds.Randomness.RanksQP  -- Layer 3 dependency (will be updated when Layer 3 is organized)
+import Layer3_InformationBounds.Randomness.RanksCore  -- EmergenceProfile and R_of definitions
 import Layer3_InformationBounds.ConstraintSystem.EmergentConfig  -- Layer 3 dependency
 import Layer1_Construction.Core.EmergenceMatrix
 import Layer1_Construction.Core.InstanceOps

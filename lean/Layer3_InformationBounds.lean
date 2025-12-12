@@ -45,9 +45,9 @@ import Layer3_InformationBounds.Keyedness.StateConfigCorrespondence
 import Layer3_InformationBounds.Keyedness.LaneDefinitions
 import Layer3_InformationBounds.Keyedness.NoBackdoorTheorem
 
--- Randomness (R profiles: QP and Exponential)
+-- Randomness (R profiles: Core and Exponential)
 import Layer3_InformationBounds.Randomness.RandomnessSpace
-import Layer3_InformationBounds.Randomness.RanksQP
+import Layer3_InformationBounds.Randomness.RanksCore
 import Layer3_InformationBounds.Randomness.RanksExponential
 
 -- Support (infrastructure for information bounds)
