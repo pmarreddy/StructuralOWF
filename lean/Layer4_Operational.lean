@@ -9,7 +9,6 @@ import Layer4_Operational.TuringMachine.TuringMachineSemantics
 import Layer4_Operational.TuringMachine.TMEncoderDefs
 
 -- Time bridges (TM execution → information bounds)
-import Layer4_Operational.TimeBridge.TMToExecutionPrefix
 import Layer4_Operational.TimeBridge.TMAdapterExponential  -- Exponential profile
 
 -- Execution semantics

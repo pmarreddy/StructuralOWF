@@ -1,9 +1,11 @@
 import Layer2_StructuralOWF.Plant.PlantCore
 import Layer3_InformationBounds.Randomness.RanksExponential  -- Layer 3 dependency (will be updated when Layer 3 is organized)
 import Layer3_InformationBounds.SegmentReduction.WorkLowerBounds  -- Layer 3 dependency
-import Layer4_Operational.TimeBridge.TMToExecutionPrefix  -- Layer 4 dependency
+import Layer3_InformationBounds.ConstraintSystem.ConstraintExtraction  -- For RevealedBit, ExecutionPrefixReal
 import Layer1_Construction.Core.LStarInstance
 import Layer1_Construction.Core.MultiLevelDAG
+import Infrastructure.Witness.VerifiedWitness  -- For totalRBits, HasCorrectDigests
+import Layer4_Operational.TuringMachine.TMEncoderDefs  -- For TM types used in bridge functions
 import Mathlib.Tactic
 
 /-! ## PlantExponential: Exponential Profile Plant Function
@@ -2001,10 +2003,16 @@ theorem plant_flat_gateReq_formula
   -- The definition expands to the decide expression via simp
   simp only [plant_flat]
 
+/-! ## TM Bridge Functions for Exponential Profile
+
+These functions bridge Turing Machine execution to ExecutionPrefixReal for security proofs.
+They use the explicit parameters from the planted instance (avoiding Classical.choose opacity).
+-/
+
 /-- **TM execution to ExecutionPrefixReal for plant_flat**.
 
-    Identical to TMToExecutionPrefix.lean:tmExecutionToPrefix but uses plant_flat helpers.
-    ~20 lines mechanical adaptation. -/
+    Maps a TM execution to an ExecutionPrefixReal structure for the exponential profile.
+    Uses explicit parameters (n, φ, r) instead of Classical.choose for transparency. -/
 noncomputable def tmExecutionToPrefix_flat
     {k : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
     [Fintype alphabet] [DecidableEq alphabet]
@@ -2018,277 +2026,12 @@ noncomputable def tmExecutionToPrefix_flat
     (h_L_eq : L = plant_flat n φ r h_nvars)
     (h_wf : WellFormedRandomness φ r)
     : Foundations.ExecutionPrefixReal L :=
-  -- Use explicit parameters instead of Classical.choose (eliminates opacity!)
   { time := haltTime
     revealedBits := extractRevealedBitsFromWitness_flat L
                       (Foundations.tmOutputWitness M haltTime extractWitness) C
     computedConfigs := extractComputedConfigsFromWitness_flat n φ r h_nvars L h_L_eq h_wf
                          (Foundations.tmOutputWitness M haltTime extractWitness)
                          h_tm_correct }
-
-/-- **WellFormedPrefix for plant_flat**.
-
-    Identical to TMToExecutionPrefix.lean:tmExecution_gives_wellformed_prefix.
-    ~14 lines, vacuously true (revealedBits = []). -/
-theorem tmExecution_gives_wellformed_prefix_flat
-    {k : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
-    [Fintype alphabet] [DecidableEq alphabet]
-    (L : LStarInstanceFG)
-    (M : Foundations.TuringMachine k states alphabet)
-    (haltTime : Nat)
-    (extractWitness : Foundations.TMConfig M → Witness)
-    (C : Finset (Fin L.dag.n))
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-    (h_tm_correct : φ.satisfies (Foundations.tmOutputWitness M haltTime extractWitness).assignment)
-    (h_L_eq : L = plant_flat n φ r h_nvars)
-    (h_wf : WellFormedRandomness φ r)
-    : Foundations.WellFormedPrefix L (tmExecutionToPrefix_flat L M haltTime extractWitness C n φ r h_nvars h_tm_correct h_L_eq h_wf) := by
-  -- Unfold definitions
-  unfold Foundations.WellFormedPrefix tmExecutionToPrefix_flat
-  simp only []
-
-  -- Goal: ∀ rb1 rb2 ∈ revealedBits, rb1.node = rb2.node → rb1.bitIndex = rb2.bitIndex → rb1.value = rb2.value
-  intro rb1 h_rb1 rb2 h_rb2 h_node_eq h_bitIndex_eq
-
-  -- KEY INSIGHT: extractRevealedBitsFromWitness_flat returns [] for FG-only instances!
-  -- FG gates compute digests (tracked in computedDigests), not individual bit reads.
-  -- Therefore revealedBits = [] and the property is vacuously true.
-  unfold extractRevealedBitsFromWitness_flat at h_rb1
-  -- h_rb1 : rb1 ∈ [] which is false
-  simp at h_rb1
-
-/-- **Helper: Fin (2^0) is subsingleton (unique element)**.
-
-    Mathematical content: Fin 1 has exactly one element (the value 0).
-    Therefore any two values in Fin (2^0) = Fin 1 are equal.
-
-    Technical note: Uses `subst` to avoid dependent type motive issues with `rw`. -/
-private lemma fin_pow_zero_unique {n : Nat} (h : n = 0) (x y : Fin (2^n)) : x = y := by
-  subst h
-  -- Goal: x y : Fin (2^0) = Fin 1
-  -- Fin 1 has unique element (only value is 0)
-  -- Prove using Fin.eq_of_val_eq
-  have hx : x.val < 1 := x.isLt
-  have hy : y.val < 1 := y.isLt
-  have : x.val = 0 := Nat.eq_zero_of_le_zero (Nat.le_of_lt_succ hx)
-  have : y.val = 0 := Nat.eq_zero_of_le_zero (Nat.le_of_lt_succ hy)
-  apply Fin.eq_of_val_eq
-  omega
-
-/-- **Nonempty feasible for plant_flat**.
-
-    Adapted from TMToExecutionPrefix.lean:tmExecution_gives_nonempty_feasible.
-    Uses flat-specific helpers: worldFromWitness_flat, mem_computedConfigs_decompose_flat. -/
-theorem tmExecution_gives_nonempty_feasible_flat
-    {k : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
-    [Fintype alphabet] [DecidableEq alphabet]
-    (L : LStarInstanceFG)
-    (M : Foundations.TuringMachine k states alphabet)
-    (haltTime : Nat)
-    (extractWitness : Foundations.TMConfig M → Witness)
-    (C : Finset (Fin L.dag.n))
-    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-    (h_tm_correct : φ.satisfies (Foundations.tmOutputWitness M haltTime extractWitness).assignment)
-    (h_L_eq : L = plant_flat n φ r h_nvars)
-    (h_wf : WellFormedRandomness φ r)
-    : (Foundations.NormalForm.FeasibleUnder (L := L) (C := C)
-        (Foundations.extractConstraints L C (tmExecutionToPrefix_flat L M haltTime extractWitness C n φ r h_nvars h_tm_correct h_L_eq h_wf))).Nonempty := by
-
-  -- Use explicit parameters directly (no Classical.choose needed!)
-  let w := Foundations.tmOutputWitness M haltTime extractWitness
-  let numGates := r.gateDigests.length
-  let clause_start := 1 + φ.nvars
-  let π := tmExecutionToPrefix_flat L M haltTime extractWitness C n φ r h_nvars h_tm_correct h_L_eq h_wf
-
-  -- Use worldFromWitness_flat (flat version of Phase 1 abstraction)
-  let ω_witness := worldFromWitness_flat L w n φ r h_nvars h_L_eq h_wf C
-
-  -- Show ω_witness is feasible (satisfies all constraints)
-  use ω_witness
-
-  -- Goal: ω_witness ∈ FeasibleUnder (extractConstraints L C π)
-  unfold Foundations.NormalForm.FeasibleUnder
-  simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-
-  -- Convert List.all to forall using List.all_eq_true
-  rw [List.all_eq_true]
-
-  -- Now need to show: ∀ constraint ∈ extractConstraints L C π, constraint.Satisfies ω_witness = true
-  intro constraint h_constraint
-
-  -- Simplify Satisfies to Bool
-  simp only [decide_eq_true_eq]
-
-  -- extractConstraints splits into 3 parts: bit, config, synthetic
-  unfold Foundations.extractConstraints at h_constraint
-  simp only [List.mem_append] at h_constraint
-  -- After simp, h_constraint has shape: ((bit ∨ config) ∨ synthetic)
-  rcases h_constraint with (h_bit | h_config) | h_synthetic
-
-  -- CASE 1: Bit Determination Constraints
-  · -- KEY INSIGHT: For FG instances, revealedBits = [] by construction, so extractBitConstraints = []!
-    -- Therefore this case is vacuous (constraint ∈ [] is false).
-    exfalso  -- Prove False from contradiction
-    -- Show π.revealedBits = []
-    have : π.revealedBits = [] := by rfl  -- extractRevealedBitsFromWitness_flat is defined as []
-    rw [this] at h_bit
-    -- Now h_bit : constraint ∈ extractBitConstraints L C []
-    unfold Foundations.extractBitConstraints at h_bit
-    -- h_bit : constraint ∈ [].filterMap ... = []
-    simp at h_bit  -- Simplify to False
-
-  -- CASE 2: Config Match Constraints (PSigma-based from computedConfigs)
-  · -- constraint ∈ extractConfigConstraints L C π.computedConfigs
-    unfold Foundations.extractConfigConstraints at h_config
-    rw [List.mem_filterMap] at h_config
-    -- extractConfigConstraints uses PSigma types: ⟨v, cfg : Fin (2^(L.R v))⟩
-    obtain ⟨psig, h_psig_in_computed, h_constraint_eq⟩ := h_config
-    obtain ⟨v, cfg⟩ := psig
-    -- h_constraint_eq : (if h : v ∈ C then some (ConfigMatch v h cfg) else none) = some constraint
-    -- Split on whether v ∈ C to handle the if-then-else
-    by_cases h_v_in_C : v ∈ C
-    · -- Case: v ∈ C, so if-then-else evaluates to some (ConfigMatch v h_v_in_C cfg)
-      simp only [h_v_in_C] at h_constraint_eq
-      cases h_constraint_eq
-      -- Now constraint = ConfigMatch v h_v_in_C cfg
-
-      -- Need to prove: ω_witness satisfies this constraint
-      unfold Foundations.CutConstraint.Satisfies
-
-      -- Strategy: cfg came from extractComputedConfigsFromWitness_flat
-      -- which extracts full configs for each FG gate
-      -- By WellFormedRandomness, emergent configs match planted randomness
-
-      -- For ConfigMatch, we need to show: ω_witness.assignment v h_v_in_C = cfg
-      -- Both π.computedConfigs and ω_witness use the same explicit parameters n, φ, r
-      -- and compute from emergentConfigAtGate_flat with identical inputs
-
-      -- Decompose filterMap membership to extract all needed components
-      -- h_psig_in_computed : ⟨v, cfg⟩ ∈ π.computedConfigs
-      -- π.computedConfigs = fgNodes.attach.filterMap (fun ⟨v', h_mem⟩ => ...)
-
-      -- Use mem_computedConfigs_decompose_flat to extract cfg structure
-      have h_cfg_struct := mem_computedConfigs_decompose_flat L n φ r h_nvars h_L_eq h_wf w h_tm_correct v cfg h_psig_in_computed
-
-      -- Extract components
-      obtain ⟨h_v_mem, R, cfg_orig, hR, h_emergent, h_cfg_eq⟩ := h_cfg_struct
-
-      -- From h_v_mem, extract that v is an FG gate
-      have h_gateReq : L.fg.gateReq v = true := (List.mem_filter.mp h_v_mem).2
-
-      -- Set up definitions
-      set g := v.val - (1 + φ.nvars) with h_g_def
-      set clause_start := 1 + φ.nvars with h_clause_def
-
-      -- Prove g < numGates from FG interval property
-      have h_g_bound : g < numGates := by
-        -- Extract interval from gateReq formula
-        cases h_L_eq
-        simp only [plant_flat, FrontierGateConfig.gateReq] at h_gateReq
-        have h_interval := of_decide_eq_true h_gateReq
-        omega
-
-      -- Goal: ω_witness.assignment v h_v_in_C = cfg
-      simp only [ω_witness, worldFromWitness_flat]
-
-      -- Split on the match for emergentConfigAtGate_flat
-      split
-      · -- Case: emergentConfigAtGate_flat returns none - contradiction
-        rename_i h_none
-        rw [show (v.val : ℕ) - (1 + φ.nvars) = g by omega] at h_none
-        rw [h_emergent] at h_none
-        contradiction
-      · -- Case: emergentConfigAtGate_flat returns some ⟨R', cfg'⟩
-        rename_i R' cfg' h_some
-        rw [show (v.val : ℕ) - (1 + φ.nvars) = g by omega] at h_some
-        rw [h_emergent] at h_some
-        cases h_some  -- Injectivity: ⟨R', cfg'⟩ = ⟨R, cfg_orig⟩
-
-        -- Split on the if-then-else conditions
-        split_ifs with _h_gate _h_g_lt
-        · -- Both conditions satisfied: gateReq v = true and g < numGates
-          -- Use h_cfg_eq : cfg = hR ▸ cfg_orig
-          -- The worldFromWitness_flat returns hR' ▸ cfg_orig for some proof hR'
-          -- By proof irrelevance, hR' = hR, so result equals cfg
-          rw [← h_cfg_eq]
-        all_goals {
-          -- Other cases: at least one condition fails
-          -- But we've proven both h_gateReq : L.fg.gateReq v = true and h_g_bound : g < numGates
-          -- So these branches are contradictions
-          exfalso
-          -- _h_gate is ¬(L.fg.gateReq v = true) OR _h_g_lt is ¬(g < numGates)
-          -- Both contradict our proven facts
-          first
-          | exact absurd h_gateReq _h_gate
-          | exact absurd h_g_bound _h_g_lt
-        }
-
-    · -- Case: v ∉ C, so if-then-else evaluates to none, giving none = some constraint (contradiction!)
-      simp only [h_v_in_C] at h_constraint_eq
-      -- h_constraint_eq now simplifies to: none = some constraint, which is False
-      -- Derive contradiction: none ≠ some
-      simp at h_constraint_eq
-
-  -- CASE 3: Synthetic Constraints (from extractSyntheticConfigs)
-  · -- constraint ∈ extractSyntheticConfigs L C π
-    -- For FG instances, π.revealedBits = [] (proven earlier in this theorem)
-    -- extractSyntheticConfigs filters by completeAt
-    -- For R v > 0: completeAt requires bits, so fails when revealedBits = []
-    -- For R v = 0: completeAt is vacuous (∀ i : Fin 0, ...), so succeeds
-    -- Strategy: Prove constraint is satisfied (R v = 0 case: trivial by subsingleton)
-
-    have h_revealed_empty : π.revealedBits = [] := by rfl
-    unfold Foundations.extractSyntheticConfigs at h_synthetic
-    simp only [List.mem_filterMap, Finset.mem_toList] at h_synthetic
-    obtain ⟨v, h_v_in_C, h_constraint_some⟩ := h_synthetic
-    split at h_constraint_some
-    · rename_i h_v_in_C_again
-      split at h_constraint_some
-      · rename_i h_complete
-        -- h_complete : completeAt L C π v h_v_in_C_again
-        -- h_constraint_some : (if completeAt ... then some (ConfigMatch ...) else none) = some constraint
-        -- Since we're in the completeAt = true branch, this simplifies to:
-        -- some (ConfigMatch v h_v_in_C_again (reconstructedCfg ...)) = some constraint
-        -- Therefore: constraint = ConfigMatch ...
-
-        -- Case split on R v FIRST (to avoid type dependencies)
-        unfold Foundations.completeAt at h_complete
-        cases Nat.eq_zero_or_pos (L.R v) with
-        | inl h_R_zero =>
-          -- R v = 0: completeAt is vacuous, constraint is ConfigMatch with Bool^0 configs
-          -- Goal: constraint.Satisfies ω_witness = true
-          -- constraint = ConfigMatch v h_v_in_C_again (reconstructedCfg ...)
-          -- Satisfies means: ω_witness.assignment v = reconstructedCfg
-          -- Both are Bool^0, which is subsingleton (unique value)
-
-          -- Extract constraint value from h_constraint_some
-          have : constraint = Foundations.CutConstraint.ConfigMatch v h_v_in_C_again
-              (Foundations.reconstructedCfg L C π v h_v_in_C_again h_complete) := by
-            -- h_constraint_some has form: some X = some constraint
-            -- where X = ConfigMatch v h_v_in_C_again (reconstructedCfg ...)
-            cases h_constraint_some
-            rfl
-          rw [this]
-          unfold Foundations.CutConstraint.Satisfies
-          -- Goal: ω_witness.assignment v h_v_in_C_again = reconstructedCfg ...
-          -- Both are of type Fin (2^(L.R v)), where L.R v = 0
-          -- So both are Fin (2^0) = Fin 1, which has unique element
-          -- Proof: Any two elements of Fin 1 are equal (Subsingleton)
-          exact fin_pow_zero_unique h_R_zero _ _
-
-        | inr h_R_pos =>
-          -- R v > 0: completeAt requires ∃ bit ∈ revealedBits, but revealedBits = []
-          -- This is a contradiction - this branch is impossible
-          exfalso
-          have h_zero : (0 : Nat) < L.R v := h_R_pos
-          have h_exists := h_complete ⟨0, h_zero⟩
-          obtain ⟨bit, h_bit_mem, _h_bit_node, _h_bit_idx⟩ := h_exists
-          rw [h_revealed_empty] at h_bit_mem
-          simp at h_bit_mem
-      · -- completeAt is false, so filterMap returns none
-        contradiction
-    · -- v ∉ C, so filterMap returns none
-      contradiction
 
 /-- **Helper: Planted FG flat instances have non-empty digests**.
     Flat-mode analog of TMToExecutionPrefix.planted_implies_nonempty_digestBits_verified. -/

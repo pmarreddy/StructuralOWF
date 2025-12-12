@@ -18,6 +18,7 @@ import Layer4_Operational.ExecutionSemantics.ExecutionSemantics  -- For trackedR
 import Layer2_StructuralOWF.Plant.PlantExponential  -- Exponential profile: Uses plant_flat with R = n
 import Layer3_InformationBounds.Randomness.RanksExponential  -- Exponential profile: R_of_flat formula
 import Layer5_Applications.PvsNP.ComplexityClasses.EncodingDiscipline  -- For a3_emergence_realizability
+import Layer3_InformationBounds.SegmentReduction.SegmentBoundaries  -- For ConstraintNF
 
 /-! ## TMAdapterExponential: Exponential Time Lower Bound via Semantic Derivation
 
@@ -2707,6 +2708,7 @@ theorem tmEmergentEncoder_surjective_flat
   rfl
 
 -- Axiom Audits: Trust Boundary Transparency (Exponential Profile Time Bridge)
+#print axioms tmEmergentEncoder_bounded
 #print axioms tmEmergentEncoder_surjective_flat
 #print axioms tmEmergentEncoder_captures_value
 #print axioms distinct_visits_imply_card_bound

@@ -5,11 +5,9 @@ import Layer4_Operational.TuringMachine.TuringMachineSemantics  -- For TuringMac
 import Layer3_InformationBounds.Support.ObservationModel  -- For Observation
 import Layer4_Operational.TuringMachine.TMEncoderDefs  -- For tmOutputWitness (avoids circular dependency)
 import Layer3_InformationBounds.SegmentReduction.CanonicalKeyednessBounds  -- For canonical_keyedness_bounded_all
-import Layer2_StructuralOWF.Plant.PlantCore  -- For plant_n (QP profile)
 import Layer2_StructuralOWF.Plant.PlantExponential  -- For plant_flat (Exponential profile)
 import Layer3_InformationBounds.WorldCommit.FGIndistinguishability  -- For fg_correctness_requires_complete_observation (PROVEN!)
 import Infrastructure.Witness.VerifiedWitness  -- For digestsFromAssignment
-import Layer4_Operational.TimeBridge.TMToExecutionPrefix  -- For tm_output_determined_by_read_positions (PROVEN!)
 import Layer5_Applications.PvsNP.ComplexityClasses.PPTAdversary  -- For PPTAdversary structure
 import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFAdversary  -- For StructuralOWFAdversary structure (Structural OWF-specific)
 import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFSizedInstances  -- For Sized instances (NEW)
