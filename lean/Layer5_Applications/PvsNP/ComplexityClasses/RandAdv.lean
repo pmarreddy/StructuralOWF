@@ -102,21 +102,19 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
       **Multi-tape support**: Allows composition with 2-tape comparison TM for verifiers. -/
   M : TuringMachine tapeCount (Fin stateCount) (Fin alphabetSize)
 
-  /-- **ENCODING**: Bidirectional encoding between abstract types (α, β) and TM tapes.
+  /-- **ENCODING**: Bidirectional encoding for the *pair* `(coins, input)`.
 
-      **Purpose**: Connects abstract algorithm (run : α → β) to concrete TM (M : TM).
+      **Purpose**: Connects abstract algorithm (run : Fin T → α → β) to concrete TM (M : TM).
+      This makes the coin choice visible to the TM, so `run` can genuinely depend on coins.
 
       **Components**:
-      - input.encode : α → (Nat → alphabet) - Maps input to tape 0 contents
+      - input.encode : (Fin T × α) → (Nat → alphabet) - Maps (coins, input) to tape 0 contents
       - output.decode : (Nat → alphabet) → β - Maps final tape to output
 
       **Enables**: Stating run_correct (TM execution matches run).
 
       **Note**: Uses TMEncodingBase (no injectivity requirement) to allow placeholder
       encodings for structural RandAdv constructions. -/
-  /-- Bidirectional encoding for the *pair* `(coins, input)`.
-
-      This makes the coin choice visible to the TM, so `run` can genuinely depend on coins. -/
   encoding : TMEncodingBase (Fin T × α) β (Fin alphabetSize)
 
   /-- **OUTPUT INPUT ENCODING**: Encoding of output type β for use as verifier input.

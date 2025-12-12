@@ -329,7 +329,7 @@ theorem tm_algorithm_correspondence
   (c : Fin A.base.num_coins)
   (t : Nat)
   (h_time : t ≥ A.base.C * (Complexity.Sized.size L + 1) ^ A.base.k)
-  : (tmOutputWitnessEncoded A.base.M A.base.encoding.input L t A.base.h_tape_pos
+  : (tmOutputWitnessEncoded A.base.M A.base.encoding.input (c, L) t A.base.h_tape_pos
        A.base.h_blank_consistent A.base.extractWitness).assignment =
      (A.base.run c L).assignment := by
   -- tmOutputWitnessEncoded unfolds to extractWitness of encoded-input execution
@@ -402,7 +402,7 @@ theorem ppt_adversary_correct_bridge
   (c : Fin A.base.num_coins)
   (h_time : t ≥ A.base.C * (Complexity.Sized.size L + 1) ^ A.base.k)
   (h_success : φ.satisfies (A.base.run c L).assignment)
-  : φ.satisfies (tmOutputWitnessEncoded A.base.M A.base.encoding.input L t
+  : φ.satisfies (tmOutputWitnessEncoded A.base.M A.base.encoding.input (c, L) t
       A.base.h_tape_pos A.base.h_blank_consistent A.base.extractWitness).assignment := by
   have h_tm_matches := tm_algorithm_correspondence A L c t h_time
   rw [h_tm_matches]

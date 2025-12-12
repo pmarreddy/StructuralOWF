@@ -106,8 +106,12 @@ def adapterInputEncoding
     have h_size_wrapped_le :
         Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1 ≤
           2 * (Sized.size (c, L) + 1) := by
-      have h_n1_le : n + 1 ≤ Sized.size L + 1 := Nat.add_le_add_right h_n_le_sizeL 1
+      -- After simp: LHS = T.log2 + 1 + (n + 1 + L.dag.n) + 1
+      --             RHS = 2 * (T.log2 + 1 + L.dag.n + 1)
       simp only [Sized.size, sizedProd, sizedSigma, sizedNat]
+      -- Use n ≤ L.dag.n (from h_n_le_sizeL after simp)
+      simp only [Sized.size, sizedNat] at h_n_le_sizeL
+      -- Now omega can handle it since all terms are concrete Nat expressions
       omega
 
     have h_pow_le :
@@ -301,9 +305,8 @@ def adapterInputEncoding_exp
     have h_size_wrapped_le :
         Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1 ≤
           2 * (Sized.size (c, L) + 1) := by
-      have h_n1_le : n + 1 ≤ Sized.size L + 1 := Nat.add_le_add_right h_n_le_sizeL 1
-      -- Expand sizes and discharge with linear arithmetic.
       simp only [Sized.size, sizedProd, sizedSigma, sizedNat]
+      simp only [Sized.size, sizedNat] at h_n_le_sizeL
       omega
 
     have h_pow_le :

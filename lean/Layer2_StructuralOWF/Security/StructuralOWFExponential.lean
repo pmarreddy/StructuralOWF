@@ -1874,7 +1874,7 @@ theorem f_is_structural_owf_exponential_flat
       ⟨n.val, r_star, h_nvars_ge_4, rfl, h_r_star_wellformed⟩
 
     exact Foundations.FlatProfile.fg_first_commit_time_lower_bound_encoded
-      A.base.M A.base.encoding.input L haltTime A.base.h_tape_pos A.base.h_blank_consistent
+      A.base.M A.base.encoding.input (c_bar, L) haltTime A.base.h_tape_pos A.base.h_blank_consistent
       h_tm_time_pos extractWitness L v_fg h_planted_inst h_halts_enc (Φ n.val) h_φ_match h_tm_correct
 
   -- Upper bound: Polynomial time from PPT adversary
@@ -2457,7 +2457,7 @@ theorem f_is_structural_owf_exponential_true
       ⟨n.val, r_star, h_nvars_ge_4, rfl, h_r_star_wellformed⟩
 
     exact Foundations.FlatProfile.fg_first_commit_time_lower_bound_encoded
-      A.base.M A.base.encoding.input L haltTime A.base.h_tape_pos A.base.h_blank_consistent
+      A.base.M A.base.encoding.input (c_bar, L) haltTime A.base.h_tape_pos A.base.h_blank_consistent
       h_tm_time_pos extractWitness L v_fg h_planted_inst h_halts_enc (Φ n.val) h_φ_match h_tm_correct
 
   -- Upper bound
