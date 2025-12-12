@@ -143,9 +143,25 @@ noncomputable def simpleCanonicalPlantedPrefix
       | none => none
       | some ⟨R, cfg⟩ =>
           if h_g : g < r.gateDigests.length then
+            -- emergentConfigAtGate_R_component gives: R = R_of φ numGates (1 + φ.nvars + g)
+            -- planted_R_eq_R_of gives: L.R v = R_of φ numGates v.val
+            -- Need: R = L.R v
             have h_R_eq : R = L.R v := by
+              have h_R_of := emergentConfigAtGate_R_component φ φ.nvars_pos r.gateDigests.length r.assignment g R cfg h_emergent
+              -- h_R_of : R = R_of φ r.gateDigests.length (1 + φ.nvars + g)
+              have h_planted := planted_R_eq_R_of L v n φ r h_nvars h_dgLen h_L_eq
+              -- h_planted : L.R v = R_of φ r.gateDigests.length v.val
+              -- Need to show: 1 + φ.nvars + g = v.val
+              have h_mem_filter := _h_mem
+              rw [List.mem_filter] at h_mem_filter
+              have h_gate := h_mem_filter.2
               subst h_L_eq
-              exact emergentConfigAtGate_R_component φ φ.nvars_pos r.gateDigests.length r.assignment g R cfg h_emergent
+              simp only [plant_n, FrontierGateConfig.gateReq] at h_gate
+              rw [decide_eq_true_iff] at h_gate
+              have ⟨h_lo, _⟩ := h_gate
+              have h_idx_eq : 1 + φ.nvars + g = v.val := by omega
+              rw [h_idx_eq] at h_R_of
+              exact h_R_of.trans h_planted.symm
             some ⟨v, h_R_eq ▸ cfg⟩
           else none
   {
@@ -154,7 +170,16 @@ noncomputable def simpleCanonicalPlantedPrefix
     computedConfigs := computedConfigs
   }
 
-/-- Simple canonical prefix validity: proves the simple canonical prefix satisfies ValidExecutionPrefix. -/
+/-- Simple canonical prefix validity: proves the simple canonical prefix satisfies ValidExecutionPrefix.
+
+    The proof is non-trivial due to dependent type handling. The key insight is that
+    simpleCanonicalPlantedPrefix constructs configs from emergentConfigAtGate on r.assignment,
+    which is exactly what ValidExecutionPrefix requires. The type bridging between
+    R_of (used by emergentConfigAtGate) and L.R (used by ValidExecutionPrefix) is handled
+    via planted_R_eq_R_of.
+
+    **Axiom count**: This theorem uses NO custom axioms beyond standard Lean axioms
+    (propext, Classical.choice, Quot.sound). -/
 theorem simple_canonical_planted_prefix_valid
     (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
@@ -162,8 +187,10 @@ theorem simple_canonical_planted_prefix_valid
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
     (h_wf : WellFormedRandomness φ r)
     : ValidExecutionPrefix L φ r (simpleCanonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf) := by
-  let π := simpleCanonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf
   let fgNodes := (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v)
+
+  -- Subst early to simplify type goals
+  subst h_L_eq
 
   constructor
   · -- Backward: computedConfigs come from emergentConfigAtGate on r.assignment
@@ -173,60 +200,88 @@ theorem simple_canonical_planted_prefix_valid
     obtain ⟨⟨w, hw⟩, _, h_eq⟩ := h_mem
     simp only at h_eq
     split at h_eq <;> try contradiction
-    next h_emergent =>
+    next R cfg h_emergent =>
       split at h_eq <;> try contradiction
       next h_g =>
-        injection h_eq with h_eq'
-        -- We need to show psig came from emergentConfigAtGate on r.assignment
         let g := w.val - (1 + φ.nvars)
         use g, h_g
-        match h_match : emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment g with
-        | none =>
-          -- Contradiction: we have h_emergent : emergentConfigAtGate ... = some ...
-          simp [h_match] at h_emergent
-        | some ⟨R', cfg'⟩ =>
-          use R', cfg'
-          constructor
-          · -- emergentConfigAtGate matches
-            simp only at h_emergent
-            simp [h_match] at h_emergent
-            exact h_emergent
-          constructor
-          · -- psig.fst.val = 1 + φ.nvars + g
-            simp [g]
-            have h_gate := (List.mem_filter.mp hw).2
-            subst h_L_eq
-            -- gateReq v = true means v is in FG range
-            simp only [plant_n, FrontierGateConfig.gateReq] at h_gate
-            rw [decide_eq_true_iff] at h_gate
-            have ⟨h_lo, _⟩ := h_gate
-            omega
-          · -- Type cast equality
-            use (emergentConfigAtGate_R_component φ φ.nvars_pos r.gateDigests.length r.assignment g R' cfg' (by simp [h_match]))
+
+        -- Extract g_actual that matches the emergent config
+        have h_g_def : w.val - (1 + φ.nvars) = g := rfl
+        use R, cfg
+        constructor
+        · -- emergentConfigAtGate matches - direct from h_emergent
+          exact h_emergent
+        constructor
+        · -- psig.fst.val = 1 + φ.nvars + g
+          -- From h_eq, psig = ⟨w, h_R_eq ▸ cfg⟩
+          have h_gate := (List.mem_filter.mp hw).2
+          simp only [plant_n, FrontierGateConfig.gateReq] at h_gate
+          rw [decide_eq_true_iff] at h_gate
+          have ⟨h_lo, _⟩ := h_gate
+          -- From injection of h_eq
+          have h_fst : psig.fst = w := by
+            cases h_eq; rfl
+          rw [h_fst]
+          omega
+        · -- Type cast equality
+          have h_R_of := emergentConfigAtGate_R_component φ φ.nvars_pos r.gateDigests.length r.assignment g R cfg h_emergent
+          have h_planted := planted_R_eq_R_of (plant_n n φ r h_nvars h_dgLen) w n φ r h_nvars h_dgLen rfl
+          have h_gate := (List.mem_filter.mp hw).2
+          simp only [plant_n, FrontierGateConfig.gateReq] at h_gate
+          rw [decide_eq_true_iff] at h_gate
+          have ⟨h_lo, _⟩ := h_gate
+          have h_idx_eq : 1 + φ.nvars + g = w.val := by omega
+          rw [h_idx_eq] at h_R_of
+          have h_R_eq' : R = (plant_n n φ r h_nvars h_dgLen).R w := h_R_of.trans h_planted.symm
+          -- Extract psig components from h_eq
+          have h_fst : psig.fst = w := by cases h_eq; rfl
+          use (h_fst ▸ h_R_eq')
+          -- By proof irrelevance, the two casts produce equal results
+          cases h_eq
+          rfl
 
   constructor
   · -- Forward: all FG gate emergent configs are in computedConfigs
     intro v g hg hv R cfg_planted h_emergent h_R_eq
     simp only [simpleCanonicalPlantedPrefix]
     rw [List.mem_filterMap]
-    have h_gate_req : L.fg.gateReq v = true := by
-      subst h_L_eq
+    have h_gate_req : (plant_n n φ r h_nvars h_dgLen).fg.gateReq v = true := by
       simp only [plant_n, FrontierGateConfig.gateReq]
       rw [decide_eq_true_iff]
       rw [hv]
       constructor <;> omega
     have h_v_mem : v ∈ fgNodes := by
+      simp only [fgNodes]
       rw [List.mem_filter]
       exact ⟨List.mem_finRange v, h_gate_req⟩
     use ⟨v, h_v_mem⟩
-    constructor; exact List.mem_attach _ _
-    simp only []
-    have h_g_eq : v.val - (1 + φ.nvars) = g := by omega
-    simp only [h_g_eq]
-    rw [h_emergent]
-    rw [dif_pos hg]
-    congr
-    simp only [cast_eq_iff_heq]
+    constructor
+    · exact List.mem_attach _ _
+    · -- Show the filterMap produces the right config
+      have h_g_eq : v.val - (1 + φ.nvars) = g := by rw [hv]; omega
+      -- Split on the match result
+      split
+      next h_none =>
+        -- Contradiction: h_emergent says result is some, h_none says none
+        rw [h_g_eq] at h_none
+        simp [h_emergent] at h_none
+      next R' cfg' h_some =>
+        -- Match succeeded, now handle the dif
+        rw [h_g_eq] at h_some
+        simp only [h_emergent] at h_some
+        -- h_some : some ⟨R', cfg'⟩ = some ⟨R, cfg_planted⟩
+        -- This gives R' = R and cfg' = cfg_planted
+        cases h_some
+        split
+        next h_bound =>
+          -- Both branches have g < bound, result is Some
+          -- simp closes the goal via PSigma equality and proof irrelevance
+          simp only [PSigma.mk.injEq, heq_eq_eq, true_and]
+        next h_not_bound =>
+          -- Contradiction: h_g_eq says v.val - ... = g, and hg : g < ...
+          rw [h_g_eq] at h_not_bound
+          exact absurd hg h_not_bound
 
   · -- revealedBits = []
     rfl
