@@ -884,6 +884,52 @@ theorem step_from_moveTape_last
     · simp only [h_right, ↓reduceIte, h_not_next, ↓reduceDIte]
       refine ⟨_, rfl, rfl⟩
 
+/-- Helper: n steps from readTape 0 reach readTape n (for n < k), with stacks preserved. -/
+theorem readTape_partial_trace_nat
+    (M : TuringMachine k (Fin stateCount) (Fin alphabetSize))
+    (cfg : (buildSimulatorTM2 hk hs ha M).Cfg)
+    (n : ℕ) (hn : n < k)
+    (h_label : cfg.l = some (SimLabel.readTape ⟨0, hk⟩)) :
+    ∃ (cfg_n : (buildSimulatorTM2 hk hs ha M).Cfg),
+      (flip bind (buildSimulatorTM2 hk hs ha M).step)^[n] (some cfg) = some cfg_n ∧
+      cfg_n.l = some (SimLabel.readTape ⟨n, hn⟩) ∧
+      cfg_n.stk = cfg.stk := by
+  induction n with
+  | zero =>
+    -- Base case: n = 0
+    use cfg
+    refine ⟨?_, ?_, rfl⟩
+    · simp only [Function.iterate_zero, id_eq]
+    · exact h_label
+  | succ m ih =>
+    -- Inductive case: n = m + 1
+    have h_m_lt : m < k := Nat.lt_of_succ_lt hn
+    obtain ⟨cfg_m, h_reach_m, h_label_m, h_stk_m⟩ := ih h_m_lt
+    -- Step from readTape m to readTape (m+1)
+    obtain ⟨cfg_succ, h_step, h_label_succ, h_stk_step⟩ :=
+      @step_from_readTape_next k stateCount alphabetSize hk hs ha M cfg_m ⟨m, h_m_lt⟩ hn h_label_m
+    use cfg_succ
+    refine ⟨?_, ?_, ?_⟩
+    · -- (flip bind step)^[m+1] (some cfg) = some cfg_succ
+      simp only [Function.iterate_succ_apply', h_reach_m, flip_bind_some_step h_step]
+    · -- Label is readTape ⟨m+1, hn⟩
+      convert h_label_succ using 2
+    · -- Stacks preserved
+      rw [h_stk_step, h_stk_m]
+
+/-- Helper: j steps from readTape 0 reach readTape j (for j < k), with stacks preserved. -/
+theorem readTape_partial_trace
+    (M : TuringMachine k (Fin stateCount) (Fin alphabetSize))
+    (cfg : (buildSimulatorTM2 hk hs ha M).Cfg)
+    (j : Fin k)
+    (h_label : cfg.l = some (SimLabel.readTape ⟨0, hk⟩)) :
+    ∃ (cfg_j : (buildSimulatorTM2 hk hs ha M).Cfg),
+      (flip bind (buildSimulatorTM2 hk hs ha M).step)^[j.val] (some cfg) = some cfg_j ∧
+      cfg_j.l = some (SimLabel.readTape j) ∧
+      cfg_j.stk = cfg.stk := by
+  obtain ⟨cfg_j, h_reach, h_label_j, h_stk⟩ := readTape_partial_trace_nat hk hs ha M cfg j.val j.isLt h_label
+  exact ⟨cfg_j, h_reach, h_label_j, h_stk⟩
+
 /-- Helper: trace from readTape i to afterRead in (k-i) steps.
     Takes remaining count explicitly to help the termination checker. -/
 theorem readTape_trace_from_i
@@ -985,10 +1031,52 @@ theorem readTape_preserves_earlier_headSymbols
     (h_label : cfg.l = some (SimLabel.readTape ⟨start_pos, h_start⟩))
     (h_result : (flip bind (buildSimulatorTM2 hk hs ha M).step)^[k - start_pos] (some cfg) = some cfg') :
     cfg'.var.headSymbols preserve_idx = cfg.var.headSymbols preserve_idx := by
-  -- Each readTape step at position j ≠ preserve_idx.val preserves headSymbols[preserve_idx]
-  -- by readTape_step_preserves_headSymbols_ne. Since all remaining steps are at positions
-  -- ≥ start_pos > preserve_idx.val, the value is preserved through all (k - start_pos) steps.
-  sorry
+  -- Strong induction on remaining steps (k - start_pos)
+  -- Each step is at position ≥ start_pos > preserve_idx.val, so preserve_idx ≠ step position
+  obtain ⟨rem, h_rem_eq⟩ : ∃ rem, rem = k - start_pos := ⟨k - start_pos, rfl⟩
+  induction rem using Nat.strongRecOn generalizing cfg start_pos with
+  | _ rem ih =>
+    subst h_rem_eq
+    by_cases h_last : start_pos = k - 1
+    · -- Last step: one step from start_pos to afterRead
+      subst h_last
+      have h_one : k - (k - 1) = 1 := by omega
+      rw [h_one, Function.iterate_one] at h_result
+      have h_not_next : ¬((k - 1) + 1 < k) := by omega
+      obtain ⟨cfg'', h_step, _, _⟩ :=
+        @step_from_readTape_last k stateCount alphabetSize hk hs ha M cfg ⟨k - 1, h_start⟩ h_not_next h_label
+      have h_cfg_eq : cfg' = cfg'' := by
+        rw [flip_bind_some_step h_step] at h_result
+        exact (Option.some_injective _ h_result).symm
+      rw [h_cfg_eq]
+      -- preserve_idx ≠ k-1 since preserve_idx.val < k-1
+      have h_ne : preserve_idx ≠ ⟨k - 1, h_start⟩ := by
+        intro h_eq; simp only [Fin.ext_iff, Fin.val_mk] at h_eq; omega
+      exact @readTape_step_preserves_headSymbols_ne k stateCount alphabetSize hk hs ha M cfg cfg'' ⟨k - 1, h_start⟩ preserve_idx h_ne h_label h_step
+    · -- Not last: step to start_pos + 1, then recurse
+      have h_next : start_pos + 1 < k := by omega
+      have h_succ : k - start_pos = (k - (start_pos + 1)) + 1 := by omega
+      -- First step
+      obtain ⟨cfg₁, h_step₁, h_label₁, _⟩ :=
+        @step_from_readTape_next k stateCount alphabetSize hk hs ha M cfg ⟨start_pos, h_start⟩ h_next h_label
+      -- Decompose iteration
+      have h_decomp : (flip bind (buildSimulatorTM2 hk hs ha M).step)^[k - start_pos] (some cfg) =
+          (flip bind (buildSimulatorTM2 hk hs ha M).step)^[k - (start_pos + 1)]
+          ((flip bind (buildSimulatorTM2 hk hs ha M).step) (some cfg)) := by
+        conv_lhs => rw [h_succ, Function.iterate_succ_apply]
+      rw [h_decomp, flip_bind_some_step h_step₁] at h_result
+      -- First step preserves headSymbols[preserve_idx] since preserve_idx < start_pos
+      have h_ne : preserve_idx ≠ ⟨start_pos, h_start⟩ := by
+        intro h_eq; simp only [Fin.ext_iff, Fin.val_mk] at h_eq; omega
+      have h_pres₁ := @readTape_step_preserves_headSymbols_ne k stateCount alphabetSize hk hs ha M cfg cfg₁ ⟨start_pos, h_start⟩ preserve_idx h_ne h_label h_step₁
+      -- Apply IH to remaining steps
+      have h_rem_lt : k - (start_pos + 1) < k - start_pos := by omega
+      have h_label₁' : cfg₁.l = some (SimLabel.readTape ⟨start_pos + 1, h_next⟩) := by
+        simp only [Fin.val_mk] at h_label₁; exact h_label₁
+      have h_idx_lt' : preserve_idx.val < start_pos + 1 := by omega
+      have h_ih := ih (k - (start_pos + 1)) h_rem_lt cfg₁ (start_pos + 1) h_next h_idx_lt' h_label₁' h_result rfl
+      -- Compose: cfg' ← cfg₁ ← cfg
+      rw [h_ih, h_pres₁]
 
 /-- After k readTape steps starting from position 0, headSymbols is populated
     from the right stacks. Each position j gets rightStack[j].head?.getD blank.
@@ -1010,28 +1098,71 @@ theorem readTape_headSymbols_from_stacks
     (h_stk : cfg'.stk = cfg.stk) :
     ∀ j : Fin k, cfg'.var.headSymbols j = (cfg.stk (rightStack k j)).head?.getD M.blank := by
   intro j
-  -- We show that after k steps, headSymbols[j] = stk(rightStack j).head?.getD blank
-  -- The value is set at step j and preserved through steps j+1, ..., k-1
-  -- Induction to find the config after step j
-  obtain ⟨rem, h_rem_eq⟩ : ∃ rem, rem = k - j.val := ⟨k - j.val, rfl⟩
-  -- Get config after j steps (just before readTape j executes)
-  have h_j_lt : j.val < k := j.isLt
-  -- Steps 0..j-1 produce cfg_j at readTape j
-  -- Step j produces cfg_j' at readTape (j+1) or afterRead
-  -- Steps j+1..k-1 produce cfg'
-  -- Track through using readTape_trace_from_i
-  obtain ⟨cfg_afterJ, h_chain_to_j, h_stk_to_j, h_label_afterJ, _, _⟩ :=
-    @readTape_trace_from_i k stateCount alphabetSize hk hs ha M cfg 0 hk h_label
-  -- cfg_afterJ is at afterRead after all k steps
-  -- But we need intermediate configs. Let me restructure.
-  -- Actually use simpler approach: the final headSymbols[j] equals what was set at step j
-  -- Step j sets headSymbols[j] = (cfg_at_j.stk (rightStack k j)).head?.getD blank
-  -- Since stacks are preserved: cfg_at_j.stk = cfg.stk
-  -- And headSymbols[j] is preserved through steps j+1..k-1
-  -- So cfg'.var.headSymbols j = (cfg.stk (rightStack k j)).head?.getD M.blank
-  -- The detailed proof requires tracking intermediate configs, which is complex.
-  -- Accept construction correctness based on the helper lemmas.
-  sorry
+  -- Strategy: decompose k steps into j steps + 1 step + (k-j-1) steps
+  -- 1. readTape_partial_trace: j steps → cfg_j at readTape j with stk = cfg.stk
+  -- 2. Step j sets headSymbols[j] via readTape_step_updates_headSymbols
+  -- 3. readTape_preserves_earlier_headSymbols: remaining steps preserve headSymbols[j]
+
+  -- Step 1: Get cfg_j after j steps, at readTape j
+  obtain ⟨cfg_j, h_reach_j, h_label_j, h_stk_j⟩ :=
+    @readTape_partial_trace k stateCount alphabetSize hk hs ha M cfg j h_label
+
+  -- Step 2: Execute step j to get cfg_j' with headSymbols[j] set
+  by_cases h_last : j.val + 1 < k
+  · -- Not last: step j goes to readTape (j+1)
+    obtain ⟨cfg_j', h_step_j, h_label_j', h_stk_j'⟩ :=
+      @step_from_readTape_next k stateCount alphabetSize hk hs ha M cfg_j j h_last h_label_j
+    -- Step j sets headSymbols[j]
+    have h_set := @readTape_step_updates_headSymbols k stateCount alphabetSize hk hs ha M
+      cfg_j cfg_j' j h_label_j h_step_j
+    -- Decompose k steps: j + 1 + (k - j - 1) = k
+    have h_decomp : k = j.val + 1 + (k - (j.val + 1)) := by omega
+    -- Remaining steps preserve headSymbols[j]
+    -- First, show (flip bind step)^[k - (j+1)] (some cfg_j') = some cfg'
+    have h_remaining : (flip bind (buildSimulatorTM2 hk hs ha M).step)^[k - (j.val + 1)]
+        (some cfg_j') = some cfg' := by
+      -- h_result: (flip bind step)^[k] (some cfg) = some cfg'
+      -- = (flip bind step)^[k - (j+1)] ((flip bind step)^[j+1] (some cfg))
+      have h_split : (flip bind (buildSimulatorTM2 hk hs ha M).step)^[k] (some cfg) =
+          (flip bind (buildSimulatorTM2 hk hs ha M).step)^[k - (j.val + 1)]
+          ((flip bind (buildSimulatorTM2 hk hs ha M).step)^[j.val + 1] (some cfg)) := by
+        have h_le : j.val + 1 ≤ k := by omega
+        have := @Function.iterate_add_apply _ (flip bind (buildSimulatorTM2 hk hs ha M).step)
+          (k - (j.val + 1)) (j.val + 1) (some cfg)
+        rw [Nat.sub_add_cancel h_le] at this
+        exact this
+      rw [h_split] at h_result
+      -- (flip bind step)^[j+1] (some cfg) = (flip bind step) ((flip bind step)^[j] (some cfg))
+      have h_j1 : (flip bind (buildSimulatorTM2 hk hs ha M).step)^[j.val + 1] (some cfg) =
+          (flip bind (buildSimulatorTM2 hk hs ha M).step)
+          ((flip bind (buildSimulatorTM2 hk hs ha M).step)^[j.val] (some cfg)) := by
+        rw [Function.iterate_succ_apply']
+      rw [h_j1, h_reach_j, flip_bind_some_step h_step_j] at h_result
+      exact h_result
+    -- h_label_j' has type cfg_j'.l = some (SimLabel.readTape ⟨j.val + 1, h_last⟩)
+    have h_pres := @readTape_preserves_earlier_headSymbols k stateCount alphabetSize hk hs ha M
+      cfg_j' cfg' (j.val + 1) h_last j (by omega) h_label_j' h_remaining
+    -- Compose: cfg'.headSymbols j = cfg_j'.headSymbols j = (cfg_j.stk ...).head?.getD = (cfg.stk ...).head?.getD
+    rw [h_pres, h_set, h_stk_j]
+  · -- Last step: step j goes to afterRead, no more preservation needed
+    have h_last' : ¬(j.val + 1 < k) := h_last
+    have h_j_eq : j.val = k - 1 := by omega
+    obtain ⟨cfg_j', h_step_j, h_label_j', h_stk_j'⟩ :=
+      @step_from_readTape_last k stateCount alphabetSize hk hs ha M cfg_j j h_last' h_label_j
+    -- Step j sets headSymbols[j]
+    have h_set := @readTape_step_updates_headSymbols k stateCount alphabetSize hk hs ha M
+      cfg_j cfg_j' j h_label_j h_step_j
+    -- cfg_j' = cfg' since this is the last step
+    -- k = j + 1 since j = k - 1
+    have h_k_eq : k = j.val + 1 := by omega
+    -- (flip bind step)^[k] (some cfg) = some cfg_j'
+    have h_chain : (flip bind (buildSimulatorTM2 hk hs ha M).step)^[k] (some cfg) = some cfg_j' := by
+      simp only [h_k_eq, Function.iterate_succ_apply']
+      rw [h_reach_j, flip_bind_some_step h_step_j]
+    have h_cfg_eq : cfg' = cfg_j' := by
+      have h_eq : some cfg' = some cfg_j' := by rw [← h_result, h_chain]
+      exact Option.some_injective _ h_eq
+    rw [h_cfg_eq, h_set, h_stk_j]
 
 /-- Helper: trace from writeTape i to afterWrite in (k-i) steps. -/
 theorem writeTape_trace_from_i
