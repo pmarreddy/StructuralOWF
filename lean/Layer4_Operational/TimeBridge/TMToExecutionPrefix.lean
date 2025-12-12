@@ -1383,17 +1383,15 @@ lemma tm_correctness_requires_complete_observation_at_fg_gate
   --   Property 5-6: Vacuous (revealedBits = [] for FG instances)
   -- Both QP and Exponential profiles use Property 4 only, making the trust boundary identical.
 
-  -- Apply Property 4 via axiom extraction
+  -- Apply Property 4 via extraction lemma
+  -- Use simpleCanonicalPlantedPrefix which satisfies ValidExecutionPrefix
+  let canonicalPrefix := simpleCanonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf
+  have h_valid := simple_canonical_planted_prefix_valid n φ r h_nvars h_dgLen L h_L_eq h_wf
   -- Derive cfg1 ≠ cfg2 from parity difference (contrapositive: cfg1 = cfg2 → parity cfg1 = parity cfg2)
   have h_collision : cfg1 ≠ cfg2 := fun h_eq => h_parity_diff (congrArg parity h_eq)
-
-  -- Construct canonical prefix and its validity proof (defined in PlantedBoundaryDiversity.lean)
-  let π := simpleCanonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf
-  let h_valid := simple_canonical_planted_prefix_valid n φ r h_nvars h_dgLen L h_L_eq h_wf
-
-  -- Apply the proven impossibility theorem directly
-  exact planted_observation_indistinguishability_impossible_PROVEN
-    L n φ r h_nvars h_dgLen h_L_eq h_wf π ∅ h_valid
+  exact planted_observation_indistinguishability_impossible
+    L n φ r h_nvars h_dgLen h_L_eq h_wf
+    canonicalPrefix ∅ h_valid
     v obs h_incomplete cfg1 cfg2 h_agree h_collision
 
 /-- Determinism theorem: Configs agreeing on read positions produce same parity.
@@ -4557,6 +4555,8 @@ The following audits verify the axiomatic dependencies of key definitions and th
 #print axioms buildRunFromTMTrace  -- Build run with honest s
 #print axioms buildRunFromTMTrace_satisfies_fg_budget  -- Budget constraint proof
 
+set_option maxHeartbeats 400000
+
 /-- **Property 3 PROVEN**: All valid emergent configs are computed.
 
     Forward direction: If emergentConfigAtGate produces a config for r.assignment,
@@ -4581,20 +4581,10 @@ theorem tmExecutionToPrefix_property3
     (h_R_eq : R = L.R v)
     : (⟨v, h_R_eq ▸ cfg_planted⟩ : PSigma (fun v => Fin (2^(L.R v)))) ∈ (tmExecutionToPrefix L M haltTime extractWitness C n φ r h_nvars h_dgLen h_L_eq h_wf h_tm_correct).computedConfigs := by
   let w := tmOutputWitness M haltTime extractWitness
-  
+
   -- 1. Establish w.assignment = r.assignment
   have h_assign_eq' : w.assignment = r.assignment := h_assign_eq
-    
-  -- 2. Unfold tmExecutionToPrefix
-  unfold tmExecutionToPrefix
-  simp only []
-  
-  -- 3. We target extractComputedConfigsFromWitness
-  -- Iterate logic similar to mem_computedConfigs_decompose but reverse
-  
-  -- The list is fgNodes.attach.filterMap ...
-  -- We need to show that v ∈ fgNodes and the filterMap function yields our config
-  
+
   -- v is an FG gate (by h_v_is_gate logic)
   have h_gate_req : L.fg.gateReq v = true := by
     subst h_L_eq
@@ -4603,45 +4593,54 @@ theorem tmExecutionToPrefix_property3
     constructor
     · omega
     · omega
-    
+
   let fgNodes := (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v)
   have h_v_mem : v ∈ fgNodes := by
     rw [List.mem_filter]
-    exact ⟨List.mem_finRange v, h_gate_req⟩
+    constructor
+    · exact List.mem_finRange v
+    · exact h_gate_req
 
-  -- Show the result is in computedConfigs via filterMap membership
-  -- The goal is membership in `fgNodes.attach.filterMap ...`
-  simp only [List.mem_filterMap]
+  -- Unfold tmExecutionToPrefix to expose extractComputedConfigsFromWitness
+  unfold tmExecutionToPrefix
+  simp only []
+
+  -- Unfold extractComputedConfigsFromWitness to expose filterMap
+  unfold extractComputedConfigsFromWitness
+  simp only []
+
+  rw [List.mem_filterMap]
   use ⟨v, h_v_mem⟩
   constructor
   · exact List.mem_attach _ _
   · -- Prove filterMap returns the config
     simp only []
-    
-    -- The function uses g' := v.val - clause_start (logic in definition)
-    -- Here g' = g because v.val = clause_start + g
-    -- So logic matches specific index g
-    
-    -- We need to use h_assign_eq to show equivalence of emergentConfigAtGate input
-    rw [h_assign_eq']
-    
-    -- Now the term is `emergentConfigAtGate ... r.assignment g`
-    -- This matches `h_emergent`!
-    rw [h_emergent]
-    
-    -- Now handle the if-then-else
-    rw [dif_pos h_g]
-    
-    -- Result is some ⟨v, hR ▸ cfg_planted⟩
-    -- We need to show this equals some ⟨v, h_R_eq ▸ cfg_planted⟩
-    -- Equality of PSigma and cast
-    congr
-    
-    -- Need to show the constructed config is equal
-    -- The definition constructs hR internally. Our h_R_eq serves same purpose.
-    -- Proof irrelevance handles Eq proofs.
-    simp only [cast_eq_iff_heq]
-    rfl
+
+    -- The function computes g' = v.val - (1 + φ.nvars)
+    -- From h_v_is_gate : v.val = 1 + φ.nvars + g, we have g' = g
+    have h_g_eq : v.val - (1 + φ.nvars) = g := by omega
+
+    -- The match binds a local h_emergent that shadows our hypothesis
+    -- Use split to handle the dependent match cases
+    split
+    · -- Case: emergentConfigAtGate returned none - contradiction
+      rename_i h_none
+      rw [h_g_eq, h_assign_eq'] at h_none
+      rw [h_emergent] at h_none
+      contradiction
+    · -- Case: emergentConfigAtGate returned some
+      rename_i R' cfg' h_some
+      rw [h_g_eq, h_assign_eq'] at h_some
+      rw [h_emergent] at h_some
+      cases h_some  -- Injects R' = R, cfg' = cfg_planted
+      -- Now handle the if-then-else on (v.val - (1 + φ.nvars)) < numGates
+      split
+      · -- v.val - (1 + φ.nvars) < numGates - goal closes by refl after cast
+        rfl
+      · -- v.val - (1 + φ.nvars) ≥ numGates - contradiction with h_g via h_g_eq
+        rename_i h_g_ge
+        rw [h_g_eq] at h_g_ge
+        exact absurd h_g h_g_ge
 
 /-- **TM Produces Valid Prefix**: The Main Theorem for Axiom Satisfaction.
 
@@ -4674,13 +4673,12 @@ theorem tm_produces_valid_prefix
     -- Note: tmExecutionToPrefix_property2 uses w.assignment in the output existential
     obtain ⟨g, hg, R, cfg, h_emergent_w, h_v, h_cfg⟩ :=
       tmExecutionToPrefix_property2 L M haltTime extractWitness C n φ r h_nvars h_tm_correct h_dgLen h_L_eq h_wf psig h_mem
-      
+
     -- Convert w.assignment to r.assignment
     have h_assign_eq' : w.assignment = r.assignment := h_assign_eq
     rw [h_assign_eq'] at h_emergent_w
-    
-    use g, hg, R, cfg
-    exact ⟨h_emergent_w, h_v, h_cfg⟩
+
+    exact ⟨g, hg, R, cfg, h_emergent_w, h_v, h_cfg⟩
     
   constructor
   · -- Prop 3
@@ -4772,21 +4770,43 @@ theorem canonical_planted_prefix_valid
     let fgNodes := (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v)
     have h_v_mem : v ∈ fgNodes := by
       rw [List.mem_filter]
-      exact ⟨List.mem_finRange v, h_gate_req⟩
+      constructor
+      · exact List.mem_finRange v
+      · exact h_gate_req
 
-    simp only [List.mem_filterMap]
+    -- extractComputedConfigsFromWitness is already exposed from unfold canonicalPlantedPrefix
+    -- Unfold it to get at the filterMap structure
+    unfold extractComputedConfigsFromWitness
+    simp only []
+    rw [List.mem_filterMap]
     use ⟨v, h_v_mem⟩
     constructor; exact List.mem_attach _ _
 
     simp only []
-    -- Function uses g' = v.val - clause_start = g
-    -- Input is w.assignment = r.assignment
-    -- So emergentConfigAtGate matches h_emergent
-    rw [h_emergent]
-    rw [dif_pos hg]
-    congr
-    simp only [cast_eq_iff_heq]
-    rfl
+    -- The function computes g' = v.val - (1 + φ.nvars)
+    -- From hv : v.val = 1 + φ.nvars + g, we have g' = g
+    have h_g_eq : v.val - (1 + φ.nvars) = g := by omega
+    -- The match binds h_emergent locally; we need to prove for that specific computation
+    -- Use split to handle the match cases
+    split
+    · -- Case: emergentConfigAtGate returned none - contradiction with h_emergent
+      rename_i h_none
+      rw [h_g_eq] at h_none
+      rw [h_emergent] at h_none
+      contradiction
+    · -- Case: emergentConfigAtGate returned some
+      rename_i R' cfg' h_some
+      rw [h_g_eq] at h_some
+      rw [h_emergent] at h_some
+      cases h_some  -- Injects R' = R, cfg' = cfg
+      -- Now handle the if-then-else on (v.val - (1 + φ.nvars)) < numGates
+      split
+      · -- v.val - (1 + φ.nvars) < numGates - goal closes by refl after cast
+        rfl
+      · -- v.val - (1 + φ.nvars) ≥ numGates - contradiction with hg via h_g_eq
+        rename_i h_g_ge
+        rw [h_g_eq] at h_g_ge
+        exact absurd hg h_g_ge
 
   · -- Prop 5
     rfl
