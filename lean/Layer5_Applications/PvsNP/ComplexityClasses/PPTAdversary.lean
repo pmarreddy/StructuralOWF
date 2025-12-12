@@ -3,9 +3,9 @@ import Layer5_Applications.PvsNP.ComplexityClasses.Sized
 import Layer5_Applications.PvsNP.ComplexityClasses.TMEncoding
 import Mathlib.Data.Fintype.Basic
 
-/-! ## PPTAdversary: Computable Probabilistic Polynomial-Time Adversary (0 axioms)
+/-! ## PPTAdversary: Computable Finite-Coin Polynomial-Time Adversary (0 axioms)
 
-**Purpose**: PPT adversary with TM-based computability contract for OWF security proofs.
+**Purpose**: A (restricted) PPT-style adversary with a TM-based computability contract for OWF security proofs.
 
 **Key Insight**: In textbooks, "PPT adversary" means "probabilistic Turing Machine
 with polynomial time bound." This definition makes that explicit and enforces
@@ -21,7 +21,7 @@ computability (not just polynomial labels).
 
 **Key Fields**:
 - `M`: Concrete probabilistic Turing Machine that computes run
-- `num_coins`: Finite randomness (enables coin-fixing)
+- `num_coins`: Finite coin space (enables coin-fixing)
 - `run`: Algorithm behavior (coins → input → output)
 - `encoding`: Bidirectional encoding (α ↔ TM tapes ↔ β)
 - `run_correct`: Proof that decode(TM(encode(x))) = run(c, x)
@@ -41,9 +41,15 @@ namespace LStar.Complexity
 open LStar.StructuralOWF.Foundations  -- For TuringMachine, TMConfig
 open Sized
 
-/-- Probabilistic Polynomial-Time adversary (standard textbook definition).
+/-- Finite-coin PPT-style adversary (restricted variant).
 
-    **Definition**: A PPT adversary IS a probabilistic Turing Machine with:
+    **Definition**: A PPT-style adversary here is a deterministic TM that takes an *explicit* coin choice
+    (from a finite set) together with the input, and runs in uniform polynomial time in the input size.
+
+    This matches the standard “coin-fixing” view of probabilistic algorithms: fixing the random tape yields
+    a deterministic computation. The difference from textbook PPT is that `num_coins` is a *single constant*
+    (not required to grow polynomially with input size).
+
     1. Finite coin space (for coin-fixing arguments)
     2. **Uniform** polynomial time bound (constants C,k work for ALL n)
     3. Well-defined algorithm behavior
@@ -56,7 +62,7 @@ open Sized
     - Result: No axiom required for quantifier swap
 
     Fields:
-    - `num_coins`: Number of random coin flips (finite)
+    - `num_coins`: Number of coin choices (finite)
     - `stateCount`, `alphabetSize`: TM parameters (finite, positive)
     - `M`: The concrete probabilistic Turing Machine
     - `run`: Algorithm behavior (coins → input → output)
@@ -130,12 +136,15 @@ structure PPTAdversary (α β γ : Type) [Sized α] [Sized β] where
       Uses (n+1)^k to avoid n=0 edge cases (matches RandAdv). -/
   poly : ∀ n, time_bound n ≤ C * (n + 1) ^ k
 
-  /-- **ENCODING**: Bidirectional encoding between abstract types (α, β) and TM tapes.
+  /-- **ENCODING**: Bidirectional encoding between abstract types and TM tapes.
 
-      **Purpose**: Connects abstract algorithm (run : α → β) to concrete TM (M).
+      **Purpose**: Connects abstract algorithm (run : Fin num_coins → α → β) to concrete TM (M).
+
+      **Important**: The TM is run on the *pair* `(c, x)`. This makes the coin choice observable to the TM,
+      so `run` can genuinely depend on `c` (unlike an encoding that only includes `x`).
 
       **Components**:
-      - input.encode : α → (Nat → alphabet) - Maps input to tape 0 contents
+      - input.encode : (Fin num_coins × α) → (Nat → alphabet) - Maps (coins,input) to tape 0 contents
       - output.decode : (Nat → alphabet) → β - Maps final tape to output
 
       **Enables**: Stating run_correct (TM execution matches run).
@@ -144,7 +153,7 @@ structure PPTAdversary (α β γ : Type) [Sized α] [Sized β] where
 
       **Design**: Uses TMEncodingBase (no injectivity requirement) to match RandAdv.
       PPTAdversary doesn't use input injectivity - only encode/decode semantics matter. -/
-  encoding : TMEncodingBase α β (Fin alphabetSize)
+  encoding : TMEncodingBase (Fin num_coins × α) β (Fin alphabetSize)
 
   /-- **BLANK CONSISTENCY**: TM and encoding use same blank symbol. -/
   h_blank_consistent : M.blank = encoding.input.blank
@@ -158,9 +167,9 @@ structure PPTAdversary (α β γ : Type) [Sized α] [Sized β] where
       Combined with poly, this gives polynomial-time halting guarantee.
 
       **Note**: Uses initWithEncodingBase (encoded input) - matches RandAdv.halts semantics. -/
-  halts : ∀ (x : α),
+  halts : ∀ (c : Fin num_coins) (x : α),
     let t := C * (size x + 1) ^ k
-    let init_cfg := initWithEncodingBase M encoding.input x h_tape_pos h_blank_consistent
+    let init_cfg := initWithEncodingBase M encoding.input (c, x) h_tape_pos h_blank_consistent
     let final_cfg := (TMConfig.step (M := M))^[t] init_cfg
     final_cfg.state ∈ M.halt
 
@@ -180,7 +189,7 @@ structure PPTAdversary (α β γ : Type) [Sized α] [Sized β] where
       interprets tape contents as the witness/randomness structure. -/
   run_correct : ∀ (c : Fin num_coins) (x : α) (t : Nat),
     t ≥ C * (size x + 1) ^ k →
-    let init_cfg := initWithEncodingBase M encoding.input x h_tape_pos h_blank_consistent
+    let init_cfg := initWithEncodingBase M encoding.input (c, x) h_tape_pos h_blank_consistent
     let final_cfg := (TMConfig.step (M := M))^[t] init_cfg
     let tape_output := getTape0 final_cfg h_tape_pos
     let decoded_β := encoding.output.decode tape_output

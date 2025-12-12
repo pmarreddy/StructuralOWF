@@ -114,7 +114,10 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
 
       **Note**: Uses TMEncodingBase (no injectivity requirement) to allow placeholder
       encodings for structural RandAdv constructions. -/
-  encoding : TMEncodingBase α β (Fin alphabetSize)
+  /-- Bidirectional encoding for the *pair* `(coins, input)`.
+
+      This makes the coin choice visible to the TM, so `run` can genuinely depend on coins. -/
+  encoding : TMEncodingBase (Fin T × α) β (Fin alphabetSize)
 
   /-- **OUTPUT INPUT ENCODING**: Encoding of output type β for use as verifier input.
 
@@ -147,7 +150,7 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
       **Note**: Uses Function.iterate to run step^[t] from initial encoded configuration. -/
   run_correct : ∀ (c : Fin T) (x : α) (t : Nat),
     t ≥ C * (size x + 1) ^ k →
-    let init_cfg := initWithEncodingBase M encoding.input x h_tape_pos h_blank_consistent
+    let init_cfg := initWithEncodingBase M encoding.input (c, x) h_tape_pos h_blank_consistent
     let final_cfg := (TMConfig.step (M := M))^[t] init_cfg
     encoding.output.decode (getTape0 final_cfg h_tape_pos) = run c x
 
@@ -188,9 +191,9 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
 
       **Purpose**: Ensures TM execution is well-defined (doesn't run forever).
       Combined with poly_explicit, this gives polynomial-time halting guarantee. -/
-  halts : ∀ (x : α),
+  halts : ∀ (c : Fin T) (x : α),
     let t := C * (size x + 1) ^ k
-    let init_cfg := initWithEncodingBase M encoding.input x h_tape_pos h_blank_consistent
+    let init_cfg := initWithEncodingBase M encoding.input (c, x) h_tape_pos h_blank_consistent
     let final_cfg := (TMConfig.step (M := M))^[t] init_cfg
     final_cfg.state ∈ M.halt
 
@@ -229,8 +232,8 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
       **Proof obligation for algspec_has_tm**: Any TM implementation must use
       encodings where input and output formats are distinguishable. This is
       standard practice in TM theory (Sipser §3.1, Arora-Barak §1.2). -/
-  early_decode : ∀ x t, t < 2 →
-    let init_cfg := initWithEncodingBase M encoding.input x h_tape_pos h_blank_consistent
+  early_decode : ∀ c x t, t < 2 →
+    let init_cfg := initWithEncodingBase M encoding.input (c, x) h_tape_pos h_blank_consistent
     let cfg := (TMConfig.step (M := M))^[t] init_cfg
     encoding.output.decode (getTape0 cfg h_tape_pos) = early_decode_default
 

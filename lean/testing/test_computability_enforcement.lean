@@ -76,7 +76,7 @@ example : ∀ (α β : Type) [Sized α] [Sized β]
     M.alphabetSize > 0 ∧
     M.tapeCount > 0 ∧
     (∃ (tm : TuringMachine M.tapeCount (Fin M.stateCount) (Fin M.alphabetSize)), M.M = tm) ∧
-    (∃ (enc : TMEncodingBase α β (Fin M.alphabetSize)), M.encoding = enc) := by
+    (∃ (enc : TMEncodingBase (Fin 1 × α) β (Fin M.alphabetSize)), M.encoding = enc) := by
   intro α β _ _ M
   constructor
   · exact M.h_state_pos

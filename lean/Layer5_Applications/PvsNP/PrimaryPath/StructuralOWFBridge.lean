@@ -768,7 +768,7 @@ theorem structural_owf_inversion_in_fnp_computable
   -- Construct RandAdv for the verifier
   let run_fn : Fin 1 → (Σ n, LStarInstanceFG × Bits (n + 128)) → Bool :=
     fun _ input => LStar.StructuralOWF.Foundations.TMAxioms.verifyOWFInversion_sigma Φ h_nvars_ge4 input
-  let enc : TMEncodingBase (Σ n, LStarInstanceFG × Bits (n + 128)) Bool (Fin alphabetSize) := {
+  let enc : TMEncodingBase (Fin 1 × (Σ n, LStarInstanceFG × Bits (n + 128))) Bool (Fin alphabetSize) := {
     input := enc_in
     output := enc_out
     blank_consistent := h_blank_enc
@@ -787,17 +787,24 @@ theorem structural_owf_inversion_in_fnp_computable
   -- run_correct proof: the types match because C = C_tm and k = k_tm
   have h_run_correct : ∀ (c : Fin 1) (x : Σ n, LStarInstanceFG × Bits (n + 128)) (t : Nat),
       t ≥ C_tm * (Sized.size x + 1) ^ k_tm →
-      let init_cfg := initWithEncodingBase M enc.input x h_tape_pos h_blank
+      let init_cfg := initWithEncodingBase M enc.input (c, x) h_tape_pos h_blank
       let final_cfg := (TMConfig.step (M := M))^[t] init_cfg
-      enc.output.decode (getTape0 final_cfg h_tape_pos) = run_fn c x :=
-    fun _ input t ht => h_correct input t ht
+      enc.output.decode (getTape0 final_cfg h_tape_pos) = run_fn c x := by
+    intro c x t ht
+    -- Fin 1 has only one inhabitant, so the coin is definitionally irrelevant.
+    have hc : c = ⟨0, by omega⟩ := by ext; omega
+    subst hc
+    simpa [run_fn, enc] using h_correct x t ht
   -- halts proof
-  have h_halts_proof : ∀ (x : Σ n, LStarInstanceFG × Bits (n + 128)),
+  have h_halts_proof : ∀ (c : Fin 1) (x : Σ n, LStarInstanceFG × Bits (n + 128)),
       let t := C_tm * (Sized.size x + 1) ^ k_tm
-      let init_cfg := initWithEncodingBase M enc.input x h_tape_pos h_blank
+      let init_cfg := initWithEncodingBase M enc.input (c, x) h_tape_pos h_blank
       let final_cfg := (TMConfig.step (M := M))^[t] init_cfg
-      final_cfg.state ∈ M.halt :=
-    h_halts
+      final_cfg.state ∈ M.halt := by
+    intro c x
+    have hc : c = ⟨0, by omega⟩ := by ext; omega
+    subst hc
+    simpa [enc] using h_halts x
   -- output_bounded proof: Bool has size 1, time_bound ≥ C_tm ≥ 1
   have h_output_bounded : ∀ c x, Sized.size (run_fn c x) ≤ time_bound_fn (Sized.size x) := by
     intro c x

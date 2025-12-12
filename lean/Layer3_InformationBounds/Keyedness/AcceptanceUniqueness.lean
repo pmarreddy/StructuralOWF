@@ -77,17 +77,18 @@ theorem digest_diff_of_parity_diff {n : Nat}
 
 /-! ## Planted World Uniqueness -/
 
-/-- **World compatible with witness** (for uniqueness proof).
-
-    **Definition**: A world ω is compatible with witness W if W satisfies φ.
-
-    **Note**: For planted instances, use WorldCompatibleWithVerifiedWitness which provides
-    stronger constraints via emergent configs.
--/
-def WorldCompatibleWithWitness {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
-    (φ : CNF)  -- CNF formula for satisfaction check
-    (_ω : CutWorld L C) (W : Witness) : Prop :=
+/-- Witness satisfies the plaintext CNF formula. -/
+def WitnessSatisfiesFormula (φ : CNF) (W : Witness) : Prop :=
   φ.satisfies W.assignment
+
+/-- **Deprecated** (misleading name): this predicate ignores `ω`.
+
+Use `WitnessSatisfiesFormula` for the underlying check, or
+`WorldCompatibleWithVerifiedWitness` when you actually need constraints on `ω`. -/
+@[deprecated "Use WitnessSatisfiesFormula (ignores ω) or WorldCompatibleWithVerifiedWitness (constrains ω)."]
+def WorldCompatibleWithWitness {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
+    (φ : CNF) (_ω : CutWorld L C) (W : Witness) : Prop :=
+  WitnessSatisfiesFormula φ W
 
 /-- **Strong compatibility**: World assignments match emergent configs from verified witness.
 

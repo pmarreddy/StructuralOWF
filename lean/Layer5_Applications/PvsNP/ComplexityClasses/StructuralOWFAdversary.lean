@@ -63,14 +63,14 @@ def NontrivialComputation
     [Fintype alphabet] [DecidableEq alphabet]
     (M : TuringMachine tapeCount states alphabet)
     (extractWitness : TMConfig M → Witness)
-    (encoding : TMInputEncodingBase LStarInstanceFG alphabet)
+    {coins : Nat} (encoding : TMInputEncodingBase (Fin coins × LStarInstanceFG) alphabet)
     (h_tape_pos : 0 < tapeCount)
     (h_blank : M.blank = encoding.blank) : Prop :=
-  ∀ (x : LStarInstanceFG) (φ : CNF) (haltTime : Nat),
+  ∀ (c : Fin coins) (x : LStarInstanceFG) (φ : CNF) (haltTime : Nat),
     φ.nvars = x.encodedφ.nvars →  -- φ corresponds to this instance
     φ.nvars ≥ 4 →
     LStar.CNF.HasPositiveClause φ →
-    let init_cfg := initWithEncodingBase M encoding x h_tape_pos h_blank
+    let init_cfg := initWithEncodingBase M encoding (c, x) h_tape_pos h_blank
     φ.satisfies (extractWitness ((TMConfig.step (M := M))^[haltTime] init_cfg)).assignment →
     haltTime ≥ 2
 
@@ -117,7 +117,7 @@ structure StructuralOWFAdversary where
       so run_correct can't be applied. Encoded-input is the correct semantics. -/
   assignment_correspondence : ∀ (c : Fin base.num_coins) (L : LStarInstanceFG) (t : Nat),
     t ≥ base.C * (size L + 1) ^ base.k →
-    let init_cfg := initWithEncodingBase base.M base.encoding.input L base.h_tape_pos base.h_blank_consistent
+    let init_cfg := initWithEncodingBase base.M base.encoding.input (c, L) base.h_tape_pos base.h_blank_consistent
     let final_cfg := (TMConfig.step (M := base.M))^[t] init_cfg
     (base.extractWitness final_cfg).assignment = (base.run c L).assignment
 
@@ -132,9 +132,9 @@ structure StructuralOWFAdversary where
       enabling the encoded-input time bound theorems.
 
       **Trust Boundary**: 0 axioms (directly follows from base.halts) -/
-  halts_encoded : ∀ (L : LStarInstanceFG),
+  halts_encoded : ∀ (c : Fin base.num_coins) (L : LStarInstanceFG),
     let t := base.C * (size L + 1) ^ base.k
-    let init_cfg := initWithEncodingBase base.M base.encoding.input L base.h_tape_pos base.h_blank_consistent
+    let init_cfg := initWithEncodingBase base.M base.encoding.input (c, L) base.h_tape_pos base.h_blank_consistent
     let final_cfg := (TMConfig.step (M := base.M))^[t] init_cfg
     final_cfg.state ∈ base.M.halt
 

@@ -80,53 +80,49 @@ Both profiles use Bits (n + 128) as the witness type, so the input adapter is sh
 def adapterInputEncoding
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (n + 128)) T)
-    : TMInputEncodingBase LStarInstanceFG (Fin M.alphabetSize) where
+    : TMInputEncodingBase (Fin T × LStarInstanceFG) (Fin M.alphabetSize) where
   blank := M.encoding.input.blank
-  encode := fun L => M.encoding.input.encode ⟨L.encodedφ.nvars, L⟩
-  min_support := fun L => M.encoding.input.min_support ⟨L.encodedφ.nvars, L⟩
-  min_support_spec := fun L i => M.encoding.input.min_support_spec ⟨L.encodedφ.nvars, L⟩ i
-  finite_support := fun L => M.encoding.input.finite_support ⟨L.encodedφ.nvars, L⟩
+  encode := fun (c, L) => M.encoding.input.encode (c, ⟨L.encodedφ.nvars, L⟩)
+  min_support := fun (c, L) => M.encoding.input.min_support (c, ⟨L.encodedφ.nvars, L⟩)
+  min_support_spec := fun (c, L) i => M.encoding.input.min_support_spec (c, ⟨L.encodedφ.nvars, L⟩) i
+  finite_support := fun (c, L) => M.encoding.input.finite_support (c, ⟨L.encodedφ.nvars, L⟩)
   C_encode := 2 ^ M.encoding.input.k_encode * M.encoding.input.C_encode
   k_encode := M.encoding.input.k_encode
-  size_bounded := fun L => by
-    -- Goal: min_support L ≤ (2^k * C_M) * (size L + 1)^k
-    -- where min_support L = M.encoding.input.min_support ⟨φ.nvars, L⟩
-
+  size_bounded := fun (c, L) => by
     let n := L.encodedφ.nvars
     let k := M.encoding.input.k_encode
     let C_M := M.encoding.input.C_encode
 
-    -- Step 1: M's size_bounded gives bound in terms of sigma size
-    have h_M_bound : M.encoding.input.min_support ⟨n, L⟩ ≤ C_M * (Sized.size (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG) + 1) ^ k :=
-      M.encoding.input.size_bounded ⟨n, L⟩
+    have h_base :
+        M.encoding.input.min_support (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) ≤
+          C_M * (Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1) ^ k :=
+      M.encoding.input.size_bounded (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG))
 
-    -- Step 2: Size relationships
-    have h_nvars_eq : n = L.n := L.h_n_eq_nvars.symm
-    have h_dag_ge : L.dag.n ≥ L.n := L.dag_size_ge_n
-    have h_nvars_le_dag : n ≤ L.dag.n := by rw [h_nvars_eq]; exact h_dag_ge
-    have h_size_L : Sized.size L = L.dag.n := rfl
+    have h_n_le_sizeL : n ≤ Sized.size L := by
+      have h_n_eq : n = L.n := by simpa [n] using L.h_n_eq_nvars.symm
+      have : n ≤ L.dag.n := by simpa [h_n_eq] using L.dag_size_ge_n
+      simpa using this
 
-    have h_sigma_size : Sized.size (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG) = (n + 1) + Sized.size L := by
-      simp only [Sized.size, sizedSigma, sizedNat]
+    have h_size_wrapped_le :
+        Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1 ≤
+          2 * (Sized.size (c, L) + 1) := by
+      have h_n1_le : n + 1 ≤ Sized.size L + 1 := Nat.add_le_add_right h_n_le_sizeL 1
+      simp only [Sized.size, sizedProd, sizedSigma, sizedNat]
+      omega
 
-    -- Step 3: Sigma size + 1 ≤ 2 * (size L + 1)
-    have h_size_bound : Sized.size (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG) + 1 ≤ 2 * (Sized.size L + 1) := by
-      rw [h_sigma_size, h_size_L]; omega
+    have h_pow_le :
+        (Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1) ^ k ≤
+          (2 * (Sized.size (c, L) + 1)) ^ k :=
+      Nat.pow_le_pow_left h_size_wrapped_le k
 
-    -- Step 4: Power inequality
-    have h_pow_bound : (Sized.size (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG) + 1) ^ k ≤ (2 * (Sized.size L + 1)) ^ k :=
-      Nat.pow_le_pow_left h_size_bound k
-
-    -- Step 5: Expand (2 * x)^k = 2^k * x^k
-    have h_pow_expand : (2 * (Sized.size L + 1)) ^ k = 2 ^ k * (Sized.size L + 1) ^ k :=
-      Nat.mul_pow 2 (Sized.size L + 1) k
-
-    -- Step 6: Chain the inequalities
-    calc M.encoding.input.min_support ⟨n, L⟩
-      _ ≤ C_M * (Sized.size (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG) + 1) ^ k := h_M_bound
-      _ ≤ C_M * (2 * (Sized.size L + 1)) ^ k := Nat.mul_le_mul_left C_M h_pow_bound
-      _ = C_M * (2 ^ k * (Sized.size L + 1) ^ k) := by rw [h_pow_expand]
-      _ = 2 ^ k * C_M * (Sized.size L + 1) ^ k := by ring
+    calc M.encoding.input.min_support (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG))
+        ≤ C_M * (Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1) ^ k := h_base
+      _ ≤ C_M * (2 * (Sized.size (c, L) + 1)) ^ k := by
+        apply Nat.mul_le_mul_left
+        exact h_pow_le
+      _ = C_M * (2 ^ k * (Sized.size (c, L) + 1) ^ k) := by
+        simp [Nat.mul_pow]
+      _ = (2 ^ k * C_M) * (Sized.size (c, L) + 1) ^ k := by ring
 
 /-! ## Format Separation -/
 
@@ -144,7 +140,7 @@ theorem formatSeparated_from_early_decode
   (M : RandAdv (Sigma fun _n => LStarInstanceFG) (Sigma fun n => Bits (n + 128)) T)
   (h_early_zero : M.early_decode_default.1 = 0)
   : EncodingDiscipline.FormatSeparated M (adapterInputEncoding M) M.h_blank_consistent := by
-  intro L t h_t
+  intro c L t h_t
   -- Goal: (M.encoding.output.decode tape).1 = 0
   -- where tape = getTape0 cfg, cfg = step^[t] init_cfg
   -- and init_cfg = initWithEncodingBase M.M (adapterInputEncoding M) L ...
@@ -153,7 +149,7 @@ theorem formatSeparated_from_early_decode
   -- So init_cfg has the same tape as using M.encoding.input on ⟨φ.nvars, L⟩
 
   -- Apply M.early_decode to ⟨L.encodedφ.nvars, L⟩
-  have h_ed := M.early_decode ⟨L.encodedφ.nvars, L⟩ t h_t
+  have h_ed := M.early_decode c ⟨L.encodedφ.nvars, L⟩ t h_t
 
   -- h_ed : (let init_cfg := initWithEncodingBase M.M M.encoding.input ⟨φ.nvars, L⟩ ...
   --         let cfg := step^[t] init_cfg
@@ -164,11 +160,6 @@ theorem formatSeparated_from_early_decode
   -- This is definitionally equal to the init_cfg in h_ed!
 
   -- Show the init configs are equal by showing the tapes are equal
-  have h_tape_eq : (adapterInputEncoding M).encode L = M.encoding.input.encode ⟨L.encodedφ.nvars, L⟩ := rfl
-
-  -- The blank symbols are the same
-  have h_blank_eq : (adapterInputEncoding M).blank = M.encoding.input.blank := rfl
-
   -- Simplify to show equality of decoded values
   simp only [EncodingDiscipline.FormatSeparated, adapterInputEncoding] at *
 
@@ -213,7 +204,7 @@ def mkAdapterTMEncoding
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (n + 128)) T)
     (decodeWitness : (n : Nat) → Bits (n + 128) → Randomness)
-    : TMEncodingBase LStarInstanceFG Randomness (Fin M.alphabetSize) where
+    : TMEncodingBase (Fin T × LStarInstanceFG) Randomness (Fin M.alphabetSize) where
   input := adapterInputEncoding M
   output := mkAdapterOutputDecoding M decodeWitness
   blank_consistent := M.encoding.blank_consistent
@@ -260,13 +251,13 @@ theorem adapter_halts_helper
 theorem adapter_configs_eq
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (n + 128)) T)
-    (x : LStarInstanceFG)
+    (c : Fin T) (x : LStarInstanceFG)
     (decodeWitness : (n : Nat) → Bits (n + 128) → Randomness) :
-    initWithEncodingBase M.M (mkAdapterTMEncoding M decodeWitness).input x M.h_tape_pos M.h_blank_consistent =
-    initWithEncodingBase M.M M.encoding.input ⟨x.encodedφ.nvars, x⟩ M.h_tape_pos M.h_blank_consistent := by
+    initWithEncodingBase M.M (mkAdapterTMEncoding M decodeWitness).input (c, x) M.h_tape_pos M.h_blank_consistent =
+    initWithEncodingBase M.M M.encoding.input (c, ⟨x.encodedφ.nvars, x⟩) M.h_tape_pos M.h_blank_consistent := by
   -- Both use the same encoding function: M.encoding.input.encode ⟨x.encodedφ.nvars, x⟩
-  have h_encode_eq : (mkAdapterTMEncoding M decodeWitness).input.encode x =
-                     M.encoding.input.encode ⟨x.encodedφ.nvars, x⟩ := rfl
+  have h_encode_eq : (mkAdapterTMEncoding M decodeWitness).input.encode (c, x) =
+                     M.encoding.input.encode (c, ⟨x.encodedφ.nvars, x⟩) := rfl
   -- The configs are equal because tapes are equal
   simp only [initWithEncodingBase, mkAdapterTMEncoding, adapterInputEncoding]
 
@@ -284,39 +275,50 @@ We use `EncodingDiscipline.expWLen` which is defined as `2 * n + 64`.
 def adapterInputEncoding_exp
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (EncodingDiscipline.expWLen n)) T)
-    : TMInputEncodingBase LStarInstanceFG (Fin M.alphabetSize) where
+    : TMInputEncodingBase (Fin T × LStarInstanceFG) (Fin M.alphabetSize) where
   blank := M.encoding.input.blank
-  encode := fun L => M.encoding.input.encode ⟨L.encodedφ.nvars, L⟩
-  min_support := fun L => M.encoding.input.min_support ⟨L.encodedφ.nvars, L⟩
-  min_support_spec := fun L i => M.encoding.input.min_support_spec ⟨L.encodedφ.nvars, L⟩ i
-  finite_support := fun L => M.encoding.input.finite_support ⟨L.encodedφ.nvars, L⟩
+  encode := fun (c, L) => M.encoding.input.encode (c, ⟨L.encodedφ.nvars, L⟩)
+  min_support := fun (c, L) => M.encoding.input.min_support (c, ⟨L.encodedφ.nvars, L⟩)
+  min_support_spec := fun (c, L) i => M.encoding.input.min_support_spec (c, ⟨L.encodedφ.nvars, L⟩) i
+  finite_support := fun (c, L) => M.encoding.input.finite_support (c, ⟨L.encodedφ.nvars, L⟩)
   C_encode := 2 ^ M.encoding.input.k_encode * M.encoding.input.C_encode
   k_encode := M.encoding.input.k_encode
-  size_bounded := fun L => by
+  size_bounded := fun (c, L) => by
     let n := L.encodedφ.nvars
     let k := M.encoding.input.k_encode
     let C_M := M.encoding.input.C_encode
 
-    have h_M_bound : M.encoding.input.min_support ⟨n, L⟩ ≤ C_M * (Sized.size (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG) + 1) ^ k :=
-      M.encoding.input.size_bounded ⟨n, L⟩
+    have h_base :
+        M.encoding.input.min_support (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) ≤
+          C_M * (Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1) ^ k :=
+      M.encoding.input.size_bounded (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG))
 
-    have h_nvars_eq : n = L.n := L.h_n_eq_nvars.symm
-    have h_dag_ge : L.dag.n ≥ L.n := L.dag_size_ge_n
-    have h_nvars_le_dag : n ≤ L.dag.n := by rw [h_nvars_eq]; exact h_dag_ge
-    have h_size_L : Sized.size L = L.dag.n := rfl
+    have h_n_le_sizeL : n ≤ Sized.size L := by
+      have h_n_eq : n = L.n := by simpa [n] using L.h_n_eq_nvars.symm
+      have : n ≤ L.dag.n := by simpa [h_n_eq] using L.dag_size_ge_n
+      simpa using this
 
-    have h_sigma_size : Sized.size (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG) = (n + 1) + Sized.size L := by
-      simp only [Sized.size, sizedSigma, sizedNat]
+    have h_size_wrapped_le :
+        Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1 ≤
+          2 * (Sized.size (c, L) + 1) := by
+      have h_n1_le : n + 1 ≤ Sized.size L + 1 := Nat.add_le_add_right h_n_le_sizeL 1
+      -- Expand sizes and discharge with linear arithmetic.
+      simp only [Sized.size, sizedProd, sizedSigma, sizedNat]
+      omega
 
-    have h_size_bound : Sized.size (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG) + 1 ≤ 2 * (Sized.size L + 1) := by
-      rw [h_sigma_size, h_size_L]; omega
+    have h_pow_le :
+        (Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1) ^ k ≤
+          (2 * (Sized.size (c, L) + 1)) ^ k :=
+      Nat.pow_le_pow_left h_size_wrapped_le k
 
-    calc M.encoding.input.min_support ⟨n, L⟩
-      _ ≤ C_M * (Sized.size (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG) + 1) ^ k := h_M_bound
-      _ ≤ C_M * (2 * (Sized.size L + 1)) ^ k := by
-          apply Nat.mul_le_mul_left; apply Nat.pow_le_pow_left; exact h_size_bound
-      _ = C_M * (2 ^ k * (Sized.size L + 1) ^ k) := by rw [Nat.mul_pow]
-      _ = (2 ^ k * C_M) * (Sized.size L + 1) ^ k := by ring
+    calc M.encoding.input.min_support (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG))
+        ≤ C_M * (Sized.size (c, (⟨n, L⟩ : Sigma fun _ => LStarInstanceFG)) + 1) ^ k := h_base
+      _ ≤ C_M * (2 * (Sized.size (c, L) + 1)) ^ k := by
+        apply Nat.mul_le_mul_left
+        exact h_pow_le
+      _ = C_M * (2 ^ k * (Sized.size (c, L) + 1) ^ k) := by
+        simp [Nat.mul_pow]
+      _ = (2 ^ k * C_M) * (Sized.size (c, L) + 1) ^ k := by ring
 
 /-- Output decoding adapter template for exponential profile. -/
 def mkAdapterOutputDecoding_exp
@@ -339,7 +341,7 @@ def mkAdapterTMEncoding_exp
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (EncodingDiscipline.expWLen n)) T)
     (decodeWitness : (n : Nat) → Bits (EncodingDiscipline.expWLen n) → Randomness)
-    : TMEncodingBase LStarInstanceFG Randomness (Fin M.alphabetSize) where
+    : TMEncodingBase (Fin T × LStarInstanceFG) Randomness (Fin M.alphabetSize) where
   input := adapterInputEncoding_exp M
   output := mkAdapterOutputDecoding_exp M decodeWitness
   blank_consistent := M.encoding.blank_consistent
@@ -373,12 +375,12 @@ theorem adapter_halts_helper_exp
 theorem adapter_configs_eq_exp
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (EncodingDiscipline.expWLen n)) T)
-    (x : LStarInstanceFG)
+    (c : Fin T) (x : LStarInstanceFG)
     (decodeWitness : (n : Nat) → Bits (EncodingDiscipline.expWLen n) → Randomness) :
-    initWithEncodingBase M.M (mkAdapterTMEncoding_exp M decodeWitness).input x M.h_tape_pos M.h_blank_consistent =
-    initWithEncodingBase M.M M.encoding.input ⟨x.encodedφ.nvars, x⟩ M.h_tape_pos M.h_blank_consistent := by
-  have h_encode_eq : (mkAdapterTMEncoding_exp M decodeWitness).input.encode x =
-                     M.encoding.input.encode ⟨x.encodedφ.nvars, x⟩ := rfl
+    initWithEncodingBase M.M (mkAdapterTMEncoding_exp M decodeWitness).input (c, x) M.h_tape_pos M.h_blank_consistent =
+    initWithEncodingBase M.M M.encoding.input (c, ⟨x.encodedφ.nvars, x⟩) M.h_tape_pos M.h_blank_consistent := by
+  have h_encode_eq : (mkAdapterTMEncoding_exp M decodeWitness).input.encode (c, x) =
+                     M.encoding.input.encode (c, ⟨x.encodedφ.nvars, x⟩) := rfl
   simp only [initWithEncodingBase, mkAdapterTMEncoding_exp, adapterInputEncoding_exp]
 
 /-- FormatSeparated from early_decode property for exponential profile.
@@ -391,12 +393,9 @@ theorem formatSeparated_from_early_decode_exp
   (M : RandAdv (Sigma fun _n => LStarInstanceFG) (Sigma fun n => Bits (EncodingDiscipline.expWLen n)) T)
   (h_early_zero : M.early_decode_default.1 = 0)
   : EncodingDiscipline.FormatSeparated_exp M (adapterInputEncoding_exp M) M.h_blank_consistent := by
-  intro L t h_t
-  -- Apply M.early_decode to ⟨L.encodedφ.nvars, L⟩
-  have h_ed := M.early_decode ⟨L.encodedφ.nvars, L⟩ t h_t
-  -- Show the init configs are equal
-  have h_tape_eq : (adapterInputEncoding_exp M).encode L = M.encoding.input.encode ⟨L.encodedφ.nvars, L⟩ := rfl
-  have h_blank_eq : (adapterInputEncoding_exp M).blank = M.encoding.input.blank := rfl
+  intro c L t h_t
+  -- Apply M.early_decode to the wrapped Sigma input with coin `c`.
+  have h_ed := M.early_decode c ⟨L.encodedφ.nvars, L⟩ t h_t
   simp only [EncodingDiscipline.FormatSeparated_exp, adapterInputEncoding_exp] at *
   simp only [initWithEncodingBase, getTape0] at h_ed ⊢
   rw [h_ed, h_early_zero]

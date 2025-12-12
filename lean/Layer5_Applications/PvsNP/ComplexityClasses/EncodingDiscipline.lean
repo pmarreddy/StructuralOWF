@@ -67,10 +67,10 @@ The property makes this assumption explicit rather than universal.
 -/
 def FormatSeparated {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (n + 128)) T)
-    (adapterEnc : TMInputEncodingBase LStarInstanceFG (Fin M.alphabetSize))
+    (adapterEnc : TMInputEncodingBase (Fin T × LStarInstanceFG) (Fin M.alphabetSize))
     (h_blank : M.M.blank = adapterEnc.blank) : Prop :=
-  ∀ (x : LStarInstanceFG) (t : Nat), t < 2 →
-    let init_cfg := initWithEncodingBase M.M adapterEnc x M.h_tape_pos h_blank
+  ∀ (c : Fin T) (x : LStarInstanceFG) (t : Nat), t < 2 →
+    let init_cfg := initWithEncodingBase M.M adapterEnc (c, x) M.h_tape_pos h_blank
     let cfg := (TMConfig.step (M := M.M))^[t] init_cfg
     let tape := getTape0 cfg M.h_tape_pos
     let decoded := M.encoding.output.decode tape
@@ -87,10 +87,10 @@ abbrev expWLen (n : Nat) : Nat := 2 * n + 64
 -/
 def FormatSeparated_exp {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (expWLen n)) T)
-    (adapterEnc : TMInputEncodingBase LStarInstanceFG (Fin M.alphabetSize))
+    (adapterEnc : TMInputEncodingBase (Fin T × LStarInstanceFG) (Fin M.alphabetSize))
     (h_blank : M.M.blank = adapterEnc.blank) : Prop :=
-  ∀ (x : LStarInstanceFG) (t : Nat), t < 2 →
-    let init_cfg := initWithEncodingBase M.M adapterEnc x M.h_tape_pos h_blank
+  ∀ (c : Fin T) (x : LStarInstanceFG) (t : Nat), t < 2 →
+    let init_cfg := initWithEncodingBase M.M adapterEnc (c, x) M.h_tape_pos h_blank
     let cfg := (TMConfig.step (M := M.M))^[t] init_cfg
     let tape := getTape0 cfg M.h_tape_pos
     let decoded := M.encoding.output.decode tape

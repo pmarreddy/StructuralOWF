@@ -128,7 +128,7 @@ def isSource {L : LStarInstanceFull} (v : Fin L.dag.n) : Prop :=
 -/
 def IsPlantedWorld {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
     (φ : CNF) (W : Witness) (_r : Randomness) (ω : CutWorld L C) : Prop :=
-  WorldCompatibleWithWitness φ ω W
+  WitnessSatisfiesFormula φ W
 
 /-! ## Uniqueness via Unpredictability
 

@@ -1638,14 +1638,14 @@ theorem f_is_structural_owf_exponential_flat
 
   -- Apply bridge theorem: algorithmic success (hypothesis) implies TM success (encoded-input)
   have h_tm_correct : (Φ n.val).satisfies (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M
-      A.base.encoding.input L haltTime A.base.h_tape_pos A.base.h_blank_consistent
+      A.base.encoding.input (c_bar, L) haltTime A.base.h_tape_pos A.base.h_blank_consistent
       A.base.extractWitness).assignment :=
     Foundations.TMAxioms.ppt_adversary_correct_bridge A L (Φ n.val) haltTime c_bar h_time_bound_encoded h_success_for_bridge
 
   -- TM-algorithm correspondence (encoded-input semantics, derived from OWFAdversary.assignment_correspondence)
   -- Note: tm_algorithm_correspondence gives (A.base.run c_bar L).assignment
   -- We need to bridge to (extract L (A_inv L)).assignment
-  have h_tm_eq_run : (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M A.base.encoding.input L haltTime
+  have h_tm_eq_run : (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M A.base.encoding.input (c_bar, L) haltTime
                        A.base.h_tape_pos A.base.h_blank_consistent A.base.extractWitness).assignment =
                      (A.base.run c_bar L).assignment :=
     Foundations.TMAxioms.tm_algorithm_correspondence A L c_bar haltTime h_time_bound_encoded
@@ -1653,7 +1653,7 @@ theorem f_is_structural_owf_exponential_flat
   -- extract preserves assignment: (extract L r).assignment = r.assignment
   have h_extract_preserves : (extract L (A_inv L)).assignment = (A_inv L).assignment := rfl
   have h_A_inv_eq : (A_inv L).assignment = (A.base.run c_bar L).assignment := rfl
-  have h_tm_eq : (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M A.base.encoding.input L haltTime
+  have h_tm_eq : (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M A.base.encoding.input (c_bar, L) haltTime
                    A.base.h_tape_pos A.base.h_blank_consistent A.base.extractWitness).assignment =
                  (extract L (A_inv L)).assignment := by
     rw [h_extract_preserves, h_A_inv_eq]
@@ -1717,7 +1717,7 @@ theorem f_is_structural_owf_exponential_flat
         h_family_positive n.val (LStar.Base.SecurityParam.ge_k n)
       have h_correct_for_nontrivial : (Φ n.val).satisfies
           (extractWitness ((Foundations.TMConfig.step)^[haltTime]
-            (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input L
+            (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input (c_bar, L)
               A.base.h_tape_pos A.base.h_blank_consistent))).assignment := by
         convert h_tm_correct using 1
       -- φ.nvars = L.encodedφ.nvars (for NontrivialComputation)
@@ -1725,15 +1725,15 @@ theorem f_is_structural_owf_exponential_flat
         have h1 : L.n = (Φ n.val).nvars := by
           rw [h_L_def]; exact plant_flat_n n.val (Φ n.val) r_star h_nvars_ge_4
         rw [← L.h_n_eq_nvars, h1]
-      exact A.nontrivial_computation L (Φ n.val) haltTime h_nvars_match h_L_nvars h_L_positive h_correct_for_nontrivial
+      exact A.nontrivial_computation c_bar L (Φ n.val) haltTime h_nvars_match h_L_nvars h_L_positive h_correct_for_nontrivial
 
     -- Apply exponential time lower bound from TMAdapter (Exponential profile)
     -- Any correct TM must spend ≥ 2^(R_v) time steps to resolve the emergence
     -- at the FG gate for planted instances via information-theoretic visitation counting.
-    have h_halts_enc : (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input L
+    have h_halts_enc : (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input (c_bar, L)
                           A.base.h_tape_pos A.base.h_blank_consistent |>
                         fun init => (Foundations.TMConfig.step)^[haltTime] init).state ∈ A.base.M.halt :=
-      A.halts_encoded L
+      A.halts_encoded c_bar L
     -- Encoder completeness: extractWitness can produce all emergent config values.
     -- This follows from A3 emergence (full-rank matrices) combined with the fact that
     -- any reasonable extractWitness reads the tape and can thus produce any assignment.
@@ -2264,17 +2264,17 @@ theorem f_is_structural_owf_exponential_true
   have h_time_bound_encoded : haltTime ≥ A.base.C * (Sized.size L + 1) ^ A.base.k := le_refl _
 
   have h_tm_correct : (Φ n.val).satisfies (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M
-      A.base.encoding.input L haltTime A.base.h_tape_pos A.base.h_blank_consistent
+      A.base.encoding.input (c_bar, L) haltTime A.base.h_tape_pos A.base.h_blank_consistent
       A.base.extractWitness).assignment :=
     Foundations.TMAxioms.ppt_adversary_correct_bridge A L (Φ n.val) haltTime c_bar h_time_bound_encoded h_success_for_bridge
 
-  have h_tm_eq_run : (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M A.base.encoding.input L haltTime
+  have h_tm_eq_run : (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M A.base.encoding.input (c_bar, L) haltTime
                        A.base.h_tape_pos A.base.h_blank_consistent A.base.extractWitness).assignment =
                      (A.base.run c_bar L).assignment :=
     Foundations.TMAxioms.tm_algorithm_correspondence A L c_bar haltTime h_time_bound_encoded
   have h_extract_preserves : (extract L (A_inv L)).assignment = (A_inv L).assignment := rfl
   have h_A_inv_eq : (A_inv L).assignment = (A.base.run c_bar L).assignment := rfl
-  have h_tm_eq : (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M A.base.encoding.input L haltTime
+  have h_tm_eq : (Foundations.TMAxioms.tmOutputWitnessEncoded A.base.M A.base.encoding.input (c_bar, L) haltTime
                    A.base.h_tape_pos A.base.h_blank_consistent A.base.extractWitness).assignment =
                  (extract L (A_inv L)).assignment := by
     rw [h_extract_preserves, h_A_inv_eq]
@@ -2328,19 +2328,19 @@ theorem f_is_structural_owf_exponential_true
         h_family_positive n.val (LStar.Base.SecurityParam.ge_k n)
       have h_correct_for_nontrivial : (Φ n.val).satisfies
           (extractWitness ((Foundations.TMConfig.step)^[haltTime]
-            (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input L
+            (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input (c_bar, L)
               A.base.h_tape_pos A.base.h_blank_consistent))).assignment := by
         convert h_tm_correct using 1
       have h_nvars_match : (Φ n.val).nvars = L.encodedφ.nvars := by
         have h1 : L.n = (Φ n.val).nvars := by
           rw [h_L_def]; exact plant_flat_n n.val (Φ n.val) r_star h_nvars_ge_4
         rw [← L.h_n_eq_nvars, h1]
-      exact A.nontrivial_computation L (Φ n.val) haltTime h_nvars_match h_L_nvars h_L_positive h_correct_for_nontrivial
+      exact A.nontrivial_computation c_bar L (Φ n.val) haltTime h_nvars_match h_L_nvars h_L_positive h_correct_for_nontrivial
 
-    have h_halts_enc : (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input L
+    have h_halts_enc : (LStar.Complexity.initWithEncodingBase A.base.M A.base.encoding.input (c_bar, L)
                           A.base.h_tape_pos A.base.h_blank_consistent |>
                         fun init => (Foundations.TMConfig.step)^[haltTime] init).state ∈ A.base.M.halt :=
-      A.halts_encoded L
+      A.halts_encoded c_bar L
 
     -- Well-formedness is now part of WellFormedRandomness_flat in h_planted_inst
 
