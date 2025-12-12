@@ -2034,8 +2034,11 @@ lemma parity_indistinguishability_under_incomplete_observation_QP
     : False :=
   -- Derive cfg1 ≠ cfg2 from parity difference (contrapositive)
   have h_collision : cfg1 ≠ cfg2 := fun h_eq => h_parity_diff (congrArg parity h_eq)
+  -- Use canonical planted prefix with proven validity (not emptyPrefixReal which violates Forward constraint)
+  let π := canonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf
+  let h_valid := canonical_planted_prefix_valid n φ r h_nvars h_dgLen L h_L_eq h_wf
   planted_observation_indistinguishability_impossible_PROVEN
-    L n φ r h_nvars h_dgLen h_L_eq h_wf (emptyPrefixReal L) ∅
+    L n φ r h_nvars h_dgLen h_L_eq h_wf π ∅ h_valid
     v obs h_incomplete cfg1 cfg2 h_agree h_collision
 
 #print axioms parity_indistinguishability_under_incomplete_observation_QP
@@ -2147,8 +2150,11 @@ theorem exists_time_for_val_tmEmergentEncoder_encoded
   have ⟨cfg1, cfg2, h_agree, h_collision⟩ :=
     incomplete_obs_has_collision L.toLStarInstanceFull v.val obs_empty h_empty_incomplete
 
+  -- Use canonical planted prefix with proven validity (not emptyPrefixReal which violates Forward constraint)
+  let π := canonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf
+  let h_valid := canonical_planted_prefix_valid n φ r h_nvars h_dgLen L h_L_eq h_wf
   exact planted_observation_indistinguishability_impossible_PROVEN
-    L n φ r h_nvars h_dgLen h_L_eq h_wf (emptyPrefixReal L) ∅
+    L n φ r h_nvars h_dgLen h_L_eq h_wf π ∅ h_valid
     v obs_empty h_empty_incomplete cfg1 cfg2 h_agree h_collision
 
 /-- **Time lower bound for FG commit (encoded-input version)**

@@ -4557,4 +4557,237 @@ The following audits verify the axiomatic dependencies of key definitions and th
 #print axioms buildRunFromTMTrace  -- Build run with honest s
 #print axioms buildRunFromTMTrace_satisfies_fg_budget  -- Budget constraint proof
 
+/-- **Property 3 PROVEN**: All valid emergent configs are computed.
+
+    Forward direction: If emergentConfigAtGate produces a config for r.assignment,
+    it is present in computedConfigs.
+-/
+theorem tmExecutionToPrefix_property3
+    (L : LStarInstanceFG)
+    (M : TuringMachine k states alphabet)
+    (haltTime : Nat)
+    (extractWitness : TMConfig M → Witness)
+    (C : Finset (Fin L.dag.n))
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
+    (h_wf : WellFormedRandomness φ r)
+    (h_tm_correct : φ.satisfies (tmOutputWitness M haltTime extractWitness).assignment)
+    (h_assign_eq : (tmOutputWitness M haltTime extractWitness).assignment = r.assignment)
+    (v : Fin L.dag.n) (g : Nat) (h_g : g < r.gateDigests.length)
+    (h_v_is_gate : v.val = 1 + φ.nvars + g)
+    (R : Nat) (cfg_planted : Fin (2^R))
+    (h_emergent : emergentConfigAtGate φ (by omega) r.gateDigests.length r.assignment g = some ⟨R, cfg_planted⟩)
+    (h_R_eq : R = L.R v)
+    : (⟨v, h_R_eq ▸ cfg_planted⟩ : PSigma (fun v => Fin (2^(L.R v)))) ∈ (tmExecutionToPrefix L M haltTime extractWitness C n φ r h_nvars h_dgLen h_L_eq h_wf h_tm_correct).computedConfigs := by
+  let w := tmOutputWitness M haltTime extractWitness
+  
+  -- 1. Establish w.assignment = r.assignment
+  have h_assign_eq' : w.assignment = r.assignment := h_assign_eq
+    
+  -- 2. Unfold tmExecutionToPrefix
+  unfold tmExecutionToPrefix
+  simp only []
+  
+  -- 3. We target extractComputedConfigsFromWitness
+  -- Iterate logic similar to mem_computedConfigs_decompose but reverse
+  
+  -- The list is fgNodes.attach.filterMap ...
+  -- We need to show that v ∈ fgNodes and the filterMap function yields our config
+  
+  -- v is an FG gate (by h_v_is_gate logic)
+  have h_gate_req : L.fg.gateReq v = true := by
+    subst h_L_eq
+    rw [planted_gateReq_true_iff_interval rfl v (1 + φ.nvars) r.gateDigests.length rfl rfl]
+    rw [h_v_is_gate]
+    constructor
+    · omega
+    · omega
+    
+  let fgNodes := (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v)
+  have h_v_mem : v ∈ fgNodes := by
+    rw [List.mem_filter, List.mem_finRange]
+    exact ⟨true, h_gate_req⟩
+    
+  -- Use List.mem_filterMap
+  rw [List.mem_filterMap]
+  use ⟨v, h_v_mem⟩
+  constructor
+  · exact List.mem_attach _ _
+  · -- Prove filterMap returns the config
+    simp only []
+    
+    -- The function uses g' := v.val - clause_start (logic in definition)
+    -- Here g' = g because v.val = clause_start + g
+    -- So logic matches specific index g
+    
+    -- We need to use h_assign_eq to show equivalence of emergentConfigAtGate input
+    rw [h_assign_eq']
+    
+    -- Now the term is `emergentConfigAtGate ... r.assignment g`
+    -- This matches `h_emergent`!
+    rw [h_emergent]
+    
+    -- Now handle the if-then-else
+    rw [dif_pos h_g]
+    
+    -- Result is some ⟨v, hR ▸ cfg_planted⟩
+    -- We need to show this equals some ⟨v, h_R_eq ▸ cfg_planted⟩
+    -- Equality of PSigma and cast
+    congr
+    
+    -- Need to show the constructed config is equal
+    -- The definition constructs hR internally. Our h_R_eq serves same purpose.
+    -- Proof irrelevance handles Eq proofs.
+    simp only [cast_eq_iff_heq]
+    rfl
+
+/-- **TM Produces Valid Prefix**: The Main Theorem for Axiom Satisfaction.
+
+    Proves that the execution prefix extracted from a correct TM execution
+    satisfies the `ValidExecutionPrefix` predicate.
+    
+    This replaces the unsafe universal quantification in the original axiom.
+    Downstream proofs must now provide this certificate.
+-/
+theorem tm_produces_valid_prefix
+    (L : LStarInstanceFG)
+    (M : TuringMachine k states alphabet)
+    (haltTime : Nat)
+    (extractWitness : TMConfig M → Witness)
+    (C : Finset (Fin L.dag.n))
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
+    (h_wf : WellFormedRandomness φ r)
+    (h_tm_correct : φ.satisfies (tmOutputWitness M haltTime extractWitness).assignment)
+    (h_assign_eq : (tmOutputWitness M haltTime extractWitness).assignment = r.assignment)
+    : ValidExecutionPrefix L φ r (tmExecutionToPrefix L M haltTime extractWitness C n φ r h_nvars h_dgLen h_L_eq h_wf h_tm_correct) := by
+  let π := tmExecutionToPrefix L M haltTime extractWitness C n φ r h_nvars h_dgLen h_L_eq h_wf h_tm_correct
+  let w := tmOutputWitness M haltTime extractWitness
+  
+  constructor
+  · -- Prop 2
+    intro psig h_mem
+    -- Use existing Prop 2 theorem
+    -- Note: tmExecutionToPrefix_property2 uses w.assignment in the output existential
+    obtain ⟨g, hg, R, cfg, h_emergent_w, h_v, h_cfg⟩ :=
+      tmExecutionToPrefix_property2 L M haltTime extractWitness C n φ r h_nvars h_tm_correct h_dgLen h_L_eq h_wf psig h_mem
+      
+    -- Convert w.assignment to r.assignment
+    have h_assign_eq' : w.assignment = r.assignment := h_assign_eq
+    rw [h_assign_eq'] at h_emergent_w
+    
+    use g, hg, R, cfg
+    exact ⟨h_emergent_w, h_v, h_cfg⟩
+    
+  constructor
+  · -- Prop 3
+    intro v g hg hv R cfg h_emergent h_R_eq
+    exact tmExecutionToPrefix_property3 L M haltTime extractWitness C n φ r h_nvars h_dgLen h_L_eq h_wf h_tm_correct h_assign_eq v g hg hv R cfg h_emergent h_R_eq
+    
+  · -- Prop 5
+    exact tmExecutionToPrefix_property1 L M haltTime extractWitness C n φ r h_nvars h_dgLen h_L_eq h_wf h_tm_correct
+
+/-- **Canonical Planted Prefix**: Constructed directly from planted randomness.
+    
+    This prefix is perfectly compatible with the planted instance by definition.
+    It serves as a witness to the existence of a valid execution prefix,
+    allowing the axiom (Collision Impossibility) to be invoked without a TM trace.
+-/
+noncomputable def canonicalPlantedPrefix
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (L : LStarInstanceFG)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
+    (h_wf : WellFormedRandomness φ r)
+    : ExecutionPrefixReal L :=
+  let w : Witness := {
+    assignment := r.assignment,
+    digestBits := [], -- Not used for logic
+    gateProofs := []
+  }
+  {
+    time := 0
+    revealedBits := []
+    computedConfigs := extractComputedConfigsFromWitness n φ r h_nvars h_dgLen L h_L_eq h_wf w h_wf.1
+  }
+
+/-- **Canonical Prefix is Valid**: Proof that the canonical prefix satisfies the axiom precondition.
+-/
+theorem canonical_planted_prefix_valid
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (L : LStarInstanceFG)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
+    (h_wf : WellFormedRandomness φ r)
+    : ValidExecutionPrefix L φ r (canonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf) := by
+  let π := canonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf
+  let w : Witness := { assignment := r.assignment, digestBits := [], gateProofs := [] }
+  let h_correct := h_wf.1
+  
+  constructor
+  · -- Prop 2
+    intro psig h_mem
+    -- Use mem_computedConfigs_decompose
+    have h_decomp := mem_computedConfigs_decompose L n φ r h_nvars h_dgLen h_L_eq h_wf w h_correct psig.fst psig.snd h_mem
+    obtain ⟨h_fg_mem, R, cfg_orig, h_R, h_emergent, h_cfg_eq⟩ := h_decomp
+    
+    -- Extract g
+    -- psig.fst satisfies gateReq
+    have h_gateReq : L.fg.gateReq psig.fst = true := (List.mem_filter.mp h_fg_mem).2
+    subst h_L_eq
+    have h_interval := (planted_gateReq_true_iff_interval rfl psig.fst (1 + φ.nvars) r.gateDigests.length rfl rfl).mp h_gateReq
+    
+    let g := psig.fst.val - (1 + φ.nvars)
+    have h_g : g < r.gateDigests.length := by
+      omega -- from interval condition
+      
+    use g, h_g, R, cfg_orig
+    constructor; exact h_emergent
+    constructor
+    · -- psig.fst.val = 1 + φ.nvars + g
+      dsimp [g]
+      omega
+    · use h_R; exact h_cfg_eq.symm
+
+  constructor
+  · -- Prop 3
+    intro v g hg hv R cfg h_emergent h_R_eq
+    -- Logic mirrors tmExecutionToPrefix_property3 but trivial since w.assignment = r.assignment
+    unfold canonicalPlantedPrefix at *
+    dsimp at *
+    
+    -- We target extractComputedConfigsFromWitness output membership
+    -- v ∈ fgNodes logic
+    have h_gate_req : L.fg.gateReq v = true := by
+      subst h_L_eq
+      rw [planted_gateReq_true_iff_interval rfl v (1 + φ.nvars) r.gateDigests.length rfl rfl]
+      rw [hv]
+      constructor
+      · omega
+      · omega
+      
+    let fgNodes := (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v)
+    have h_v_mem : v ∈ fgNodes := by
+      rw [List.mem_filter, List.mem_finRange]
+      exact ⟨true, h_gate_req⟩
+
+    rw [List.mem_filterMap]
+    use ⟨v, h_v_mem⟩
+    constructor; exact List.mem_attach _ _
+    
+    simp only []
+    -- Function uses g' = v.val - clause_start = g
+    -- Input is w.assignment = r.assignment
+    -- So emergentConfigAtGate matches h_emergent
+    rw [h_emergent]
+    rw [dif_pos hg]
+    congr
+    simp only [cast_eq_iff_heq]
+    rfl
+    
+  · -- Prop 5
+    rfl
+
 end LStar.StructuralOWF.Foundations

@@ -57,6 +57,98 @@ gap exists because:
 3. extractWitness is a parameter
 -/
 
+/-! ## Valid Execution Prefix Predicate
+
+**PURPOSE**: Guards the axiom against arbitrary ExecutionPrefixReal values.
+
+The original axiom was inconsistent because it universally quantified over ALL
+ExecutionPrefixReal values while asserting structural properties (like computedConfigs
+containing specific values). This allowed constructing a counterexample with arbitrary
+field values that contradicted the axiom's conclusions.
+
+**FIX**: Add a validity predicate that constrains π to be a structurally valid trace.
+The predicate captures provenance: π arose from a valid TM execution on a planted instance.
+
+**Properties encoded**:
+- computedConfigs contains exactly the configs from emergentConfigAtGate on r.assignment
+- revealedBits is empty (for FG instances)
+
+This predicate is NOT an axiom - it's a definition. Callers must prove their π satisfies it.
+For real TM executions, this follows from how the trace is constructed.
+-/
+
+/-- **ValidExecutionPrefix**: Strong structural validity predicate for execution prefixes.
+
+    An ExecutionPrefixReal is valid for planted instance (L, φ, r) if:
+    1. **Backward (Property 2)**: Every config in computedConfigs comes from emergentConfigAtGate
+       on r.assignment with matching R value
+    2. **Forward (Property 3)**: Every FG gate's emergent config (from r.assignment) is in computedConfigs
+    3. revealedBits is empty (FG instances don't reveal individual bits)
+
+    **Why this blocks the counterexample**:
+    - The old predicate allowed empty computedConfigs (vacuously valid)
+    - Property 3 of the axiom then forced: emergent config ∈ [] = False
+    - The new predicate REQUIRES all emergent configs to be present (Forward constraint)
+    - Empty computedConfigs now FAILS validity (unless there are no gates)
+
+    **Provenance**: Only constructive sources can satisfy this:
+    - canonicalPlantedPrefix: Built from r.assignment, includes all emergent configs
+    - tmExecutionToPrefix with h_assign_eq: TM output matches r.assignment
+
+    This makes Properties 2 and 3 of the axiom redundant (they're now preconditions). -/
+def ValidExecutionPrefix
+    (L : LStarInstanceFG) (φ : CNF) (r : Randomness)
+    (π : ExecutionPrefixReal L) : Prop :=
+  -- Backward (Property 2): computedConfigs come from emergentConfigAtGate on r.assignment
+  (∀ (psig : PSigma (fun v : Fin L.dag.n => Fin (2^(L.R v)))),
+    psig ∈ π.computedConfigs →
+    ∃ (g : Nat) (h_g : g < r.gateDigests.length) (R : Nat) (cfg : Fin (2^R)),
+      emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment g = some ⟨R, cfg⟩ ∧
+      psig.fst.val = 1 + φ.nvars + g ∧
+      (∃ (h_R : R = L.R psig.fst), h_R ▸ cfg = psig.snd)) ∧
+  -- Forward (Property 3): All FG gate emergent configs are in computedConfigs
+  (∀ (v : Fin L.dag.n) (g : Nat) (h_g : g < r.gateDigests.length)
+     (h_v_is_gate : v.val = 1 + φ.nvars + g)
+     (R : Nat) (cfg_planted : Fin (2^R))
+     (h_emergent : emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment g = some ⟨R, cfg_planted⟩)
+     (h_R_eq : R = L.R v),
+    (⟨v, h_R_eq ▸ cfg_planted⟩ : PSigma (fun v => Fin (2^(L.R v)))) ∈ π.computedConfigs) ∧
+  -- revealedBits is empty (FG instances don't reveal individual bits)
+  π.revealedBits = []
+
+/-! ## Validity Proofs - ONLY from Constructive Sources
+
+**IMPORTANT**: We deliberately do NOT provide:
+- empty_prefix_valid (empty prefix violates Forward constraint when gates exist)
+- valid_of_structure (would allow arbitrary construction, bypassing provenance)
+
+Validity proofs come ONLY from:
+1. canonical_planted_prefix_valid (TMToExecutionPrefix.lean)
+2. tm_produces_valid_prefix with proven h_assign_eq (TMToExecutionPrefix.lean)
+
+This ensures all valid prefixes have constructive provenance from r.assignment. -/
+
+/-! ## Planted Prefix Validity
+
+For planted instances, ValidExecutionPrefix must be proven constructively, NOT assumed
+universally. There are two valid sources of prefixes:
+
+1. **canonicalPlantedPrefix**: Explicitly constructed from planted randomness
+   - Validity proven by `canonical_planted_prefix_valid` (in TMToExecutionPrefix.lean)
+
+2. **tmExecutionToPrefix**: Outputs from TM execution traces
+   - Validity proven by `tmExecutionToPrefix_valid` (in TMToExecutionPrefix.lean)
+
+**IMPORTANT**: We do NOT have a universal axiom saying all π are valid.
+The previous `planted_prefix_is_valid` axiom was UNSOUND because it allowed
+arbitrary ExecutionPrefixReal values to satisfy the validity predicate,
+enabling a counterexample that derived False.
+
+Callers must either:
+- Use a canonically constructed prefix with its validity proof, OR
+- Accept h_valid : ValidExecutionPrefix as an explicit parameter (to be provided by caller)
+-/
+
 /-! ## Execution Prefix Compatibility Axiom
 
 **SEMANTIC CONTENT**:
@@ -74,6 +166,10 @@ AXIOM CONTENT: Planted instance execution-structure correspondence.
   For planted instances, incomplete observation cannot have two different configs
   that agree on observed bits. Combined with `parity_lower_bound_at_fg_gate`, this
   proves that correct TM execution must have complete observation (the lower bound).
+
+**PRECONDITION (NEW)**: ValidExecutionPrefix L φ r π
+This prevents the axiom from being applied to arbitrary ExecutionPrefixReal values,
+which was the source of the original inconsistency.
 
 TRUST ASSESSMENT: This axiom bridges abstract execution semantics to planted instance
 properties. It captures the assumption that TM execution traces correctly reflect the
@@ -99,7 +195,8 @@ axiom executionPrefix_compatible_with_planted :
   ∀ (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (_h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (_h_wf : WellFormedRandomness φ r)
-    (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n)),
+    (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
+    (_h_valid : ValidExecutionPrefix L φ r π),  -- NEW: Validity precondition
   -- Property 1: DigestMatches entries come from π.computedConfigs (reverse direction)
   (∀ (v : Fin L.dag.n) (_h_v : v ∈ C) (expectedCfg : Fin (2^(L.R v))),
     CutConstraint.ConfigMatch v _h_v expectedCfg ∈ (ConstraintNF L C π).digestMatches →
@@ -140,6 +237,9 @@ axiom executionPrefix_compatible_with_planted :
 /-- **Property 5 EXTRACTED**: revealedBits = [] for planted FG instances.
 
     Extracts Property 5 from executionPrefix_compatible_with_planted axiom.
+
+    **REQUIRES**: h_valid must be provided by caller (from constructive source).
+    Valid sources: canonical_planted_prefix_valid or tmExecutionToPrefix_valid.
 -/
 theorem planted_revealedBits_empty_proven
     (L : LStarInstanceFG)
@@ -147,18 +247,24 @@ theorem planted_revealedBits_empty_proven
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
     (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
-    : π.revealedBits = [] :=
-  (executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C).2.2.2.2.1
-
-/-- Planted instances have empty revealedBits (existential form). -/
-theorem planted_revealedBits_empty_proven_exists
-    (L : LStarInstanceFG)
-    (π : ExecutionPrefixReal L)
-    (C : Finset (Fin L.dag.n))
-    (h_planted : ∃ n φ r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
+    (h_valid : ValidExecutionPrefix L φ r π)  -- Must be provided constructively
     : π.revealedBits = [] := by
-  obtain ⟨n, φ, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩ := h_planted
-  exact planted_revealedBits_empty_proven L n φ r h_nvars h_dgLen h_L_eq h_wf π C
+  have h := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C h_valid
+  exact h.2.2.2.2.1
+
+/- **REMOVED**: planted_revealedBits_empty_proven_exists
+
+    The existential form was architecturally unsound because it accepted
+    `h_valid : ∃ φ r, ValidExecutionPrefix L φ r π` where the existentially
+    quantified (φ, r) could differ from the planted instance's (φ, r).
+
+    Callers should use `planted_revealedBits_empty_proven` directly, which
+    requires validity for the SAME (φ, r) as the planted instance.
+
+    The proof "worked" only because `revealedBits = []` is the third component
+    of ValidExecutionPrefix and doesn't depend on (φ, r), but this was
+    conceptually wrong - we should bind validity to the planted parameters.
+-/
 
 /-! ## Helper: Singleton extensionality
 
@@ -189,6 +295,8 @@ theorem same_config_implies_same_world_singleton
 
     Extracts Property 6 from executionPrefix_compatible_with_planted axiom.
     Vacuous for FG instances since revealedBits = [] (Property 5).
+
+    **REQUIRES**: h_valid must be provided by caller (from constructive source).
 -/
 theorem revealedBit_value_unique_at_position
     (L : LStarInstanceFG)
@@ -196,13 +304,14 @@ theorem revealedBit_value_unique_at_position
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
     (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
+    (h_valid : ValidExecutionPrefix L φ r π)  -- Must be provided constructively
     (bit1 bit2 : RevealedBit L)
     (h1 : bit1 ∈ π.revealedBits)
     (h2 : bit2 ∈ π.revealedBits)
     (h_node : bit1.node = bit2.node)
     (h_idx : bit1.bitIndex = bit2.bitIndex)
     : bit1.value = bit2.value :=
-  (executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C).2.2.2.2.2
+  (executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C h_valid).2.2.2.2.2
     bit1 bit2 h1 h2 h_node h_idx
 
 /-- **PROVEN THEOREM**: FG gates have positive emergence rank (R v > 0).
@@ -279,13 +388,14 @@ lemma planted_observation_indistinguishability_impossible
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
     (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
+    (h_valid : ValidExecutionPrefix L φ r π)
     (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val)
     (h_incomplete : obs.isIncomplete)
     (cfg1 cfg2 : Fin (2^(L.R v.val)))
     (h_agree : obs.configsAgree cfg1 cfg2)
     (h_collision : cfg1 ≠ cfg2)
     : False :=
-  (executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C).2.2.2.1
+  (executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C h_valid).2.2.2.1
     v obs h_incomplete cfg1 cfg2 h_agree h_collision
 
 /-- **Property 4 EXTRACTED**: Collision impossibility for planted instances.
@@ -311,6 +421,7 @@ theorem planted_observation_indistinguishability_impossible_PROVEN
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
     (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
+    (h_valid : ValidExecutionPrefix L φ r π)
     (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val)
     (h_incomplete : obs.isIncomplete)
     (cfg1 cfg2 : Fin (2^(L.R v.val)))
@@ -318,7 +429,7 @@ theorem planted_observation_indistinguishability_impossible_PROVEN
     (h_collision : cfg1 ≠ cfg2)
     : False :=
   -- Uses collision-based axiom (cfg1 ≠ cfg2) directly
-  (executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C).2.2.2.1
+  (executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C h_valid).2.2.2.1
     v obs h_incomplete cfg1 cfg2 h_agree h_collision
 
 /-! ## Helper Lemmas (Infrastructure)
@@ -331,7 +442,8 @@ These lemmas support the inline proof of `h_new_is_only_diff` in
 
 /-- Synthetic configs equality when revealedBits are equal.
     When two execution prefixes have identical revealedBits, their synthetic ConfigMatch
-    constraints are identical. For FG instances with revealedBits = [], this holds trivially. -/
+    constraints are identical. For FG instances with revealedBits = [], this holds trivially
+    because completeAt is always False (no bits to reconstruct from). -/
 theorem extractSyntheticConfigs_eq_of_revealedBits_eq
     (L : LStarInstanceFG)
     (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
@@ -340,6 +452,9 @@ theorem extractSyntheticConfigs_eq_of_revealedBits_eq
     (C : Finset (Fin L.dag.n))
     (π₀ π₁ : ExecutionPrefixReal L)
     (h_bits_eq : π₀.revealedBits = π₁.revealedBits)
+    -- Validity proofs needed to invoke Property 5 (revealedBits = [])
+    (h_valid_π₀ : ValidExecutionPrefix L φ r π₀)
+    (h_valid_π₁ : ValidExecutionPrefix L φ r π₁)
     : extractSyntheticConfigs L C π₀ = extractSyntheticConfigs L C π₁ := by
   unfold extractSyntheticConfigs
   -- Goal: C.toList.filterMap (fun v => ...) = C.toList.filterMap (fun v => ...)
@@ -350,82 +465,84 @@ theorem extractSyntheticConfigs_eq_of_revealedBits_eq
   ext v
 
   -- Now for each v, show: (if h : v ∈ C then ...) produces same result
-  -- Key: completeAt and reconstructedCfg both depend only on revealedBits
+  -- Key: For FG instances with validity, revealedBits = [], so completeAt is always False
+
+  -- Get Property 5: revealedBits = [] for valid FG execution prefixes
+  have h_π₀_empty := planted_revealedBits_empty_proven L n φ r h_nvars h_dgLen h_L_eq h_wf π₀ C h_valid_π₀
+  have h_π₁_empty := planted_revealedBits_empty_proven L n φ r h_nvars h_dgLen h_L_eq h_wf π₁ C h_valid_π₁
 
   by_cases h_v : v ∈ C
   · -- Case: v ∈ C
     simp only [h_v, dif_pos]
 
-    -- Step 1: completeAt depends only on revealedBits
-    have h_complete_iff : completeAt L C π₀ v h_v ↔ completeAt L C π₁ v h_v := by
-      unfold completeAt
-      -- completeAt checks: ∀ i, ∃ bit ∈ revealedBits with (node, bitIndex) = (v, i)
-      -- Since π₀.revealedBits = π₁.revealedBits, the existence is equivalent
-      constructor
-      · intro h i
-        specialize h i
-        rw [h_bits_eq] at h
-        exact h
-      · intro h i
-        specialize h i
-        rw [← h_bits_eq] at h
-        exact h
+    -- Strategy: Show completeAt produces same result for π₀ and π₁
+    -- Case analysis on L.R v:
+    -- - L.R v > 0: completeAt is False for both (revealedBits = [] has no bits)
+    -- - L.R v = 0: completeAt is vacuously True for both, but reconstructed config is unique
+    by_cases h_R_pos : L.R v > 0
+    · -- L.R v > 0: completeAt is False for both (no bits to reconstruct from)
+      have h_not_comp₀ : ¬completeAt L C π₀ v h_v := by
+        unfold completeAt
+        intro h_all
+        have i₀ : Fin (L.R v) := ⟨0, h_R_pos⟩
+        specialize h_all i₀
+        obtain ⟨bit, h_bit_in, _⟩ := h_all
+        rw [h_π₀_empty] at h_bit_in
+        exact List.not_mem_nil h_bit_in
 
-    by_cases h_comp : completeAt L C π₀ v h_v
-    · -- Case: complete at both (by iff above)
-      simp only [h_comp, dif_pos]
-      have h_comp₁ : completeAt L C π₁ v h_v := h_complete_iff.mp h_comp
-      simp only [h_comp₁, dif_pos]
-
-      -- Step 2: Show reconstructedCfg π₀ = reconstructedCfg π₁
-      -- Strategy: Show the configs are equal by showing the underlying bit vectors are equal
-      have h_cfg_eq : reconstructedCfg L C π₀ v h_v h_comp = reconstructedCfg L C π₁ v h_v h_comp₁ := by
-        unfold reconstructedCfg
-        -- Both call configFromBits on a Vector.ofFn (getBitValue ...)
-        -- Show the vectors are equal
-        apply congr_arg configFromBits
-        -- Vector.ofFn f = Vector.ofFn g ← f = g (by funext)
-        apply congr_arg  -- Push through Vector.ofFn constructor
-        funext i
-        -- Now i : Fin (L.R v) as expected
-
-        -- Goal: getBitValue L π₀ v i (h_comp i) = getBitValue L π₁ v i (h_comp₁ i)
-        unfold getBitValue
-        -- Classical.choose extracts from equal lists → must give same value
-        -- Key: If multiple bits exist at same position, they have same value (uniqueness)
-
-        -- Extract the chosen bits
-        set bit₀ := Classical.choose (h_comp i) with h_bit₀_def
-        set bit₁ := Classical.choose (h_comp₁ i) with h_bit₁_def
-
-        -- Get properties of chosen bits
-        have h_bit₀_prop := Classical.choose_spec (h_comp i)
-        have h_bit₁_prop := Classical.choose_spec (h_comp₁ i)
-        -- h_bit₀_prop : bit₀ ∈ π₀.revealedBits ∧ bit₀.node = v ∧ bit₀.bitIndex = i.val
-        -- h_bit₁_prop : bit₁ ∈ π₁.revealedBits ∧ bit₁.node = v ∧ bit₁.bitIndex = i.val
-
-        -- Since π₀.revealedBits = π₁.revealedBits, bit₀ is also in π₁.revealedBits
-        have h_bit₀_in_π₁ : bit₀ ∈ π₁.revealedBits := by
-          rw [← h_bits_eq]
-          exact h_bit₀_prop.left
-
-        -- By bit observation determinism (Property 4, now proven in Layer 4)
-        -- Both bits at same (node, bitIndex) in π₁ → same value (TM determinism)
-        apply revealedBit_value_unique_at_position L n φ r h_nvars h_dgLen h_L_eq h_wf π₁ C
-        · exact h_bit₀_in_π₁
-        · exact h_bit₁_prop.left
-        · exact h_bit₀_prop.right.left.trans h_bit₁_prop.right.left.symm  -- bit₀.node = v = bit₁.node
-        · exact h_bit₀_prop.right.right.trans h_bit₁_prop.right.right.symm  -- bit₀.bitIndex = i.val = bit₁.bitIndex
-
-      -- Now use h_cfg_eq to finish the goal
-      rw [h_cfg_eq]
-
-    · -- Case: not complete at π₀ → not complete at π₁ (by iff)
-      simp only [h_comp, dif_neg, not_false_eq_true]
       have h_not_comp₁ : ¬completeAt L C π₁ v h_v := by
-        intro h_contra
-        exact h_comp (h_complete_iff.mpr h_contra)
+        unfold completeAt
+        intro h_all
+        have i₀ : Fin (L.R v) := ⟨0, h_R_pos⟩
+        specialize h_all i₀
+        obtain ⟨bit, h_bit_in, _⟩ := h_all
+        rw [h_π₁_empty] at h_bit_in
+        exact List.not_mem_nil h_bit_in
+
+      -- Both branches go to the isFalse case
+      simp only [h_not_comp₀, dif_neg, not_false_eq_true]
       simp only [h_not_comp₁, dif_neg, not_false_eq_true]
+
+    · -- L.R v = 0: completeAt is vacuously True, but Fin (2^0) = Fin 1 has only one element
+      simp only [Nat.not_lt] at h_R_pos
+      have h_R_zero : L.R v = 0 := Nat.le_zero.mp h_R_pos
+      -- Both completeAt are vacuously true (∀ i : Fin 0, ... is trivially true)
+      have h_comp₀ : completeAt L C π₀ v h_v := by
+        unfold completeAt
+        intro i
+        -- i : Fin (L.R v) = Fin 0, which is empty
+        exact (Fin.elim0 (h_R_zero ▸ i))
+
+      have h_comp₁ : completeAt L C π₁ v h_v := by
+        unfold completeAt
+        intro i
+        exact (Fin.elim0 (h_R_zero ▸ i))
+
+      -- Both produce some (ConfigMatch v h_v (reconstructedCfg ...))
+      simp only [h_comp₀, h_comp₁, dif_pos]
+      -- The configs are equal because they're both the unique element of Fin 1
+      -- reconstructedCfg returns configFromBits of a Vector.ofFn on Fin 0
+      -- Both return the same value (the unique element of Fin 1)
+
+      -- When L.R v = 0, Fin (2^(L.R v)) = Fin 1 has only one element
+      have h_pow_eq : (2:Nat)^(L.R v) = 1 := by rw [h_R_zero]; decide
+
+      -- Show both configs are equal (both in Fin 1, so both equal to the unique element)
+      have h_cfg_eq : reconstructedCfg L C π₀ v h_v h_comp₀ = reconstructedCfg L C π₁ v h_v h_comp₁ := by
+        apply Fin.ext
+        -- Both values must be 0 since they're in Fin 1
+        have h_cfg₀_bound : (reconstructedCfg L C π₀ v h_v h_comp₀).val < 1 := by
+          have := (reconstructedCfg L C π₀ v h_v h_comp₀).isLt
+          simp only [h_pow_eq] at this
+          exact this
+        have h_cfg₁_bound : (reconstructedCfg L C π₁ v h_v h_comp₁).val < 1 := by
+          have := (reconstructedCfg L C π₁ v h_v h_comp₁).isLt
+          simp only [h_pow_eq] at this
+          exact this
+        omega
+
+      -- Now use congr to show ConfigMatch equality
+      simp only [h_cfg_eq]
 
   · -- Case: v ∉ C
     simp only [h_v, dif_neg, not_false_eq_true]
@@ -668,7 +785,8 @@ noncomputable def planted_witness_exists
     (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
-    (π : ExecutionPrefixReal L) :
+    (π : ExecutionPrefixReal L)
+    (h_valid : ValidExecutionPrefix L φ r π) :
     { ω_planted : CutWorld L C //
       -- The planted witness satisfies all bit constraints by construction
       ω_planted ∈ NormalForm.FeasibleUnder (ConstraintNF L C π).bitDeterminations ∧
@@ -711,7 +829,7 @@ noncomputable def planted_witness_exists
       -- Show h_c_in_bits is impossible by proving bitDeterminations = []
 
       -- Use proven property: π.revealedBits = []
-      have h_revealed_empty := planted_revealedBits_empty_proven L n φ r h_nvars h_dgLen h_L_eq h_wf π C
+      have h_revealed_empty := planted_revealedBits_empty_proven L n φ r h_nvars h_dgLen h_L_eq h_wf π C h_valid
 
       -- π.revealedBits = [] (from proven theorem)
       -- Therefore extractBitConstraints L C π.revealedBits = extractBitConstraints L C []
@@ -799,7 +917,7 @@ noncomputable def planted_witness_exists
       -- Goal: ω_planted.assignment v_dig h_v_dig = expectedCfg
 
       -- Use the compatibility axiom to connect expectedCfg to r.assignment
-      have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C
+      have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C h_valid
       -- Extract Properties 1 (digests→configs), 2 (configs→emergent), discard 3, 4, 5, 6
       obtain ⟨h_digests_to_configs, h_configs_from_r, _, _, _, _⟩ := h_compat
 
@@ -919,9 +1037,6 @@ theorem violators_share_config_at_singleton_boundary
     (C : Finset (Fin L.dag.n))
     (_h_C_singleton : C.card = 1)
     (v : Fin L.dag.n) (h_v : v ∈ C)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-                   (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
-                   L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
     (π₀ π₁ : ExecutionPrefixReal L)
     (h_len : π₁.computedConfigs.length = π₀.computedConfigs.length + 1)
     (cfg_new : Fin (2^(L.R v)))
@@ -959,9 +1074,17 @@ theorem violators_share_config_at_singleton_boundary
                                 (fun ω => ω.assignment v h_v)).card ≤ 2)
       -- A2 injectivity + parent ConfigMatches limit config branching at singleton boundaries
       -- Proven by planted_two_tracks_at_pre_boundary using seed chain injectivity + FG parity
+    -- **VALIDITY PRECONDITIONS** (must be from constructive source)
+    -- Must use SAME φ and r as the planted instance (strengthened ValidExecutionPrefix requires this)
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
+    (h_wf : WellFormedRandomness φ r)
+    (h_valid_π₀ : ValidExecutionPrefix L φ r π₀)
+    (h_valid_π₁ : ValidExecutionPrefix L φ r π₁)
     : ω₁.assignment v h_v = ω₂.assignment v h_v := by
-  -- Extract planted instance parameters from existential
-  obtain ⟨n, φ, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩ := h_planted
+  -- Planted parameters are now direct arguments (not extracted from existential)
+  -- Validity proofs use the same φ and r as planted instance
 
   -- ═══════════════════════════════════════════════════════════════════════════
   -- DERIVE structural properties from strengthened hypotheses (eliminates 3 assumptions!)
@@ -1054,7 +1177,7 @@ theorem violators_share_config_at_singleton_boundary
           -- Since h_bits_unchanged : π₀.revealedBits = π₁.revealedBits,
           -- extractSyntheticConfigs L C π₀ = extractSyntheticConfigs L C π₁
           have h_synth_eq : extractSyntheticConfigs L C π₀ = extractSyntheticConfigs L C π₁ :=
-            extractSyntheticConfigs_eq_of_revealedBits_eq L n φ r h_nvars h_dgLen h_L_eq h_wf C π₀ π₁ h_bits_unchanged
+            extractSyntheticConfigs_eq_of_revealedBits_eq L n φ r h_nvars h_dgLen h_L_eq h_wf C π₀ π₁ h_bits_unchanged h_valid_π₀ h_valid_π₁
           -- Therefore c ∈ extractSyntheticConfigs L C π₀
           have h_in_synth₀ : CutConstraint.ConfigMatch v' h_v' cfg' ∈ extractSyntheticConfigs L C π₀ := by
             rw [h_synth_eq]
@@ -1211,92 +1334,18 @@ theorem violators_share_config_at_singleton_boundary
           apply List.mem_append.mpr
           right
           exact List.filterMap_prefix_subset _ h_configs_prefix c h_config
-      · -- c from synthetic constraints (prefix-monotone but blocked by reconstructedCfg)
+      · -- c from synthetic constraints
         apply List.mem_append.mpr
         right
-        -- **Proof outline**: extractSyntheticConfigs monotonicity
-        -- Step 1 (PROVEN): completeAt is prefix-monotone
-        have completeAt_mono : ∀ (v : Fin L.dag.n) (h_v : v ∈ C),
-            completeAt L C π₀ v h_v → completeAt L C π₁ v h_v := by
-          intro v h_v h_complete₀
-          unfold completeAt at *
-          intro idx
-          -- h_complete₀ idx : ∃ bit ∈ π₀.revealedBits, bit.node = v ∧ bit.bitIndex = idx
-          obtain ⟨bit, h_bit_in, h_bit_node, h_bit_idx⟩ := h_complete₀ idx
-          use bit
-          constructor
-          · exact List.IsPrefix.subset h_bits_prefix bit h_bit_in
-          · exact ⟨h_bit_node, h_bit_idx⟩
-        -- Step 2: extractSyntheticConfigs subset relation
-        -- Need: c ∈ extractSyntheticConfigs L C π₀ → c ∈ extractSyntheticConfigs L C π₁
-        -- Approach: Use completeAt monotonicity + getBitValue determinism + function extensionality
-
-        -- Extract witness from filterMap membership
-        unfold extractSyntheticConfigs at h_synth
-        rw [List.mem_filterMap] at h_synth
-        obtain ⟨v_synth, h_v_synth_in_list, h_synth_some⟩ := h_synth
-
-        -- Split on v_synth ∈ C in hypothesis
-        split at h_synth_some
-        case isTrue h_v_synth =>
-          -- Split on completeAt π₀ in hypothesis
-          split at h_synth_some
-          case isTrue h_complete_synth₀ =>
-            -- h_synth_some : some (ConfigMatch v_synth h_v_synth (reconstructedCfg π₀ ...)) = some c
-            injection h_synth_some with h_c_synth_eq
-
-            -- Show c ∈ extractSyntheticConfigs L C π₁
-            unfold extractSyntheticConfigs
-            rw [List.mem_filterMap]
-            use v_synth, h_v_synth_in_list
-
-            -- Split on v_synth ∈ C in goal
-            split
-            case isTrue h_v_synth' =>
-              -- Show completeAt holds in π₁
-              have h_complete_synth₁ : completeAt L C π₁ v_synth h_v_synth' :=
-                completeAt_mono v_synth h_v_synth' h_complete_synth₀
-
-              -- Split on completeAt in goal
-              split
-              case isTrue h_complete_synth₁' =>
-                -- Show reconstructedCfg gives same config
-                have h_cfg_synth_eq : reconstructedCfg L C π₀ v_synth h_v_synth h_complete_synth₀ =
-                                      reconstructedCfg L C π₁ v_synth h_v_synth' h_complete_synth₁' := by
-                  unfold reconstructedCfg
-                  -- Show vectors equal by function extensionality
-                  have h_fn_eq : (fun (i : Fin (L.R v_synth)) =>
-                                    let h_exists := h_complete_synth₀ i
-                                    getBitValue L π₀ v_synth i h_exists) =
-                                 (fun (i : Fin (L.R v_synth)) =>
-                                    let h_exists := h_complete_synth₁' i
-                                    getBitValue L π₁ v_synth i h_exists) := by
-                    funext i
-                    -- Show getBitValue determinism via bit uniqueness
-                    unfold getBitValue
-                    let bit₀ := Classical.choose (h_complete_synth₀ i)
-                    let bit₁ := Classical.choose (h_complete_synth₁' i)
-                    have h_spec₀ := Classical.choose_spec (h_complete_synth₀ i)
-                    have h_spec₁ := Classical.choose_spec (h_complete_synth₁' i)
-                    -- bit₀ ∈ π₀, π₀ <+: π₁ → bit₀ ∈ π₁
-                    have h_bit₀_in_π₁ : bit₀ ∈ π₁.revealedBits :=
-                      List.IsPrefix.subset h_bits_prefix bit₀ h_spec₀.left
-                    -- Both bits at same (node, bitIndex) → same value (Property 4)
-                    apply revealedBit_value_unique_at_position L n φ r h_nvars h_dgLen h_L_eq h_wf π₁ C
-                    · exact h_bit₀_in_π₁
-                    · exact h_spec₁.left
-                    · exact h_spec₀.right.left.trans h_spec₁.right.left.symm
-                    · exact h_spec₀.right.right.trans h_spec₁.right.right.symm
-                  rw [h_fn_eq]
-                rw [← h_c_synth_eq, h_cfg_synth_eq]
-              case isFalse h_not_complete₁ =>
-                contradiction  -- But we proved h_complete_synth₁!
-            case isFalse h_not_v_synth =>
-              contradiction  -- But h_v_synth proves v_synth ∈ C!
-          case isFalse h_not_complete₀ =>
-            cases h_synth_some  -- none = some c impossible
-        case isFalse h_not_v_synth =>
-          cases h_synth_some  -- none = some c impossible
+        -- **KEY INSIGHT**: Synthetic constraints are identical for π₀ and π₁
+        -- because revealedBits are equal (h_bits_unchanged) and both satisfy validity
+        have h_synth_eq : extractSyntheticConfigs L C π₀ = extractSyntheticConfigs L C π₁ :=
+          extractSyntheticConfigs_eq_of_revealedBits_eq L n φ r h_nvars h_dgLen h_L_eq h_wf C π₀ π₁
+            h_bits_unchanged h_valid_π₀ h_valid_π₁
+        -- Goal: c ∈ extractSyntheticConfigs L C π₁
+        -- h_synth: c ∈ extractSyntheticConfigs L C π₀
+        rw [← h_synth_eq]
+        exact h_synth
     -- Apply normalize monotonicity
     show ∀ c ∈ (ConstraintNF L C π₀).digestMatches, c ∈ (ConstraintNF L C π₁).digestMatches
     exact NormalForm.normalize_digestMatches_subset _ _ h_constraints_subset
@@ -1389,7 +1438,7 @@ theorem violators_share_config_at_singleton_boundary
             -- Since h_bits_unchanged: π₀.revealedBits = π₁.revealedBits,
             -- extractSyntheticConfigs L C π₀ = extractSyntheticConfigs L C π₁
             have h_synth_eq : extractSyntheticConfigs L C π₀ = extractSyntheticConfigs L C π₁ :=
-              extractSyntheticConfigs_eq_of_revealedBits_eq L n φ r h_nvars h_dgLen h_L_eq h_wf C π₀ π₁ h_bits_unchanged
+              extractSyntheticConfigs_eq_of_revealedBits_eq L n φ r h_nvars h_dgLen h_L_eq h_wf C π₀ π₁ h_bits_unchanged h_valid_π₀ h_valid_π₁
             -- Therefore c ∈ extractSyntheticConfigs L C π₀
             have h_in_synth₀ : CutConstraint.ConfigMatch v' h_v' cfg' ∈ extractSyntheticConfigs L C π₀ := by
               rw [h_synth_eq]
@@ -2266,9 +2315,10 @@ theorem violators_share_config_at_singleton_boundary
       -- Instead of extracting arbitrary ω_witness, use the canonical ω_planted
       -- which we've already proven satisfies all constraints
       rw [Finset.mem_image]
-      -- Use planted instance parameters (already destructured from h_planted earlier)
+      -- Use planted instance parameters (direct function arguments)
       -- Parameters in scope: n, φ, r, h_nvars, h_L_eq, h_wf
-      let h_planted_wit := planted_witness_exists L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀
+      -- h_valid_π₀ provided by caller (from constructive source)
+      let h_planted_wit := planted_witness_exists L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀ h_valid_π₀
       -- Use h_planted_wit.val as our witness (don't extract with obtain to preserve defeq)
       use h_planted_wit.val
       constructor
@@ -2317,7 +2367,8 @@ theorem violators_share_config_at_singleton_boundary
           exact ⟨π₀.computedConfigs.length, h_new_at_v⟩
 
         -- Apply executionPrefix_compatible axiom to π₁
-        have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π₁ C
+        -- h_valid_π₁ provided by caller (from constructive source)
+        have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π₁ C h_valid_π₁
         -- Extract Property 2 (analysis direction), discard Properties 1, 3, 4
         obtain ⟨_, h_configs_from_emergent, _, _⟩ := h_compat
 
@@ -2427,8 +2478,9 @@ lemma planted_witness_exists_val_eq
     (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
-    (π : ExecutionPrefixReal L) :
-    (planted_witness_exists L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π).val =
+    (π : ExecutionPrefixReal L)
+    (h_valid : ValidExecutionPrefix L φ r π) :
+    (planted_witness_exists L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π h_valid).val =
     worldFromWitness L
       { assignment := r.assignment, gateProofs := [], digestBits := [] }
       n φ r h_nvars h_dgLen h_L_eq h_wf C := by
@@ -2453,10 +2505,12 @@ theorem planted_tm_correctness :
     (_h_is_planted : ω_planted =
       worldFromWitness L
         { assignment := r.assignment, gateProofs := [], digestBits := [] }
-        n φ r h_nvars h_dgLen h_L_eq h_wf C),
+        n φ r h_nvars h_dgLen h_L_eq h_wf C)
+    -- **VALIDITY PRECONDITION** (must be from constructive source)
+    (h_valid_π₁ : ValidExecutionPrefix L φ r π₁),
   -- Then: ω_planted's config matches what's in π₁
   ω_planted.assignment v h_v = cfg_new := by
-  intro L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀ π₁ h_len cfg_new h_new_at_v ω_planted h_is_planted
+  intro L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀ π₁ h_len cfg_new h_new_at_v ω_planted h_is_planted h_valid_π₁
 
   -- The key insight: cfg_new in π₁.computedConfigs is extracted from some PSigma
   -- that PSigma contains ⟨v, cfg⟩ where cfg was computed via emergentConfigAtGate
@@ -2481,7 +2535,8 @@ theorem planted_tm_correctness :
   -- Goal: (worldFromWitness L {assignment := r.assignment, ...} ...).assignment v h_v = cfg_new
 
   -- Use compatibility axiom to connect π₁.computedConfigs to r.assignment
-  have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π₁ C
+  -- h_valid_π₁ provided by caller (from constructive source)
+  have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π₁ C h_valid_π₁
   -- Extract Property 2 (analysis: configs to emergent), discard Properties 1, 3, 4
   obtain ⟨_, h_configs_from_r, _, _⟩ := h_compat
 
@@ -2533,9 +2588,6 @@ theorem derive_planted_nonempty
     (C : Finset (Fin L.dag.n))
     (_h_C_singleton : C.card = 1)
     (v : Fin L.dag.n) (h_v : v ∈ C)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-                   (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
-                   L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
     (π₀ π₁ : ExecutionPrefixReal L)
     (h_len : π₁.computedConfigs.length = π₀.computedConfigs.length + 1)
     (cfg_new : Fin (2^(L.R v)))
@@ -2544,14 +2596,20 @@ theorem derive_planted_nonempty
     (h_final₁_def : final₁ = wcExecute L C (ConstraintNF L C π₁).bitDeterminations
                                              (ConstraintNF L C π₁).digestMatches
                                              (NormalForm.FeasibleUnder (ConstraintNF L C π₁).bitDeterminations))
+    -- **VALIDITY PRECONDITION** (must be from constructive source)
+    -- Must use SAME φ and r as the planted instance
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
+    (h_wf : WellFormedRandomness φ r)
+    (h_valid_π₁ : ValidExecutionPrefix L φ r π₁)
     : final₁.feasible.Nonempty := by
   -- Strategy: Construct planted witness world and show it's in final₁.feasible
 
-  -- Step 1: Extract planted instance data
-  obtain ⟨n, φ, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩ := h_planted
+  -- Planted parameters are now direct arguments (not extracted from existential)
 
   -- Step 2: Get planted witness for π₁ (now constructive!)
-  let planted_result := planted_witness_exists L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₁
+  let planted_result := planted_witness_exists L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₁ h_valid_π₁
   let ω_planted := planted_result.val
   obtain ⟨h_planted_bits, h_planted_digests⟩ := planted_result.property
 
@@ -2596,23 +2654,22 @@ theorem derive_planted_correct_config
     (C : Finset (Fin L.dag.n))
     (_h_C_singleton : C.card = 1)
     (v : Fin L.dag.n) (h_v : v ∈ C)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-                   (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
-                   L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
     (π₀ π₁ : ExecutionPrefixReal L)
     (h_len : π₁.computedConfigs.length = π₀.computedConfigs.length + 1)
     (cfg_new : Fin (2^(L.R v)))
     (h_new_at_v : extractNewConfigMatch L C π₀ π₁ h_len = some ⟨v, cfg_new⟩)
     (feasible₀ : Finset (CutWorld L C))
     (h_feasible₀_def : feasible₀ = NormalForm.FeasibleUnder (ConstraintNF L C π₀).bitDeterminations)
+    (h_valid_π₀ : ValidExecutionPrefix L φ r π₀)  -- Must be provided constructively (same φ, r)
+    (h_valid_π₁ : ValidExecutionPrefix L φ r π₁)  -- Also needed for TM correctness
     : cfg_new ∈ Finset.image (fun ω => ω.assignment v h_v) feasible₀ := by
   -- Strategy: Show planted witness ∈ feasible₀ and has assignment = cfg_new
 
-  -- Step 1: Extract planted instance data
-  obtain ⟨n, φ, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩ := h_planted
-
   -- Step 2: Get planted witness for π₀ (now constructive!)
-  let planted_result := planted_witness_exists L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀
+  let planted_result := planted_witness_exists L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀ h_valid_π₀
   let ω_planted := planted_result.val
   obtain ⟨h_planted_bits, h_planted_digests⟩ := planted_result.property
 
@@ -2633,12 +2690,12 @@ theorem derive_planted_correct_config
       n φ r h_nvars h_dgLen h_L_eq h_wf C := by
     -- Since planted_witness_exists is constructive,
     -- we have a lemma that directly states .val = worldFromWitness
-    exact planted_witness_exists_val_eq L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀
+    exact planted_witness_exists_val_eq L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀ h_valid_π₀
 
   -- Now apply TM correctness with ω_planted
   have h_planted_cfg : ω_planted.assignment v h_v = cfg_new :=
     planted_tm_correctness L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀ π₁ h_len cfg_new h_new_at_v
-      ω_planted h_is_planted
+      ω_planted h_is_planted h_valid_π₁
 
   -- Step 5: Apply Finset.mem_image with ω_planted
   apply Finset.mem_image.mpr
@@ -2842,11 +2899,12 @@ private lemma configMatch_records_planted_config
     (g : Nat)
     (h_gate_index : v.val = 1 + φ.nvars + g)
     (h_configMatch : CutConstraint.ConfigMatch v h_v expectedCfg ∈ (ConstraintNF L C π).digestMatches)
+    (h_valid : ValidExecutionPrefix L φ r π)  -- Must be provided constructively
     : ∃ (cfg_planted : Fin (2^(L.R v))),
       emergentConfigAtGate φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignment g = some ⟨L.R v, cfg_planted⟩ ∧
       expectedCfg = cfg_planted := by
   -- Apply executionPrefix_compatible_with_planted
-  have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C
+  have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π C h_valid
   -- Extract Properties 1 (reverse), 2 (forward), discard Properties 3, 4, 5, 6
   obtain ⟨h_reverse, h_forward, _, _, _, _⟩ := h_compat
 
@@ -2914,6 +2972,7 @@ private theorem feasible_equals_planted_when_observed
     -- **KEY HYPOTHESIS**: π₀ observed v (there's a ConfigMatch for it)
     (h_observed : ∃ (expectedCfg : Fin (2^(L.R v))),
         CutConstraint.ConfigMatch v h_v expectedCfg ∈ (ConstraintNF L C π₀).digestMatches)
+    (h_valid : ValidExecutionPrefix L φ r π₀)  -- Must be provided constructively
     : cfg = cfg_planted := by
   -- Extract the feasible world and the observed config
   obtain ⟨ω, h_ω_feasible, h_cfg_eq⟩ := h_feasible
@@ -2921,7 +2980,7 @@ private theorem feasible_equals_planted_when_observed
 
   -- Step 1: Show expectedCfg = cfg_planted (via configMatch_records_planted_config)
   have h_expected_eq_planted := configMatch_records_planted_config
-    L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀ expectedCfg g h_gate_index h_configMatch
+    L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀ expectedCfg g h_gate_index h_configMatch h_valid
   obtain ⟨cfg_planted', h_emergent', h_expected_eq'⟩ := h_expected_eq_planted
 
   -- Show cfg_planted' = cfg_planted (emergentConfigAtGate is deterministic)
@@ -2990,6 +3049,7 @@ private theorem singleton_cut_implies_observed_proven
     (cfg : Fin (2^(L.R v)))
     (h_feasible : ∃ ω ∈ NormalForm.FeasibleUnderNF (ConstraintNF L C π₀), ω.assignment v h_v = cfg)
     (h_fg : L.fg.gateReq v)  -- v is an FG gate
+    (h_valid : ValidExecutionPrefix L φ r π₀)  -- Must be provided constructively
     : ∃ (expectedCfg : Fin (2^(L.R v))),
         CutConstraint.ConfigMatch v h_v expectedCfg ∈ (ConstraintNF L C π₀).digestMatches := by
   -- For planted instances, executionPrefix_compatible_with_planted tells us:
@@ -2997,7 +3057,7 @@ private theorem singleton_cut_implies_observed_proven
   -- 2. digestMatches entries come from computedConfigs
 
   -- Apply executionPrefix_compatible_with_planted
-  have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π₀ C
+  have h_compat := executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π₀ C h_valid
 
   -- Extract the reverse direction: digestMatches → computedConfigs
   have h_reverse := h_compat.2.2
@@ -3114,7 +3174,8 @@ private theorem singleton_cut_implies_observed_proven
   have h_in_computed : (⟨v, cfg_planted'⟩ : PSigma (fun v => Fin (2^(L.R v)))) ∈ π₀.computedConfigs := by
     -- Apply Property 3: FG gate configs are computed (forward direction)
     -- Access via .2.2.1 to get Property 3 from structure (Prop1 ∧ Prop2 ∧ Prop3 ∧ Prop4 ∧ Prop5 ∧ Prop6)
-    have h_prop3 := (executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π₀ C).2.2.1
+    -- Use h_valid (the parameter) instead of the deleted planted_prefix_is_valid axiom
+    have h_prop3 := (executionPrefix_compatible_with_planted L n φ r h_nvars h_dgLen h_L_eq h_wf π₀ C h_valid).2.2.1
     -- Property 3 gives: ⟨v, h_R_eq ▸ cfg_planted⟩ ∈ computedConfigs
     -- Since cfg_planted' IS h_R_eq ▸ cfg_planted (by `let`), this is exact match
     exact h_prop3 v g h_g_bound h_v_index R_planted cfg_planted h_emergent h_R_eq
@@ -3189,6 +3250,7 @@ private theorem feasible_equals_planted_at_singleton
     (h_gate_index : v.val = 1 + φ.nvars + g)
     (h_feasible : ∃ ω ∈ NormalForm.FeasibleUnderNF (ConstraintNF L C π₀), ω.assignment v h_v = cfg)
     (h_planted_eq : emergentConfigAtGate φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignment g = some ⟨L.R v, cfg_planted⟩)
+    (h_valid : ValidExecutionPrefix L φ r π₀)  -- Must be provided constructively
     : cfg = cfg_planted := by
   -- Show v is an FG gate (follows from planted instance structure)
   have h_fg : L.fg.gateReq v := by
@@ -3226,11 +3288,11 @@ private theorem feasible_equals_planted_at_singleton
 
   -- Get observation evidence from the PROVEN theorem (not axiom!)
   have h_observed := singleton_cut_implies_observed_proven L C h_C_singleton v h_v
-    n φ r h_nvars h_dgLen h_L_eq h_wf π₀ cfg h_feasible h_fg
+    n φ r h_nvars h_dgLen h_L_eq h_wf π₀ cfg h_feasible h_fg h_valid
 
   -- Apply the proven theorem
   exact feasible_equals_planted_when_observed L C v h_v n φ r h_nvars h_dgLen h_L_eq h_wf π₀
-    cfg cfg_planted g h_gate_index h_feasible h_planted_eq h_observed
+    cfg cfg_planted g h_gate_index h_feasible h_planted_eq h_observed h_valid
 
 /-- **LEMMA D**: Same parity + fixed parent-history → same config (A2 injectivity collapse).
 
@@ -3260,6 +3322,7 @@ private lemma same_parity_same_config_under_planted
     (h_cfg₂_feasible : ∃ ω₂ ∈ NormalForm.FeasibleUnderNF (ConstraintNF L C π₀), ω₂.assignment v h_v = cfg₂)
     (h_parity₁ : fgDigestBit cfg₁ = parity)
     (h_parity₂ : fgDigestBit cfg₂ = parity)
+    (h_valid : ValidExecutionPrefix L φ r π₀)  -- Must be provided constructively
     : cfg₁ = cfg₂ := by
   -- Extract witnesses
   obtain ⟨ω₁, h_ω₁_feasible, h_cfg₁_eq⟩ := h_cfg₁_feasible
@@ -3376,7 +3439,7 @@ private lemma same_parity_same_config_under_planted
     exact feasible_equals_planted_at_singleton
       L C h_C_singleton v h_v n φ r h_nvars h_dgLen h_L_eq h_wf h_R_ge_2 π₀
       cfg₁ cfg_planted g h_gate_index
-      h_cfg₁_witness h_planted_eq
+      h_cfg₁_witness h_planted_eq h_valid
 
   have h_cfg₂_eq : cfg₂ = cfg_planted := by
     -- Symmetric argument to cfg₁
@@ -3387,7 +3450,7 @@ private lemma same_parity_same_config_under_planted
     exact feasible_equals_planted_at_singleton
       L C h_C_singleton v h_v n φ r h_nvars h_dgLen h_L_eq h_wf h_R_ge_2 π₀
       cfg₂ cfg_planted g h_gate_index
-      h_cfg₂_witness h_planted_eq
+      h_cfg₂_witness h_planted_eq h_valid
 
   rw [h_cfg₁_eq, h_cfg₂_eq]
 
@@ -3421,9 +3484,9 @@ private lemma planted_configs_unique_per_parity
     (C : Finset (Fin L.dag.n))
     (h_C_singleton : C.card = 1)
     (v : Fin L.dag.n) (h_v : v ∈ C)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-                   (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
-                   L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
     (h_R_ge_2 : L.R v ≥ 2)
     (π₀ : ExecutionPrefixReal L)
     (parity : Bool)
@@ -3432,9 +3495,8 @@ private lemma planted_configs_unique_per_parity
     (h_cfg₂_feasible : ∃ ω₂ ∈ NormalForm.FeasibleUnderNF (ConstraintNF L C π₀), ω₂.assignment v h_v = cfg₂)
     (h_parity₁ : fgDigestBit cfg₁ = parity)
     (h_parity₂ : fgDigestBit cfg₂ = parity)
+    (h_valid : ValidExecutionPrefix L φ r π₀)  -- Must be provided constructively
     : cfg₁ = cfg₂ := by
-  -- Extract planted structure
-  obtain ⟨n, φ, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩ := h_planted
 
   -- Extract the feasible worlds
   obtain ⟨ω₁, h_ω₁_in, h_cfg₁_eq⟩ := h_cfg₁_feasible
@@ -3655,13 +3717,13 @@ private lemma planted_configs_unique_per_parity
       exact feasible_equals_planted_at_singleton
         L C h_C_singleton v h_v n φ r h_nvars h_dgLen h_L_eq h_wf h_R_ge_2 π₀
         cfg cfg_planted g h_gate_index
-        h_cfg_feasible h_planted_cfg
+        h_cfg_feasible h_planted_cfg h_valid
 
     have h_cfg'_eq : cfg' = cfg_planted := by
       exact feasible_equals_planted_at_singleton
         L C h_C_singleton v h_v n φ r h_nvars h_dgLen h_L_eq h_wf h_R_ge_2 π₀
         cfg' cfg_planted g h_gate_index
-        h_cfg'_feasible h_planted_cfg
+        h_cfg'_feasible h_planted_cfg h_valid
 
     -- Transitivity: cfg = cfg_planted = cfg'
     rw [h_cfg_eq, h_cfg'_eq]
@@ -3793,14 +3855,14 @@ theorem planted_two_tracks_at_pre_boundary
     (C : Finset (Fin L.dag.n))
     (h_C_singleton : C.card = 1)
     (v : Fin L.dag.n) (h_v : v ∈ C)
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-                   (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
-                   L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
     (π₀ : ExecutionPrefixReal L)
+    (h_valid : ValidExecutionPrefix L φ r π₀)  -- Must be provided constructively (same φ, r)
     : (Finset.image (fun ω => ω.assignment v h_v)
         (NormalForm.FeasibleUnderNF (ConstraintNF L C π₀))).card ≤ 2 := by
   -- **UNIFIED APPROACH**: Handle all R values (R ≤ 1 trivially, R ≥ 2 via parity partition)
-  obtain ⟨n, φ, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩ := h_planted
 
   let all_configs := Finset.image (fun ω => ω.assignment v h_v)
                        (NormalForm.FeasibleUnderNF (ConstraintNF L C π₀))
@@ -3883,13 +3945,9 @@ theorem planted_two_tracks_at_pre_boundary
       -- Both configs have same parity (false) and come from feasible worlds
       -- Therefore they must be equal (planted_configs_unique_per_parity)
       have h_cfg_eq : cfg₁ = cfg₂ := by
-        -- Reconstruct h_planted from components
-        have h_planted_local : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-                                  (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
-                                 L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r := by
-          exact ⟨n, φ, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩
-        exact planted_configs_unique_per_parity L C h_C_singleton v h_v h_planted_local h_R_ge_2 π₀ false cfg₁ cfg₂
-               h_cfg₁_witness h_cfg₂_witness h_cfg₁_parity h_cfg₂_parity
+        exact planted_configs_unique_per_parity L C h_C_singleton v h_v
+               n φ r h_nvars h_dgLen h_L_eq h_wf h_R_ge_2 π₀ false cfg₁ cfg₂
+               h_cfg₁_witness h_cfg₂_witness h_cfg₁_parity h_cfg₂_parity h_valid
 
       -- Contradiction: cfg₁ = cfg₂ but we assumed cfg₁ ≠ cfg₂
       exact h_cfg_ne h_cfg_eq
@@ -3938,13 +3996,9 @@ theorem planted_two_tracks_at_pre_boundary
 
       -- Apply planted instance uniqueness (parity = true for odd configs)
       have h_cfg_eq : cfg₁ = cfg₂ := by
-        -- Reconstruct h_planted from components
-        have h_planted_local : ∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-                                  (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
-                                 L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r := by
-          exact ⟨n, φ, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩
-        exact planted_configs_unique_per_parity L C h_C_singleton v h_v h_planted_local h_R_ge_2 π₀ true cfg₁ cfg₂
-               h_cfg₁_witness h_cfg₂_witness h_cfg₁_parity h_cfg₂_parity
+        exact planted_configs_unique_per_parity L C h_C_singleton v h_v
+               n φ r h_nvars h_dgLen h_L_eq h_wf h_R_ge_2 π₀ true cfg₁ cfg₂
+               h_cfg₁_witness h_cfg₂_witness h_cfg₁_parity h_cfg₂_parity h_valid
 
       -- Contradiction: cfg₁ = cfg₂ but we assumed cfg₁ ≠ cfg₂
       exact h_cfg_ne h_cfg_eq
@@ -4003,8 +4057,8 @@ No custom axioms are introduced (except bridges to operational semantics).
 
 -- ExecutionPrefix axiom (with 6 properties)
 #print axioms executionPrefix_compatible_with_planted  -- Base axiom (all 6 properties)
-#print axioms planted_revealedBits_empty_proven        -- Wrapper (extracts Property 1: empty revealedBits)
-#print axioms planted_revealedBits_empty_proven_exists -- Convenience wrapper (existential hypothesis form)
+#print axioms planted_revealedBits_empty_proven        -- Wrapper (extracts Property 5: empty revealedBits)
+-- planted_revealedBits_empty_proven_exists REMOVED (mismatched φ,r was architecturally unsound)
 #print axioms revealedBit_value_unique_at_position     -- Wrapper (extracts Property 4: bit observation determinism)
 #print axioms fg_gate_positive_emergence               -- Wrapper (extracts Property 6: R v > 0 for FG gates)
 #print axioms extractSyntheticConfigs_eq_of_revealedBits_eq  -- Infrastructure (uses Property 4 via wrapper)

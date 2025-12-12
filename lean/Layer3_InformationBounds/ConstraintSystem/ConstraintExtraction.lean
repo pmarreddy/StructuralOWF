@@ -514,7 +514,7 @@ For planted FG instances, execution prefixes satisfy `π.revealedBits = []`.
 Individual bit reads provide no computational advantage, so correct algorithms
 operate via `computedConfigs` rather than `revealedBits`.
 
-**See**: `planted_revealedBits_empty_proven`, `planted_revealedBits_empty_proven_exists`
+**See**: `planted_revealedBits_empty_proven` (requires validity for same φ,r as planted instance)
 -/
 
 /-- **Bit value uniqueness (from well-formedness)**: Direct consequence of well-formedness.
