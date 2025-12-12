@@ -116,6 +116,121 @@ def ValidExecutionPrefix
   -- revealedBits is empty (FG instances don't reveal individual bits)
   π.revealedBits = []
 
+/-! ## Simple Canonical Prefix for Layer 3
+
+A simple canonical prefix that can be constructed directly in Layer 3 without
+depending on TMToExecutionPrefix infrastructure. This is used by lemmas that
+need a valid prefix but are defined before the full canonical prefix.
+-/
+
+/-- Simple canonical planted prefix: constructs a valid ExecutionPrefixReal
+    directly from planted instance parameters without using extractComputedConfigsFromWitness.
+
+    **Construction**: Iterates over FG gates and computes emergent configs via emergentConfigAtGate.
+    This satisfies ValidExecutionPrefix by construction since configs come from r.assignment. -/
+noncomputable def simpleCanonicalPlantedPrefix
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (L : LStarInstanceFG)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
+    (_h_wf : WellFormedRandomness φ r)
+    : ExecutionPrefixReal L :=
+  let fgNodes := (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v)
+  let computedConfigs : List (@PSigma (Fin L.dag.n) (fun v => Fin (2^(L.R v)))) :=
+    fgNodes.attach.filterMap fun ⟨v, _h_mem⟩ =>
+      let g := v.val - (1 + φ.nvars)
+      match h_emergent : emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment g with
+      | none => none
+      | some ⟨R, cfg⟩ =>
+          if h_g : g < r.gateDigests.length then
+            have h_R_eq : R = L.R v := by
+              subst h_L_eq
+              exact emergentConfigAtGate_R_component φ φ.nvars_pos r.gateDigests.length r.assignment g R cfg h_emergent
+            some ⟨v, h_R_eq ▸ cfg⟩
+          else none
+  {
+    time := 0
+    revealedBits := []
+    computedConfigs := computedConfigs
+  }
+
+/-- Simple canonical prefix validity: proves the simple canonical prefix satisfies ValidExecutionPrefix. -/
+theorem simple_canonical_planted_prefix_valid
+    (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (L : LStarInstanceFG)
+    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
+    (h_wf : WellFormedRandomness φ r)
+    : ValidExecutionPrefix L φ r (simpleCanonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf) := by
+  let π := simpleCanonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf
+  let fgNodes := (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v)
+
+  constructor
+  · -- Backward: computedConfigs come from emergentConfigAtGate on r.assignment
+    intro psig h_mem
+    simp only [simpleCanonicalPlantedPrefix] at h_mem
+    rw [List.mem_filterMap] at h_mem
+    obtain ⟨⟨w, hw⟩, _, h_eq⟩ := h_mem
+    simp only at h_eq
+    split at h_eq <;> try contradiction
+    next h_emergent =>
+      split at h_eq <;> try contradiction
+      next h_g =>
+        injection h_eq with h_eq'
+        -- We need to show psig came from emergentConfigAtGate on r.assignment
+        let g := w.val - (1 + φ.nvars)
+        use g, h_g
+        match h_match : emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment g with
+        | none =>
+          -- Contradiction: we have h_emergent : emergentConfigAtGate ... = some ...
+          simp [h_match] at h_emergent
+        | some ⟨R', cfg'⟩ =>
+          use R', cfg'
+          constructor
+          · -- emergentConfigAtGate matches
+            simp only at h_emergent
+            simp [h_match] at h_emergent
+            exact h_emergent
+          constructor
+          · -- psig.fst.val = 1 + φ.nvars + g
+            simp [g]
+            have h_gate := (List.mem_filter.mp hw).2
+            subst h_L_eq
+            -- gateReq v = true means v is in FG range
+            simp only [plant_n, FrontierGateConfig.gateReq] at h_gate
+            rw [decide_eq_true_iff] at h_gate
+            have ⟨h_lo, _⟩ := h_gate
+            omega
+          · -- Type cast equality
+            use (emergentConfigAtGate_R_component φ φ.nvars_pos r.gateDigests.length r.assignment g R' cfg' (by simp [h_match]))
+
+  constructor
+  · -- Forward: all FG gate emergent configs are in computedConfigs
+    intro v g hg hv R cfg_planted h_emergent h_R_eq
+    simp only [simpleCanonicalPlantedPrefix]
+    rw [List.mem_filterMap]
+    have h_gate_req : L.fg.gateReq v = true := by
+      subst h_L_eq
+      simp only [plant_n, FrontierGateConfig.gateReq]
+      rw [decide_eq_true_iff]
+      rw [hv]
+      constructor <;> omega
+    have h_v_mem : v ∈ fgNodes := by
+      rw [List.mem_filter]
+      exact ⟨List.mem_finRange v, h_gate_req⟩
+    use ⟨v, h_v_mem⟩
+    constructor; exact List.mem_attach _ _
+    simp only []
+    have h_g_eq : v.val - (1 + φ.nvars) = g := by omega
+    simp only [h_g_eq]
+    rw [h_emergent]
+    rw [dif_pos hg]
+    congr
+    simp only [cast_eq_iff_heq]
+
+  · -- revealedBits = []
+    rfl
+
 /-! ## Validity Proofs - ONLY from Constructive Sources
 
 **IMPORTANT**: We deliberately do NOT provide:
@@ -123,7 +238,7 @@ def ValidExecutionPrefix
 - valid_of_structure (would allow arbitrary construction, bypassing provenance)
 
 Validity proofs come ONLY from:
-1. canonical_planted_prefix_valid (TMToExecutionPrefix.lean)
+1. simpleCanonicalPlantedPrefix / canonical_planted_prefix_valid (this file and TMToExecutionPrefix.lean)
 2. tm_produces_valid_prefix with proven h_assign_eq (TMToExecutionPrefix.lean)
 
 This ensures all valid prefixes have constructive provenance from r.assignment. -/

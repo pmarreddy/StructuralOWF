@@ -1383,17 +1383,17 @@ lemma tm_correctness_requires_complete_observation_at_fg_gate
   --   Property 5-6: Vacuous (revealedBits = [] for FG instances)
   -- Both QP and Exponential profiles use Property 4 only, making the trust boundary identical.
 
-  -- Apply Property 4 via extraction lemma
-  let emptyPrefixReal : ExecutionPrefixReal L := {
-    computedConfigs := [],
-    revealedBits := [],
-    time := 0
-  }
+  -- Apply Property 4 via axiom extraction
   -- Derive cfg1 ≠ cfg2 from parity difference (contrapositive: cfg1 = cfg2 → parity cfg1 = parity cfg2)
   have h_collision : cfg1 ≠ cfg2 := fun h_eq => h_parity_diff (congrArg parity h_eq)
-  exact planted_observation_indistinguishability_impossible
-    L n φ r h_nvars h_dgLen h_L_eq h_wf
-    emptyPrefixReal ∅
+
+  -- Construct canonical prefix and its validity proof (defined in PlantedBoundaryDiversity.lean)
+  let π := simpleCanonicalPlantedPrefix n φ r h_nvars h_dgLen L h_L_eq h_wf
+  let h_valid := simple_canonical_planted_prefix_valid n φ r h_nvars h_dgLen L h_L_eq h_wf
+
+  -- Apply the proven impossibility theorem directly
+  exact planted_observation_indistinguishability_impossible_PROVEN
+    L n φ r h_nvars h_dgLen h_L_eq h_wf π ∅ h_valid
     v obs h_incomplete cfg1 cfg2 h_agree h_collision
 
 /-- Determinism theorem: Configs agreeing on read positions produce same parity.
@@ -4606,11 +4606,12 @@ theorem tmExecutionToPrefix_property3
     
   let fgNodes := (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v)
   have h_v_mem : v ∈ fgNodes := by
-    rw [List.mem_filter, List.mem_finRange]
-    exact ⟨true, h_gate_req⟩
-    
-  -- Use List.mem_filterMap
-  rw [List.mem_filterMap]
+    rw [List.mem_filter]
+    exact ⟨List.mem_finRange v, h_gate_req⟩
+
+  -- Show the result is in computedConfigs via filterMap membership
+  -- The goal is membership in `fgNodes.attach.filterMap ...`
+  simp only [List.mem_filterMap]
   use ⟨v, h_v_mem⟩
   constructor
   · exact List.mem_attach _ _
@@ -4770,13 +4771,13 @@ theorem canonical_planted_prefix_valid
       
     let fgNodes := (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v)
     have h_v_mem : v ∈ fgNodes := by
-      rw [List.mem_filter, List.mem_finRange]
-      exact ⟨true, h_gate_req⟩
+      rw [List.mem_filter]
+      exact ⟨List.mem_finRange v, h_gate_req⟩
 
-    rw [List.mem_filterMap]
+    simp only [List.mem_filterMap]
     use ⟨v, h_v_mem⟩
     constructor; exact List.mem_attach _ _
-    
+
     simp only []
     -- Function uses g' = v.val - clause_start = g
     -- Input is w.assignment = r.assignment
@@ -4786,7 +4787,7 @@ theorem canonical_planted_prefix_valid
     congr
     simp only [cast_eq_iff_heq]
     rfl
-    
+
   · -- Prop 5
     rfl
 
