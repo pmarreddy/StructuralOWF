@@ -12,7 +12,6 @@ import Layer3_InformationBounds.ConstraintSystem.NormalForm
 
 -- WorldCommit (WC-1 elimination)
 import Layer3_InformationBounds.WorldCommit.WorldCommit
-import Layer3_InformationBounds.WorldCommit.ConfigMatchToUnitRefute
 import Layer3_InformationBounds.WorldCommit.ExecutionHistory
 import Layer3_InformationBounds.WorldCommit.CutWorlds
 import Layer3_InformationBounds.WorldCommit.CutProduct
@@ -39,7 +38,6 @@ import Layer3_InformationBounds.Keyedness.KeyednessFromA2
 import Layer3_InformationBounds.Keyedness.KeyednessBounds
 import Layer3_InformationBounds.Keyedness.AcceptanceUniqueness
 import Layer3_InformationBounds.Keyedness.PlantedInstanceConsistency
-import Layer3_InformationBounds.Keyedness.PlantedBoundaryDiversity
 import Layer3_InformationBounds.Keyedness.PlantedFGDiversity
 import Layer3_InformationBounds.Keyedness.StateConfigCorrespondence
 import Layer3_InformationBounds.Keyedness.LaneDefinitions
