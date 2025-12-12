@@ -525,19 +525,19 @@ theorem plant_equality_tm_exists
     (_h_k_pos : k > 0)
     (M : TuringMachine tapeCount (Fin stateCount) (Fin alphabetSize))
     (enc_in : LStar.Complexity.TMInputEncodingBase
-        (Σ n, LStarInstanceFG × LStar.Complexity.BitstringBridge.Bits (n + 128)) (Fin alphabetSize))
+        (Fin 1 × (Σ n, LStarInstanceFG × LStar.Complexity.BitstringBridge.Bits (n + 128))) (Fin alphabetSize))
     (enc_out : LStar.Complexity.TMOutputDecoding Bool (Fin alphabetSize))
     (h_blank : M.blank = enc_in.blank)
     (h_blank_enc : enc_in.blank = enc_out.blank),
     (∀ (input : Σ n, LStarInstanceFG × LStar.Complexity.BitstringBridge.Bits (n + 128)) (t : Nat),
       t ≥ C * (LStar.Complexity.Sized.size input + 1) ^ k →
-      let init := LStar.Complexity.initWithEncodingBase M enc_in input h_tape_pos h_blank
+      let init := LStar.Complexity.initWithEncodingBase M enc_in (⟨0, by omega⟩, input) h_tape_pos h_blank
       let final := (TMConfig.step (M := M))^[t] init
       enc_out.decode (LStar.Complexity.getTape0 final h_tape_pos) =
         verifyOWFInversion_sigma Φ h_nvars input) ∧
     (∀ (input : Σ n, LStarInstanceFG × LStar.Complexity.BitstringBridge.Bits (n + 128)),
       let t := C * (LStar.Complexity.Sized.size input + 1) ^ k
-      let init := LStar.Complexity.initWithEncodingBase M enc_in input h_tape_pos h_blank
+      let init := LStar.Complexity.initWithEncodingBase M enc_in (⟨0, by omega⟩, input) h_tape_pos h_blank
       let final := (TMConfig.step (M := M))^[t] init
       final.state ∈ M.halt) := by
   let A := verifyOWFInversion_algspec Φ h_nvars
@@ -555,7 +555,7 @@ theorem plant_equality_tm_exists
     simp only [h_correct, h_run_eq]
     rfl
   · intro input
-    exact M_randadv.halts input
+    exact M_randadv.halts ⟨0, by omega⟩ input
 
 -- Axiom audit
 #print axioms verifyOWFInversion_sigma

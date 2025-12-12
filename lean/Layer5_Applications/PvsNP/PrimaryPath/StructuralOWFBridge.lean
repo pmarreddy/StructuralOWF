@@ -1057,11 +1057,11 @@ theorem encoding_semantics_derived_exp
   {T : Nat}
   (M : RandAdv (Sigma fun _n => LStarInstanceFG) (Sigma fun n => Bits (EncodingDiscipline.expWLen n)) T)
   (h_format_sep : EncodingDiscipline.FormatSeparated_exp M (adapterInputEncoding_exp M) M.h_blank_consistent)
-  (x : LStarInstanceFG) (φ : CNF) (t : Nat)
+  (c : Fin T) (x : LStarInstanceFG) (φ : CNF) (t : Nat)
   (h_nvars : φ.nvars ≥ 4)
   (h_t : t < 2)
   (h_positive : CNF.HasPositiveClause φ)
-  : let init_cfg := initWithEncodingBase M.M (adapterInputEncoding_exp M) x M.h_tape_pos M.h_blank_consistent
+  : let init_cfg := initWithEncodingBase M.M (adapterInputEncoding_exp M) (c, x) M.h_tape_pos M.h_blank_consistent
     let cfg := (TMConfig.step (M := M.M))^[t] init_cfg
     let tape := getTape0 cfg M.h_tape_pos
     let sigma_output := M.encoding.output.decode tape
@@ -1090,11 +1090,12 @@ def adapterOutputDecoding
 
     Uses the common template with flatDecodeWitness.
     **Note**: Returns TMEncodingBase (no injectivity) to match PPTAdversary requirements.
+    Input type is (Fin T × LStarInstanceFG) to make coin choice visible to TM.
 -/
 def adapterTMEncoding
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (n + 128)) T)
-    : TMEncodingBase LStarInstanceFG Randomness (Fin M.alphabetSize) :=
+    : TMEncodingBase (Fin T × LStarInstanceFG) Randomness (Fin M.alphabetSize) :=
   mkAdapterTMEncoding M flatDecodeWitness
 
 /-! ### Exponential Profile Encoding Adapters
@@ -1137,11 +1138,12 @@ noncomputable def adapterOutputDecoding_exp
 
 /-- Adapter bidirectional encoding (exponential profile): combines input and output adapters.
     Uses expDecodeWitness for dgLen = n.
+    Input type is (Fin T × LStarInstanceFG) to make coin choice visible to TM.
 -/
 noncomputable def adapterTMEncoding_exp
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (expWLen n)) T)
-    : TMEncodingBase LStarInstanceFG Randomness (Fin M.alphabetSize) :=
+    : TMEncodingBase (Fin T × LStarInstanceFG) Randomness (Fin M.alphabetSize) :=
   mkAdapterTMEncoding_exp M expDecodeWitness
 
 /-! ## FP Non-Membership of OWF Inversion Relation (Exponential Profile) -/

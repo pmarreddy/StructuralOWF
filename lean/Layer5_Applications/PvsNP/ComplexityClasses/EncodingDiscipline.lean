@@ -176,15 +176,15 @@ then cross-decoding at t < 2 produces non-satisfying assignment.
 -/
 theorem encoding_semantics_from_format_separated {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (n + 128)) T)
-    (adapterEnc : TMInputEncodingBase LStarInstanceFG (Fin M.alphabetSize))
+    (adapterEnc : TMInputEncodingBase (Fin T × LStarInstanceFG) (Fin M.alphabetSize))
     (h_blank : M.M.blank = adapterEnc.blank)
     (h_separated : FormatSeparated M adapterEnc h_blank)
-    (x : LStarInstanceFG) (φ : CNF)  -- NOTE: Added φ as explicit parameter
+    (c : Fin T) (x : LStarInstanceFG) (φ : CNF)
     (t : Nat)
     (_h_nvars : φ.nvars ≥ 4)
     (h_t : t < 2)
     (h_positive : CNF.HasPositiveClause φ) :
-    let init_cfg := initWithEncodingBase M.M adapterEnc x M.h_tape_pos h_blank
+    let init_cfg := initWithEncodingBase M.M adapterEnc (c, x) M.h_tape_pos h_blank
     let cfg := (TMConfig.step (M := M.M))^[t] init_cfg
     let tape := getTape0 cfg M.h_tape_pos
     let sigma_output := M.encoding.output.decode tape
@@ -194,14 +194,14 @@ theorem encoding_semantics_from_format_separated {T : Nat}
   simp only
   intro h_sat
   -- Step 1: By format separation, decoded.1 = 0
-  have h_n_zero := h_separated x t h_t
+  have h_n_zero := h_separated c x t h_t
   -- The decoded sigma has n = 0
   -- bitsToRandomness 0 64 _ w gives assignment i := false for all i
   -- This assignment doesn't satisfy CNF with positive clause
 
   -- Abbreviate the decoded value
   let decoded := M.encoding.output.decode (getTape0 ((TMConfig.step (M := M.M))^[t]
-    (initWithEncodingBase M.M adapterEnc x M.h_tape_pos h_blank)) M.h_tape_pos)
+    (initWithEncodingBase M.M adapterEnc (c, x) M.h_tape_pos h_blank)) M.h_tape_pos)
   -- h_n_zero says: decoded.1 = 0
 
   -- Key insight: when n = 0, bitsToRandomness produces all-false assignment
