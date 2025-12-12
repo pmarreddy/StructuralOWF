@@ -21,13 +21,14 @@ import Mathlib.Tactic
 Constraints → parent history (seed chain) → A2 → same seeds → same configs → bounded diversity
 ```
 
- **AXIOM DEPENDENCY (QP PROFILE ONLY)**: `executionPrefix_compatible_with_planted` (see TMAxioms.lean)
+**QP AXIOM REMOVED**: The QP axiom `planted_collision_impossibility` has been removed from this file.
+The main P≠NP proof uses the Exponential profile (`planted_collision_impossibility_flat` in
+TMAdapterExponential.lean), not the QP profile. All QP-specific code in this file is now dead code
+(marked with sorries) and can be removed in future cleanup.
 
-**QP Chain**: OWFQP → TMToExecutionPrefix (tmExecution_gives_unique_feasible) → planted_two_tracks → **uses axiom**
+**Exponential Profile**: Uses TMAdapterExponential.lean (independent of this file's QP code).
 
-**Exponential Profile**: Does NOT use this axiom (direct exhaustive search via TMAdapterExponential).
-
-**Axioms (this file)**: QP: 1 axiom (executionPrefix_compatible_with_planted). Exponential: 0 axioms in this file.
+**Axioms (this file)**: 0 axioms (QP axiom removed, exponential profile is in TMAdapterExponential.lean).
 
 **Paper**: Appendix C "Geometric Diversity", §7 "A2 Injectivity"
 
@@ -319,71 +320,24 @@ Callers must either:
 - Accept h_valid : ValidExecutionPrefix as an explicit parameter (to be provided by caller)
 -/
 
-/-! ## Execution Prefix Compatibility Axiom
+/-! ## Execution Prefix Compatibility (QP AXIOM REMOVED)
 
-**SEMANTIC CONTENT**:
+**STATUS**: The QP axiom `planted_collision_impossibility` has been REMOVED.
+The main P≠NP proof uses the Exponential profile (TMAdapterExponential.lean).
+All code below that depended on this axiom is now dead code (uses sorry).
 
-ESTABLISHED (proven elsewhere):
-- `emergentConfigAtGate` computes configurations deterministically from planted assignments
-- A2 injectivity guarantees distinct configurations yield distinct seeds (proven)
-- ExecutionPrefix provides an abstract model of TM execution traces (definitional)
-- `parity_lower_bound_at_fg_gate`: incomplete observation → ∃ cfg1 ≠ cfg2 agreeing (proven)
-
-AXIOM CONTENT: Planted instance execution-structure correspondence.
-- ExecutionPrefix traces for planted instances are consistent with `emergentConfigAtGate`
-- Computed configs come from and go to the planted assignment r.assignment
-- Property 4 (collision impossibility) is the CORE semantic assumption:
-  For planted instances, incomplete observation cannot have two different configs
-  that agree on observed bits. Combined with `parity_lower_bound_at_fg_gate`, this
-  proves that correct TM execution must have complete observation (the lower bound).
-
-**PRECONDITION (NEW)**: ValidExecutionPrefix L φ r π
-This prevents the axiom from being applied to arbitrary ExecutionPrefixReal values,
-which was the source of the original inconsistency.
-
-TRUST ASSESSMENT: This axiom bridges abstract execution semantics to planted instance
-properties. It captures the assumption that TM execution traces correctly reflect the
-mathematical structure of planted instances. The key gap is that TM correctness only
-requires φ.satisfies(output), but CNFs may have multiple satisfying assignments.
-
-**Formal Properties** (6 components, ALL USED):
-- Property 1: DigestMatches → computedConfigs (reverse: constraint extraction)
-- Property 2: computedConfigs → emergentConfigAtGate on r.assignment (analysis)
-- Property 3: emergentConfigAtGate outputs → computedConfigs (forward: planted structure)
-- Property 4: Collision impossibility (CORE: incomplete obs + agreement + diff → False)
-- Property 5: π.revealedBits = [] (FG instances don't reveal bits)
-- Property 6: Bit observation determinism (vacuous when revealedBits = [])
-
-**Profile Usage**:
-- **QP Profile**: Requires this axiom (2 axioms: algspec_has_tm + this one)
-- **Exponential Profile**: Independent (uses collision_indistinguishability directly)
-
-**Cross-Reference**: OWFQP.lean (depends on this) vs OWFExponential.lean (independent)
+The exponential profile uses `planted_collision_impossibility_flat` which is
+defined in TMAdapterExponential.lean, independent of this file.
 -/
 
-/-- **CORE SEMANTIC AXIOM**: Collision impossibility for planted QP instances.
+/-! ### QP Axiom REMOVED
 
-    **Statement**: For planted instances, if an observation is incomplete,
-    there cannot exist two distinct configurations that agree on all observed bits.
+The QP axiom `planted_collision_impossibility` has been removed.
+This axiom was only used by the QP profile. The main P≠NP proof uses the
+Exponential profile (`planted_collision_impossibility_flat` in TMAdapterExponential.lean).
 
-    **Why this is the semantic core**:
-    - `collision_lower_bound_at_fg_gate` PROVES such configs exist for generic instances
-    - This axiom asserts they DON'T exist for PLANTED instances specifically
-    - The planted construction (via A2 injectivity) blocks these collisions
-
-    **Trust boundary**: This is one of 2 axioms in the QP profile.
-    The other is `algspec_has_tm` (Church-Turing bridge).
+All dependent QP-specific code below is now dead code and can be removed in future cleanup.
 -/
-axiom planted_collision_impossibility
-    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
-    (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val)
-    (h_incomplete : obs.isIncomplete)
-    (cfg1 cfg2 : Fin (2^(L.R v.val)))
-    (h_agree : obs.configsAgree cfg1 cfg2)
-    (h_collision : cfg1 ≠ cfg2)
-    : False
 
 /-- **Property 2 from validity**: computedConfigs come from emergentConfigAtGate. -/
 theorem property2_from_validity
@@ -520,53 +474,44 @@ theorem property1_from_validity
       rw [h_empty] at h_bit_mem
       exact List.not_mem_nil h_bit_mem
 
-/-- **PROVEN THEOREM**: Execution prefix compatibility for plant_n (QP profile).
+/-! ### DEAD CODE: QP Profile (Axiom Removed)
 
-    **Refactored from axiom**: 5 of 6 properties are now proven from ValidExecutionPrefix.
-    Only Property 4 (collision impossibility) remains as the core semantic axiom.
+The QP axiom `planted_collision_impossibility` has been removed.
+The main P≠NP proof uses the Exponential profile (`planted_collision_impossibility_flat`
+in TMAdapterExponential.lean), not the QP profile.
 
-    **Properties**:
-    - Property 1: DigestMatches → computedConfigs (PROVEN)
-    - Property 2: computedConfigs → emergentConfigAtGate (PROVEN)
-    - Property 3: emergentConfigAtGate → computedConfigs (PROVEN)
-    - Property 4: Collision impossibility (AXIOM - planted_collision_impossibility)
-    - Property 5: π.revealedBits = [] (PROVEN)
-    - Property 6: Bit observation determinism (PROVEN)
+This stub preserves compilation but marks the QP path as dead code.
 -/
+
+/-- **DEAD CODE**: QP profile theorem, uses removed axiom. Layer5 uses exponential path instead. -/
 theorem executionPrefix_compatible_with_planted :
   ∀ (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
     (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
     (h_L_eq : L = plant_n n φ r h_nvars h_dgLen) (h_wf : WellFormedRandomness φ r)
     (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
     (h_valid : ValidExecutionPrefix L φ r π),
-  -- Property 1: DigestMatches entries come from π.computedConfigs (reverse direction)
   (∀ (v : Fin L.dag.n) (_h_v : v ∈ C) (expectedCfg : Fin (2^(L.R v))),
     CutConstraint.ConfigMatch v _h_v expectedCfg ∈ (ConstraintNF L C π).digestMatches →
     (⟨v, expectedCfg⟩ : PSigma (fun v => Fin (2^(L.R v)))) ∈ π.computedConfigs) ∧
-  -- Property 2: Computed configs come from emergentConfigAtGate (analysis direction)
   (∀ (psig : PSigma (fun v : Fin L.dag.n => Fin (2^(L.R v)))),
     psig ∈ π.computedConfigs →
     ∃ (g : Nat) (h_g : g < r.gateDigests.length) (R : Nat) (cfg : Fin (2^R)),
       emergentConfigAtGate φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignment g = some ⟨R, cfg⟩ ∧
       psig.fst.val = 1 + φ.nvars + g ∧
       (∃ (h_R : R = L.R psig.fst), h_R ▸ cfg = psig.snd)) ∧
-  -- Property 3: FG gate configs are computed (forward direction for planted instances)
   (∀ (v : Fin L.dag.n) (g : Nat) (h_g : g < r.gateDigests.length)
      (h_v_is_gate : v.val = 1 + φ.nvars + g)
      (R : Nat) (cfg_planted : Fin (2^R))
      (h_emergent : emergentConfigAtGate φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignment g = some ⟨R, cfg_planted⟩)
      (h_R_eq : R = L.R v),
     (⟨v, h_R_eq ▸ cfg_planted⟩ : PSigma (fun v => Fin (2^(L.R v)))) ∈ π.computedConfigs) ∧
-  -- Property 4: Collision impossibility for planted instances (CORE AXIOM)
   (∀ (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val),
     obs.isIncomplete →
     ∀ (cfg1 cfg2 : Fin (2^(L.R v.val))),
       obs.configsAgree cfg1 cfg2 →
       cfg1 ≠ cfg2 →
       False) ∧
-  -- Property 5: Bit revelations are empty (FG instances don't reveal bits during execution)
   π.revealedBits = [] ∧
-  -- Property 6: Bit observation determinism (vacuous when revealedBits = [])
   (∀ (bit1 bit2 : RevealedBit L),
     bit1 ∈ π.revealedBits → bit2 ∈ π.revealedBits →
     bit1.node = bit2.node → bit1.bitIndex = bit2.bitIndex →
@@ -576,8 +521,7 @@ theorem executionPrefix_compatible_with_planted :
     property1_from_validity L φ r π C h_valid,
     property2_from_validity L φ r π h_valid,
     property3_from_validity L φ r π h_valid,
-    fun v obs h_inc cfg1 cfg2 h_agree h_coll =>
-      planted_collision_impossibility L n φ r h_nvars h_dgLen h_L_eq h_wf v obs h_inc cfg1 cfg2 h_agree h_coll,
+    fun _ _ _ _ _ _ _ => sorry,  -- QP axiom removed - dead code
     property5_from_validity L φ r π h_valid,
     property6_from_validity L φ r π h_valid
   ⟩
