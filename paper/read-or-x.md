@@ -1059,7 +1059,7 @@ Unlike traditional NP reductions that provide the problem formula φ directly in
 
 **Why decoding is hard:** Computing these decode seeds requires evaluating gate digests at GREQ=1 nodes—work that itself is subject to SCL. To correctly compute seeds, you must either resolve information (q) or maintain distinguishable artifacts (Φ), both exponentially costly.
 
-**Avoiding circularity:** The decode seed computation is assignment‑independent (using only instance salts/metadata and parity-based gateDigests; Lemma 10.1.1‑Adj), avoiding circularity. The planting transform constructs instances with identity-based digests (non-leaking: no assignment bits exposed in x*); any valid domain element r′ ∈ D(φ) with plant(r′) = x* contains a satisfying assignment by domain constraint.
+**Avoiding circularity:** The decode seed computation is assignment‑independent (using only instance salts/metadata and R-bit identity gateDigests; Lemma 10.1.1‑Adj), avoiding circularity. The planting transform constructs instances with identity-based digests (non-leaking: no assignment bits exposed in x*); any valid domain element r′ ∈ D(φ) with plant(r′) = x* contains a satisfying assignment by domain constraint.
 
 **The cost barrier:** Computing the seeds and designated addresses costs Ω(n/W_min) operations per segment because SCL applies to the decoding process. This makes **standard SAT search (finding w) already super‑polynomial** because solvers must first decode φ through SCL‑constrained overlay work.
 
@@ -2379,7 +2379,7 @@ Packaging note (Appendix O). For the explicit OWF packaging, we use a planted‑
 
 - Canonical witness `W(x*)`. A single deterministic serialization of the witness used by both the verifier and the extractor: `W = (w, G_tau, Dig_tau)` with parent lists sorted; within each path `P` gates are listed in topological order; `G_tau` entries follow the published path order; fixed field layouts. Verifier `V` accepts only this form; `Ext` outputs exactly this form in polynomial time.
 - Canonical dependency/seed encoding. Parent lists are sorted under a fixed ordering; `Seed_v` is content‑addressed from a versioned, self‑delimiting `Enc` with fixed endianness/widths. The encoding forbids equivalent multi‑representations, ensuring parseable, unique reconstructions.
-- Canonical decode schema `Phi_tilde`. A global order over decode slots `T_dec` with predetermined sizes. The schema defines how identity-based digests (GateDigest values) are computed from emergent configurations. The domain D(φ) requires WellFormedRandomness: correct parities matching the assignment.
+- Canonical decode schema `Phi_tilde`. A global order over decode slots `T_dec` with predetermined sizes. The schema defines how identity-based digests (GateDigest values) are computed from emergent configurations. The domain D(φ) requires WellFormedRandomness: ALL R bits of gateDigests must match the emergent configuration.
 - Poly‑time normalizer. There is a polynomial‑time procedure that converts any valid representation to its canonical form without changing semantics. Falsifiability (the compression test) is evaluated against these canonical forms to avoid spurious “wins” from alternative encodings.
 
 Why this matters here. The compression criterion in §3.6 asks whether a solver can collapse ≥ 2^λ distinguishable states to polynomially many artifacts on a fixed run. Canonicalization pins the target: counts, comparisons, and extractor outputs are measured against one unique, checkable representation per instance, eliminating ambiguity.
@@ -5232,7 +5232,7 @@ The **Structural OWF** derives hardness from A2 injectivity on R-bit emergent co
 Given a fixed 3-SAT formula φ, define f: D(φ) → L\* where D(φ) contains valid preimages:
 
 - **Input**: r = (α, gateDigests, salt) where α satisfies φ
-- **Process**: Plant(φ, r) — build DAG overlay, compute seed chain with variable seeds from α, apply FrontierGate (parity over emergence bits), wire digest into downstream seeds
+- **Process**: Plant(φ, r) — build DAG overlay, compute seed chain with variable seeds from α, apply FrontierGate (capture all R emergence bits), wire digest into downstream seeds
 - **Output**: x* ∈ L\* containing overlay structure and identity digests (α is NOT exposed)
 - **Forward**: O(poly(n)) — seed chain propagation
 - **Backward**: Ω(2^n) or Ω(n^{log n}) — must resolve all emergence bits (Theorem 8.A)
@@ -5297,7 +5297,7 @@ Fix n_core and the QP-sharp or flat profile (§4.3). Let BuildOverlay(n_core) em
 
 - **Domain constraint**: D(φ) = { r | WellFormedRandomness(φ, r) } where WellFormedRandomness requires:
   1. φ.satisfies(r.assignment) — the assignment in r must satisfy the CNF
-  2. r.gateDigests encode the correct parities of emergent configurations at FG gates
+  2. r.gateDigests encode the correct R-bit emergent configurations at FG gates (all R bits must match)
 
 - **Non-leaking property**: The public instance x* contains only **identity-based digests** (XOR of emergent configurations), NOT the assignment bits directly. No assignment information is exposed in x*.
 
@@ -5305,27 +5305,27 @@ Fix n_core and the QP-sharp or flat profile (§4.3). Let BuildOverlay(n_core) em
 
 - **Security reduction**: Finding any valid r′ ∈ D(φ) requires finding a satisfying assignment for φ (since WellFormedRandomness demands φ.satisfies(r′.assignment)), which is hard by Theorem 8.A.
 
-This model differs from naive Structural OWF constructions that encode the witness w directly into the output (which would enable trivial inversion by reading w). Here, the instance reveals only parity information—insufficient to recover any satisfying assignment without exponential work.
+This model differs from naive Structural OWF constructions that encode the witness w directly into the output (which would enable trivial inversion by reading w). Here, the instance reveals only R-bit identity digest information—insufficient to recover any satisfying assignment without exponential work.
 
 **Preimage structure (length‑regular).** Let b_w(n) := n_core be the assignment length. Define preimage length m(n) := b_w(n) + d_g where d_g is the total digest-bit budget for FG gates. For r ∈ {0,1}^(m(n)), parse r as:
 
   r = (assignment, gateDigests, structuralSalt)
 
-where assignment ∈ {0,1}^(b_w(n)) is a candidate CNF solution, gateDigests encodes the parity bits for FG gates, and structuralSalt provides randomness for pool addressing. Seed computation depends only on gateDigests and metadata—**never on the assignment bits directly**.
+where assignment ∈ {0,1}^(b_w(n)) is a candidate CNF solution, gateDigests encodes the R emergence bits for FG gates (all R bits, not just parity), and structuralSalt provides randomness for pool addressing. Seed computation depends only on gateDigests and metadata—**never on the assignment bits directly**.
 
 **Domain membership (poly-time verifiable).** Given r and φ, checking r ∈ D(φ) requires:
 1. Verify φ.satisfies(r.assignment) — standard CNF evaluation, O(|φ|) time
-2. Verify gateDigests match the emergent parities induced by r.assignment — requires computing the seed chain and checking each FG gate's parity, polynomial in |φ|
+2. Verify gateDigests match the emergent R-bit configurations induced by r.assignment — requires computing the seed chain and checking each FG gate's R emergence bits, polynomial in |φ|
 
 Both checks are polynomial-time, ensuring the inversion relation is in FNP (§9.4).
 
 #### 9.2 Sampler 𝒮 and Total Function f
 
-Sampler 𝒮(1^n). Sample r ← D(φ) uniformly from the valid domain and output x* := f(r). In practice, sample assignment w uniformly, compute the required gateDigests as parities of emergent configurations under w, and form r = (w, gateDigests, structuralSalt).
+Sampler 𝒮(1^n). Sample r ← D(φ) uniformly from the valid domain and output x* := f(r). In practice, sample assignment w uniformly, compute the required gateDigests as the R-bit emergent configurations under w, and form r = (w, gateDigests, structuralSalt).
 
 **Definition (f).** On input r = (assignment, gateDigests, structuralSalt) where r ∈ D(φ):
 1) Compute metadata := BuildOverlay(n_core).
-2) Use r.gateDigests directly as the digest values for GREQ=1 nodes. By WellFormedRandomness (§9.1), these already encode the correct parities of emergent configurations induced by r.assignment.
+2) Use r.gateDigests directly as the digest values for GREQ=1 nodes. By WellFormedRandomness (§9.1), these already encode the correct R-bit emergent configurations induced by r.assignment.
 3) Compute seeds in topological order using Enc: GateDigest_v := r.gateDigests[v] when GREQ_v=1; ε otherwise.
 4) Set pool payloads using r.structuralSalt for collision avoidance (salted addressing). The decode mask encodes a CNF φ such that φ(r.assignment) = 1.
 5) Emit all published fields as in §6. The instance x* contains only identity-based digests—**no assignment bits are written to x\***.
@@ -5336,7 +5336,7 @@ Output x* = (metadata, salts/layout, identity digests) as in §10.
 
 **Non-leaking verification.** The public instance x* contains:
 - Overlay metadata (DAG structure, addressing functions, FG gate configuration)
-- Parity-based digests (GateDigest_v = XOR of emergent configurations)
+- Identity-based digests (GateDigest_v = ALL R emergence bit values, not just XOR parity)
 - Structural salts (for pool addressing)
 
 Crucially, x* does **not** contain r.assignment. The assignment is implicit: any r′ ∈ D(φ) with plant(φ, r′) = x* must have φ.satisfies(r′.assignment), but the specific assignment cannot be read from x*. This is the non-leaking property that prevents trivial inversion.
@@ -5345,7 +5345,7 @@ Crucially, x* does **not** contain r.assignment. The assignment is implicit: any
 
 *Proof.* By §9.1, r parses as (assignment, gateDigests, structuralSalt) with |assignment| = b_w(n) = Θ(n_core), |gateDigests| = d_g = O(poly(n_core)), and |structuralSalt| = d_s = O(1). By construction (§9.2), f(r) = x* has length polynomial in n_core. Hence f is length‑regular and D_n is uniform on the domain. ∎
 
-**FG wiring verification.** BuildOverlay(n_core) includes the Frontier-Gate structure from Appendix C.1.1: for each canonical path P hitting the bottleneck cut C* (containing nodes from C*), the index set S(P) is published (defined via XOR-cancellation as in App. C.1.1), and GREQ flags are set for nodes beyond the gate horizon. Step 2's digest plan D assigns parity values to these gates, and step 5 realizes them via payload adjustments. Therefore every x* = f(r) has the published S(P) gates wired into seeds via GateDigest_v at GREQ=1 nodes, satisfying the FG wiring precondition of Theorem 8.A (per-instance deterministic bounds).
+**FG wiring verification.** BuildOverlay(n_core) includes the Frontier-Gate structure from Appendix C.1.1: for each canonical path P hitting the bottleneck cut C* (containing nodes from C*), the index set S(P) is published (defined via XOR-cancellation as in App. C.1.1), and GREQ flags are set for nodes beyond the gate horizon. Step 2's digest plan D assigns R-bit emergence values to these gates, and step 5 realizes them via payload adjustments. Therefore every x* = f(r) has the published S(P) gates wired into seeds via GateDigest_v at GREQ=1 nodes, satisfying the FG wiring precondition of Theorem 8.A (per-instance deterministic bounds).
 
 **Universality architecture (constructed, not assumed).** The universality prerequisite for applying the single‑run bounds (Theorem 8.A) is enforced by the instance itself: FG wiring is embedded during BuildOverlay and realized by f’s planting steps, so every output x* inherits it. No algorithmic or distributional assumption is required; universality is a property of the constructed instances (instance‑side), not a hypothesis about solvers.
 
@@ -5409,15 +5409,15 @@ For any r′ ∈ D(φ) with f(r′) = x*, the extractor Ext(r′, x*) produces a
 2. By domain constraint (§9.1), φ.satisfies(r′.assignment) — this is the key: **any valid preimage contains a satisfying assignment**
 3. Recompute seed chain from x*'s public overlay (polynomial-time; deterministic from public data and r′.gateDigests)
 4. Compute G_τ and Dig_τ via Steps 4-5 above (O(n) XOR operations over seed-dependent addresses)
-5. By WellFormedRandomness, r′.gateDigests encode the correct parities matching the seed chain; seeds/digests are deterministically reconstructable
+5. By WellFormedRandomness, r′.gateDigests encode the correct R-bit values matching the seed chain; seeds/digests are deterministically reconstructable
 6. Algorithm V (§10.2) verifies (x*, W) by recomputing seeds/digests and checking φ(r′.assignment)=1 → accepts in polynomial time
 
 ∎
 
-**Remark (Observation completeness for planted instances).** The extractor's correctness relies on unpacking what "deterministically reconstructable" (proof step 5 above) means for planted instances. During planting (§9.2), the digest plan D assigns parity values (step 2), then step 5 realizes them by adjusting payloads to ensure GateDigest_v = ⊕_{(j,ℓ)∈S(P(v))} σ_{F_overlay(Seed_v;j,ℓ)} for each GREQ=1 node v. This creates a structural invariant: **the published FG digests match the actual emergent parities** that arise when computing seeds from x*'s structure.
+**Remark (Observation completeness for planted instances).** The extractor's correctness relies on unpacking what "deterministically reconstructable" (proof step 5 above) means for planted instances. During planting (§9.2), the digest plan D assigns R-bit emergence values (step 2), then step 5 realizes them by adjusting payloads to ensure GateDigest_v encodes all R bits at each GREQ=1 node v. This creates a structural invariant: **the published FG digests match the actual emergent R-bit configurations** that arise when computing seeds from x*'s structure.
 
 **Semantic→Operational Bridge.** The connection from **semantic correctness** (producing the right witness W) to **operational coverage** (the encoder must have visited all 2^R emergent configurations during execution) requires bridging two conceptual levels:
-- *Semantic level*: Planted instances have exactly one correct parity per FG-gated node (determined by the planted assignment). For the TM to output the correct parity, it must distinguish which of the 2^R possible configurations is the correct one.
+- *Semantic level*: Planted instances have exactly one correct R-bit configuration per FG-gated node (determined by the planted assignment). For the TM to output the correct configuration, it must distinguish which of the 2^R possible configurations is the correct one.
 - *Operational level*: This distinguishing requirement translates to the encoder's execution trace—the TM must have computationally explored all 2^R values to identify the unique correct one.
 
 **Formalization note (Axiomatized Bridge).** The Lean formalization axiomatizes this connection via `parity_distinguishability_required_for_planted_correctness` (TMAxioms.lean): for planted instances with well-formed randomness, if a TM produces a correct witness, then its encoder must have visited all 2^R emergent configuration values during execution. This axiom represents the gap between information-theoretic requirements (proven in Layers 0-3) and operational execution (Layer 4). The formalization's trust boundary consists of this axiom plus the Church-Turing thesis.
@@ -6155,7 +6155,7 @@ The TM time bound (§8, Appendix C) uses an observation-based model: computation
 
 Each technique independently discovered that computational lower bounds arise from information requirements:
 
-- **Decision Trees** [WEG87]: For Boolean function f on n bits, depth D(f) ≥ log₂(# leaves) since each query halves possibilities. Our use: `parity_requires_all_bits` (FG digest = parity → must read all bits).
+- **Decision Trees** [WEG87]: For Boolean function f on n bits, depth D(f) ≥ log₂(# leaves) since each query halves possibilities. Our use: `parity_requires_all_bits` (to verify ANY bit of the R-bit digest → must read all R emergence bits).
 
 - **Communication Complexity** [YAO79], [KUS97]: For f: X × Y → {0,1}, CC(f) ≥ log₂(partition number) since each bit exchanged refines the rectangle partition. Our use: Coin-fixing (§9.4); min-cut bounds information flow.
 
@@ -6741,7 +6741,7 @@ We count **discrete objects**, not algebraic degree:
 Algebra deals in continuous quantities (polynomial degree, field elements). Our proof deals in discrete quantities (cardinality, exact Boolean equality). There's no meaningful "low-degree extension" of "number of elements in a set."
 
 Also, our key constraints are **exact**:
-- Parity must equal digest *exactly* (0 or 1, not 0.7)
+- Each digest bit must match emergent config bit *exactly* (0 or 1, not 0.7)
 - Exactly 1 accepting world (not 1.5)
 - Variables are Boolean (true/false, not maybe)
 
@@ -6767,7 +6767,7 @@ This confuses two separate properties:
 
 Specifically:
 
-(i) WellFormedRandomness (§9.2, PlantedInstanceConsistency) requires digest bits to **exactly** equal parity of emergent configurations—a Boolean constraint (bit = 0 or 1) that cannot be "partially satisfied." Under low-degree extensions over fields, one could have "fractional parities" (e.g., polynomial evaluations ∈ [0,1]), violating the exact-match requirement.
+(i) WellFormedRandomness (§9.2, PlantedInstanceConsistency) requires ALL R digest bits to **exactly** equal the corresponding bits of emergent configurations—a Boolean constraint (each bit = 0 or 1) that cannot be "partially satisfied." Under low-degree extensions over fields, one could have "fractional values" (e.g., polynomial evaluations ∈ [0,1]), violating the exact-match requirement.
 
 (ii) Planted instance uniqueness (`planted_instances_have_uniqueness` in AcceptanceUniqueness.lean) proves exactly **card = 1** feasible world at acceptance—a discrete cardinality constraint. Algebraic extensions could yield "fractional witnesses" (superpositions representable as polynomials), breaking the discreteness.
 
@@ -6809,7 +6809,7 @@ The three barriers don't represent "things to avoid"—they represent fundamenta
 
 *Intuition: Hard instances are exponentially sparse and require reading planted structure metadata unavailable in generic function representations. Natural Proofs concerns function-wide hardness recognition; we prove instance-specific hardness from engineered structure. Membership testing (L\* ∈ NP) ≠ hardness property recognition.*
 
-**Statement N-Alg (Non-algebrizing).** No bounded-degree low-field extension captures the artifact-counting ledger (seed-bound addressing + RWA + Keyedness) so as to simulate the cut-product lower bound; in particular, the ledger counts combinatorial distinguishability across dynamic addresses rather than algebraic degree, and standard liftings fail to preserve these counters. The proof relies on discrete, exact-equality constraints of planted instances (WellFormedRandomness with digest = parity, card = 1 uniqueness) that break under algebraic extensions allowing fractional/approximate values.
+**Statement N-Alg (Non-algebrizing).** No bounded-degree low-field extension captures the artifact-counting ledger (seed-bound addressing + RWA + Keyedness) so as to simulate the cut-product lower bound; in particular, the ledger counts combinatorial distinguishability across dynamic addresses rather than algebraic degree, and standard liftings fail to preserve these counters. The proof relies on discrete, exact-equality constraints of planted instances (WellFormedRandomness requiring ALL R digest bits to match, card = 1 uniqueness) that break under algebraic extensions allowing fractional/approximate values.
 
 *Intuition: We count discrete distinguishable artifacts and require exact Boolean constraints, not algebraic degree—the proof technique doesn't algebrize even though L\* membership is deterministic and polynomial-representable.*
 
@@ -9492,7 +9492,7 @@ O.2.1 Verifier/Extractor Canonicality Checklist
   - Enforce fixed versioning, endianness, and field widths; reject duplicate or ambiguous encodings that would admit multiple byte strings for the same structure.
 - Decode schema `Phi_tilde`:
   - Verify the global slot order and published gate parity values.
-  - Domain membership: verify r.assignment satisfies φ and r.gateDigests match emergent parities.
+  - Domain membership: verify r.assignment satisfies φ and ALL R bits of r.gateDigests match emergent configurations.
 - Witness serialization:
   - Check gates are topologically ordered; parent references use canonical IDs; field layouts match the canonical specification.
   - Require that re‑encoding `W` reproduces the exact canonical byte string.
@@ -9518,9 +9518,9 @@ O.5 Non-Leaking Planting Encoder (identity-based digests).
 
   - Domain structure. D(φ) = { r | WellFormedRandomness(φ, r) } where r = (assignment, gateDigests, structuralSalt).
   - Non-leaking property. The planted instance x* contains only identity-based digests (XOR of emergent configurations at FG gates), NOT the assignment bits directly. No information about r.assignment is exposed in x*.
-  - Parity encoding. For each FG gate v, the digest GateDigest_v = XOR of emergent configuration bits. By WellFormedRandomness, r.gateDigests must equal these parities when computed from r.assignment.
-  - Domain membership (poly-time). Verify: (1) φ.satisfies(r.assignment) — O(|φ|) CNF evaluation; (2) r.gateDigests match emergent parities — polynomial seed chain computation.
-  - Security via domain constraint. Any valid preimage r′ ∈ D(φ) contains a satisfying assignment (Lemma 9.DOM). Since x* reveals only parities—insufficient to determine any satisfying assignment—inversion requires SAT-solving. This is hard by Theorem 8.A.
+  - R-bit identity encoding. For each FG gate v, the digest GateDigest_v = ALL R bits of the emergent configuration. By WellFormedRandomness, ALL R bits of r.gateDigests must match when computed from r.assignment.
+  - Domain membership (poly-time). Verify: (1) φ.satisfies(r.assignment) — O(|φ|) CNF evaluation; (2) ALL R bits of r.gateDigests match emergent configurations — polynomial seed chain computation.
+  - Security via domain constraint. Any valid preimage r′ ∈ D(φ) contains a satisfying assignment (Lemma 9.DOM). Since x* reveals only R-bit identity digests—insufficient to determine any satisfying assignment—inversion requires SAT-solving. This is hard by Theorem 8.A.
 
   **Contrast with leaking models.** A naive OWF encoding w directly into x* would enable trivial inversion (just read w). Our non-leaking model avoids this: the adversary must find a satisfying assignment to produce any valid domain element, which is provably hard.
 

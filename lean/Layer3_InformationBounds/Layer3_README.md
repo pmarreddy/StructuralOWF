@@ -54,7 +54,7 @@ Any algorithm attempting to solve L* must use ONE of three strategies:
 
 **Cost**: Testing one wrong candidate only rules out that specific path—no cascade elimination.
 
-**Why blocked**: FG digest parity → exponentially many "worlds" (digest assignments). Each wrong guess refutes exactly ONE world (WC-1 property). Must test exponentially many possibilities.
+**Why blocked**: FG R-bit identity digest → exponentially many "worlds" (2^R digest assignments). Each wrong guess refutes exactly ONE world (WC-1 property). Must test exponentially many possibilities.
 
 **Proven in**: Layer 2 (FrontierGate) + Layer 3 (SegmentReduction, WorldCommit)
 
@@ -322,8 +322,8 @@ Layer 2 (Plant) → Layer 3 (Info bound) → Layer 4 (Time bound) → Layer 5 (P
 
 **A**: The bulk-elimination loophole is closed by a two-part proof:
 
-1. **Parity Requires All Bits** (`parity_requires_all_bits` in ParityLowerBound.lean):
-   - To compute the digest (parity), the algorithm must know the FULL configuration
+1. **R-bit Identity Digest Requires All Bits** (`parity_requires_all_bits` in ParityLowerBound.lean):
+   - To compute the digest (ALL R bits), the algorithm must know the FULL configuration
    - With incomplete observation, collisions exist (two configs look identical)
    - Cannot reliably use DigestMatch without full knowledge
 

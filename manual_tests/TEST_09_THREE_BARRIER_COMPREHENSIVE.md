@@ -198,7 +198,7 @@ cd lean && lake env lean -c 'import Layer1_Construction.Properties.A2_Injectivit
 
 **Method**:
 ```lean
--- GateDigest_v = parity digest for FG gates
+-- GateDigest_v = R-bit identity digest for FG gates (ALL R bits must match)
 -- This is the "FG" in "FG-wired instance"
 
 -- Questions:
@@ -1022,7 +1022,7 @@ cd lean && lake env lean -c 'import Layer1_Construction.Properties.A3_Emergence;
 
 **Method**:
 ```lean
--- FG gates: parity digest contributes R_v bits
+-- FG gates: R-bit identity digest contributes R_v bits (ALL R bits must match)
 -- This is the "FG" in "FG-wired instance"
 
 -- Check: How does FG contribute to emergence?
@@ -1828,7 +1828,7 @@ grep -rn "antagonism\|Antagonism\|per-node\|per_node" lean/Layer*/*.lean
 
 ### Background
 
-CDT (Constraint-Digest Tagging): FG gates use parity digests to tag constraints. This ensures each failed test eliminates exactly ONE configuration (WC-1 property).
+CDT (Constraint-Digest Tagging): FG gates use R-bit identity digests to tag constraints. This ensures each failed test eliminates exactly ONE configuration (WC-1 property).
 
 **Paper Reference**: Appendix C.2.a, Lemma CDT-1'
 
@@ -1858,13 +1858,13 @@ theorem world_commit_refutation_excludes_one
 **Method**:
 ```lean
 -- CDT: Constraint-Digest Tagging
--- Uses FG parity digest to create unique tags
+-- Uses FG R-bit identity digest to create unique tags
 
 -- Actual Lean: CDT is implemented via CutConstraint types:
 -- inductive CutConstraint where
 --   | BitDetermination : ...  -- bit = value
 --   | ConfigMatch : ...       -- full config matches (injective!)
---   | DigestMatch : ...       -- parity digest matches
+--   | DigestMatch : ...       -- R-bit identity digest matches
 --   | UnitRefute : ...        -- single world excluded (WC-1)
 
 -- Key: ConfigMatch is INJECTIVE (unlike DigestMatch which has 2^63 collisions)
@@ -2023,7 +2023,7 @@ cd lean && lake env lean -c 'import Layer3_InformationBounds.WorldCommit.WorldCo
 
 #### VECTOR 9.8.7: Digest Uniqueness
 
-**Goal**: Verify parity digests are unique (no digest collisions)
+**Goal**: Verify R-bit identity digests are unique (no digest collisions)
 
 **Method**:
 ```lean

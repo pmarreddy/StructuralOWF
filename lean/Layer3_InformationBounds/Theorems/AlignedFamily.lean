@@ -118,7 +118,7 @@ theorem alignedCNFFamily_bounded_solutions : ∃ c, CNFFamily.BoundedSolutions a
     **Unique solution**: a(i) = true for all i < n
 
     **Domain-Constrained OWF implication**: For any preimage r' with plant(r') = plant(r),
-    if r' satisfies WellFormedRandomness (assignment-parity consistency), then
+    if r' satisfies WellFormedRandomness (assignment + R-bit digest consistency), then
     r'.assignment = r.assignment = all_true. This closes the "assignment correspondence"
     gap in the OWF security proof. -/
 theorem alignedCNFFamily_unique_solution (n : Nat) (h_n : n ≥ 128)

@@ -17,7 +17,7 @@ import Mathlib.Data.Finset.Basic
    - Pure function (no plant_n dependency)
    - Parameterized by numGates for consistency
 
-2. **WellFormedRandomness**: Predicate ensuring r.gateDigests match emergent config parities
+2. **WellFormedRandomness**: Predicate ensuring ALL R bits of r.gateDigests match emergent configs
    - Connects randomness to CNF structure
    - Non-circular (uses pure emergentConfigAtGate)
 
@@ -142,22 +142,22 @@ lemma emergentConfigAtGate_some_implies_gateIndex_bound
     Uses parameterized emergentConfigAtGate with numGates = r.gateDigests.length
     to ensure R computation matches plant_n exactly.
 
-    **Property**: r.gateDigests encodes the correct parities of emergent configurations
-    computed from r.assignment.
+    **Property**: r.gateDigests encodes ALL R bits of emergent configurations
+    computed from r.assignment (identity digest, not just parity).
 
     **NON-CIRCULAR**: Uses emergentConfigAtGate (pure function) instead of plant_n!
 
     **Meaning**: For each gate index i:
     - Compute emergent_cfg := emergentConfigAtGate φ numGates r.assignment i
       where numGates := r.gateDigests.length
-    - Require: r.gateDigests[i] encodes parity(emergent_cfg)
+    - Require: r.gateDigests[i] encodes ALL R bits of emergent_cfg (identity digest)
 
     **Implementation**: Pure function with no dependency on plant_n.
 
     **Mathematical Content**:
     - φ.satisfies r.assignment: The embedded assignment is a valid solution
-    - Digest consistency: For each FG gate i, the digest bits in r.gateDigests[i]
-      match the parity of the emergent configuration computed from r.assignment
+    - Digest consistency: For each FG gate i, ALL R bits in r.gateDigests[i]
+      match the emergent configuration computed from r.assignment (identity digest)
 
     **Why This Works**:
     - emergentConfigAtGate computes what the emergent config WOULD BE using R_of

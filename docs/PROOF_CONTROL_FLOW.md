@@ -348,7 +348,7 @@ theorem parity_requires_all_bits
 **Theorem Content**: Computing the parity of n bits requires observing ALL n bits. Any incomplete observation admits two configurations with identical observations but distinct parities.
 
 **Significance**: **Core information-theoretic barrier**. For the FG construction, this means:
-- To compute the FG digest (parity), the algorithm must observe all 2^R emergent configurations
+- To compute the FG digest (ALL R bits), the algorithm must observe all R emergent bits
 - Incomplete observation → cannot distinguish planted configuration from alternatives
 - Forces exhaustive exploration of configuration space
 
@@ -727,7 +727,7 @@ These branches provide essential technical infrastructure for the critical theor
    - Contrapositive: correctness for all configs → complete observation
    - Form used in Stage 4 for WitnessFinder correctness
 6. `seedLock_construction` (SeedLockProperties.lean)
-   - FG digest cryptographically locks decode operation until parity determination
+   - FG digest cryptographically locks decode operation until all R bits are determined
 7. `planted_hardness_by_construction` (NoBackdoorTheorem.lean)
    - Planted instances exhibit hardness by construction (no algorithmic backdoors)
    - Utilized by exponential profile via `planted_exponential_hardness_from_subset`

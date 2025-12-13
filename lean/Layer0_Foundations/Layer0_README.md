@@ -75,9 +75,9 @@ With FG: Identity digest depends on ALL emergent bits globally (non-cascading co
 → Must check each of 2^λ possibilities individually
 ```
 
-**Mechanism**: FrontierGate.lean (Layer 2) - digest = parity(emergent bits) wired into seeds.
+**Mechanism**: FrontierGate.lean (Layer 2) - digest = ALL R emergent bits (identity digest) wired into seeds.
 
-**Why It Works**: Global parity constraint couples all emergent bits → no local elimination possible.
+**Why It Works**: All R bits must match constraint couples all emergent bits → no local elimination possible.
 
 ---
 

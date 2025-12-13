@@ -831,7 +831,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     - `is_3sat`: All clauses have ≤ 3 literals (3-SAT constraint)
 - **Output**: Complete LStarInstanceFG structure (not just encoded bits)
 - **Construction**: Builds full DAG with R_v = nvars (exponential emergence profile)
-- **FG wiring**: Integrates parity digests into seed chain via FrontierGateConfig
+- **FG wiring**: Integrates R-bit identity digests into seed chain via FrontierGateConfig
 
 **Track A Refactor Note**: Now takes `r : Randomness φ.nvars` instead of `r : Randomness`.
 The parametric type ensures the assignment has exactly φ.nvars bits. The `AlignedCNFConstraints`
@@ -971,7 +971,7 @@ def Randomness.assignmentInf {nvars : Nat} (r : Randomness nvars) : AssignmentIn
 - **h_dgLen_pos**: Positivity ensures meaningful parity computation
 - **assignment**: FINITE satisfying assignment `Fin nvars → Bool` (exactly nvars bits)
 - **assignmentInf**: Extension to infinite for CNF evaluation (pads with false)
-- **gateDigests**: FG parity digests with parametric bit-width
+- **gateDigests**: FG R-bit identity digests (ALL R bits must match, not just parity)
 - **structuralBits**: Additional randomness for enumeration barrier
 - **h_sufficient_salts**: Ensures ≥64 bits for 2^64 enumeration barrier
 - **h_single_gate**: Enforces single-gate FG architecture at type level
@@ -982,7 +982,7 @@ def Randomness.assignmentInf {nvars : Nat} (r : Randomness nvars) : AssignmentIn
 - **FINITE encoding**: Parametric nvars enables proper bitstring encoding for complexity theory
 - **Parametric design**: dgLen enables both QP and Exponential profiles from same structure
 - **Enumeration barrier**: Structural bits force exponential configurations
-- **Non-leaking**: Public fields encode parity/salt only, not assignment bits
+- **Non-leaking**: Public fields encode R-bit digest/salt only, not assignment bits
 - **Single-gate invariant**: Type-level constraint ensures FG architecture consistency
 
 **Track A Refactor Note**: Previously `assignment : Nat → Bool` (infinite). Now `assignment : Assignment nvars`
@@ -993,23 +993,23 @@ witnesses must be finite bit strings in {0,1}^poly(n).
 
 ---
 
-### 3.3b GateDigest Structure (Parity Mechanism) ⭐ ADDED
+### 3.3b GateDigest Structure (R-bit Identity Digest Mechanism) ⭐ ADDED
 
 **Definition**: `GateDigest` (Layer2_StructuralOWF/FrontierGate/FrontierGate.lean)
 
 ```lean
 structure GateDigest where
   segmentBudget : Nat                      -- Minimum emergent bits required at gate
-  bits : Vector Bool segmentBudget         -- Concrete digest content (parity bits)
+  bits : Vector Bool segmentBudget         -- Concrete digest content (R emergence bits)
 ```
 
 **Mathematical Object**: FG gate digest specification
 - **segmentBudget**: Minimum number of emergent bits (R_v lower bound)
-- **bits**: Actual parity digest values to embed in seed chain
+- **bits**: Actual R-bit emergence values to embed in seed chain (all R bits, not just parity)
 
 **Why Critical**:
 - **Information bottleneck**: Digest size controls information hiding (larger = harder)
-- **Parity embedding**: The `bits` field contains computed parities (fgDigestBit results)
+- **R-bit embedding**: The `bits` field contains ALL R emergence bits (extracted via CutConstraint.extractBit)
 - **Budget enforcement**: `segmentBudget` ensures sufficient emergence for exponential bound
 
 **Theory**: Information hiding (cryptography) - digest as one-way compression
@@ -3031,7 +3031,7 @@ def computeDigest {n : Nat} (cfg : Fin (2^n)) : GateDigest :=
 
 **Mathematical Object**: Full FG digest structure from configuration
 - **Transparent**: Definitional computation (not axiomatic)
-- **Structure**: GateDigest with segment budget and single parity bit
+- **Structure**: GateDigest with segment budget and R emergence bits (all R bits, not just parity)
 
 **Why Moderate**: fgDigestBit is the core, this is wrapper infrastructure
 

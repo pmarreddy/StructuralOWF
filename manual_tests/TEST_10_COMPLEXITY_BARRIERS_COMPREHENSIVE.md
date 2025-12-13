@@ -684,8 +684,8 @@ The proof must contain specific elements that would NOT survive oracle addition.
 
 **Method**:
 ```lean
--- FG: parity digest at designated addresses
--- Requires reading ALL bits to verify parity
+-- FG: R-bit identity digest at designated addresses
+-- Requires reading ALL R bits to verify digest (identity, not just parity)
 -- Creates per-instance deterministic bounds
 
 -- Oracle could:
@@ -3285,9 +3285,9 @@ The proof relies on exact discrete constraints that break under algebraic extens
 
 **Method**:
 ```lean
--- FG parity: digest = XOR of bits
--- Must be EXACTLY equal (0 or 1)
--- No "approximate parity" makes sense
+-- FG digest: ALL R bits must match (identity digest)
+-- Each bit must be EXACTLY equal (0 or 1)
+-- No "approximate" matches possible - discrete constraint
 ```
 
 **Questions**:
@@ -3307,8 +3307,8 @@ The proof relies on exact discrete constraints that break under algebraic extens
 **Method**:
 ```lean
 -- WellFormedRandomness requires:
--- digest_bits = parity(emergent_config)
--- This is EXACT equality (not approximate)
+-- ALL R digest_bits = emergent_config bits (identity digest)
+-- This is EXACT equality (not approximate) for ALL R bits
 ```
 
 **Questions**:

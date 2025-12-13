@@ -477,10 +477,10 @@ noncomputable def plant_n (_n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nva
       let fg_end := clause_start + r.gateDigests.length  -- Single gate: fg_end = clause_start + 1
       (clause_start ≤ v.val) ∧ (v.val < fg_end)
 
-    -- Gate digest: Parity-based encoding from r.gateDigests (NON-LEAKING).
+    -- Gate digest: R-bit identity encoding from r.gateDigests (NON-LEAKING).
     --
-    -- **DESIGN**: Uses WellFormedRandomness parity data, NOT raw assignment bits.
-    -- - r.gateDigests contains parity of emergent configs (set by WellFormedRandomness)
+    -- **DESIGN**: Uses WellFormedRandomness R-bit data, NOT raw assignment bits.
+    -- - r.gateDigests contains ALL R bits of emergent configs (set by WellFormedRandomness)
     -- - This achieves NON-LEAK: no assignment bits exposed in public instance
     -- - Injectivity is on gateDigests, not assignments (weaker but sufficient)
     --
@@ -1405,7 +1405,7 @@ theorem plant_n_in_domain (φ : CNF) (r : Randomness φ.nvars)
     The digest length is set to (log₂ nvars)² to match the QP profile emergence rank.
 
     Note: This is structural parsing only, NOT validation.
-    The result may not satisfy WellFormedRandomness (parity, clause bounds, etc.).
+    The result may not satisfy WellFormedRandomness (R-bit digest match, clause bounds, etc.).
     Domain membership must still be checked via StructuralOWFDomain/InversionSuccess.
 
     Note: Requires nvars ≥ 4 for dgLen > 0. -/

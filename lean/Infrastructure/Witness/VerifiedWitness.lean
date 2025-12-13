@@ -1413,8 +1413,8 @@ Key difference:
   (minimal axiom - only gate config equality)
 
 Why this works:
-1. Gate config equality implies parity equality (configs have same parity bit)
-2. Parity equality implies digest equality (digests encode parities)
+1. Gate config equality implies all R bits match (configs have same emergence bits)
+2. R-bit equality implies digest equality (digests encode all R bits)
 3. No need for full assignment equality
 
 Migration path: Prefer this theorem over `assignment_eq_implies_parity_eq`.

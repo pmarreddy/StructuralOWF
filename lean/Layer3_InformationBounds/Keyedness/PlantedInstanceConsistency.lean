@@ -17,7 +17,7 @@ is tracked internally via WellFormedRandomness on the input randomness r.
 **Pure function separation**:
 ```
 emergentConfigAtGate φ a i : Pure function computing emergent config from φ and a
-WellFormedRandomness φ r   : Verifies r.gateDigests match computed parities
+WellFormedRandomness φ r   : Verifies ALL R bits of r.gateDigests match computed configs
 wellformed_randomness_exists : Constructive existence proof
 worldFromWitness            : Builds CutWorld from witness using internal parity data
 ```
@@ -178,13 +178,13 @@ lemma emergentConfigAtGate_some_of_valid_fg_gate
     1. Set r.assignment := a
     2. For each gate index i in 0..numGates:
        - Compute cfg := emergentConfigAtGate φ a i  (pure function!)
-       - Compute parity_bit := fgDigestBit cfg
-       - Set r.gateDigests[i] := encode_as_vector(parity_bit)
+       - Extract ALL R bits from cfg via CutConstraint.extractBit
+       - Set r.gateDigests[i] := vector of ALL R bits (identity digest)
     3. Return r
 
     Verification:
-    - By construction, r.gateDigests[i] = parity(emergentConfigAtGate φ a i)
-    - This is exactly WellFormedRandomness φ r!
+    - By construction, r.gateDigests[i] contains ALL R bits of emergentConfigAtGate φ a i
+    - This is exactly WellFormedRandomness φ r (which requires ALL R bits to match)!
     - QED
     ```
 
@@ -204,7 +204,7 @@ theorem wellformed_randomness_exists
     (h_dgLen_pos : dgLen > 0)
     (h_dgLen_ge_R : dgLen ≥ (Nat.log 2 φ.nvars)^2)  -- dgLen ≥ R for FG gates (QP profile)
     : ∃ r : Randomness φ.nvars, WellFormedRandomness φ r := by
-  -- Step 1: Construct r.gateDigests by computing parity for each gate
+  -- Step 1: Construct r.gateDigests by extracting ALL R bits for each gate
   -- Pass numGates to emergentConfigAtGate for type consistency
   let gateDigests : List (Vector Bool dgLen) :=
     List.ofFn (fun (i : Fin numGates) =>
@@ -350,7 +350,7 @@ theorem owf_randomness_is_wellformed
 
 **Architecture**: Non-circular well-formedness via pure functions.
 - `emergentConfigAtGate φ a gateIndex`: Computes emergent config from φ and a only
-- `WellFormedRandomness φ r`: Verifies parity consistency on internal randomness
+- `WellFormedRandomness φ r`: Verifies ALL R bits match emergent configs (identity digest)
 - `wellformed_randomness_exists`: Constructive proof of existence
 - `worldFromWitness`: Builds CutWorld from witness using internal parity data
 
