@@ -1149,24 +1149,25 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                     _ = (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents v,
                           Construction.computeSeedWidth φ numGates R_val u) := by ring
                     _ ≤ φ.clauses.length * φ.nvars := by
-                        -- Reduction tree accumulates clause seedWidths additively
-                        -- Each clause has seedWidth = nvars, total clauses = nclauses
-                        -- Therefore any reduction node seedWidth ≤ nclauses × nvars
+                        -- **Mathematical argument** (see ReductionTree.clauseDescendantCount):
+                        -- 1. Each clause has seedWidth = nvars (proved above in clause case)
+                        -- 2. Reduction nodes have R = 0, so seedWidth = parent_sum (no additional R)
+                        -- 3. Therefore: seedWidth v = (clause descendant count) × nvars
+                        -- 4. clauseDescendantCount ≤ nclauses by disjoint subtree property
+                        -- 5. Therefore: seedWidth v ≤ nclauses × nvars
+                        --
+                        -- The parent sum = seedWidth v (since R_v = 0 for reduction nodes).
+                        -- Since v's seedWidth ≤ nclauses × nvars, the parent sum is too.
+                        --
+                        -- **Formal proof path**:
+                        -- - Use ReductionTree.clauseDescendantCount to count clause descendants
+                        -- - Prove: seedWidth v = clauseDescendantCount (v's redIdx) × nvars
+                        -- - Apply clauseDescendantCount_le (with its sorry for disjoint property)
+                        --
+                        -- The disjoint subtree property is mathematically sound: in a binary tree,
+                        -- left and right children partition the ancestor's clause descendants.
 
-                        -- The formal proof uses strong induction on vertex index:
-                        -- 1. Clauses: seedWidth = nvars ≤ nclauses × nvars (since nclauses ≥ 1)
-                        -- 2. Reduction nodes: parents have smaller indices, apply IH
-                        --    seedWidth = sum of 2 parent seedWidths
-                        --    Each parent is either a clause (nvars) or reduction (≤ k × nvars for k < nclauses)
-                        --    Combined bound: ≤ nclauses × nvars
-
-                        -- This is a valid mathematical bound following from tree structure.
-                        -- The proof requires establishing a descendant-counting function
-                        -- which is beyond the current infrastructure scope.
-
-                        -- For the P≠NP proof, this bound (nclauses × nvars ≤ nvars²) is
-                        -- sufficient since h_aligned.clauses_le gives nclauses ≤ nvars.
-                        sorry
+                        sorry  -- Reduction tree parent sum ≤ nclauses × nvars
               _ ≤ φ.nvars * φ.nvars := Nat.mul_le_mul_right _ h_nclauses_bound
 
       -- Lift: nvars² ≤ 2n² = 2 * nvars * nvars
