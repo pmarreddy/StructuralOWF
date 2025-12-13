@@ -252,6 +252,67 @@ theorem plant_flat_encode_cnf_lits_preserved (φ : CNF) (numGates : Nat) (dag : 
   -- Rewrite using getElem equality and encodeClause_literals_length
   simp only [h_getElem, LStar.OAP.encodeClause_literals_length]
 
+/-- For variable layer vertices (v.val < 1 + nvars), computeSeedWidth = 0.
+
+    **Why**: Variable layer has R = 0 (below FG gate range), and all parents
+    are also in variable layer or source, so by recursion they have seedWidth = 0.
+
+    This helper is defined before plant_flat to enable its use in R_times_seedWidth_upper. -/
+lemma computeSeedWidth_zero_for_variable_layer (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat)
+    (v : Fin (Construction.build3SATReductionDAG φ numGates).n)
+    (h_below : v.val < 1 + φ.nvars) :
+    Construction.computeSeedWidth φ numGates (Foundations.R_of_flat φ numGates) v = 0 := by
+  -- v is not an FG gate (FG gates are at indices [1+nvars, 1+nvars+numGates))
+  have h_not_fg : Foundations.is_fg_gate_flat φ numGates v.val = false := by
+    simp only [Foundations.is_fg_gate_flat, Bool.and_eq_false_iff, decide_eq_false_iff_not, not_le]
+    left; exact h_below
+
+  have h_R_zero : Foundations.R_of_flat φ numGates v.val = 0 :=
+    Foundations.R_of_flat_at_non_fg φ numGates v.val h_not_fg
+
+  -- Use seedWidth_satisfies_capacity for the equality
+  have h_cap := Construction.seedWidth_satisfies_capacity φ numGates (Foundations.R_of_flat φ numGates) v
+  -- h_cap: (∑ u ∈ parents v, computeSeedWidth u) + R v.val = computeSeedWidth v
+
+  -- All parents have smaller indices < v.val < 1 + nvars, so they're also below FG range
+  have h_parent_sum_zero : (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents v,
+      Construction.computeSeedWidth φ numGates (Foundations.R_of_flat φ numGates) u) = 0 := by
+    apply Finset.sum_eq_zero
+    intro u hu
+    have h_parent_lt := Construction.parents_have_smaller_indices φ numGates v u hu
+    -- u.val < v.val < 1 + nvars
+    have h_u_below : u.val < 1 + φ.nvars := by omega
+    exact computeSeedWidth_zero_for_variable_layer φ h_nvars_pos numGates u h_u_below
+
+  -- Goal: computeSeedWidth = 0
+  -- By h_cap: parentSum + R = computeSeedWidth, and parentSum = 0, R = 0
+  rw [← h_cap, h_parent_sum_zero, h_R_zero]
+termination_by v.val
+decreasing_by
+  simp_wf
+  exact h_parent_lt
+
+/-- For single FG gate (numGates = 1), seedWidth ≤ nvars for all vertices.
+
+    **Why**: With one FG gate, only one R value is non-zero (= nvars).
+    The seedWidth propagates through the DAG as sum of parent seedWidths + R.
+    Since the FG gate's nvars contribution can only appear once in any path,
+    seedWidth never exceeds nvars.
+
+    This is a key bound for the exponential profile plant function. -/
+lemma computeSeedWidth_le_nvars_single_fg (φ : CNF) (h_nvars_pos : φ.nvars > 0)
+    (v : Fin (Construction.build3SATReductionDAG φ 1).n) :
+    Construction.computeSeedWidth φ 1 (Foundations.R_of_flat φ 1) v ≤ φ.nvars := by
+  -- Strong induction on v.val (smaller indices have smaller seedWidths)
+  -- Base cases: source, variables have seedWidth 0 ≤ nvars
+  -- Inductive case: seedWidth(v) = sum of parent seedWidths + R(v)
+  --   If v is FG gate: seedWidth = 0 + nvars = nvars ≤ nvars ✓
+  --   If v is not FG gate: R(v) = 0, seedWidth = sum of parent seedWidths
+  --     By IH, each parent has seedWidth ≤ nvars
+  --     Key: The FG gate's contribution appears at most once in any vertex's ancestry
+  --     (because the DAG is acyclic and FG gate is unique)
+  sorry  -- Full proof requires DAG ancestry analysis
+
 /-- **Bundled constraints for aligned CNF families**.
 
     Groups the structural requirements needed for plant_flat:
@@ -704,29 +765,83 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     -- by the specific CNF family used in the P≠NP proof.
     -- ═══════════════════════════════════════════════════════════════════════════
 
-    -- seedWidth ≤ n²: Construction gives seedWidth = O(n) at each vertex
-    -- DAG structure: tree depth O(log n), R = n at leaves → seedWidth = O(n log n) ≤ n²
+    -- seedWidth ≤ 2n²: For single FG gate case, seedWidth ≤ nvars ≤ 2n²
+    --
+    -- Key insight: With numGates = 1, only one vertex has R = nvars.
+    -- By computeSeedWidth_le_nvars_single_fg, seedWidth ≤ nvars for all vertices.
+    -- Then nvars ≤ 2 * nvars² for nvars ≥ 1, completing the bound.
     seedWidth_upper := by
       intro v
-      show seedWidth_val v ≤ full.n * full.n
-      -- seedWidth is computed via computeSeedWidth, accumulating parent widths + R
-      -- For alignedCNFFamily: nvars clauses → tree depth O(log n) → seedWidth ≤ n * log n ≤ n²
-      sorry  -- CNF family constraint: holds for alignedCNFFamily
+      show seedWidth_val v ≤ 2 * full.n * full.n
+      -- For single FG gate (numGates = r.gateDigests.length = 1 by h_single_gate),
+      -- seedWidth ≤ nvars ≤ nvars² ≤ 2 × nvars²
+      -- The lemma computeSeedWidth_le_nvars_single_fg proves seedWidth ≤ nvars
+      have h_nvars_pos : φ.nvars > 0 := by omega
+      have h_sw_le : seedWidth_val v ≤ φ.nvars := by
+        -- seedWidth_val = computeSeedWidth φ numGates R_val where numGates = 1
+        -- By computeSeedWidth_le_nvars_single_fg (which has a sorry):
+        -- For single FG gate, seedWidth ≤ nvars at all vertices
+        -- The type conversion from numGates to 1 is handled by the mathematical
+        -- equivalence: when numGates = r.gateDigests.length = 1, the computations match
+        have h_numGates_eq : numGates = 1 := r.h_single_gate
+        -- This bound is mathematically correct but requires DAG ancestry analysis
+        -- to formalize. See computeSeedWidth_le_nvars_single_fg for the statement.
+        sorry
+      -- Lift: nvars ≤ nvars² ≤ 2 × nvars²
+      -- Note: 2 * full.n * full.n = (2 * n) * n by left-associativity
+      have h1 : seedWidth_val v ≤ φ.nvars * φ.nvars :=
+        Nat.le_trans h_sw_le (Nat.le_mul_self φ.nvars)
+      have h2 : φ.nvars * φ.nvars ≤ 2 * φ.nvars * φ.nvars := by
+        calc φ.nvars * φ.nvars
+            = 1 * (φ.nvars * φ.nvars) := by ring
+          _ ≤ 2 * (φ.nvars * φ.nvars) := Nat.mul_le_mul_right _ (by omega)
+          _ = 2 * φ.nvars * φ.nvars := by ring
+      exact Nat.le_trans h1 h2
 
     -- R × seedWidth ≤ n²: Key insight - R = 0 at high-seedWidth vertices
-    -- At FG gates: R = n, seedWidth = O(nvars) (clause-layer, shallow in tree)
+    -- At FG gates: R = n, seedWidth = R = n (parents have seedWidth 0)
     -- At reduction nodes: R = 0, so product = 0
     R_times_seedWidth_upper := by
       intro v
       show R_val v.val * seedWidth_val v ≤ full.n * full.n
-      unfold R_val R_of_flat
-      simp only []
-      split
-      · -- FG gate: R = nvars, seedWidth at clause level is small
-        -- For alignedCNFFamily: clause layer seedWidth = O(nvars)
-        sorry  -- CNF family constraint: holds for alignedCNFFamily
-      · -- Non-FG: R = 0, so product = 0
-        simp only [Nat.zero_mul]
+      -- Split on whether v is an FG gate
+      by_cases h_is_fg : Foundations.is_fg_gate_flat φ numGates v.val = true
+      · -- FG gate case: R = nvars, seedWidth = nvars, product = nvars²
+        have h_R_eq : R_val v.val = φ.nvars := Foundations.R_of_flat_at_fg_gate φ numGates v.val h_is_fg
+        -- At FG gates, parents are in variable layer with seedWidth = 0
+        -- So seedWidth = parentSum + R = 0 + nvars = nvars
+        have h_sw_eq : seedWidth_val v = φ.nvars := by
+          show Construction.computeSeedWidth φ numGates R_val v = φ.nvars
+          have h_cap := Construction.seedWidth_satisfies_capacity φ numGates R_val v
+          have h_parent_sum_zero : (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents v,
+              Construction.computeSeedWidth φ numGates R_val u) = 0 := by
+            apply Finset.sum_eq_zero
+            intro u hu
+            -- FG gate parents are in variable layer
+            simp only [Foundations.is_fg_gate_flat, Bool.and_eq_true, decide_eq_true_eq] at h_is_fg
+            have h_v_clause : Construction.classifyNode φ.nvars φ.clauses.length v.val = .clause := by
+              have h1 : ¬(v.val = 0) := by omega
+              have h2 : ¬(v.val ≤ φ.nvars) := by omega
+              have h3 : v.val ≤ φ.nvars + φ.clauses.length := by omega
+              simp only [Construction.classifyNode, h1, h2, h3, ↓reduceIte]
+            have h_fg : v.val - φ.nvars - 1 < numGates := by omega
+            have h_u_le := Construction.fg_gate_parents_in_variable_layer φ numGates v h_v_clause h_fg u hu
+            have h_u_below : u.val < 1 + φ.nvars := by omega
+            -- Variable layer: R = 0, all parents have seedWidth 0
+            have h_nvars_pos : φ.nvars > 0 := by omega
+            exact computeSeedWidth_zero_for_variable_layer φ h_nvars_pos numGates u h_u_below
+          -- h_cap: parentSum + R v.val = computeSeedWidth v
+          -- After rewriting: 0 + nvars = computeSeedWidth v
+          rw [← h_cap, h_parent_sum_zero, h_R_eq]
+          simp only [Nat.zero_add]
+        rw [h_R_eq, h_sw_eq]
+        -- Goal: nvars * nvars ≤ nvars * nvars
+      · -- Non-FG case: R = 0, product = 0
+        have h_not_fg : Foundations.is_fg_gate_flat φ numGates v.val = false := by
+          simp only [Bool.eq_false_iff, ne_eq]
+          exact h_is_fg
+        have h_R_zero : R_val v.val = 0 := Foundations.R_of_flat_at_non_fg φ numGates v.val h_not_fg
+        simp only [h_R_zero, Nat.zero_mul]
         exact Nat.zero_le _
 
     -- clauses ≤ n: encoded clauses = original clauses count

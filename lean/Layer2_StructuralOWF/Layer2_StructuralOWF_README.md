@@ -27,7 +27,7 @@ Process: Plant(φ, r)
          1. Build DAG overlay from φ (variable → clause → reduction tree)
          2. Compute seed chain: Seed_v = Enc(parent_seeds, emergent_bits)
             Variable seeds determined by α
-         3. FrontierGate: digest = ⊕(emergence bits) — THE PARITY STEP
+         3. FrontierGate: digest = ALL R emergence bits (identity digest)
          4. Wire FG digest into downstream clause node seeds
          5. Output x* (contains structure + identity digests, NOT α)
 
@@ -37,7 +37,7 @@ Forward:  O(poly(n))              — seed chain propagation
 Backward: Ω(2^n) or Ω(n^{log n}) — must resolve all emergence bits
 ```
 
-**The Parity Barrier**: FrontierGate computes XOR (parity) over emergence bits. Parity retains only one bit of information from potentially many input bits. While individual bits can be recovered if all others are known, the construction ensures exponentially many emergence configurations map to the same parity value—an algorithm must distinguish among all 2^{n-1} configurations sharing a given parity, which requires observing the actual emergence bits, not just their parity.
+**The Identity Digest Barrier**: FrontierGate requires ALL R emergence bits to match (full identity digest, not 1-bit parity). The domain constraint `WellFormedRandomness` checks that every bit of `r.gateDigests` equals the corresponding bit of the emergent configuration. This creates the 2^R bottleneck: an algorithm must distinguish among all 2^R configurations (not 2^{R-1}), which requires resolving all R emergence bits.
 
 ### Trapdoor Structural OWF (enables Cryptomania)
 
@@ -200,14 +200,14 @@ clause_output = f(var_seeds) → maybe computable without resolving all variable
 **With FG**: Digest dependency creates irreducible information flow:
 ```
 clause_seeds depend on digest_fg
-digest_fg depends on ALL variable seeds (parity over n seeds)
+digest_fg depends on ALL variable seeds (full R-bit identity digest)
 → Cannot compute clause_seeds without resolving variable seeds
 → Forces information flow through the variable layer
 ```
 
-**Key Insight**: Parity is **maximally non-local**—changing ANY input bit flips output. Therefore:
-- Partial knowledge of variables insufficient (need all n seeds to compute digest)
-- Cannot shortcut via algebraic inference (parity has no exploitable structure)
+**Key Insight**: The identity digest is **maximally sensitive**—changing ANY emergence bit changes the digest. Therefore:
+- Partial knowledge of variables insufficient (need all R bits to match digest)
+- Cannot shortcut via algebraic inference (must resolve all bits, not just deduce them)
 - Result: Must actually read/resolve variable seeds → Way 3 blocked
 
 ### World Splitting
@@ -553,7 +553,7 @@ Plant determinism follows from **A4 (Closure)** property—seed chains are funct
 
 **A**: FG is **information-theoretic**, not cryptographic:
 - Does NOT use hash functions, PRGs, or crypto assumptions
-- Uses identity digest (simple XOR operation over GF(2))
+- Uses identity digest (ALL R bits must match, not cryptographic hash)
 - Security comes from **information conservation law** (must resolve bits), not computational hardness assumptions
 
 This makes the P≠NP proof **unconditional** (no crypto assumptions needed).

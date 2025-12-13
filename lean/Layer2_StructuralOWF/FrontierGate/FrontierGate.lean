@@ -1360,8 +1360,9 @@ structure LStarInstanceFG extends LStarInstanceFull where
   /-- R values bounded by n. For planted instances: R = n at FG gates, 0 elsewhere. -/
   R_upper : ∀ v, R v ≤ n
 
-  /-- seedWidth bounded by n². Reduction tree accumulates to O(n²). -/
-  seedWidth_upper : ∀ v, seedWidth v ≤ n * n
+  /-- seedWidth bounded by 2n². Reduction tree with depth ⌈log₂ nclauses⌉ accumulates
+      to at most 2^(⌈log₂ nclauses⌉) * nvars ≤ 2 * nclauses * nvars ≤ 2n² when nclauses ≤ n. -/
+  seedWidth_upper : ∀ v, seedWidth v ≤ 2 * n * n
 
   /-- R × seedWidth bounded by n². Key: R = 0 at high-seedWidth vertices. -/
   R_times_seedWidth_upper : ∀ v, R v * seedWidth v ≤ n * n

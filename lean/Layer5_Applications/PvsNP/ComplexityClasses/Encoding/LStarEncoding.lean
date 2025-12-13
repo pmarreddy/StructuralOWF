@@ -932,8 +932,8 @@ theorem encoding_linear_in_data : ∀ (r : RawLStarInstanceFG),
 theorem lstar_component_bounds (L : LStarInstanceFG) :
     -- R values (emergence ranks) bounded by dag.n
     (∀ v, L.R v ≤ L.dag.n) ∧
-    -- seedWidth bounded by dag.n² (grows through reduction tree)
-    (∀ v, L.seedWidth v ≤ L.dag.n * L.dag.n) ∧
+    -- seedWidth bounded by 2 × dag.n² (grows through reduction tree)
+    (∀ v, L.seedWidth v ≤ 2 * L.dag.n * L.dag.n) ∧
     -- R × seedWidth bounded by dag.n² (R = 0 at high-seedWidth vertices)
     (∀ v, L.R v * L.seedWidth v ≤ L.dag.n * L.dag.n) ∧
     -- encodedφ clauses bounded
@@ -952,11 +952,11 @@ theorem lstar_component_bounds (L : LStarInstanceFG) :
   · intro v
     calc L.R v ≤ L.n := L.R_upper v
       _ ≤ L.dag.n := h_n_le
-  -- (2) seedWidth v ≤ dag.n²: from seedWidth_upper (≤ L.n²) and h_n_le
+  -- (2) seedWidth v ≤ 2 × dag.n²: from seedWidth_upper (≤ 2 × L.n²) and h_n_le
   constructor
   · intro v
-    calc L.seedWidth v ≤ L.n * L.n := L.seedWidth_upper v
-      _ ≤ L.dag.n * L.dag.n := Nat.mul_le_mul h_n_le h_n_le
+    calc L.seedWidth v ≤ 2 * L.n * L.n := L.seedWidth_upper v
+      _ ≤ 2 * L.dag.n * L.dag.n := Nat.mul_le_mul (Nat.mul_le_mul (le_refl 2) h_n_le) h_n_le
   -- (3) R × seedWidth ≤ dag.n²: from R_times_seedWidth_upper
   constructor
   · intro v
@@ -1335,13 +1335,13 @@ theorem rawDataSize_poly_bound : ∀ (L : LStarInstanceFG),
     exact parents_foldl_bound n L.dag.parents
   have h5 : (toRawLStarInstanceFG L).base.seedWidth.length = n := by
     simp only [toRawLStarInstanceFG, toRawLStarInstanceFull, List.length_map, List.length_finRange, h_n]
-  -- Note: seedWidth bound is now n² (was n), so sum becomes n³ (was n²)
-  have h6 : (toRawLStarInstanceFG L).base.seedWidth.foldl (· + ·) 0 ≤ n * n * n := by
+  -- Note: seedWidth bound is now 2n² (was n²), so sum becomes 2n³
+  have h6 : (toRawLStarInstanceFG L).base.seedWidth.foldl (· + ·) 0 ≤ 2 * n * n * n := by
     simp only [toRawLStarInstanceFG, toRawLStarInstanceFull]
-    have h := mapped_foldl_sum_bound n (List.finRange n) L.seedWidth (n * n)
+    have h := mapped_foldl_sum_bound n (List.finRange n) L.seedWidth (2 * n * n)
       (List.length_finRange) (fun x _ => h_sw x)
-    -- Convert n * (n * n) to n * n * n (associativity)
-    have h_assoc : n * (n * n) = n * n * n := by ring
+    -- Convert n * (2 * n * n) to 2 * n * n * n (associativity)
+    have h_assoc : n * (2 * n * n) = 2 * n * n * n := by ring
     linarith
   have h7 : (toRawLStarInstanceFG L).base.R.length = n := by
     simp only [toRawLStarInstanceFG, toRawLStarInstanceFull, List.length_map, List.length_finRange, h_n]
@@ -1379,11 +1379,11 @@ theorem rawDataSize_poly_bound : ∀ (L : LStarInstanceFG),
   --   Count: 1+1+1+1+1+1+1+1+3+1+1 = 13n
   -- Quadratic terms (n²): h4 has n², h8≤n², h10 has n², h15≤3n², h18≤2n²
   --   Count: 1+1+1+3+2 = 8n²
-  -- Cubic terms (n³): h4 has n³, h6≤n³, h10 has 2n³
-  --   Count: 1+1+2 = 4n³
+  -- Cubic terms (n³): h4 has n³, h6≤2n³, h10 has 2n³
+  --   Count: 1+2+2 = 5n³
   -- Plus stride as separate constant
-  -- Total: ≤ 13n + 8n² + 4n³ + stride
-  have h_sum : rawDataSize (toRawLStarInstanceFG L) ≤ 13 * n + 8 * n * n + 4 * n * n * n + L.pools.stride := by
+  -- Total: ≤ 13n + 8n² + 5n³ + stride
+  have h_sum : rawDataSize (toRawLStarInstanceFG L) ≤ 13 * n + 8 * n * n + 5 * n * n * n + L.pools.stride := by
     -- Define abbreviations for components (abstract away structure access)
     let c1 := (toRawLStarInstanceFG L).base.n
     let c2 := (toRawLStarInstanceFG L).base.dag.n
@@ -1409,7 +1409,7 @@ theorem rawDataSize_poly_bound : ∀ (L : LStarInstanceFG),
     have b3 : c3 ≤ n := le_of_eq h3
     have b4 : c4 ≤ n * n + n * n * n := h4
     have b5 : c5 ≤ n := le_of_eq h5
-    have b6 : c6 ≤ n * n * n := h6
+    have b6 : c6 ≤ 2 * n * n * n := h6
     have b7 : c7 ≤ n := le_of_eq h7
     have b8 : c8 ≤ n * n := h8
     have b9 : c9 ≤ n := le_of_eq h9
@@ -1427,10 +1427,10 @@ theorem rawDataSize_poly_bound : ∀ (L : LStarInstanceFG),
         c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13 + c14 + c15 + c16 + c17 + c18 := rfl
     -- Separate stride from polynomial part
     have h_stride_eq : c11 = L.pools.stride := rfl
-    -- Sum of bounds (excluding stride): 13n + 8n² + 4n³
+    -- Sum of bounds (excluding stride): 13n + 8n² + 5n³
     -- Build explicit bound on sum without stride
     have h_bound : c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c12 + c13 + c14 + c15 + c16 + c17 + c18
-        ≤ n + n + n + (n * n + n * n * n) + n + n * n * n + n + n * n + n + (n * n + 2 * n * n * n) + n + n + 3 * n + 3 * n * n + n + n + 2 * n * n := by
+        ≤ n + n + n + (n * n + n * n * n) + n + 2 * n * n * n + n + n * n + n + (n * n + 2 * n * n * n) + n + n + 3 * n + 3 * n * n + n + n + 2 * n * n := by
       -- Apply Nat.add_le_add repeatedly
       apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add
       apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add
@@ -1439,42 +1439,42 @@ theorem rawDataSize_poly_bound : ∀ (L : LStarInstanceFG),
       exact b1; exact b2; exact b3; exact b4; exact b5; exact b6; exact b7; exact b8
       exact b9; exact b10; exact b12; exact b13; exact b14; exact b15; exact b16; exact b17
       exact b18
-    have h_simplify : n + n + n + (n * n + n * n * n) + n + n * n * n + n + n * n + n + (n * n + 2 * n * n * n) + n + n + 3 * n + 3 * n * n + n + n + 2 * n * n
-        = 13 * n + 8 * n * n + 4 * n * n * n := by ring
+    have h_simplify : n + n + n + (n * n + n * n * n) + n + 2 * n * n * n + n + n * n + n + (n * n + 2 * n * n * n) + n + n + 3 * n + 3 * n * n + n + n + 2 * n * n
+        = 13 * n + 8 * n * n + 5 * n * n * n := by ring
     -- rawDataSize = (sum without stride) + stride
     have h_split : c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13 + c14 + c15 + c16 + c17 + c18
         = (c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c12 + c13 + c14 + c15 + c16 + c17 + c18) + c11 := by ring
     rw [h_eq, h_split]
     calc (c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c12 + c13 + c14 + c15 + c16 + c17 + c18) + c11
-        ≤ (n + n + n + (n * n + n * n * n) + n + n * n * n + n + n * n + n + (n * n + 2 * n * n * n) + n + n + 3 * n + 3 * n * n + n + n + 2 * n * n) + c11 :=
+        ≤ (n + n + n + (n * n + n * n * n) + n + 2 * n * n * n + n + n * n + n + (n * n + 2 * n * n * n) + n + n + 3 * n + 3 * n * n + n + n + 2 * n * n) + c11 :=
           Nat.add_le_add_right h_bound c11
-      _ = (13 * n + 8 * n * n + 4 * n * n * n) + c11 := by rw [h_simplify]
-      _ = 13 * n + 8 * n * n + 4 * n * n * n + L.pools.stride := by rw [h_stride_eq]
-  -- 13n + 8n² + 4n³ ≤ 300 * (n+1)³
+      _ = (13 * n + 8 * n * n + 5 * n * n * n) + c11 := by rw [h_simplify]
+      _ = 13 * n + 8 * n * n + 5 * n * n * n + L.pools.stride := by rw [h_stride_eq]
+  -- 13n + 8n² + 5n³ ≤ 300 * (n+1)³
   -- (n+1)³ = n³ + 3n² + 3n + 1, so 300(n+1)³ = 300n³ + 900n² + 900n + 300
-  -- Coefficient check: 4 ≤ 300, 8 ≤ 900, 13 ≤ 900, 0 ≤ 300 ✓
-  have h_final : 13 * n + 8 * n * n + 4 * n * n * n ≤ 300 * (n + 1) ^ 3 := by
+  -- Coefficient check: 5 ≤ 300, 8 ≤ 900, 13 ≤ 900, 0 ≤ 300 ✓
+  have h_final : 13 * n + 8 * n * n + 5 * n * n * n ≤ 300 * (n + 1) ^ 3 := by
     -- Prove by showing coefficient comparison
     have h_expand : 300 * (n + 1) ^ 3 = 300 * n * n * n + 900 * n * n + 900 * n + 300 := by ring
     rw [h_expand]
-    -- Now prove: 13n + 8n² + 4n³ ≤ 300n³ + 900n² + 900n + 300
-    have h1 : 4 * n * n * n ≤ 300 * n * n * n := by
-      have step1 : 4 * n ≤ 300 * n := Nat.mul_le_mul_right n (by decide : 4 ≤ 300)
-      have step2 : 4 * n * n ≤ 300 * n * n := Nat.mul_le_mul_right n step1
+    -- Now prove: 13n + 8n² + 5n³ ≤ 300n³ + 900n² + 900n + 300
+    have h1 : 5 * n * n * n ≤ 300 * n * n * n := by
+      have step1 : 5 * n ≤ 300 * n := Nat.mul_le_mul_right n (by decide : 5 ≤ 300)
+      have step2 : 5 * n * n ≤ 300 * n * n := Nat.mul_le_mul_right n step1
       exact Nat.mul_le_mul_right n step2
     have h2 : 8 * n * n ≤ 900 * n * n := by
       have step1 : 8 * n ≤ 900 * n := Nat.mul_le_mul_right n (by decide : 8 ≤ 900)
       exact Nat.mul_le_mul_right n step1
     have h3 : 13 * n ≤ 900 * n := Nat.mul_le_mul_right n (by decide : 13 ≤ 900)
     have h4 : (0 : Nat) ≤ 300 := by decide
-    calc 13 * n + 8 * n * n + 4 * n * n * n
-        = 4 * n * n * n + 8 * n * n + 13 * n + 0 := by ring
+    calc 13 * n + 8 * n * n + 5 * n * n * n
+        = 5 * n * n * n + 8 * n * n + 13 * n + 0 := by ring
       _ ≤ 300 * n * n * n + 900 * n * n + 900 * n + 300 := by
         apply Nat.add_le_add; apply Nat.add_le_add; apply Nat.add_le_add
         exact h1; exact h2; exact h3; exact h4
   -- Connect n to L.dag.n for final goal
   calc rawDataSize (toRawLStarInstanceFG L)
-      ≤ 13 * n + 8 * n * n + 4 * n * n * n + L.pools.stride := h_sum
+      ≤ 13 * n + 8 * n * n + 5 * n * n * n + L.pools.stride := h_sum
     _ ≤ 300 * (n + 1) ^ 3 + L.pools.stride := Nat.add_le_add_right h_final L.pools.stride
     _ = 300 * (L.dag.n + 1) ^ 3 + L.pools.stride := by rw [← h_n]
 

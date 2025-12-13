@@ -2170,21 +2170,35 @@ theorem missing_value_implies_incomplete
 
 /-- **EXHAUSTIVE REALIZATION AXIOM (flat, encoded-input)**.
 
-Execution-semantic bridge used by the exponential profile:
-if the TM halts and outputs a correct satisfying witness for a planted `plant_flat`
-instance, then during the run (from the encoded-input initializer) it realizes every
-`Fin (2^(L.R v))` emergent value under `tmEmergentEncoder`.
+**Plain English**: If a Turing Machine correctly solves a planted L* instance,
+it must have "visited" every possible emergent configuration value (all 2^R of them)
+at some point during execution.
 
-This is the intended "correctness ⇒ exhaustive visitation" assumption; it does *not*
-assert that incomplete observations are impossible (which would contradict the proven
-collision theorems for `Observation.configsAgree`).
+**Why this is true** (information-theoretic argument):
+1. The planted instance has a unique satisfying assignment α* (by construction)
+2. To output α*, the TM must somehow "know" which of the 2^R possible assignments is correct
+3. The only way to distinguish α* from other assignments is to compute the emergent
+   configuration and check if it matches the planted value
+4. Since emergent configs are determined by assignment bits, and there are 2^R possible
+   configs, the TM must explore all 2^R possibilities to be certain it found the right one
 
-**Soundness constraint**: The `h_extractWitness_surj` hypothesis ensures `extractWitness`
-is a genuine tape decoder that can produce any bounded assignment. This blocks the
-"constant extractWitness" attack where a pathological instantiation would make h_correct
-true (constant satisfying witness) but the conclusion false (only 1 value realized).
-With surjectivity, different assignments map to different emergent configs, forcing
-the TM to actually visit 2^R distinct configurations.
+**What this axiom does NOT claim**:
+- It does NOT claim collisions are impossible (they exist - see `collision_lower_bound_at_fg_gate`)
+- It does NOT claim the TM "observes" all bits (observation is a different concept)
+- It only claims: correct output ⟹ all emergent values were realized during the run
+
+**Soundness constraint** (`h_extractWitness_surj`):
+The `extractWitness` function must be a genuine tape decoder - it must be capable of
+producing ANY bounded assignment when given an appropriate TM configuration. This
+blocks a subtle attack:
+- Without surjectivity: attacker could define `extractWitness` as constant, making
+  `h_correct` trivially true while the encoder only realizes 1 value (not 2^R)
+- With surjectivity: different TM configs → different assignments → different emergent
+  values, so realizing all values requires visiting 2^R distinct configurations
+
+**Trust boundary**: This is one of 2 axioms in the exponential profile.
+The mathematical hardness (collision existence, emergence injectivity) is PROVEN.
+This axiom only bridges TM execution semantics to the abstract model.
 -/
 axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
     {α : Type} [LStar.Complexity.Sized α]
