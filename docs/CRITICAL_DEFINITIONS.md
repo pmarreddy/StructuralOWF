@@ -170,14 +170,23 @@ structure CNF where
   clauses : List Clause    -- Conjunction (all must be satisfied)
   nvars_pos : nvars > 0    -- Non-triviality invariant
 
-def Assignment := Nat → Bool  -- Truth assignment σ: variable → value
+-- FINITE assignment (Track A refactor): exactly n bits, encodable as {0,1}^n
+def Assignment (n : Nat) := Fin n → Bool
+
+-- INFINITE assignment: for internal CNF evaluation (extends finite by false)
+def AssignmentInf := Nat → Bool
+
+-- Extension: finite → infinite (pad with false beyond nvars)
+def Assignment.extend {n : Nat} (a : Assignment n) : AssignmentInf :=
+  fun i => if h : i < n then a ⟨i, h⟩ else false
 ```
 
 **Mathematical Object**: Conjunctive Normal Form representation
 - **Literal**: Variable xᵥ or negation ¬xᵥ
 - **Clause**: Disjunction C = l₁ ∨ l₂ ∨ ... ∨ lₖ (at least one literal true)
 - **CNF**: Conjunction φ = C₁ ∧ C₂ ∧ ... ∧ Cₘ (all clauses satisfied)
-- **Assignment**: Total function Nat → Bool (infinite, but only first nvars matter)
+- **Assignment n**: FINITE function `Fin n → Bool` (exactly n bits, encodable as bitstring)
+- **AssignmentInf**: Infinite function `Nat → Bool` (for internal CNF evaluation)
 
 **Why Critical**:
 - **Problem representation**: L* instances embed 3-SAT formulas
@@ -793,25 +802,40 @@ def PeqNP_parametric : Prop :=
 
 **Theory Connection**: One-way functions (Diffie-Hellman 1976), cryptographic hardness
 
-### 3.1 One-Way Function Construction
+### 3.1 One-Way Function Construction ⭐ UPDATED (Track A Refactor)
 
 **Definition**: `plant_flat` (Layer2_StructuralOWF/Plant/PlantExponential.lean)
 
 ```lean
-noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4) : LStarInstanceFG :=
+-- PARAMETRIC: r : Randomness φ.nvars (Track A refactor)
+-- AlignedCNFConstraints bundles clause count and 3-SAT constraints
+structure AlignedCNFConstraints (φ : CNF) : Prop where
+  clauses_le : φ.clauses.length ≤ φ.nvars    -- Clause count bound
+  is_3sat : ∀ c ∈ φ.clauses, c.literals.length ≤ 3  -- 3-SAT constraint
+
+noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
+    (h_nvars_min : φ.nvars ≥ 4)
+    (h_aligned : AlignedCNFConstraints φ)  -- Bundled CNF well-formedness
+    : LStarInstanceFG :=
   let numGates := r.gateDigests.length
   let R_val := Foundations.R_of_flat φ numGates
-  let dag := build3SATReductionDAG φ numGates
-  let seedWidth_val := fun v : Fin dag.n =>
-    Construction.computeSeedWidth φ numGates R_val v
   -- [Full construction of LStarInstanceFG with FG wiring]
 ```
 
 **Mathematical Object**: Planted L* instance constructor (exponential profile)
-- **Input**: CNF formula φ, randomness r, precondition h_nvars_min : φ.nvars ≥ 4
+- **Input**: CNF formula φ, randomness `r : Randomness φ.nvars` (PARAMETRIC), preconditions
+- **Preconditions**:
+  - `h_nvars_min`: φ.nvars ≥ 4 (non-trivial instance)
+  - `h_aligned`: `AlignedCNFConstraints φ` bundled structure containing:
+    - `clauses_le`: φ.clauses.length ≤ φ.nvars (clause count bound)
+    - `is_3sat`: All clauses have ≤ 3 literals (3-SAT constraint)
 - **Output**: Complete LStarInstanceFG structure (not just encoded bits)
 - **Construction**: Builds full DAG with R_v = nvars (exponential emergence profile)
 - **FG wiring**: Integrates parity digests into seed chain via FrontierGateConfig
+
+**Track A Refactor Note**: Now takes `r : Randomness φ.nvars` instead of `r : Randomness`.
+The parametric type ensures the assignment has exactly φ.nvars bits. The `AlignedCNFConstraints`
+structure bundles clause count and 3-SAT constraints to guarantee proper CNF well-formedness.
 
 **Why Critical**:
 - **OWF construction**: This IS the one-way function (returns full instance, not encoding)
@@ -819,6 +843,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min
 - **Exponential profile**: Maximum hardness (vs quasi-polynomial plant_n)
 - **Deterministic**: Full closure (A4) property ensures deterministic seed propagation
 - **Primary hardness**: Instance exponential-time hardness directly implies P≠NP
+- **FINITE encoding**: Parametric nvars enables proper bitstring encoding for complexity theory
 
 **Design Note - OWF Output Type**: The plant_flat function returns `LStarInstanceFG` (the full planted instance structure), not encoded bits. This is the standard approach for parametrized OWFs:
 - **Construction level**: plant_flat builds complete instance with all internal structure
@@ -835,7 +860,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min
 
 **This Construction**:
 - f_φ : D(φ) → LStarInstanceFG where φ is public CNF formula
-- Domain: D(φ) = { r | WellFormedRandomness φ r } (includes φ.satisfies r.assignment)
+- Domain: D(φ) = { r : Randomness φ.nvars | WellFormedRandomness φ r } (includes φ.satisfies r.assignmentInf)
 - Inversion success: f(r') = y AND r' ∈ D(φ) (both checks poly-time)
 - Total extension: f_total : {0,1}* → Option LStarInstanceFG via parseBits
 
@@ -918,29 +943,34 @@ fgDigestBit = true
 
 ---
 
-### 3.3a Randomness Structure (OWF Input) ⭐ ADDED
+### 3.3a Randomness Structure (OWF Input) ⭐ UPDATED (Track A Refactor)
 
 **Definition**: `Randomness` (Layer2_StructuralOWF/FrontierGate/RandomnessTypes.lean)
 
 ```lean
-abbrev Assignment := Nat → Bool
-
-structure Randomness where
+-- PARAMETRIC by nvars (Track A refactor): enables finite, encodable witnesses
+structure Randomness (nvars : Nat) where
   dgLen : Nat                                -- Parametric digest length (profile-dependent)
   h_dgLen_pos : dgLen > 0                    -- Positivity constraint
-  assignment : Assignment                    -- Satisfying assignment for embedded 3-SAT
+  assignment : Assignment nvars              -- FINITE: exactly nvars bits, encodable as {0,1}^nvars
   gateDigests : List (Vector Bool dgLen)     -- FG gate digests (parametric length)
   structuralBits : List Bool                 -- Cryptographic salts
   h_sufficient_salts : structuralBits.length ≥ 64  -- Salt length for 2^64 enumeration barrier
   h_single_gate : gateDigests.length = 1     -- Single gate constraint (FG architecture)
+
+-- Convert finite assignment to infinite for CNF evaluation
+def Randomness.assignmentInf {nvars : Nat} (r : Randomness nvars) : AssignmentInf :=
+  r.assignment.extend
 ```
 
 **Mathematical Object**: Complete randomness input for Plant function f: r ↦ x*
+- **nvars parameter**: Structure is parametric by variable count (enables finite encoding)
 - **dgLen**: Parametric digest length - scales with security profile:
   - QP profile: dgLen = (log₂ n)² (quasi-polynomial)
   - Exponential profile: dgLen = 64 (fixed, sufficient for collision resistance)
 - **h_dgLen_pos**: Positivity ensures meaningful parity computation
-- **assignment**: Satisfying assignment for φ (embedded witness)
+- **assignment**: FINITE satisfying assignment `Fin nvars → Bool` (exactly nvars bits)
+- **assignmentInf**: Extension to infinite for CNF evaluation (pads with false)
 - **gateDigests**: FG parity digests with parametric bit-width
 - **structuralBits**: Additional randomness for enumeration barrier
 - **h_sufficient_salts**: Ensures ≥64 bits for 2^64 enumeration barrier
@@ -949,10 +979,15 @@ structure Randomness where
 **Why Critical**:
 - **OWF preimage**: This is what the adversary tries to find (inverting Plant)
 - **Witness embedding**: r.assignment IS the satisfying assignment (extraction trivial!)
+- **FINITE encoding**: Parametric nvars enables proper bitstring encoding for complexity theory
 - **Parametric design**: dgLen enables both QP and Exponential profiles from same structure
 - **Enumeration barrier**: Structural bits force exponential configurations
 - **Non-leaking**: Public fields encode parity/salt only, not assignment bits
 - **Single-gate invariant**: Type-level constraint ensures FG architecture consistency
+
+**Track A Refactor Note**: Previously `assignment : Nat → Bool` (infinite). Now `assignment : Assignment nvars`
+(finite, `Fin nvars → Bool`). This is required for proper complexity-theoretic formalization where
+witnesses must be finite bit strings in {0,1}^poly(n).
 
 **Theory**: Randomized construction (cryptography) - structured randomness for OWF
 
@@ -981,17 +1016,21 @@ structure GateDigest where
 
 ---
 
-### 3.4 Well-Formed Randomness (Circularity Breaking)
+### 3.4 Well-Formed Randomness (Exponential Profile) ⭐ UPDATED (Track A Refactor)
 
-**Definition**: `WellFormedRandomness` (Layer3_InformationBounds/ConstraintSystem/EmergentConfig.lean)
+**Definition**: `WellFormedRandomness_flat` (Layer2_StructuralOWF/Plant/PlantExponential.lean)
 
 ```lean
-def WellFormedRandomness (φ : CNF) (r : Randomness) : Prop :=
+-- PARAMETRIC: r : Randomness φ.nvars (Track A refactor)
+-- Exponential profile: includes CNF.WellFormed + dgLen ≥ nvars
+def WellFormedRandomness_flat (φ : CNF) (r : Randomness φ.nvars) : Prop :=
   let numGates := r.gateDigests.length
-  φ.satisfies r.assignment ∧
+  φ.WellFormed ∧  -- CNF well-formedness: all literal indices < nvars
+  φ.satisfies r.assignmentInf ∧  -- Use extended (infinite) assignment for satisfiability check
   φ.clauses.length ≥ numGates ∧
+  r.dgLen ≥ φ.nvars ∧  -- EXPONENTIAL REQUIREMENT: digest has n bits
   ∀ (i : Nat) (h : i < numGates),
-    match emergentConfigAtGate φ φ.nvars_pos numGates r.assignment i with
+    match emergentConfigAtGate_flat φ φ.nvars_pos numGates r.assignmentInf i with
     | none => True  -- No gate at this index, no requirement
     | some ⟨R, cfg⟩ =>
         let digest := r.gateDigests.get ⟨i, h⟩
@@ -1001,15 +1040,26 @@ def WellFormedRandomness (φ : CNF) (r : Randomness) : Prop :=
 ```
 
 **Mathematical Object**: Predicate defining when randomness is well-formed
-- **Check 1**: r.assignment satisfies φ (valid SAT witness)
+- **φ.WellFormed**: All literal indices < nvars (CNF validity)
+- **φ.nvars constraint**: Randomness is parametric by `φ.nvars` (type-level connection to CNF)
+- **assignmentInf**: Uses extended infinite assignment for satisfiability check
+- **r.dgLen ≥ φ.nvars**: Digest has n bits for R = n exponential barrier
+- **Check 1**: r.assignmentInf satisfies φ (valid SAT witness)
 - **Check 2**: Architectural constraint φ.clauses.length ≥ numGates (sufficient clauses for gates)
 - **Check 3**: ALL R bits of FG digest match emergent configuration (creates 2^R bottleneck)
 
+**Track A Refactor Note**: Now takes `r : Randomness φ.nvars` instead of `r : Randomness`. Uses
+`r.assignmentInf` (infinite extension) for CNF satisfaction checks since `CNF.satisfies` expects
+`Nat → Bool`. The finite assignment `r.assignment : Fin φ.nvars → Bool` is extended by padding
+with `false` beyond `φ.nvars`.
+
 **Why Critical**:
-- **Breaks OWF circularity**: Plant(φ, r) depends on well-formed r, but WellFormedRandomness is defined WITHOUT calling Plant!
-- **Pure function check**: emergentConfigAtGate is pure (no Plant dependency) → non-circular verification
+- **Main proof path**: `StructuralOWFBridge.lean` uses `WellFormedRandomness_flat`
+- **Breaks OWF circularity**: Plant(φ, r) depends on well-formed r, but WellFormedRandomness_flat is defined WITHOUT calling Plant!
+- **Pure function check**: emergentConfigAtGate_flat is pure (no Plant dependency) → non-circular verification
+- **CNF validity enforced**: Ensures all literal indices are valid
+- **Exponential barrier**: dgLen ≥ nvars ensures 2^n information bottleneck
 - **Constructive existence**: Can construct well-formed r and PROVE it's well-formed
-- **Axiom elimination**: Replaces "assume well-formed randomness exists" with proven construction
 
 **Circularity Problem**:
 ```
@@ -1018,8 +1068,8 @@ OLD (circular):
   But: How to verify r without calling Plant? → Circular!
 
 NEW (non-circular):
-  WellFormedRandomness(φ, r) = check without Plant
-  emergentConfigAtGate: pure φ-based computation
+  WellFormedRandomness_flat(φ, r) = check without Plant
+  emergentConfigAtGate_flat: pure φ-based computation
   Therefore: Can verify BEFORE Plant construction ✓
 ```
 
@@ -1059,27 +1109,39 @@ structure FrontierGateConfig (L : LStarInstanceFull) where
 
 ---
 
-### 3.6 Witness Structure ⭐ CORRECTED
+### 3.6 Witness Structure ⭐ UPDATED (Track A Refactor)
 
 **Definition**: `Witness` (Layer2_StructuralOWF/FrontierGate/RandomnessTypes.lean)
 
 ```lean
-structure Witness where
-  assignment : Assignment  -- Nat → Bool (concrete assignment)
+-- PARAMETRIC by nvars (Track A refactor): enables finite, encodable witnesses
+structure Witness (nvars : Nat) where
+  assignment : Assignment nvars  -- FINITE: exactly nvars bits, encodable as {0,1}^nvars
   gateProofs : List GateProofItem  -- Gate verification data
   digestBits : List Bool  -- FG digest bits
+
+-- Convert finite assignment to infinite for CNF evaluation
+def Witness.assignmentInf {nvars : Nat} (w : Witness nvars) : AssignmentInf :=
+  w.assignment.extend
 ```
 
 **Mathematical Object**: Concrete witness for L* instance with FG verification data
-- **Assignment**: Concrete satisfying assignment (Nat → Bool, not CNF → assignment)
+- **nvars parameter**: Structure is parametric by variable count (enables finite encoding)
+- **Assignment**: FINITE satisfying assignment `Fin nvars → Bool` (exactly nvars bits)
+- **assignmentInf**: Extension to infinite for CNF evaluation (pads with false)
 - **Gate proofs**: List of (gateVertex, position, value) triples for FG verification
 - **Digest bits**: Flattened gate digest bits for all FG gates
 
 **Why Critical**:
 - **NP witness**: The "hidden information" that makes L* ∈ NP
+- **FINITE encoding**: Parametric nvars enables proper bitstring encoding for complexity theory
 - **Extraction target**: Extractor recovers witness from Plant output and randomness
 - **Inversion reduction**: OWF inverter → witness extractor → contradiction
 - **FG-specific**: Includes gate verification data (not just SAT assignment)
+
+**Track A Refactor Note**: Previously `assignment : Nat → Bool` (infinite). Now `assignment : Assignment nvars`
+(finite, `Fin nvars → Bool`). This is required for proper complexity-theoretic formalization where
+witnesses must be finite bit strings in {0,1}^poly(n).
 
 **Design Note**: This is MORE specific than a universal SAT witness - includes FG-specific verification data that enables polynomial-time verification of the L* instance.
 
@@ -1087,13 +1149,14 @@ structure Witness where
 
 ---
 
-### 3.7 Extractor (Witness Recovery) ⭐ CORRECTED
+### 3.7 Extractor (Witness Recovery) ⭐ UPDATED (Track A Refactor)
 
 **Definition**: `extract` (Layer2_StructuralOWF/Extractor/Extractor.lean)
 
 ```lean
-def extract (L : LStarInstanceFG) (r : Randomness) : Witness :=
-  { assignment := r.assignment
+-- PARAMETRIC by nvars (Track A refactor): preserves finite encoding
+def extract {nvars : Nat} (L : LStarInstanceFG) (r : Randomness nvars) : Witness nvars :=
+  { assignment := r.assignment  -- Direct: finite assignment passes through
     gateProofs :=
       (List.finRange L.dag.n).flatMap (fun v : Fin L.dag.n =>
         let idx := v.val
@@ -1110,8 +1173,9 @@ def extract (L : LStarInstanceFG) (r : Randomness) : Witness :=
 ```
 
 **Mathematical Object**: Direct witness extraction from randomness structure
-- **Input**: LStarInstanceFG instance L and randomness r (where plant(r) = L)
-- **Output**: Witness record with assignment + gate proofs + digest bits
+- **nvars parameter**: Implicit, inferred from `Randomness nvars` input
+- **Input**: LStarInstanceFG instance L and randomness `r : Randomness nvars` (where plant(r) = L)
+- **Output**: `Witness nvars` record with FINITE assignment + gate proofs + digest bits
 - **Method**: Direct field extraction (not complex decoding)
 
 **Why Critical**:
@@ -1119,6 +1183,10 @@ def extract (L : LStarInstanceFG) (r : Randomness) : Witness :=
 - **Reduction core**: If ∃ polynomial-time Plant inverter → ∃ polynomial-time SAT solver
 - **FNP membership**: Proves L* ∈ FNP (witness recoverable in polynomial time)
 - **Simple extraction**: No complex decoding needed - just repackage randomness fields
+- **FINITE preservation**: Parametric nvars ensures output witness is finite and encodable
+
+**Track A Refactor Note**: Now parametric in nvars. Input `Randomness nvars` directly yields
+output `Witness nvars` - the finite assignment passes through unchanged.
 
 **Design Rationale**: Since OWF inverter provides randomness r (not just output), extraction is trivial - the witness is literally embedded in r. This is SIMPLER than decoding from output bits.
 
@@ -2777,11 +2845,16 @@ def cast {k1 k2 : Nat} (h : k1 = k2) (s : Seed k1) : Seed k2 :=
 **Definition**: `Assignment` (Layer0_Foundations/Base/CNF.lean)
 
 ```lean
-def Assignment := Nat → Bool
+-- FINITE assignment (Track A refactor): exactly n bits
+def Assignment (n : Nat) := Fin n → Bool
+
+-- INFINITE assignment: for internal CNF evaluation
+def AssignmentInf := Nat → Bool
 ```
 
 **Mathematical Object**: Truth assignment to Boolean variables
-- **Standard**: Maps variable indices to truth values
+- **Assignment n**: FINITE function `Fin n → Bool` (exactly n bits, encodable)
+- **AssignmentInf**: Infinite function `Nat → Bool` (for internal evaluation)
 - **Usage**: Core semantic object for SAT satisfaction
 
 **Why Moderate**: Semantic foundation, but CNF structure is more critical
