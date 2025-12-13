@@ -292,28 +292,6 @@ decreasing_by
   simp_wf
   exact h_parent_lt
 
-/-- For single FG gate with flat R-profile, clause vertices have seedWidth = nvars.
-
-    **Why**:
-    - FG gate: parents are variables (seedWidth 0), so seedWidth = 0 + R = nvars
-    - Non-FG clauses: parents include FG gate (seedWidth nvars), R = 0, so seedWidth = nvars
-
-    **Note**: Reduction tree nodes can have seedWidth > nvars (they accumulate clause seedWidths).
-    The bound seedWidth ≤ nclauses × nvars holds for ALL vertices.
-
-    **Proof complexity**: The full proof requires Finset sum decomposition over parent sets.
-    It splits the sum into variable parents (contributing 0) and FG parent (contributing nvars). -/
-lemma clause_seedWidth_eq_nvars (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat)
-    (h_single : numGates = 1)
-    (v : Fin (Construction.build3SATReductionDAG φ numGates).n)
-    (h_clause : 1 + φ.nvars ≤ v.val ∧ v.val ≤ φ.nvars + φ.clauses.length)
-    (h_clauses_pos : φ.clauses.length > 0) :
-    Construction.computeSeedWidth φ numGates (Foundations.R_of_flat φ numGates) v = φ.nvars := by
-  -- The proof involves showing parentSum + R = nvars at clause level
-  -- FG gate: parentSum = 0 (variables), R = nvars → seedWidth = nvars
-  -- Non-FG clause: parentSum = nvars (FG gate), R = 0 → seedWidth = nvars
-  sorry  -- Clause seedWidth equality (DAG parent sum analysis)
-
 /-- **Bundled constraints for aligned CNF families**.
 
     Groups the structural requirements needed for plant_flat:
@@ -874,20 +852,321 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                   ≤ φ.nvars := by
                     -- Non-FG clause: seedWidth = parentSum ≤ nvars
                     -- The parent sum = FG contribution (nvars) + variable contributions (0)
-                    sorry  -- Non-FG clause seedWidth = nvars (parent sum decomposition)
+
+                    -- Step 1: Establish numGates = 1
+                    have h_numGates_eq : numGates = 1 := r.h_single_gate
+
+                    -- Step 2: v is a clause node (not variable, not source)
+                    have h_v_clause : Construction.classifyNode φ.nvars φ.clauses.length v.val = .clause := by
+                      have h1 : ¬(v.val = 0) := by omega
+                      have h2 : ¬(v.val ≤ φ.nvars) := by omega
+                      have h3 : v.val ≤ φ.nvars + φ.clauses.length := h_clause
+                      simp only [Construction.classifyNode, h1, h2, h3, ↓reduceIte]
+
+                    -- Step 3: Non-FG means clause_num ≥ numGates = 1
+                    -- is_fg_gate_flat = (clause_start ≤ v) && (v < fg_end)
+                    -- fg_end = min (clause_start + numGates) (clause_start + nclauses)
+                    -- With numGates = 1 and nclauses ≥ 1: fg_end = clause_start + 1 = nvars + 2
+                    -- Non-FG: v ≥ fg_end = nvars + 2, so v - nvars - 1 ≥ 1 = numGates
+
+                    -- First establish nclauses ≥ 1 (since v is a clause in [1+nvars, nvars+nclauses])
+                    have h_nclauses_pos : φ.clauses.length ≥ 1 := by
+                      have h1 : 1 + φ.nvars ≤ v.val := by omega
+                      have h2 : v.val ≤ φ.nvars + φ.clauses.length := h_clause
+                      omega
+
+                    have h_not_fg_idx : v.val - φ.nvars - 1 ≥ numGates := by
+                      -- h_not_fg : is_fg_gate_flat = false
+                      -- Unfold and analyze directly
+                      unfold Foundations.is_fg_gate_flat at h_not_fg
+                      -- h_not_fg : (decide (1 + nvars ≤ v) && decide (v < fg_end)) = false
+                      simp only [Bool.and_eq_false_iff, decide_eq_false_iff_not, not_le, not_lt] at h_not_fg
+                      rcases h_not_fg with h_below | h_ge_fg_end
+                      · -- h_below : v.val < 1 + nvars contradicts h_var
+                        omega
+                      · -- h_ge_fg_end : v.val ≥ fg_end
+                        -- fg_end = min (1 + nvars + numGates) (1 + nvars + nclauses)
+                        -- With numGates = 1 and nclauses ≥ 1: fg_end = nvars + 2
+                        rw [h_numGates_eq]
+                        -- min (1 + nvars + 1) (1 + nvars + nclauses) = nvars + 2 since nclauses ≥ 1
+                        have h_fg_end_eq : min (1 + φ.nvars + 1) (1 + φ.nvars + φ.clauses.length) = φ.nvars + 2 := by
+                          omega
+                        simp only [h_numGates_eq, h_fg_end_eq] at h_ge_fg_end
+                        omega
+
+                    -- Step 4: FG gate is at index φ.nvars + 1 (gate_idx = 0, numGates = 1)
+                    let fg_gate_idx := φ.nvars + 1
+                    have h_fg_gate_in_dag : fg_gate_idx < (Construction.build3SATReductionDAG φ numGates).n := by
+                      unfold Construction.build3SATReductionDAG Construction.totalNodes
+                      simp only [Construction.reductionTreeSize]
+                      omega
+
+                    -- Step 5: FG gate is a parent of v
+                    let fg_gate : Fin (Construction.build3SATReductionDAG φ numGates).n :=
+                      ⟨fg_gate_idx, h_fg_gate_in_dag⟩
+                    have h_fg_in_parents : fg_gate ∈ (Construction.build3SATReductionDAG φ numGates).parents v := by
+                      have h_gate_0 : (0 : Nat) < numGates := by rw [h_numGates_eq]; omega
+                      have h_gate_in_dag' : φ.nvars + 1 + 0 < (Construction.build3SATReductionDAG φ numGates).n := by
+                        simp only [Nat.add_zero]; exact h_fg_gate_in_dag
+                      have := Construction.non_fg_clause_parents_include_fg φ numGates v h_v_clause h_not_fg_idx 0 h_gate_0 h_gate_in_dag'
+                      simp only [Nat.add_zero] at this
+                      exact this
+
+                    -- Step 6: FG gate has seedWidth = nvars
+                    have h_fg_seedWidth : Construction.computeSeedWidth φ numGates R_val fg_gate = φ.nvars := by
+                      have h_fg_is_fg : Foundations.is_fg_gate_flat φ numGates fg_gate.val = true := by
+                        -- is_fg_gate_flat = (clause_start ≤ v) && (v < fg_end)
+                        -- where fg_end = min (clause_start + numGates) (clause_start + nclauses)
+                        -- For fg_gate at nvars + 1 with numGates = 1:
+                        -- 1) 1 + nvars ≤ nvars + 1 ✓
+                        -- 2) nvars + 1 < min (nvars + 2) (nvars + 1 + nclauses) = nvars + 2 ✓ (since nclauses ≥ 1)
+                        simp only [Foundations.is_fg_gate_flat, fg_gate, fg_gate_idx,
+                          Bool.and_eq_true, decide_eq_true_eq]
+                        have h_nclauses_pos : φ.clauses.length ≥ 1 := by
+                          have : 1 + φ.nvars ≤ v.val := by omega
+                          have : v.val ≤ φ.nvars + φ.clauses.length := h_clause
+                          omega
+                        constructor
+                        · omega  -- 1 + nvars ≤ nvars + 1
+                        · -- Need: nvars + 1 < min (1 + nvars + numGates) (1 + nvars + nclauses)
+                          -- With numGates = 1 and nclauses ≥ 1: min = nvars + 2
+                          -- Goal: nvars + 1 < nvars + 2 ✓
+                          rw [h_numGates_eq]
+                          have : min (1 + φ.nvars + 1) (1 + φ.nvars + φ.clauses.length) = φ.nvars + 2 := by omega
+                          omega
+                      have h_fg_R : R_val fg_gate.val = φ.nvars :=
+                        Foundations.R_of_flat_at_fg_gate φ numGates fg_gate.val h_fg_is_fg
+                      have h_fg_cap := Construction.seedWidth_satisfies_capacity φ numGates R_val fg_gate
+                      have h_fg_parent_sum_zero : (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents fg_gate,
+                          Construction.computeSeedWidth φ numGates R_val u) = 0 := by
+                        apply Finset.sum_eq_zero
+                        intro u hu
+                        have h_fg_clause : Construction.classifyNode φ.nvars φ.clauses.length fg_gate.val = .clause := by
+                          simp only [fg_gate, fg_gate_idx, Construction.classifyNode]
+                          have h1 : ¬(φ.nvars + 1 = 0) := by omega
+                          have h2 : ¬(φ.nvars + 1 ≤ φ.nvars) := by omega
+                          have h3 : φ.nvars + 1 ≤ φ.nvars + φ.clauses.length := by omega
+                          simp only [h1, h2, h3, ↓reduceIte]
+                        have h_fg_idx : fg_gate.val - φ.nvars - 1 < numGates := by
+                          simp only [fg_gate, fg_gate_idx]; rw [h_numGates_eq]; omega
+                        have h_u_le := Construction.fg_gate_parents_in_variable_layer φ numGates fg_gate h_fg_clause h_fg_idx u hu
+                        have h_u_below : u.val < 1 + φ.nvars := by omega
+                        exact computeSeedWidth_zero_for_variable_layer φ h_nvars_pos numGates u h_u_below
+                      rw [← h_fg_cap, h_fg_parent_sum_zero, h_fg_R]
+                      simp only [Nat.zero_add]
+
+                    -- Step 7: All non-FG parents have seedWidth = 0 (they are variables)
+                    have h_other_parents_zero : ∀ u ∈ (Construction.build3SATReductionDAG φ numGates).parents v,
+                        u ≠ fg_gate → Construction.computeSeedWidth φ numGates R_val u = 0 := by
+                      intro u hu h_ne
+                      -- u is either a variable parent (from base_parents) or the FG gate
+                      -- Since u ≠ fg_gate and numGates = 1, u must be a variable
+                      -- Variable parents have index ≤ nvars, hence seedWidth = 0
+                      have h_u_var : u.val < 1 + φ.nvars := by
+                        -- The parent structure for non-FG clauses is: base_parents ++ fg_indices
+                        -- base_parents has indices ≤ nvars (variable indices)
+                        -- fg_indices = [nvars + 1] (single FG gate)
+                        -- Since u ≠ fg_gate (which has index nvars + 1), u must be in base_parents
+                        by_contra h_not_var
+                        push_neg at h_not_var
+                        -- u.val ≥ 1 + nvars
+                        -- Since u is a parent of clause v and not a variable, u must be the FG gate
+                        -- (parents are either variables or FG gates for non-FG clauses)
+                        have h_u_parent := Construction.parents_have_smaller_indices φ numGates v u hu
+                        -- u.val < v.val, and v is a clause at index > nvars
+                        -- If u.val ≥ 1 + nvars and u is a parent of v, then:
+                        -- - u is in the clause range [nvars+1, nvars+nclauses]
+                        -- - Specifically, u must be in fg_indices since parents = base_parents ++ fg_indices
+                        -- - With numGates = 1, fg_indices = [nvars + 1], so u.val = nvars + 1 = fg_gate.val
+                        -- This contradicts h_ne
+                        have h_u_eq_fg : u = fg_gate := by
+                          -- Parents of non-FG clause v are: clauseParents (indices ≤ nvars) and fg_indices
+                          -- u.val ≥ 1 + nvars means u ∉ clauseParents, so u ∈ fg_indices
+                          -- fg_indices = [nvars + 1] (since numGates = 1), so u.val = nvars + 1
+                          apply Fin.ext
+                          -- Need to show u.val = fg_gate.val = nvars + 1
+
+                          -- Access the parent structure
+                          simp only [Construction.build3SATReductionDAG, List.mem_toFinset] at hu
+                          rw [List.mem_filterMap] at hu
+                          obtain ⟨idx, h_idx_mem, h_idx_eq⟩ := hu
+                          rw [List.mem_filter] at h_idx_mem
+                          obtain ⟨h_in_parents, _⟩ := h_idx_mem
+                          split at h_idx_eq
+                          · case isTrue h_valid =>
+                            simp only [Option.some.injEq] at h_idx_eq
+                            have h_idx_eq_val : idx = u.val := by simp only [← h_idx_eq]
+                            rw [h_idx_eq_val] at h_in_parents
+
+                            -- Analyze computeParents for v
+                            unfold Construction.computeParents at h_in_parents
+                            simp only [h_v_clause] at h_in_parents
+
+                            have h_clause_bound : v.val - φ.nvars - 1 < φ.clauses.length := by
+                              have ⟨_, h_v_le⟩ := Construction.classifyNode_clause_bounds φ.nvars φ.clauses.length v.val h_v_clause
+                              omega
+                            simp only [h_clause_bound, ↓reduceDIte] at h_in_parents
+
+                            -- Non-FG case: ¬ (v.val - nvars - 1 < numGates)
+                            have h_not_fg_check : ¬ (v.val - φ.nvars - 1 < numGates) := by omega
+                            simp only [h_not_fg_check, ↓reduceIte] at h_in_parents
+
+                            -- h_in_parents : u.val ∈ base_parents ++ fg_indices
+                            simp only [List.mem_append] at h_in_parents
+                            cases h_in_parents with
+                            | inl h_in_base =>
+                              -- u ∈ clauseParents means u.val ≤ nvars
+                              unfold Construction.clauseParents at h_in_base
+                              simp only [List.mem_filter] at h_in_base
+                              have h_u_le_nvars : u.val ≤ φ.nvars := of_decide_eq_true h_in_base.2
+                              omega  -- Contradicts h_not_var: u.val ≥ 1 + nvars
+                            | inr h_in_fg =>
+                              -- u ∈ fg_indices = List.range numGates |>.map (· + nvars + 1)
+                              simp only [List.mem_map, List.mem_range] at h_in_fg
+                              obtain ⟨gate_idx, h_gate_bound, h_u_eq⟩ := h_in_fg
+                              -- gate_idx < numGates = 1, so gate_idx = 0
+                              have h_gate_idx_zero : gate_idx = 0 := by rw [h_numGates_eq] at h_gate_bound; omega
+                              simp only [h_gate_idx_zero, Nat.add_zero] at h_u_eq
+                              -- u.val = nvars + 1 = fg_gate.val
+                              simp only [fg_gate, fg_gate_idx]
+                              omega
+                          · case isFalse => simp at h_idx_eq
+                        exact absurd h_u_eq_fg h_ne
+                      exact computeSeedWidth_zero_for_variable_layer φ h_nvars_pos numGates u h_u_var
+
+                    -- Step 8: Use Finset.sum_eq_single_of_mem to compute parent sum
+                    have h_parent_sum_eq : (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents v,
+                        Construction.computeSeedWidth φ numGates R_val u) = φ.nvars := by
+                      rw [Finset.sum_eq_single_of_mem fg_gate h_fg_in_parents h_other_parents_zero]
+                      exact h_fg_seedWidth
+
+                    -- Step 9: Conclude seedWidth v = nvars
+                    show seedWidth_val v ≤ φ.nvars
+                    have h_sw_eq : seedWidth_val v = φ.nvars := by
+                      show Construction.computeSeedWidth φ numGates R_val v = φ.nvars
+                      rw [← h_cap, h_parent_sum_eq, h_R_zero]
+                      simp only [Nat.add_zero]
+                    rw [h_sw_eq]
                 _ ≤ φ.nvars * φ.nvars := Nat.le_mul_self φ.nvars
           · -- Reduction tree: seedWidth ≤ nclauses × nvars
             -- Reduction nodes have R = 0 and combine child seedWidths
             -- Max at root = sum of all clause seedWidths = nclauses × nvars
             calc seedWidth_val v
                 ≤ φ.clauses.length * φ.nvars := by
-                  -- For reduction tree nodes:
-                  -- seedWidth = sum of child seedWidths
-                  -- Children are either clauses (seedWidth = nvars each)
-                  -- or reduction nodes (seedWidth ≤ k × nvars where k = # descendant clauses)
-                  -- Root has k = nclauses, so seedWidth ≤ nclauses × nvars
-                  -- Interior nodes have k < nclauses, so also ≤ nclauses × nvars
-                  sorry  -- Reduction tree: seedWidth ≤ nclauses × nvars
+                  -- Key insight: reduction tree has nclauses - 1 internal nodes combining nclauses clauses
+                  -- Each clause has seedWidth = nvars, so root seedWidth = nclauses × nvars
+
+                  -- Bound argument: seedWidth at any reduction node ≤ nclauses × nvars
+                  -- because it's bounded by the sum of ALL clause seedWidths (at root),
+                  -- and any interior node accumulates a subset.
+
+                  -- Use the structural bound: v is in reduction tree, so v.val > nvars + nclauses
+                  have h_v_reduction : v.val > φ.nvars + φ.clauses.length := by omega
+
+                  -- For reduction tree, R = 0
+                  -- is_fg_gate_flat = (1 + nvars ≤ v) && (v < fg_end)
+                  -- fg_end = min (1 + nvars + numGates) (1 + nvars + nclauses)
+                  -- For reduction tree: v > nvars + nclauses ≥ fg_end, so v ≥ fg_end (second part false)
+                  have h_R_zero : R_val v.val = 0 := by
+                    apply Foundations.R_of_flat_at_non_fg
+                    simp only [Foundations.is_fg_gate_flat, Bool.and_eq_false_iff,
+                      decide_eq_false_iff_not, not_le, not_lt]
+                    right  -- Show v ≥ fg_end
+                    -- fg_end = min (1 + nvars + numGates) (1 + nvars + nclauses)
+                    -- v.val > nvars + nclauses (from h_v_reduction)
+                    -- We need: v.val ≥ min (1 + nvars + numGates) (1 + nvars + nclauses)
+                    -- Since v.val > nvars + nclauses ≥ nvars + 1 (nclauses ≥ 1 for reduction tree)
+                    -- And fg_end ≤ 1 + nvars + nclauses
+                    -- We have v.val > nvars + nclauses ≥ fg_end - 1, so v.val ≥ fg_end
+                    have h_fg_end_le : min (1 + φ.nvars + numGates) (1 + φ.nvars + φ.clauses.length) ≤ 1 + φ.nvars + φ.clauses.length := by
+                      exact Nat.min_le_right _ _
+                    omega
+
+                  -- seedWidth = parentSum + 0 = parentSum
+                  have h_cap := Construction.seedWidth_satisfies_capacity φ numGates R_val v
+
+                  -- Reduction tree nodes have exactly 2 parents (their children in tree terms)
+                  -- Parents have smaller indices, and by transitivity, seedWidth accumulates
+                  -- from clause level where each clause contributes nvars
+
+                  -- Direct bound: use nclauses × nvars as an upper bound
+                  -- This works because:
+                  -- 1. Total R in system = nvars (only at FG gate)
+                  -- 2. Each clause has seedWidth = nvars (proved above)
+                  -- 3. Reduction tree sums clause seedWidths without adding more R
+                  -- 4. Max sum at root = nclauses × nvars
+
+                  -- Use the fact that nclauses ≥ 2 for reduction tree to exist
+                  -- (if nclauses ≤ 1, ReductionTree.size = 0 and there are no reduction nodes)
+                  have h_nclauses_ge_2 : φ.clauses.length ≥ 2 := by
+                    -- v is in reduction tree, which only exists when nclauses > 1
+                    -- ReductionTree.size nclauses = if nclauses ≤ 1 then 0 else nclauses - 1
+                    -- v.val > nvars + nclauses and v.val < totalNodes
+                    -- totalNodes = 1 + nvars + nclauses + ReductionTree.size nclauses
+                    -- If nclauses ≤ 1, then ReductionTree.size = 0
+                    -- So v.val < 1 + nvars + nclauses + 0 = 1 + nvars + nclauses
+                    -- But v.val > nvars + nclauses, so v.val ≥ nvars + nclauses + 1
+                    -- This contradicts v.val < 1 + nvars + nclauses unless nclauses ≥ 2
+                    by_contra h_lt_2
+                    push_neg at h_lt_2
+                    have h_nclauses_le_1 : φ.clauses.length ≤ 1 := by omega
+                    have h_tree_size_zero : Construction.reductionTreeSize φ.clauses.length = 0 := by
+                      simp only [Construction.reductionTreeSize, ReductionTree.size]
+                      simp only [h_nclauses_le_1, ↓reduceIte]
+                    have h_v_lt : v.val < Construction.totalNodes φ.nvars φ.clauses.length := v.isLt
+                    unfold Construction.totalNodes at h_v_lt
+                    simp only [h_tree_size_zero, Nat.add_zero] at h_v_lt
+                    omega
+
+                  -- Simple upper bound: seedWidth ≤ nclauses × nvars
+                  -- This is loose but sufficient for our nvars² bound
+                  -- For a tighter proof, we'd track descendant clause counts
+                  -- But nclauses × nvars ≤ nvars² (since nclauses ≤ nvars by h_aligned)
+                  -- gives us what we need
+
+                  -- Use a direct structural bound
+                  -- The seedWidth at v accumulates from clauses through the tree
+                  -- Each clause contributes nvars
+                  -- Total clause count = nclauses
+                  -- So seedWidth ≤ nclauses × nvars
+
+                  -- This follows from the tree structure:
+                  -- - Clauses: seedWidth = nvars
+                  -- - Reduction level 1: combines pairs of clauses, seedWidth = 2×nvars for full pairs
+                  -- - Higher levels: combine previous level, seedWidth grows additively
+                  -- - Root: sum of all = nclauses × nvars
+
+                  -- For now, use the global bound that total seedWidth flow ≤ nclauses × nvars
+                  -- since all seedWidth ultimately comes from clauses (each with nvars)
+                  -- and reduction nodes just sum without adding more
+
+                  calc seedWidth_val v
+                      = (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents v,
+                          Construction.computeSeedWidth φ numGates R_val u) + R_val v.val := by
+                        exact h_cap.symm
+                    _ = (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents v,
+                          Construction.computeSeedWidth φ numGates R_val u) + 0 := by rw [h_R_zero]
+                    _ = (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents v,
+                          Construction.computeSeedWidth φ numGates R_val u) := by ring
+                    _ ≤ φ.clauses.length * φ.nvars := by
+                        -- Reduction tree accumulates clause seedWidths additively
+                        -- Each clause has seedWidth = nvars, total clauses = nclauses
+                        -- Therefore any reduction node seedWidth ≤ nclauses × nvars
+
+                        -- The formal proof uses strong induction on vertex index:
+                        -- 1. Clauses: seedWidth = nvars ≤ nclauses × nvars (since nclauses ≥ 1)
+                        -- 2. Reduction nodes: parents have smaller indices, apply IH
+                        --    seedWidth = sum of 2 parent seedWidths
+                        --    Each parent is either a clause (nvars) or reduction (≤ k × nvars for k < nclauses)
+                        --    Combined bound: ≤ nclauses × nvars
+
+                        -- This is a valid mathematical bound following from tree structure.
+                        -- The proof requires establishing a descendant-counting function
+                        -- which is beyond the current infrastructure scope.
+
+                        -- For the P≠NP proof, this bound (nclauses × nvars ≤ nvars²) is
+                        -- sufficient since h_aligned.clauses_le gives nclauses ≤ nvars.
+                        sorry
               _ ≤ φ.nvars * φ.nvars := Nat.mul_le_mul_right _ h_nclauses_bound
 
       -- Lift: nvars² ≤ 2n² = 2 * nvars * nvars
