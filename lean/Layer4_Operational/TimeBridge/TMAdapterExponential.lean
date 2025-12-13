@@ -22,7 +22,7 @@ import Layer3_InformationBounds.SegmentReduction.SegmentBoundaries  -- For Const
 
 /-! ## TMAdapterExponential: Exponential Time Lower Bound via Semantic Derivation
 
-**Main Theorem**: `fg_first_commit_time_lower_bound`
+**Main Theorem**: `fg_first_commit_time_lower_bound_encoded`
 
 **Statement**: For any correct Turing Machine solving a planted L* instance with
 Frontier Gate wiring, the execution time satisfies:
@@ -47,9 +47,9 @@ The derivation proceeds in three steps:
 3. **Cardinality implies time bound**: Visiting k distinct states requires at least
    k time steps. This is a fundamental property of deterministic computation.
 
-**Axiom**: `collision_indistinguishability_under_incomplete_observation`
-- Formalizes information-theoretic bound: complete exploration of 2^R configs required
-- Based on A2 injectivity: different configs → different seeds
+**Axiom**: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (declared below)
+- Execution-semantic bridge: correct output on planted instance forces exploration of all `2^R` emergent values
+- This avoids any planted-specific claim about `Observation.configsAgree` (which is purely bitwise)
 
 **References**:
 - Shannon (1948): "A Mathematical Theory of Communication"
@@ -64,7 +64,7 @@ open Classical
 -- Exponential profile namespace: Wrap all definitions to avoid conflicts with TMAdapter.lean
 namespace FlatProfile
 
-/- **Collision Indistinguishability Axiom**: Information-Theoretic Lower Bound
+/- **Exhaustive Realization Axiom**: Execution-Semantic Lower Bound
 
 **Statement**: A Turing machine that fails to visit some emergent configuration value
 during execution cannot produce a correct satisfying assignment for the planted instance.
@@ -87,8 +87,8 @@ From A2 injectivity: different configs → different seeds. This means:
 - `fg_correctness_requires_complete_observation`: Correctness requires complete observation
 
 **Axiomatized Content**:
-The TM-to-observation correspondence: T execution steps can visit at most T distinct
-configuration encodings. This is fundamental TM operational semantics.
+The missing link is execution semantics: “TM outputs a correct witness on a planted instance”
+⇒ “the run realizes every `Fin (2^R)` emergent value”.
 
 **Uniformity Scope** (CRITICAL):
 
@@ -472,28 +472,18 @@ theorem simple_canonical_planted_prefix_valid_flat
   · -- revealedBits = []
     rfl
 
-/-- **CORE SEMANTIC AXIOM**: Collision impossibility for planted flat instances.
+/-!
+NOTE (2025-12): A previous axiom here claimed that for *planted* instances,
+`obs.isIncomplete` rules out the existence of distinct `cfg1 ≠ cfg2` with
+`obs.configsAgree cfg1 cfg2`.
 
-    **Statement**: For planted instances, if an observation is incomplete,
-    there cannot exist two distinct configurations that agree on all observed bits.
+That statement is inconsistent with the proven `collision_lower_bound_at_fg_gate`
+(Layer3) because `Observation.configsAgree` depends only on the observed bit indices
+and `R`, not on how `L` was constructed.
 
-    **Why this is the semantic core**:
-    - `collision_lower_bound_at_fg_gate` PROVES such configs exist for generic instances
-    - This axiom asserts they DON'T exist for PLANTED instances specifically
-    - The planted construction (via A2 injectivity) blocks these collisions
-
-    **Trust boundary**: This is one of 2 axioms in the exponential profile.
-    The other is `algspec_has_tm` (Church-Turing bridge).
+The exponential profile’s trust boundary should instead be an execution-semantic bridge
+(correct output ⇒ exhaustive realization), declared near the time-bound lemmas below.
 -/
-axiom planted_collision_impossibility_flat
-    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars) (h_wf : WellFormedRandomness_flat φ r)
-    (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val)
-    (h_incomplete : obs.isIncomplete)
-    (cfg1 cfg2 : Fin (2^(L.R v.val)))
-    (h_agree : obs.configsAgree cfg1 cfg2)
-    (h_collision : cfg1 ≠ cfg2)
-    : False
 
 /-- **Property 2 from validity**: computedConfigs come from emergentConfigAtGate_flat. -/
 theorem property2_from_validity_flat
@@ -676,18 +666,11 @@ theorem property1_from_validity_flat
     rw [h_synth_empty] at h_synth
     exact List.not_mem_nil h_synth
 
-/-- **PROVEN THEOREM**: Execution prefix compatibility for plant_flat (exponential profile).
+/-- Execution prefix compatibility for `plant_flat` (exponential profile).
 
-    **Refactored from axiom**: 5 of 6 properties are now proven from ValidExecutionPrefix_flat.
-    Only Property 4 (collision impossibility) remains as the core semantic axiom.
-
-    **Properties**:
-    - Property 1: DigestMatches → computedConfigs (PROVEN from validity + extractConstraints structure)
-    - Property 2: computedConfigs → emergentConfigAtGate (PROVEN - direct from validity)
-    - Property 3: emergentConfigAtGate → computedConfigs (PROVEN - direct from validity)
-    - Property 4: Collision impossibility (AXIOM - planted_collision_impossibility_flat)
-    - Property 5: π.revealedBits = [] (PROVEN - direct from validity)
-    - Property 6: Bit observation determinism (PROVEN - vacuously true)
+All packaged properties here are derived from `ValidExecutionPrefix_flat`.
+This intentionally omits any planted-specific “collision impossibility under incomplete
+observation” claim (see note above).
 -/
 theorem executionPrefix_compatible_with_planted_flat :
   ∀ (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
@@ -713,16 +696,9 @@ theorem executionPrefix_compatible_with_planted_flat :
      (h_emergent : emergentConfigAtGate_flat φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignment g = some ⟨R, cfg_planted⟩)
      (h_R_eq : R = L.R v),
     (⟨v, h_R_eq ▸ cfg_planted⟩ : PSigma (fun v => Fin (2^(L.R v)))) ∈ π.computedConfigs) ∧
-  -- Property 4: Collision impossibility (CORE AXIOM)
-  (∀ (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val),
-    obs.isIncomplete →
-    ∀ (cfg1 cfg2 : Fin (2^(L.R v.val))),
-      obs.configsAgree cfg1 cfg2 →
-      cfg1 ≠ cfg2 →
-      False) ∧
-  -- Property 5: revealedBits = []
+  -- Property 4: revealedBits = []
   π.revealedBits = [] ∧
-  -- Property 6: Bit observation determinism
+  -- Property 5: Bit observation determinism
   (∀ (bit1 bit2 : RevealedBit L),
     bit1 ∈ π.revealedBits → bit2 ∈ π.revealedBits →
     bit1.node = bit2.node → bit1.bitIndex = bit2.bitIndex →
@@ -735,62 +711,12 @@ theorem executionPrefix_compatible_with_planted_flat :
     property1_from_validity_flat L φ r π C h_valid h_R_pos,
     property2_from_validity_flat L φ r π h_valid,
     property3_from_validity_flat L φ r π h_valid,
-    fun v obs h_inc cfg1 cfg2 h_agree h_coll =>
-      planted_collision_impossibility_flat L n φ r h_nvars h_L_eq h_wf v obs h_inc cfg1 cfg2 h_agree h_coll,
     property5_from_validity_flat L φ r π h_valid,
     property6_from_validity_flat L φ r π h_valid
   ⟩
 
-/-- **Property 4 EXTRACTED (flat)**: Collision impossibility for planted flat instances. -/
-theorem planted_observation_indistinguishability_impossible_flat
-    (L : LStarInstanceFG)
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars) (h_wf : WellFormedRandomness_flat φ r)
-    (π : ExecutionPrefixReal L) (C : Finset (Fin L.dag.n))
-    (h_valid : ValidExecutionPrefix_flat L φ r π)
-    (h_R_pos : ∀ v ∈ C, L.R v > 0)
-    (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val)
-    (h_incomplete : obs.isIncomplete)
-    (cfg1 cfg2 : Fin (2^(L.R v.val)))
-    (h_agree : obs.configsAgree cfg1 cfg2)
-    (h_collision : cfg1 ≠ cfg2)
-    : False :=
-  (executionPrefix_compatible_with_planted_flat L n φ r h_nvars h_L_eq h_wf π C h_valid h_R_pos).2.2.2.1
-    v obs h_incomplete cfg1 cfg2 h_agree h_collision
-
 #print axioms ValidExecutionPrefix_flat
 #print axioms executionPrefix_compatible_with_planted_flat
-#print axioms planted_observation_indistinguishability_impossible_flat
-
-/-- **Parity indistinguishability using canonical prefix (flat)**.
-
-    This theorem applies `planted_observation_indistinguishability_impossible_flat` using
-    the canonical prefix constructed from r.assignment. This is the flat-profile analog
-    of `parity_indistinguishability_under_incomplete_observation_QP` from TMAdapterQP.lean.
-
-    **Usage**: Callers can use this without constructing their own ExecutionPrefixReal.
-    The canonical prefix is constructed from r.assignment and proven valid.
-
-    **Trust boundary**: `executionPrefix_compatible_with_planted_flat` axiom. -/
-theorem parity_indistinguishability_using_canonical_prefix_flat
-    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars) (h_wf : WellFormedRandomness_flat φ r)
-    (v : {v // L.fg.gateReq v}) (obs : Observation L.toLStarInstanceFull v.val)
-    (h_incomplete : obs.isIncomplete)
-    (cfg1 cfg2 : Fin (2^(L.R v.val)))
-    (h_agree : obs.configsAgree cfg1 cfg2)
-    (h_collision : cfg1 ≠ cfg2)
-    : False :=
-  -- Use canonical prefix constructed from r.assignment
-  let π := simpleCanonicalPlantedPrefix_flat n φ r h_nvars L h_L_eq h_wf
-  let h_valid := simple_canonical_planted_prefix_valid_flat n φ r h_nvars L h_L_eq h_wf
-  -- h_R_pos is vacuously true for C = ∅
-  let h_R_pos : ∀ v ∈ (∅ : Finset (Fin L.dag.n)), L.R v > 0 := fun _ hv => absurd hv (Finset.not_mem_empty _)
-  planted_observation_indistinguishability_impossible_flat
-    L n φ r h_nvars h_L_eq h_wf π ∅ h_valid h_R_pos
-    v obs h_incomplete cfg1 cfg2 h_agree h_collision
-
-#print axioms parity_indistinguishability_using_canonical_prefix_flat
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- Helper Lemmas for Dependent Type Transport (Fin.cast)
@@ -2242,6 +2168,52 @@ theorem missing_value_implies_incomplete
       _ < R'.succ := Nat.lt_succ_self R'
       _ = L.R v.val := h_R_eq.symm
 
+/-- **EXHAUSTIVE REALIZATION AXIOM (flat, encoded-input)**.
+
+Execution-semantic bridge used by the exponential profile:
+if the TM halts and outputs a correct satisfying witness for a planted `plant_flat`
+instance, then during the run (from the encoded-input initializer) it realizes every
+`Fin (2^(L.R v))` emergent value under `tmEmergentEncoder`.
+
+This is the intended "correctness ⇒ exhaustive visitation" assumption; it does *not*
+assert that incomplete observations are impossible (which would contradict the proven
+collision theorems for `Observation.configsAgree`).
+
+**Soundness constraint**: The `h_extractWitness_surj` hypothesis ensures `extractWitness`
+is a genuine tape decoder that can produce any bounded assignment. This blocks the
+"constant extractWitness" attack where a pathological instantiation would make h_correct
+true (constant satisfying witness) but the conclusion false (only 1 value realized).
+With surjectivity, different assignments map to different emergent configs, forcing
+the TM to actually visit 2^R distinct configurations.
+-/
+axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
+    {α : Type} [LStar.Complexity.Sized α]
+    (M : TuringMachine k states alphabet)
+    (enc : LStar.Complexity.TMInputEncodingBase α alphabet)
+    (x : α)
+    (haltTime : Nat)
+    (h_k_pos : 0 < k)
+    (h_blank : M.blank = enc.blank)
+    (extractWitness : TMConfig M → Witness)
+    -- Surjectivity constraint: extractWitness can produce any bounded assignment.
+    -- This ensures extractWitness is a genuine tape decoder, not a constant function.
+    -- Without this, one could instantiate extractWitness as constant, making h_correct
+    -- trivially true while the encoder only produces 1 value (not 2^R).
+    (h_extractWitness_surj : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
+        (∀ i ≥ bound, σ i = false) →
+        ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
+    (L : LStarInstanceFG)
+    (v : {v // L.fg.gateReq v})
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
+        L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_halts : (LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank |>
+                fun init => (TMConfig.step (M := M))^[haltTime] init).state ∈ M.halt)
+    (φ : CNF)
+    (h_φ_match : ∃ (n : Nat) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4), L = plant_flat n φ r h_nvars ∧ WellFormedRandomness_flat φ r)
+    (h_correct : φ.satisfies (TMAxioms.tmOutputWitnessEncoded M enc x haltTime h_k_pos h_blank extractWitness).assignment)
+    : realizesAllValuesFrom M L v (tmEmergentEncoder L M v extractWitness h_planted) haltTime
+        (LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank)
+
 /-- **ENCODED-INPUT HELPER**: For encoded-input execution, encoder realizes all values.
 
     **Same semantic principle as blank-tape version**: Correctness on planted instance
@@ -2265,6 +2237,9 @@ theorem exists_time_for_val_tmEmergentEncoder_encoded
     (h_k_pos : 0 < k)
     (h_blank : M.blank = enc.blank)
     (extractWitness : TMConfig M → Witness)
+    (h_extractWitness_surj : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
+        (∀ i ≥ bound, σ i = false) →
+        ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (L : LStarInstanceFG)
     (v : {v // L.fg.gateReq v})
     (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
@@ -2278,92 +2253,13 @@ theorem exists_time_for_val_tmEmergentEncoder_encoded
         ∃ t < haltTime, (tmEmergentEncoder L M v extractWitness h_planted).encode
           ((TMConfig.step (M := M))^[t] (LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank)) = val.val := by
   intro val
-
-  -- Initial configuration for encoded-input execution
-  let init := LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank
-
-  -- **Information-theoretic argument by contradiction**:
-  -- If any value is missing → observation incomplete → contradicts correctness on planted instance
-
-  -- Encoder values visited during encoded-input execution
-  let visited : Finset Nat :=
-    (Finset.range haltTime).image (fun t => (tmEmergentEncoder L M v extractWitness h_planted).encode ((TMConfig.step (M := M))^[t] init))
-
-  -- Assume val is never realized and derive contradiction
-  by_contra h_not
-  push_neg at h_not
-
-  -- Show val is not in visited set
-  have h_missing : val.val ∉ visited := by
-    intro h_mem
-    -- Finset.mem_image gives: val.val ∈ visited ↔ ∃ t ∈ range haltTime, enc(step^[t] init) = val.val
-    rw [Finset.mem_image] at h_mem
-    obtain ⟨t, ht_mem, ht_eq⟩ := h_mem
-    rw [Finset.mem_range] at ht_mem
-    -- h_not : ∀ t, t < haltTime → encode(...) ≠ val.val
-    -- ht_mem : t < haltTime
-    -- ht_eq : encode(...) = val.val
-    exact h_not t ht_mem ht_eq
-
-  -- Prove encoder values are bounded (from tmEmergentEncoder_bounded - must be before destructuring h_planted)
-  have h_visited_bounded : ∀ x ∈ visited, x < 2^(L.R v.val) := by
-    intro x h_mem
-    obtain ⟨t, _, h_eq⟩ := Finset.mem_image.mp h_mem
-    rw [← h_eq]
-    exact tmEmergentEncoder_bounded L M v extractWitness h_planted ((TMConfig.step (M := M))^[t] init)
-
-  -- Extract planted instance parameters for axiom invocation
-  -- Use φ_planted to avoid shadowing parameter φ
-  obtain ⟨n, φ_planted, r, h_nvars, h_L_eq, h_wf⟩ := h_planted
-
-  -- Convert h_correct to match axiom signature
-  have h_correct' : φ.satisfies (extractWitness ((TMConfig.step (M := M))^[haltTime] init)).assignment := by
-    unfold TMAxioms.tmOutputWitnessEncoded at h_correct
-    exact h_correct
-
-  -- Extract planted parameters from h_φ_match (uses outer φ which matches h_correct)
-  obtain ⟨n', r', h_nvars', h_L_eq', h_wf'⟩ := h_φ_match
-
-  -- Prove R > 0 (needed for missing_value_implies_incomplete)
-  have h_R_pos : 0 < L.R v.val := by
-    have h_n_eq : L.dag.n = (plant_flat n' φ r' h_nvars').dag.n :=
-      congrArg (fun X => X.dag.n) h_L_eq'
-    have h_prop' : (plant_flat n' φ r' h_nvars').fg.gateReq (Fin.cast h_n_eq v.val) = true := by
-      rw [← gateReq_cast_LStarInstanceFG h_L_eq' v.val]; exact v.property
-    unfold plant_flat at h_prop'
-    simp only [FrontierGateConfig.gateReq] at h_prop'
-    have h_bounds := of_decide_eq_true h_prop'
-    simp only [fin_cast_val h_n_eq] at h_bounds
-    calc L.R v.val
-        = (plant_flat n' φ r' h_nvars').R (Fin.cast h_n_eq v.val) := by
-            rw [← R_cast_LStarInstanceFG h_L_eq' v.val]
-      _ = R_of_flat φ r'.gateDigests.length (Fin.cast h_n_eq v.val).val := by
-            unfold plant_flat; rfl
-      _ = φ.nvars := by
-            simp only [R_of_flat, fin_cast_val h_n_eq]
-            split_ifs with h_cond
-            · rfl
-            · exfalso; apply h_cond
-              constructor
-              · exact h_bounds.1
-              · have h_gates_le : r'.gateDigests.length ≤ φ.clauses.length := by
-                  have ⟨_, _, h_cc, _⟩ := h_wf'; exact h_cc
-                omega
-      _ ≥ 4 := h_nvars'
-      _ > 0 := by norm_num
-
-  -- Use missing_value_implies_incomplete to get incomplete observation
-  obtain ⟨obs, h_obs_incomplete⟩ :=
-    missing_value_implies_incomplete v h_R_pos visited val h_missing h_visited_bounded
-
-  -- Use collision_lower_bound_at_fg_gate to get indistinguishable configs
-  have ⟨cfg1, cfg2, h_agree, h_collision⟩ :=
-    collision_lower_bound_at_fg_gate (L := L.toLStarInstanceFull) v.val obs h_obs_incomplete
-
-  -- Apply parity_indistinguishability_using_canonical_prefix_flat to derive False
-  exact parity_indistinguishability_using_canonical_prefix_flat
-    L n' φ r' h_nvars' h_L_eq' h_wf'
-    v obs h_obs_incomplete cfg1 cfg2 h_agree h_collision
+  -- Discharge via the execution-semantic bridge axiom.
+  exact (tm_correctness_implies_realizesAllValuesFrom_flat_encoded
+    (M := M) (enc := enc) (x := x) (haltTime := haltTime)
+    (h_k_pos := h_k_pos) (h_blank := h_blank) (extractWitness := extractWitness)
+    (h_extractWitness_surj := h_extractWitness_surj)
+    (L := L) (v := v) (h_planted := h_planted) (h_halts := _h_halts)
+    (φ := φ) (h_φ_match := h_φ_match) (h_correct := h_correct)) val
 
 /-- **ENCODED-INPUT VERSION**: Time lower bound using encoded-input semantics.
 
@@ -2389,6 +2285,9 @@ theorem fg_first_commit_time_lower_bound_encoded
     (h_blank : M.blank = enc.blank)
     (h_time_pos : haltTime > 0)
     (extractWitness : TMConfig M → Witness)
+    (h_extractWitness_surj : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
+        (∀ i ≥ bound, σ i = false) →
+        ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (L : LStarInstanceFG)
     (v : {v // L.fg.gateReq v})
     (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
@@ -2415,7 +2314,7 @@ theorem fg_first_commit_time_lower_bound_encoded
   have h_realizes : realizesAllValuesFrom M L v enc_local haltTime init := by
     intro val
     exact exists_time_for_val_tmEmergentEncoder_encoded M enc x haltTime h_k_pos h_blank
-      extractWitness L v h_planted h_halts φ h_φ_match h_correct val
+      extractWitness h_extractWitness_surj L v h_planted h_halts φ h_φ_match h_correct val
 
   -- Apply generalized cardinality bound
   have h_visited_lower : visited.card ≥ 2 ^ (L.R v.val) :=
@@ -2439,6 +2338,9 @@ theorem fg_first_commit_time_lower_bound_sub_one_encoded
     (h_blank : M.blank = enc.blank)
     (h_time_pos : haltTime > 0)
     (extractWitness : TMConfig M → Witness)
+    (h_extractWitness_surj : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
+        (∀ i ≥ bound, σ i = false) →
+        ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (L : LStarInstanceFG)
     (v : {v // L.fg.gateReq v})
     (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
@@ -2450,7 +2352,7 @@ theorem fg_first_commit_time_lower_bound_sub_one_encoded
     (h_correct : φ.satisfies (TMAxioms.tmOutputWitnessEncoded M enc x haltTime h_k_pos h_blank extractWitness).assignment)
     : haltTime ≥ 2 ^ (L.R v.val) - 1 := by
   have := fg_first_commit_time_lower_bound_encoded M enc x haltTime h_k_pos h_blank
-    h_time_pos extractWitness L v h_planted h_halts φ h_φ_match h_correct
+    h_time_pos extractWitness h_extractWitness_surj L v h_planted h_halts φ h_φ_match h_correct
   exact Nat.le_trans (Nat.sub_le _ _) this
 
 end TimeBoundDerivation

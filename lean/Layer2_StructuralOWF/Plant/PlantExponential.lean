@@ -135,6 +135,43 @@ def plant_flat_entropy (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nv
       -- Other clauses / Tree: 0 entropy
       LStar.ofBits _ (fun _ => false)
 
+/-- **Vertex index for clause i in the DAG**.
+
+    Clauses are placed at positions [1 + nvars, 1 + nvars + clauses.length) in the DAG.
+    This is a module-level definition to enable explicit arguments in lemmas. -/
+def clauseVertexIdx (φ : CNF) (i : Fin φ.clauses.length) : Nat :=
+  φ.nvars + 1 + i.val
+
+/-- **Proof that clause vertex index is valid in the DAG**. -/
+theorem clauseVertexIdx_valid (φ : CNF) (numGates : Nat) (dag : DAG)
+    (h_dag : dag = build3SATReductionDAG φ numGates) (i : Fin φ.clauses.length) :
+    clauseVertexIdx φ i < dag.n := by
+  unfold clauseVertexIdx
+  have h_dag_n : dag.n = Construction.totalNodes φ.nvars φ.clauses.length := by
+    rw [h_dag]; rfl
+  rw [h_dag_n]
+  simp only [Construction.totalNodes, Construction.reductionTreeSize]
+  have h_i_lt := i.isLt
+  omega
+
+/-- **Seed width for clause index i**.
+
+    Module-level definition to enable explicit arguments in OAP encoding lemmas. -/
+def clauseSeedWidth (φ : CNF) (numGates : Nat) (dag : DAG)
+    (seedWidth_val : Fin dag.n → Nat) (h_dag : dag = build3SATReductionDAG φ numGates)
+    (i : Fin φ.clauses.length) : Nat :=
+  seedWidth_val ⟨clauseVertexIdx φ i, clauseVertexIdx_valid φ numGates dag h_dag i⟩
+
+/-- **Seed getter for clause index i**.
+
+    Module-level definition to enable explicit arguments in OAP encoding lemmas. -/
+def getClauseSeed (φ : CNF) (numGates : Nat) (dag : DAG)
+    (seedWidth_val : Fin dag.n → Nat)
+    (seeds : (v : Fin dag.n) → LStar.Seed (seedWidth_val v))
+    (h_dag : dag = build3SATReductionDAG φ numGates)
+    (i : Fin φ.clauses.length) : LStar.Seed (clauseSeedWidth φ numGates dag seedWidth_val h_dag i) :=
+  seeds ⟨clauseVertexIdx φ i, clauseVertexIdx_valid φ numGates dag h_dag i⟩
+
 /-- **OAP encoding for flat-mode planting**.
 
     Encodes CNF φ using seeds from computeSeedChain with flat entropy.
@@ -144,32 +181,9 @@ def plant_flat_encode_cnf (φ : CNF) (numGates : Nat) (dag : DAG)
     (seedWidth_val : Fin dag.n → Nat)
     (seeds : (v : Fin dag.n) → LStar.Seed (seedWidth_val v))
     (h_dag : dag = build3SATReductionDAG φ numGates) : EncodedCNF :=
-  -- Seed width function for clause indices
-  let clauseSeedWidth : Fin φ.clauses.length → Nat := fun i =>
-    let vertexIdx := φ.nvars + 1 + i.val
-    seedWidth_val ⟨vertexIdx, by
-      have h_i_lt := i.isLt
-      have h_dag_n : dag.n = Construction.totalNodes φ.nvars φ.clauses.length := by
-        rw [h_dag]
-        rfl
-      rw [h_dag_n]
-      simp only [Construction.totalNodes, Construction.reductionTreeSize]
-      omega⟩
-
-  -- Extract seeds for clauses from the computed seed chain
-  let getClauseSeed : (i : Fin φ.clauses.length) → LStar.Seed (clauseSeedWidth i) := fun i =>
-    let vertexIdx := φ.nvars + 1 + i.val
-    let h_valid : vertexIdx < dag.n := by
-      have h_i_lt := i.isLt
-      have h_dag_n : dag.n = Construction.totalNodes φ.nvars φ.clauses.length := by
-        rw [h_dag]
-        rfl
-      rw [h_dag_n]
-      simp only [Construction.totalNodes, Construction.reductionTreeSize]
-      omega
-    seeds ⟨vertexIdx, h_valid⟩
-
-  LStar.OAP.encodeWithOAPDep φ clauseSeedWidth getClauseSeed
+  LStar.OAP.encodeWithOAPDep φ
+    (clauseSeedWidth φ numGates dag seedWidth_val h_dag)
+    (getClauseSeed φ numGates dag seedWidth_val seeds h_dag)
 
 /-- **Extensionality for plant_flat_encode_cnf**: Equal seeds produce equal encoded CNFs.
 
@@ -189,6 +203,66 @@ theorem plant_flat_encode_cnf_ext (φ : CNF) (numGates : Nat) (dag : DAG)
   -- Since seeds1 = seeds2 pointwise, getClauseSeed1 i = getClauseSeed2 i
   exact h_seeds_eq _
 
+/-- **plant_flat_encode_cnf preserves clause count**. -/
+@[simp]
+theorem plant_flat_encode_cnf_clauses_length (φ : CNF) (numGates : Nat) (dag : DAG)
+    (seedWidth_val : Fin dag.n → Nat)
+    (seeds : (v : Fin dag.n) → LStar.Seed (seedWidth_val v))
+    (h_dag : dag = build3SATReductionDAG φ numGates) :
+    (plant_flat_encode_cnf φ numGates dag seedWidth_val seeds h_dag).clauses.length = φ.clauses.length := by
+  unfold plant_flat_encode_cnf
+  exact LStar.OAP.encodeWithOAPDep_clauses_length φ
+    (clauseSeedWidth φ numGates dag seedWidth_val h_dag)
+    (getClauseSeed φ numGates dag seedWidth_val seeds h_dag)
+
+/-- **plant_flat_encode_cnf preserves nvars**. -/
+@[simp]
+theorem plant_flat_encode_cnf_nvars (φ : CNF) (numGates : Nat) (dag : DAG)
+    (seedWidth_val : Fin dag.n → Nat)
+    (seeds : (v : Fin dag.n) → LStar.Seed (seedWidth_val v))
+    (h_dag : dag = build3SATReductionDAG φ numGates) :
+    (plant_flat_encode_cnf φ numGates dag seedWidth_val seeds h_dag).nvars = φ.nvars := by
+  unfold plant_flat_encode_cnf
+  exact LStar.OAP.encodeWithOAPDep_nvars φ
+    (clauseSeedWidth φ numGates dag seedWidth_val h_dag)
+    (getClauseSeed φ numGates dag seedWidth_val seeds h_dag)
+
+/-- **plant_flat_encode_cnf preserves literal count per clause**. -/
+theorem plant_flat_encode_cnf_lits_preserved (φ : CNF) (numGates : Nat) (dag : DAG)
+    (seedWidth_val : Fin dag.n → Nat)
+    (seeds : (v : Fin dag.n) → LStar.Seed (seedWidth_val v))
+    (h_dag : dag = build3SATReductionDAG φ numGates)
+    (i : Nat) (h : i < φ.clauses.length)
+    (h' : i < (plant_flat_encode_cnf φ numGates dag seedWidth_val seeds h_dag).clauses.length) :
+    ((plant_flat_encode_cnf φ numGates dag seedWidth_val seeds h_dag).clauses[i]'h').literals.length =
+    (φ.clauses[i]'h).literals.length := by
+  unfold plant_flat_encode_cnf
+  -- Use the clause length preservation to get the witness for i
+  have h_clauses_len := LStar.OAP.encodeWithOAPDep_clauses_length φ
+    (clauseSeedWidth φ numGates dag seedWidth_val h_dag)
+    (getClauseSeed φ numGates dag seedWidth_val seeds h_dag)
+  have h_i_enc : i < (LStar.OAP.encodeWithOAPDep φ
+      (clauseSeedWidth φ numGates dag seedWidth_val h_dag)
+      (getClauseSeed φ numGates dag seedWidth_val seeds h_dag)).clauses.length := by
+    rw [h_clauses_len]; exact h
+  -- The encoding preserves each clause's literal count
+  have h_getElem := LStar.OAP.encodeWithOAPDep_getElem φ
+    (clauseSeedWidth φ numGates dag seedWidth_val h_dag)
+    (getClauseSeed φ numGates dag seedWidth_val seeds h_dag) i h
+  -- Rewrite using getElem equality and encodeClause_literals_length
+  simp only [h_getElem, LStar.OAP.encodeClause_literals_length]
+
+/-- **Bundled constraints for aligned CNF families**.
+
+    Groups the structural requirements needed for plant_flat:
+    - `clauses_le`: φ.clauses.length ≤ φ.nvars (for encoding bounds)
+    - `is_3sat`: Each clause has ≤ 3 literals (3-SAT structure)
+
+    These constraints hold for CNFs from `alignedCNFFamily` used in the P≠NP proof. -/
+structure AlignedCNFConstraints (φ : CNF) : Prop where
+  clauses_le : φ.clauses.length ≤ φ.nvars
+  is_3sat : ∀ c ∈ φ.clauses, c.literals.length ≤ 3
+
 /-- **Flat-mode planted instance constructor**.
 
     Creates an L* instance with FG gates having R_v = nvars, giving
@@ -206,15 +280,13 @@ theorem plant_flat_encode_cnf_ext (φ : CNF) (numGates : Nat) (dag : DAG)
     **Type**: Returns LStarInstanceFG (same as plant_n)
 
     **CNF Constraints** (required for encoding bounds):
-    - `h_clauses`: φ.clauses.length ≤ φ.nvars (for clauses_upper)
-    - `h_3sat`: Each clause has ≤ 3 literals (for lits_upper)
+    - `h_aligned.clauses_le`: φ.clauses.length ≤ φ.nvars (for clauses_upper)
+    - `h_aligned.is_3sat`: Each clause has ≤ 3 literals (for lits_upper)
 
     These hold for `alignedCNFFamily` used in the P≠NP proof. -/
 noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4)
-    (h_clauses : φ.clauses.length ≤ φ.nvars)
-    (h_3sat : ∀ c ∈ φ.clauses, c.literals.length ≤ 3)
-    (h_valid_vars : ∀ c ∈ φ.clauses, ∀ lit ∈ c.literals, lit.var < φ.nvars)
+    (h_aligned : AlignedCNFConstraints φ)
     : LStarInstanceFG :=
   -- Use flat R-profile (exponential): R = nvars
   let numGates := r.gateDigests.length
@@ -661,11 +733,11 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     clauses_upper := by
       show encodedφ.clauses.length ≤ full.n
       -- encodedφ preserves clause count: encodedφ.clauses.length = φ.clauses.length
-      have h_enc : encodedφ.clauses.length = φ.clauses.length :=
-        LStar.OAP.encodeWithOAPDep_clauses_length φ _ _
+      have h_enc : encodedφ.clauses.length = φ.clauses.length := by
+        simp only [encodedφ, plant_flat_encode_cnf_clauses_length]
       calc encodedφ.clauses.length
           = φ.clauses.length := h_enc
-        _ ≤ φ.nvars := h_clauses
+        _ ≤ φ.nvars := h_aligned.clauses_le
         _ = full.n := rfl
 
     -- lits ≤ 3n: Total literal count bounded
@@ -673,8 +745,8 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     lits_upper := by
       show encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 ≤ 3 * full.n
       -- Step 1: Clause count preserved
-      have h_clauses_len : encodedφ.clauses.length = φ.clauses.length :=
-        LStar.OAP.encodeWithOAPDep_clauses_length φ _ _
+      have h_clauses_len : encodedφ.clauses.length = φ.clauses.length := by
+        simp only [encodedφ, plant_flat_encode_cnf_clauses_length]
       -- Step 2: Each encoded clause has ≤ 3 literals (preserved from original)
       have h_each_bounded : ∀ i (h : i < encodedφ.clauses.length),
           (encodedφ.clauses[i]'h).literals.length ≤ 3 := by
@@ -682,37 +754,35 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
         have h_i_lt : i < φ.clauses.length := by rw [←h_clauses_len]; exact h
         -- Get the original clause
         have h_mem : φ.clauses[i]'h_i_lt ∈ φ.clauses := List.getElem_mem h_i_lt
-        have h_orig_bound : (φ.clauses[i]'h_i_lt).literals.length ≤ 3 := h_3sat _ h_mem
-        -- Encoding preserves literal count
-        have h_getElem := LStar.OAP.encodeWithOAPDep_getElem φ _ _ i h_i_lt
+        have h_orig_bound : (φ.clauses[i]'h_i_lt).literals.length ≤ 3 := h_aligned.is_3sat _ h_mem
+        -- Encoding preserves literal count (using helper lemma)
+        have h_lits_eq : (encodedφ.clauses[i]'h).literals.length = (φ.clauses[i]'h_i_lt).literals.length :=
+          plant_flat_encode_cnf_lits_preserved φ numGates dag seedWidth_val seeds rfl i h_i_lt h
         calc (encodedφ.clauses[i]'h).literals.length
-            = (LStar.OAP.encodeClause (φ.clauses[i]'h_i_lt) _ i φ.nvars).literals.length := by
-              congr 1; exact h_getElem
-          _ = (φ.clauses[i]'h_i_lt).literals.length := LStar.OAP.encodeClause_literals_length _ _ _ _
+            = (φ.clauses[i]'h_i_lt).literals.length := h_lits_eq
           _ ≤ 3 := h_orig_bound
-      -- Step 3: Bound foldl using element-wise bound
-      have h_foldl_bound : ∀ (l : List EncodedClause),
+      -- Step 3: Bound foldl using element-wise bound via induction
+      have h_foldl_bound : ∀ (l : List EncodedClause) (acc : Nat),
           (∀ i (h : i < l.length), (l[i]'h).literals.length ≤ 3) →
-          l.foldl (fun acc c => acc + c.literals.length) 0 ≤ 3 * l.length := by
-        intro l h_elem
+          l.foldl (fun a c => a + c.literals.length) acc ≤ acc + 3 * l.length := by
+        intro l
         induction l with
-        | nil => simp
+        | nil => intro acc _; simp
         | cons hd tl ih =>
-          simp only [List.foldl_cons, Nat.zero_add, List.length_cons]
+          intro acc h_elem
+          simp only [List.foldl_cons, List.length_cons]
           have h_hd : hd.literals.length ≤ 3 := h_elem 0 (by simp)
-          have h_tl : tl.foldl (fun acc c => acc + c.literals.length) 0 ≤ 3 * tl.length := by
-            apply ih
-            intro i hi
-            exact h_elem (i + 1) (by simp; omega)
-          calc hd.literals.length + tl.foldl (fun acc c => acc + c.literals.length) 0
-              ≤ 3 + 3 * tl.length := Nat.add_le_add h_hd h_tl
-            _ = 3 * (1 + tl.length) := by ring
-            _ = 3 * (hd :: tl).length := by simp [List.length_cons]
-      -- Apply the bound
+          have h_tl := ih (acc + hd.literals.length) (fun i hi => h_elem (i + 1) (by simp; omega))
+          calc tl.foldl (fun a c => a + c.literals.length) (acc + hd.literals.length)
+              ≤ (acc + hd.literals.length) + 3 * tl.length := h_tl
+            _ ≤ acc + 3 + 3 * tl.length := by omega
+            _ = acc + 3 * (tl.length + 1) := by ring
+      have h_final := h_foldl_bound encodedφ.clauses 0 h_each_bounded
+      simp only [Nat.zero_add] at h_final
       calc encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0
-          ≤ 3 * encodedφ.clauses.length := h_foldl_bound encodedφ.clauses h_each_bounded
+          ≤ 3 * encodedφ.clauses.length := h_final
         _ = 3 * φ.clauses.length := by rw [h_clauses_len]
-        _ ≤ 3 * φ.nvars := Nat.mul_le_mul_left 3 h_clauses
+        _ ≤ 3 * φ.nvars := Nat.mul_le_mul_left 3 h_aligned.clauses_le
         _ = 3 * full.n := rfl
 
     -- maskedVar ≤ nvars: Bounded additive masking guarantees this
@@ -721,10 +791,14 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
       intro c hc lit hlit
       show lit.maskedVar ≤ encodedφ.nvars
       -- encodedφ = encodeWithOAPDep φ ..., so encodedφ.nvars = φ.nvars
-      have h_nvars_eq : encodedφ.nvars = φ.nvars := LStar.OAP.encodeWithOAPDep_nvars φ _ _
+      have h_nvars_eq : encodedφ.nvars = φ.nvars := by
+        simp only [encodedφ, plant_flat_encode_cnf_nvars]
       rw [h_nvars_eq]
-      -- Apply the bounded masking theorem
-      exact LStar.OAP.encodeWithOAPDep_maskedVar_le φ _ _ c hc lit hlit
+      -- Apply the bounded masking theorem with explicit function names
+      exact LStar.OAP.encodeWithOAPDep_maskedVar_le φ
+        (clauseSeedWidth φ numGates dag seedWidth_val rfl)
+        (getClauseSeed φ numGates dag seedWidth_val seeds rfl)
+        c hc lit hlit
 
     -- gateDigest segmentBudget ≤ n: budget = nvars by construction
     gateDigest_budget_upper := by
@@ -761,13 +835,13 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     Precondition: Requires φ to have at least one clause (legitimate OWF requirement). -/
 theorem numGates_eq_gateDigests_length_for_planted_flat
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_clauses : 0 < φ.clauses.length)
-    : Foundations.numGates (plant_flat n φ r h_nvars) = r.gateDigests.length := by
+    (h_aligned : AlignedCNFConstraints φ) (h_clauses : 0 < φ.clauses.length)
+    : Foundations.numGates (plant_flat n φ r h_nvars h_aligned) = r.gateDigests.length := by
   unfold Foundations.numGates
   have h_single : r.gateDigests.length = 1 := r.h_single_gate
   rw [h_single]
 
-  let L := plant_flat n φ r h_nvars
+  let L := plant_flat n φ r h_nvars h_aligned
   let clause_start := 1 + φ.nvars
 
   -- Step 1: Show clause_start is in the DAG
@@ -818,19 +892,19 @@ theorem numGates_eq_gateDigests_length_for_planted_flat
     Precondition: Requires φ to have at least one clause (legitimate OWF requirement). -/
 theorem correct_digests_length_eq_totalRBits_planted_flat
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_clauses : 0 < φ.clauses.length)
+    (h_aligned : AlignedCNFConstraints φ) (h_clauses : 0 < φ.clauses.length)
     (W : Witness φ.nvars)
-    (h_correct : Foundations.HasCorrectDigests (plant_flat n φ r h_nvars) W)
-    : W.digestBits.length = Foundations.totalRBits (plant_flat n φ r h_nvars) := by
-  exact Foundations.correct_digests_implies_correct_length (plant_flat n φ r h_nvars) W h_correct
+    (h_correct : Foundations.HasCorrectDigests (plant_flat n φ r h_nvars h_aligned) W)
+    : W.digestBits.length = Foundations.totalRBits (plant_flat n φ r h_nvars h_aligned) := by
+  exact Foundations.correct_digests_implies_correct_length (plant_flat n φ r h_nvars h_aligned) W h_correct
 
 /-- **Lemma**: planted_gateReq for flat profile matches interval formula.
 
     This is identical to the QP-sharp version because plant_flat uses the SAME
     gateReq interval formula as plant_n (only R differs). -/
 private lemma planted_gateReq_true_iff_interval_flat
-    {n φ r h_nvars L}
-    (h_L_eq : L = plant_flat n φ r h_nvars)
+    {n φ r h_nvars h_aligned L}
+    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
     (v : Fin L.dag.n)
     (clause_start numGates : Nat)
     (h_clause_start : clause_start = 1 + φ.nvars)
@@ -841,9 +915,10 @@ private lemma planted_gateReq_true_iff_interval_flat
 
 /-- **Flat mode R values equal nvars at FG gates**. -/
 theorem plant_flat_R_eq_nvars (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
-    (h_nvars_min : φ.nvars ≥ 4) (v : Fin (plant_flat n φ r h_nvars_min).dag.n)
-    (h_is_fg : (plant_flat n φ r h_nvars_min).fg.gateReq v) :
-    (plant_flat n φ r h_nvars_min).R v = φ.nvars := by
+    (h_nvars_min : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ)
+    (v : Fin (plant_flat n φ r h_nvars_min h_aligned).dag.n)
+    (h_is_fg : (plant_flat n φ r h_nvars_min h_aligned).fg.gateReq v) :
+    (plant_flat n φ r h_nvars_min h_aligned).R v = φ.nvars := by
   unfold plant_flat
   simp only []
   unfold R_of_flat
@@ -888,13 +963,13 @@ theorem plant_flat_R_eq_nvars (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     This is the flat-profile analog of `totalRBits_pos_for_planted` from VerifiedWitness.lean. -/
 theorem totalRBits_pos_for_planted_flat
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_clauses : 0 < φ.clauses.length)
-    : Foundations.totalRBits (plant_flat n φ r h_nvars) > 0 := by
+    (h_aligned : AlignedCNFConstraints φ) (h_clauses : 0 < φ.clauses.length)
+    : Foundations.totalRBits (plant_flat n φ r h_nvars h_aligned) > 0 := by
   -- Get the single FG gate
-  let L := plant_flat n φ r h_nvars
+  let L := plant_flat n φ r h_nvars h_aligned
   have h_single : r.gateDigests.length = 1 := r.h_single_gate
   have h_numGates : Foundations.numGates L = 1 := by
-    have := numGates_eq_gateDigests_length_for_planted_flat n φ r h_nvars h_clauses
+    have := numGates_eq_gateDigests_length_for_planted_flat n φ r h_nvars h_aligned h_clauses
     rw [this, h_single]
 
   -- totalRBits is the sum over FG gates
@@ -916,7 +991,7 @@ theorem totalRBits_pos_for_planted_flat
     simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hv
     -- v is an FG gate, so L.R v = nvars > 0
     -- Use plant_flat_R_eq_nvars
-    have h_R_eq : L.R v = φ.nvars := plant_flat_R_eq_nvars n φ r h_nvars v hv
+    have h_R_eq : L.R v = φ.nvars := plant_flat_R_eq_nvars n φ r h_nvars h_aligned v hv
     rw [h_R_eq]
     omega
 
@@ -929,15 +1004,15 @@ theorem totalRBits_pos_for_planted_flat
     It proves that plant_flat achieves lambda ≥ n (exponential bound).
 -/
 theorem plant_flat_lambdaBase_eq_nvars (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
-    (h_nvars_min : φ.nvars ≥ 4)
-    (v_fg : {v // (plant_flat n φ r h_nvars_min).fg.gateReq v}) :
-    Foundations.lambdaBase (plant_flat n φ r h_nvars_min) v_fg ≥ φ.nvars := by
-  have h_lambda_def : Foundations.lambdaBase (plant_flat n φ r h_nvars_min) v_fg =
-                      (plant_flat n φ r h_nvars_min).R v_fg.val := by
+    (h_nvars_min : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ)
+    (v_fg : {v // (plant_flat n φ r h_nvars_min h_aligned).fg.gateReq v}) :
+    Foundations.lambdaBase (plant_flat n φ r h_nvars_min h_aligned) v_fg ≥ φ.nvars := by
+  have h_lambda_def : Foundations.lambdaBase (plant_flat n φ r h_nvars_min h_aligned) v_fg =
+                      (plant_flat n φ r h_nvars_min h_aligned).R v_fg.val := by
     unfold Foundations.lambdaBase
     simp only [Finset.sum_singleton]
-  have h_R_eq : (plant_flat n φ r h_nvars_min).R v_fg.val = φ.nvars :=
-    plant_flat_R_eq_nvars n φ r h_nvars_min v_fg.val v_fg.property
+  have h_R_eq : (plant_flat n φ r h_nvars_min h_aligned).R v_fg.val = φ.nvars :=
+    plant_flat_R_eq_nvars n φ r h_nvars_min h_aligned v_fg.val v_fg.property
   rw [h_lambda_def, h_R_eq]
 
 /-- Every planted flat instance is FG-wired.
@@ -951,17 +1026,17 @@ theorem plant_flat_lambdaBase_eq_nvars (n : Nat) (φ : CNF) (r : Randomness φ.n
     **Proof**: The first clause position (clause_start) is an FG gate, and
     segmentBudget = φ.nvars ≥ 4 > 0 for flat profile. -/
 theorem plant_fg_wired_flat (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
-    (h_nonempty : 0 < r.gateDigests.length)
+    (h_aligned : AlignedCNFConstraints φ) (h_nonempty : 0 < r.gateDigests.length)
     (h_clauses : 0 < φ.clauses.length) :
-    ∃ (v : {v // (plant_flat n φ r h_nvars_min).fg.gateReq v}),
-      0 < ((plant_flat n φ r h_nvars_min).fg.gateDigest v).segmentBudget := by
+    ∃ (v : {v // (plant_flat n φ r h_nvars_min h_aligned).fg.gateReq v}),
+      0 < ((plant_flat n φ r h_nvars_min h_aligned).fg.gateDigest v).segmentBudget := by
   let clause_start := 1 + φ.nvars
 
-  have h_dag_size : clause_start < (plant_flat n φ r h_nvars_min).dag.n := by
+  have h_dag_size : clause_start < (plant_flat n φ r h_nvars_min h_aligned).dag.n := by
     simp only [plant_flat, build3SATReductionDAG, Construction.build3SATReductionDAG, Construction.totalNodes]
     omega
 
-  have h_gate_req : (plant_flat n φ r h_nvars_min).fg.gateReq ⟨clause_start, h_dag_size⟩ := by
+  have h_gate_req : (plant_flat n φ r h_nvars_min h_aligned).fg.gateReq ⟨clause_start, h_dag_size⟩ := by
     unfold plant_flat
     simp only [decide_eq_true_iff]
     constructor
@@ -970,7 +1045,7 @@ theorem plant_fg_wired_flat (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nv
 
   use ⟨⟨clause_start, h_dag_size⟩, h_gate_req⟩
 
-  show 0 < ((plant_flat n φ r h_nvars_min).fg.gateDigest ⟨⟨clause_start, h_dag_size⟩, h_gate_req⟩).segmentBudget
+  show 0 < ((plant_flat n φ r h_nvars_min h_aligned).fg.gateDigest ⟨⟨clause_start, h_dag_size⟩, h_gate_req⟩).segmentBudget
   -- For flat profile, segmentBudget = φ.nvars in both branches of the gateDigest function
   -- Looking at the definition: segmentBudget := budget where budget := φ.nvars
   -- So we just need to prove 0 < φ.nvars, which follows from h_nvars_min : φ.nvars ≥ 4
@@ -979,7 +1054,7 @@ theorem plant_fg_wired_flat (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nv
   --   if h : idx < r.gateDigests.length then { segmentBudget := budget, ... }
   --   else mkDigest budget
   -- In both cases, segmentBudget = budget = φ.nvars
-  have h_budget_eq : ((plant_flat n φ r h_nvars_min).fg.gateDigest ⟨⟨clause_start, h_dag_size⟩, h_gate_req⟩).segmentBudget = φ.nvars := by
+  have h_budget_eq : ((plant_flat n φ r h_nvars_min h_aligned).fg.gateDigest ⟨⟨clause_start, h_dag_size⟩, h_gate_req⟩).segmentBudget = φ.nvars := by
     unfold plant_flat
     simp only []
     -- The idx = clause_start - clause_start = 0
@@ -1003,9 +1078,10 @@ theorem plant_fg_wired_flat (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nv
     **Trust Boundary**: 0 axioms (structural equality).
 -/
 theorem plant_flat_fg_eq_of_instance_eq
-    (n : Nat) (φ : CNF) (h_nvars_min : φ.nvars ≥ 4) (r1 r2 : Randomness φ.nvars)
-    (h_eq : plant_flat n φ r1 h_nvars_min = plant_flat n φ r2 h_nvars_min) :
-    HEq (plant_flat n φ r1 h_nvars_min).fg (plant_flat n φ r2 h_nvars_min).fg := by
+    (n : Nat) (φ : CNF) (h_nvars_min : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ)
+    (r1 r2 : Randomness φ.nvars)
+    (h_eq : plant_flat n φ r1 h_nvars_min h_aligned = plant_flat n φ r2 h_nvars_min h_aligned) :
+    HEq (plant_flat n φ r1 h_nvars_min h_aligned).fg (plant_flat n φ r2 h_nvars_min h_aligned).fg := by
   -- With instance equality, both sides refer to the same value
   exact h_eq ▸ HEq.rfl
 
@@ -1020,16 +1096,18 @@ theorem plant_flat_fg_eq_of_instance_eq
     satisfying assignment.
 -/
 theorem plant_flat_gateDigest_heq_of_instance_eq
-    (n : Nat) (φ : CNF) (h_nvars_min : φ.nvars ≥ 4) (r1 r2 : Randomness φ.nvars)
-    (h_eq : plant_flat n φ r1 h_nvars_min = plant_flat n φ r2 h_nvars_min) :
-    HEq (plant_flat n φ r1 h_nvars_min).fg.gateDigest
-        (plant_flat n φ r2 h_nvars_min).fg.gateDigest := by
+    (n : Nat) (φ : CNF) (h_nvars_min : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ)
+    (r1 r2 : Randomness φ.nvars)
+    (h_eq : plant_flat n φ r1 h_nvars_min h_aligned = plant_flat n φ r2 h_nvars_min h_aligned) :
+    HEq (plant_flat n φ r1 h_nvars_min h_aligned).fg.gateDigest
+        (plant_flat n φ r2 h_nvars_min h_aligned).fg.gateDigest := by
   -- With instance equality, both sides refer to the same value
   exact h_eq ▸ HEq.rfl
 
 /-- **Flat profile preserves n field**: The planted instance's n field equals φ.nvars. -/
-theorem plant_flat_n (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4) :
-    (plant_flat n φ r h_nvars_min).n = φ.nvars := by
+theorem plant_flat_n (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
+    (h_aligned : AlignedCNFConstraints φ) :
+    (plant_flat n φ r h_nvars_min h_aligned).n = φ.nvars := by
   unfold plant_flat
   rfl
 
@@ -1049,14 +1127,14 @@ theorem plant_flat_n (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min
     show all fields that affect plant_flat are equal.
 -/
 theorem plant_flat_eq_of_randomness_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness φ.nvars)
-    (h_nvars : φ.nvars ≥ 4)
+    (h_nvars : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ)
     (h_dgLen : r1.dgLen = r2.dgLen)
     (h_gateDigests_len : r1.gateDigests.length = r2.gateDigests.length)
     (h_gateDigests_eq : ∀ (i : Nat) (h1 : i < r1.gateDigests.length) (h2 : i < r2.gateDigests.length),
         HEq (r1.gateDigests.get ⟨i, h1⟩) (r2.gateDigests.get ⟨i, h2⟩))
     (h_assignment : ∀ i : Fin φ.nvars, r1.assignment i = r2.assignment i)
     (h_structural : r1.structuralBits.take 64 = r2.structuralBits.take 64) :
-    plant_flat n φ r1 h_nvars = plant_flat n φ r2 h_nvars := by
+    plant_flat n φ r1 h_nvars h_aligned = plant_flat n φ r2 h_nvars h_aligned := by
   -- Case split on r1 and r2 to expose their fields
   obtain ⟨dg1, hdg1_pos, a1, gd1, sb1, hs1, hsg1⟩ := r1
   obtain ⟨dg2, hdg2_pos, a2, gd2, sb2, hs2, hsg2⟩ := r2
@@ -1194,8 +1272,8 @@ theorem plant_flat_eq_of_randomness_eq (n : Nat) (φ : CNF) (r1 r2 : Randomness 
   -- Goal 3: fg HEq
   · -- Both FG configs use gd1 for gateDigests (after subst h_gateDigests)
     -- Use FrontierGateConfig.heq_of_components_heq with h_full proved via LStarInstanceFull.ext
-    have h_full : (plant_flat n φ ⟨dg1, hdg1_pos, a1, gd1, sb1, hs1, hsg1⟩ h_nvars).toLStarInstanceFull =
-                  (plant_flat n φ ⟨dg1, hdg2_pos, a2, gd1, sb2, hs2, hsg2⟩ h_nvars).toLStarInstanceFull := by
+    have h_full : (plant_flat n φ ⟨dg1, hdg1_pos, a1, gd1, sb1, hs1, hsg1⟩ h_nvars h_aligned).toLStarInstanceFull =
+                  (plant_flat n φ ⟨dg1, hdg2_pos, a2, gd1, sb2, hs2, hsg2⟩ h_nvars h_aligned).toLStarInstanceFull := by
       apply LStarInstanceFull.ext <;> try rfl
       show (PoolConfig.mk (1_000_003 + (sb1.take 64).foldl (fun acc b => 2 * acc + if b then 1 else 0) 0) : PoolConfig dag.n) ≍
            PoolConfig.mk (1_000_003 + (sb2.take 64).foldl (fun acc b => 2 * acc + if b then 1 else 0) 0)
@@ -1597,7 +1675,8 @@ theorem extractRevealedBitsFromWitness_flat_eq_empty
 theorem planted_R_eq_R_of_flat
     (L : LStarInstanceFG) (v : Fin L.dag.n)
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars) :
+    (h_aligned : AlignedCNFConstraints φ)
+    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned) :
     L.R v = Foundations.R_of_flat φ (r.gateDigests.length) v.val := by
   subst h_L_eq
   rfl
@@ -1606,7 +1685,8 @@ theorem planted_R_eq_R_of_flat
 theorem planted_fg_gate_ge_clause_start_flat
     (L : LStarInstanceFG) (v : Fin L.dag.n)
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars)
+    (h_aligned : AlignedCNFConstraints φ)
+    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
     (h_gate : L.fg.gateReq v) :
     1 + φ.nvars ≤ v.val := by
   have h_interval := by
@@ -1621,7 +1701,8 @@ theorem planted_fg_gate_ge_clause_start_flat
 noncomputable def worldFromWitness_flat
     (L : LStarInstanceFG)
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars)
+    (h_aligned : AlignedCNFConstraints φ)
+    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
     (_h_wf : WellFormedRandomness φ r)
     (w : Witness φ.nvars)
     (C : Finset (Fin L.dag.n))
@@ -1644,7 +1725,7 @@ noncomputable def worldFromWitness_flat
               let gateIdx : Fin numGates := ⟨g, h_g_valid⟩
               -- Extract the gateReq constraint: clause_start ≤ v.val
               have h_v_ge_clause : clause_start ≤ v.val :=
-                planted_fg_gate_ge_clause_start_flat L v n φ r h_nvars h_L_eq h_gate
+                planted_fg_gate_ge_clause_start_flat L v n φ r h_nvars h_aligned h_L_eq h_gate
               have h_v_valid : clause_start + g < L.dag.n := by
                 -- v.val < L.dag.n (from v : Fin L.dag.n)
                 -- clause_start + g = v.val (by definition of g and h_v_ge_clause)
@@ -1663,7 +1744,7 @@ noncomputable def worldFromWitness_flat
                       -- v.val = clause_start + g
                       congr 1
                       omega  -- from h_v_ge_clause and g := v.val - clause_start
-                  _ = L.R v := (planted_R_eq_R_of_flat L v n φ r h_nvars h_L_eq).symm
+                  _ = L.R v := (planted_R_eq_R_of_flat L v n φ r h_nvars h_aligned h_L_eq).symm
               -- Cast cfg : Fin (2^R) to Fin (2^(L.R v))
               hR ▸ cfg
             else
@@ -1683,8 +1764,9 @@ noncomputable def worldFromWitness_flat
     ~130 lines mechanical adaptation. -/
 noncomputable def extractComputedConfigsFromWitness_flat
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
+    (h_aligned : AlignedCNFConstraints φ)
     (L : LStarInstanceFG)
-    (h_L_eq : L = plant_flat n φ r h_nvars)
+    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
     (h_wf : WellFormedRandomness φ r)
     (w : Witness φ.nvars)
     (h_correct : φ.satisfies w.assignmentInf)
@@ -1704,8 +1786,8 @@ noncomputable def extractComputedConfigsFromWitness_flat
     | none => none
     | some ⟨R, cfg⟩ =>
         if h_g : g < numGates then
-          have h_v_planted : ∃ n φ r h_nvars, L = plant_flat n φ r h_nvars ∧ WellFormedRandomness φ r :=
-            ⟨n, φ, r, h_nvars, h_L_eq, h_wf⟩
+          have h_v_planted : ∃ n φ r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r :=
+            ⟨n, φ, r, h_nvars, h_aligned, h_L_eq, h_wf⟩
           -- For planted instances with g < numGates and g = v.val - clause_start,
           -- derive that clause_start ≤ v.val from membership
           have h_v_ge_clause : clause_start ≤ v.val := by
@@ -1755,8 +1837,8 @@ noncomputable def extractComputedConfigsFromWitness_flat
                   -- and numGates = r.gateDigests.length by let binding in extractComputedConfigsFromWitness_flat
                   -- So R_of_flat φ numGates v.val = R_of_flat φ r.gateDigests.length v.val = L.R v
 
-                  subst h_L_eq  -- Substitute L = plant_flat n φ r h_nvars
-                  -- Now goal: R_of_flat φ numGates v.val = (plant_flat n φ r h_nvars).R v
+                  subst h_L_eq  -- Substitute L = plant_flat n φ r h_nvars h_aligned
+                  -- Now goal: R_of_flat φ numGates v.val = (plant_flat n φ r h_nvars h_aligned).R v
                   -- plant_flat.R v uses R_val = R_of_flat φ (r.gateDigests.length)
                   -- numGates = r.gateDigests.length (from let binding)
                   rfl
@@ -1773,13 +1855,14 @@ noncomputable def extractComputedConfigsFromWitness_flat
 theorem mem_computedConfigs_decompose_flat
     (L : LStarInstanceFG)
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars)
+    (h_aligned : AlignedCNFConstraints φ)
+    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
     (h_wf : WellFormedRandomness φ r)
     (w : Witness φ.nvars)
     (h_correct : φ.satisfies w.assignmentInf)
     (v : Fin L.dag.n)
     (cfg : Fin (2^(L.R v)))
-    (h_mem : ⟨v, cfg⟩ ∈ extractComputedConfigsFromWitness_flat n φ r h_nvars L h_L_eq h_wf w h_correct) :
+    (h_mem : ⟨v, cfg⟩ ∈ extractComputedConfigsFromWitness_flat n φ r h_nvars h_aligned L h_L_eq h_wf w h_correct) :
     -- v is an FG gate
     v ∈ (List.finRange L.dag.n).filter (fun v => L.fg.gateReq v) ∧
     -- The config came from emergentConfigAtGate_flat at index g = v.val - (1 + φ.nvars)
@@ -1891,7 +1974,7 @@ theorem mem_computedConfigs_decompose_flat
               _ = R_of_flat φ numGates (clause_start + g') := by rfl
               _ = R_of_flat φ numGates v.val := by rw [h_val_eq]
               _ = L.R v := by
-                  have := planted_R_eq_R_of_flat L v n φ r h_nvars h_L_eq
+                  have := planted_R_eq_R_of_flat L v n φ r h_nvars h_aligned h_L_eq
                   exact this.symm
 
           -- Now provide all three existentials at once
@@ -1930,9 +2013,9 @@ Since plant_flat and plant_n have different R-profiles, we need parallel infrast
 
     **Properties**: Same structural checks as IsPlantedWithWellFormedRandomness -/
 def IsPlantedFlat (L : LStarInstanceFG) : Prop :=
-  ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
+  ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ),
     WellFormedRandomness φ r ∧
-    L = plant_flat n φ r h_nvars ∧
+    L = plant_flat n φ r h_nvars h_aligned ∧
     φ.nvars > 0 ∧
     r.gateDigests.length > 0
 
@@ -1958,12 +2041,13 @@ def WorldCompatibleWithVerifiedWitness_flat
 theorem strong_compatibility_implies_uniqueness_flat
     {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
     (φ : CNF) (h_nvars_pos : φ.nvars > 0) (h_nvars_ge4 : φ.nvars ≥ 4)
+    (h_aligned : AlignedCNFConstraints φ)
     (vw : Foundations.VerifiedWitness L)
     (ω₁ ω₂ : Foundations.CutWorld L C)
     (h₁ : WorldCompatibleWithVerifiedWitness_flat φ h_nvars_pos ω₁ vw)
     (h₂ : WorldCompatibleWithVerifiedWitness_flat φ h_nvars_pos ω₂ vw)
     (h_C_gates : ∀ v ∈ C, L.fg.gateReq v)
-    (h_planted : ∃ n r, L = plant_flat n φ r h_nvars_ge4 ∧ WellFormedRandomness φ r)
+    (h_planted : ∃ n r, L = plant_flat n φ r h_nvars_ge4 h_aligned ∧ WellFormedRandomness φ r)
     (h_nonempty_φ : φ.clauses.length > 0)
     : ω₁ = ω₂ := by
   -- Mechanical adaptation of AcceptanceUniqueness.strong_compatibility_implies_uniqueness
@@ -1988,7 +2072,7 @@ theorem strong_compatibility_implies_uniqueness_flat
 
       have h_numGates_eq : numGates L = r.gateDigests.length := by
         rw [h_L_eq]
-        exact numGates_eq_gateDigests_length_for_planted_flat n φ r h_nvars_ge4 h_nonempty_φ
+        exact numGates_eq_gateDigests_length_for_planted_flat n φ r h_nvars_ge4 h_aligned h_nonempty_φ
 
       unfold emergentConfigAtVertex_flat at h_emergent
       rw [h_numGates_eq] at h_emergent
@@ -2084,7 +2168,8 @@ def HasWitnessUniqueness_flat (L : LStarInstanceFG) (φ : CNF) (h_nvars_pos : φ
     identical to planted_instances_have_uniqueness modulo plant_flat vs plant_n. -/
 theorem planted_instances_have_uniqueness_flat
     (L : LStarInstanceFG) (φ : CNF) (h_nvars_pos : φ.nvars > 0) (h_nvars_ge4 : φ.nvars ≥ 4)
-    (h_planted : ∃ n r, L = plant_flat n φ r h_nvars_ge4 ∧ WellFormedRandomness φ r)
+    (h_aligned : AlignedCNFConstraints φ)
+    (h_planted : ∃ n r, L = plant_flat n φ r h_nvars_ge4 h_aligned ∧ WellFormedRandomness φ r)
     : HasWitnessUniqueness_flat L φ h_nvars_pos := by
   -- Extract planted structure
   obtain ⟨n, r, h_L_eq, h_wf⟩ := h_planted
@@ -2095,7 +2180,7 @@ theorem planted_instances_have_uniqueness_flat
   intro vw C h_C_gates ω₁ ω₂ h_compat₁ h_compat₂
 
   -- Build h_planted_simple for strong_compatibility_implies_uniqueness_flat
-  have h_planted_simple : ∃ n r, L = plant_flat n φ r h_nvars_ge4 ∧ WellFormedRandomness φ r := by
+  have h_planted_simple : ∃ n r, L = plant_flat n φ r h_nvars_ge4 h_aligned ∧ WellFormedRandomness φ r := by
     exact ⟨n, r, h_L_eq, h_wf⟩
 
   have h_nonempty_φ : φ.clauses.length > 0 := by
@@ -2105,7 +2190,7 @@ theorem planted_instances_have_uniqueness_flat
     omega
 
   -- Call the flat-mode version of strong_compatibility_implies_uniqueness
-  exact strong_compatibility_implies_uniqueness_flat φ h_nvars_pos h_nvars_ge4 vw ω₁ ω₂ h_compat₁ h_compat₂ h_C_gates h_planted_simple h_nonempty_φ
+  exact strong_compatibility_implies_uniqueness_flat φ h_nvars_pos h_nvars_ge4 h_aligned vw ω₁ ω₂ h_compat₁ h_compat₂ h_C_gates h_planted_simple h_nonempty_φ
 
 /-- **Config uniqueness for planted flat instances** (singleton cuts).
 
@@ -2164,8 +2249,10 @@ They prove plant_flat satisfies the same structural properties as plant_n.
     This enables using planted_gateReq_true_iff_interval_generic. -/
 @[simp]
 theorem plant_flat_gateReq_formula
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (v : Fin (plant_flat n φ r h_nvars).dag.n)
-    : (plant_flat n φ r h_nvars).fg.gateReq v = decide ((1 + φ.nvars) ≤ v.val ∧ v.val < (1 + φ.nvars) + r.gateDigests.length) := by
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
+    (h_aligned : AlignedCNFConstraints φ)
+    (v : Fin (plant_flat n φ r h_nvars h_aligned).dag.n)
+    : (plant_flat n φ r h_nvars h_aligned).fg.gateReq v = decide ((1 + φ.nvars) ≤ v.val ∧ v.val < (1 + φ.nvars) + r.gateDigests.length) := by
   -- plant_flat.gateReq is defined as exactly this formula
   -- The definition expands to the decide expression via simp
   simp only [plant_flat]
@@ -2209,22 +2296,22 @@ noncomputable def tmExecutionToPrefix_flat
     Flat-mode analog of TMToExecutionPrefix.planted_implies_nonempty_digestBits_verified. -/
 theorem planted_implies_nonempty_digestBits_verified_flat
     {L : LStarInstanceFG}
-    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4),
-                   0 < φ.clauses.length ∧ L = plant_flat n φ r h_nvars ∧ WellFormedRandomness φ r)
+    (h_planted : ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ),
+                   0 < φ.clauses.length ∧ L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r)
     (vw : Foundations.VerifiedWitness L)
     (_h_satisfies : (Classical.choose (Classical.choose_spec h_planted)).satisfies vw.w.assignmentInf)
     : vw.w.digestBits.length > 0 := by
-  obtain ⟨n, φ, r, h_nvars, h_clauses, h_L_eq, h_wf⟩ := h_planted
+  obtain ⟨n, φ, r, h_nvars, h_aligned, h_clauses, h_L_eq, h_wf⟩ := h_planted
   -- Substitute L with its planted value to unify types
   subst h_L_eq
   have h_r_nonempty : 0 < r.gateDigests.length := structural_owf_nonempty_gates r
-  -- After subst, (plant_flat n φ r h_nvars).n = φ.nvars definitionally
+  -- After subst, (plant_flat n φ r h_nvars h_aligned).n = φ.nvars definitionally
   let w_legacy : Witness φ.nvars := {
     assignment := vw.w.assignment
     digestBits := vw.w.digestBits
     gateProofs := []
   }
-  have h_correct : Foundations.HasCorrectDigests (plant_flat n φ r h_nvars) w_legacy := by
+  have h_correct : Foundations.HasCorrectDigests (plant_flat n φ r h_nvars h_aligned) w_legacy := by
     -- vw.digest_correct : vw.w.digestBits = digestsFromAssignmentWithSeeds L vw.w.assignment (computeSeedChain ...)
     -- HasCorrectDigests expects W.digestBits = digestsFromAssignmentWithSeeds L W.assignment (computeSeedChain ...)
     unfold Foundations.HasCorrectDigests
@@ -2233,15 +2320,15 @@ theorem planted_implies_nonempty_digestBits_verified_flat
     simp only [w_legacy]
     exact vw.digest_correct
   -- Use new totalRBits semantics
-  have h_len_eq : w_legacy.digestBits.length = Foundations.totalRBits (plant_flat n φ r h_nvars) :=
-    correct_digests_length_eq_totalRBits_planted_flat n φ r h_nvars h_clauses w_legacy h_correct
+  have h_len_eq : w_legacy.digestBits.length = Foundations.totalRBits (plant_flat n φ r h_nvars h_aligned) :=
+    correct_digests_length_eq_totalRBits_planted_flat n φ r h_nvars h_aligned h_clauses w_legacy h_correct
   -- For flat profile: totalRBits = φ.nvars (R_of_flat returns nvars at FG gates)
   -- nvars ≥ 4 > 0 by h_nvars
-  have h_totalRBits_pos : Foundations.totalRBits (plant_flat n φ r h_nvars) > 0 :=
-    totalRBits_pos_for_planted_flat n φ r h_nvars h_clauses
+  have h_totalRBits_pos : Foundations.totalRBits (plant_flat n φ r h_nvars h_aligned) > 0 :=
+    totalRBits_pos_for_planted_flat n φ r h_nvars h_aligned h_clauses
   calc vw.w.digestBits.length
       = w_legacy.digestBits.length := rfl
-    _ = Foundations.totalRBits (plant_flat n φ r h_nvars) := h_len_eq
+    _ = Foundations.totalRBits (plant_flat n φ r h_nvars h_aligned) := h_len_eq
     _ > 0 := h_totalRBits_pos
 
 end LStar.StructuralOWF

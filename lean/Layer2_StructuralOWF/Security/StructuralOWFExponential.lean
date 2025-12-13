@@ -178,10 +178,9 @@ Same principle: Plant_flat is triple-locked OWF
    - Church-Turing bridge: AlgSpec → TM with encoding discipline
    - Type: Foundational CS principle (very low risk)
 
-2. **`planted_collision_impossibility_flat`** (TMAdapterExponential.lean) - **EXPONENTIAL ONLY**
-   - Collision impossibility: for planted instances, incomplete observations cannot have
-     two different agreeing configurations (Semantic Conservation Law)
-   - Type: Information-theoretic bound on planted instance structure
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (TMAdapterExponential.lean) - **EXPONENTIAL ONLY**
+   - Execution-semantic bridge: for planted instances, *correct TM output* implies the run realizes all `2^R` FG emergent values
+   - Type: TM-to-visitation bridge (not a statement about `Observation.configsAgree`)
 
 **Note (2025-12)**: Time lower bound uses `fg_first_commit_time_lower_bound_encoded` which
 gets encoder boundedness from proven `tmEmergentEncoder_bounded` theorem.
@@ -194,7 +193,7 @@ gets encoder boundedness from proven `tmEmergentEncoder_bounded` theorem.
 - **Exponential** (this file): 2 axioms, bound 2^{Ω(n)} (maximum strength)
 - **QP** (OWFQP.lean): 2 axioms, bound n^{Ω(log n)} (sufficient for P≠NP)
 
-Both profiles use `qp_dominates_poly` (proven, 0 custom axioms). Exponential uses collision_indistinguishability; QP uses executionPrefix.
+Both profiles use `qp_dominates_poly` (proven, 0 custom axioms). Exponential uses the `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` execution bridge; QP uses executionPrefix.
 
 **Axiom Layer Note**: Both axioms operate at the inversion/information layer
 (TM semantics, Shannon's theorem)—neither mentions P, NP, or

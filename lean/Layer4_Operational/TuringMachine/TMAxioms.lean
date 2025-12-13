@@ -30,9 +30,9 @@ abstract complexity-theoretic framework.
 - `fg_lossless_encoding` (EncodingDiscipline.lean) - A3 emergence encoding
 
 **Exponential Profile** (1 profile-specific axiom, 3 total):
-- `collision_indistinguishability_under_incomplete_observation` (TMAdapterExponential.lean)
-  Information-theoretic axiom based on Shannon's theorem. Incomplete observations
-  cannot distinguish configurations with different parities.
+- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean)
+  Execution-semantic bridge: correct output on a planted instance forces exhaustive
+  realization of all `2^R` FG emergent values during the run.
 
 **QP Profile** (1 profile-specific axiom, 3 total):
 - `executionPrefix_compatible_with_planted` (PlantedBoundaryDiversity.lean)
@@ -569,7 +569,7 @@ theorem plant_equality_tm_exists
 - `plant_equality_tm_exists` - TM existence via Church-Turing bridge
 
 **Axiomatic Components** (other files):
-- `collision_indistinguishability_under_incomplete_observation` (TMAdapterExponential.lean)
+- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean)
 - `algspec_has_tm` (RandAdv.lean)
 - `encoding_semantics` (OWFBridge.lean)
 
