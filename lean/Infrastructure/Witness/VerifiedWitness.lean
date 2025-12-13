@@ -308,7 +308,7 @@ theorem plant_n_encoded_clause_eq (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                  Construction.totalNodes, Construction.reductionTreeSize]
       omega
     let clauseSeed := plant_seeds ⟨vertexIdx, h_valid⟩
-    L.encodedφ.clauses[i]'h_i_enc = LStar.OAP.encodeClause φ.clauses[i] clauseSeed i := by
+    L.encodedφ.clauses[i]'h_i_enc = LStar.OAP.encodeClause φ.clauses[i] clauseSeed i φ.nvars := by
   intro L h_i_enc numGates dag seedWidth_val plant_entropy plant_seeds vertexIdx h_valid clauseSeed
 
   -- Get the structure of L.encodedφ from plant_n_encodedφ_eq
@@ -368,7 +368,8 @@ theorem plant_n_encoded_clause_eq (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
   -- Goal closed by the rewrite
 
 theorem plant_n_oap_decode (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2) :
+    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_valid_vars : ∀ c ∈ φ.clauses, ∀ lit ∈ c.literals, lit.var < φ.nvars) :
     let h_dgLen_pos : 0 < r.dgLen := by
       rw [h_dgLen]
       have h_log_pos : 0 < Nat.log 2 φ.nvars := Nat.log_pos (by omega) (by omega)
@@ -515,267 +516,272 @@ theorem plant_n_oap_decode (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nva
 
       apply LStar.OAP.clause_roundtrip_val_eq
 
-      -- Helper: proof transport preserves .val for Seed (which is Fin)
-      have h_cast_val : ∀ {n m : Nat} (h : n = m) (s : LStar.Seed n), (h ▸ s).val = s.val := by
-        intros n m h s
-        cases h
-        rfl
+      -- Goal 1: Prove seed value equality (h : encode_seed.val = decode_seed.val)
+      · -- Helper: proof transport preserves .val for Seed (which is Fin)
+        have h_cast_val : ∀ {n m : Nat} (h : n = m) (s : LStar.Seed n), (h ▸ s).val = s.val := by
+          intros n m h s
+          cases h
+          rfl
 
-      -- Goal: clause_seed.val = (if h : cond then h ▸ seed else ...).val
-      -- First simplify the dite using h_dite_cond
-      rw [dif_pos h_dite_cond]
+        -- Goal: clause_seed.val = (if h : cond then h ▸ seed else ...).val
+        -- First simplify the dite using h_dite_cond
+        rw [dif_pos h_dite_cond]
 
-      -- Strip the cast using h_cast_val
-      rw [h_cast_val]
+        -- Strip the cast using h_cast_val
+        rw [h_cast_val]
 
-      -- Goal: ↑seed_lhs = ↑seed_rhs  (equality of Nat values)
-      --
-      -- LHS: (computeSeedChain plant_n_entropy ⟨φ.nvars+1+i, h_valid⟩).val
-      -- RHS: (computeSeedChain inline_entropy ⟨1+L.n+(List.range ...)[i], ...⟩).val
-      --
-      -- Strategy: Show both seeds are equal (as Seed/Fin values), then .val equality follows.
-      --
-      -- Key facts:
-      -- 1. plant_n_entropy and inline_entropy are definitionally equal
-      -- 2. The indices have equal .val: φ.nvars+1+i = 1+L.n+(List.range ...)[i] = 1+L.n+i
-      --    (since L.n = φ.nvars and List.range[i] = i)
+        -- Goal: ↑seed_lhs = ↑seed_rhs  (equality of Nat values)
+        --
+        -- LHS: (computeSeedChain plant_n_entropy ⟨φ.nvars+1+i, h_valid⟩).val
+        -- RHS: (computeSeedChain inline_entropy ⟨1+L.n+(List.range ...)[i], ...⟩).val
+        --
+        -- Strategy: Show both seeds are equal (as Seed/Fin values), then .val equality follows.
+        --
+        -- Key facts:
+        -- 1. plant_n_entropy and inline_entropy are definitionally equal
+        -- 2. The indices have equal .val: φ.nvars+1+i = 1+L.n+(List.range ...)[i] = 1+L.n+i
+        --    (since L.n = φ.nvars and List.range[i] = i)
 
-      -- First, show List.range indexing simplifies
-      have h_range_len : i < (List.range L.encodedφ.clauses.length).length := by
-        simp only [List.length_range]; exact h_bound_enc
-      have h_range_simp : (List.range L.encodedφ.clauses.length)[i]'h_range_len = i :=
-        List.getElem_range h_range_len
+        -- First, show List.range indexing simplifies
+        have h_range_len : i < (List.range L.encodedφ.clauses.length).length := by
+          simp only [List.length_range]; exact h_bound_enc
+        have h_range_simp : (List.range L.encodedφ.clauses.length)[i]'h_range_len = i :=
+          List.getElem_range h_range_len
 
-      -- The RHS index .val equals 1 + L.n + i (after List.range simplification)
-      -- Show: 1 + L.n + (List.range ...)[i] = 1 + L.n + i = vertexIdx
-      -- We have h_idx_eq: 1 + L.n + i = vertexIdx
+        -- The RHS index .val equals 1 + L.n + i (after List.range simplification)
+        -- Show: 1 + L.n + (List.range ...)[i] = 1 + L.n + i = vertexIdx
+        -- We have h_idx_eq: 1 + L.n + i = vertexIdx
 
-      -- Apply congrArg to show seed equality implies .val equality
-      -- ↑a = ↑b when a = b (for Fin/Seed)
+        -- Apply congrArg to show seed equality implies .val equality
+        -- ↑a = ↑b when a = b (for Fin/Seed)
 
-      -- Both sides compute via the SAME entropy function (plant_n_entropy = inline_entropy definitionally)
-      -- at indices with the same .val.
+        -- Both sides compute via the SAME entropy function (plant_n_entropy = inline_entropy definitionally)
+        -- at indices with the same .val.
 
-      -- Show the seeds are equal by proving both equal clause_seed
-      -- clause_seed = plant_seeds ⟨vertexIdx, h_valid⟩ = computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩
+        -- Show the seeds are equal by proving both equal clause_seed
+        -- clause_seed = plant_seeds ⟨vertexIdx, h_valid⟩ = computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩
 
-      -- For the RHS: computeSeedChain inline_entropy ⟨rhs_idx, ...⟩
-      -- We need to show this equals clause_seed
+        -- For the RHS: computeSeedChain inline_entropy ⟨rhs_idx, ...⟩
+        -- We need to show this equals clause_seed
 
-      -- The inline entropy is definitionally plant_n_entropy = plant_entropy
-      -- The RHS index has .val = 1 + L.n + i (where List.range[i] = i)
-      -- = φ.nvars + 1 + i = vertexIdx.val
+        -- The inline entropy is definitionally plant_n_entropy = plant_entropy
+        -- The RHS index has .val = 1 + L.n + i (where List.range[i] = i)
+        -- = φ.nvars + 1 + i = vertexIdx.val
 
-      -- Since computeSeedChain only depends on the entropy function and the index .val
-      -- (seeds at indices with same .val under same entropy are equal), we're done.
+        -- Since computeSeedChain only depends on the entropy function and the index .val
+        -- (seeds at indices with same .val under same entropy are equal), we're done.
 
-      -- The inline entropy in the goal uses `(↑v == 0)` which equals `(v.val == 0)`
-      -- and `(↑j == 0)` which equals `(j.val == 0)`. These should match plant_entropy.
-      --
-      -- However, the index in the goal uses (List.range ...)[i] which needs simplification.
-      --
-      -- Strategy: Use h_entropy_eq (decode_entropy = plant_entropy) and the fact that the
-      -- inline entropy is definitionally decode_entropy. Then use computeSeedChain_ext to
-      -- show the chains are equal, and finally align the indices.
+        -- The inline entropy in the goal uses `(↑v == 0)` which equals `(v.val == 0)`
+        -- and `(↑j == 0)` which equals `(j.val == 0)`. These should match plant_entropy.
+        --
+        -- However, the index in the goal uses (List.range ...)[i] which needs simplification.
+        --
+        -- Strategy: Use h_entropy_eq (decode_entropy = plant_entropy) and the fact that the
+        -- inline entropy is definitionally decode_entropy. Then use computeSeedChain_ext to
+        -- show the chains are equal, and finally align the indices.
 
-      -- The inline entropy is definitionally equal to decode_entropy
-      -- (both use the same structure with v.val/↑v comparisons)
+        -- The inline entropy is definitionally equal to decode_entropy
+        -- (both use the same structure with v.val/↑v comparisons)
 
-      -- Use computeSeedChain_ext: if entropies are equal pointwise, chains are equal
-      have h_chain_ext := LStar.LStarInstanceFull.computeSeedChain_ext L.toLStarInstanceFull
-        decode_entropy plant_entropy h_entropy_eq
+        -- Use computeSeedChain_ext: if entropies are equal pointwise, chains are equal
+        have h_chain_ext := LStar.LStarInstanceFull.computeSeedChain_ext L.toLStarInstanceFull
+          decode_entropy plant_entropy h_entropy_eq
 
-      -- The RHS index needs simplification. First get the index form.
-      -- The RHS has index ⟨1 + L.n + (List.range ...)[i], some_proof⟩
-      -- We want to show this equals ⟨vertexIdx, h_valid⟩
+        -- The RHS index needs simplification. First get the index form.
+        -- The RHS has index ⟨1 + L.n + (List.range ...)[i], some_proof⟩
+        -- We want to show this equals ⟨vertexIdx, h_valid⟩
 
-      -- Get the proof that the RHS index value equals i
-      have h_rhs_idx_val : 1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len = vertexIdx := by
-        simp only [h_range_simp, h_L_n, vertexIdx]
-        omega
+        -- Get the proof that the RHS index value equals i
+        have h_rhs_idx_val : 1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len = vertexIdx := by
+          simp only [h_range_simp, h_L_n, vertexIdx]
+          omega
 
-      -- The goal compares .val of two seeds
-      -- LHS: (plant_seeds ⟨vertexIdx, h_valid⟩).val = (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
-      -- RHS: (computeSeedChain inline_entropy ⟨rhs_idx, rhs_proof⟩).val
+        -- The goal compares .val of two seeds
+        -- LHS: (plant_seeds ⟨vertexIdx, h_valid⟩).val = (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
+        -- RHS: (computeSeedChain inline_entropy ⟨rhs_idx, rhs_proof⟩).val
 
-      -- Since inline_entropy = decode_entropy (definitionally) and decode_entropy = plant_entropy (by h_entropy_eq),
-      -- the chains are equal at any index.
+        -- Since inline_entropy = decode_entropy (definitionally) and decode_entropy = plant_entropy (by h_entropy_eq),
+        -- the chains are equal at any index.
 
-      -- Use h_seed_eq which already proves: computeSeedChain decode_entropy v = plant_seeds v
-      -- This means: (computeSeedChain decode_entropy ⟨idx, proof⟩).val = (plant_seeds ⟨idx, proof⟩).val
+        -- Use h_seed_eq which already proves: computeSeedChain decode_entropy v = plant_seeds v
+        -- This means: (computeSeedChain decode_entropy ⟨idx, proof⟩).val = (plant_seeds ⟨idx, proof⟩).val
 
-      -- The RHS inline entropy should be decode_entropy, so use h_seed_eq
+        -- The RHS inline entropy should be decode_entropy, so use h_seed_eq
 
-      -- First show the indices yield the same seed via h_seed_eq
-      -- h_seed_eq at any index v gives: computeSeedChain decode_entropy v = plant_seeds v
+        -- First show the indices yield the same seed via h_seed_eq
+        -- h_seed_eq at any index v gives: computeSeedChain decode_entropy v = plant_seeds v
 
-      -- The goal is: ↑clause_seed = ↑(RHS computation)
-      -- clause_seed = plant_seeds ⟨vertexIdx, h_valid⟩
-      -- RHS = computeSeedChain inline_entropy ⟨rhs_idx, rhs_proof⟩
+        -- The goal is: ↑clause_seed = ↑(RHS computation)
+        -- clause_seed = plant_seeds ⟨vertexIdx, h_valid⟩
+        -- RHS = computeSeedChain inline_entropy ⟨rhs_idx, rhs_proof⟩
 
-      -- Since inline_entropy = decode_entropy (definitionally), RHS = computeSeedChain decode_entropy ⟨rhs_idx, rhs_proof⟩
-      -- By h_seed_eq: computeSeedChain decode_entropy v = plant_seeds v
-      -- So RHS = plant_seeds ⟨rhs_idx, rhs_proof⟩
+        -- Since inline_entropy = decode_entropy (definitionally), RHS = computeSeedChain decode_entropy ⟨rhs_idx, rhs_proof⟩
+        -- By h_seed_eq: computeSeedChain decode_entropy v = plant_seeds v
+        -- So RHS = plant_seeds ⟨rhs_idx, rhs_proof⟩
 
-      -- Since rhs_idx.val = vertexIdx (by h_rhs_idx_val), we need Fin proof irrelevance
+        -- Since rhs_idx.val = vertexIdx (by h_rhs_idx_val), we need Fin proof irrelevance
 
-      -- Use the fact that Seeds with equal .val are equal (they're Fin types)
-      -- If two Fin n values have equal underlying Nat, they're equal
+        -- Use the fact that Seeds with equal .val are equal (they're Fin types)
+        -- If two Fin n values have equal underlying Nat, they're equal
 
-      -- Approach: show LHS and RHS both equal the same Nat
+        -- Approach: show LHS and RHS both equal the same Nat
 
-      -- LHS = clause_seed.val = (plant_seeds ⟨vertexIdx, h_valid⟩).val
-      -- RHS = (computeSeedChain inline_entropy ⟨rhs_idx, rhs_proof⟩).val
-      --     = (computeSeedChain decode_entropy ⟨rhs_idx, rhs_proof⟩).val  [inline = decode_entropy def'ly]
-      --     = (plant_seeds ⟨rhs_idx, rhs_proof⟩).val                       [by h_seed_eq]
+        -- LHS = clause_seed.val = (plant_seeds ⟨vertexIdx, h_valid⟩).val
+        -- RHS = (computeSeedChain inline_entropy ⟨rhs_idx, rhs_proof⟩).val
+        --     = (computeSeedChain decode_entropy ⟨rhs_idx, rhs_proof⟩).val  [inline = decode_entropy def'ly]
+        --     = (plant_seeds ⟨rhs_idx, rhs_proof⟩).val                       [by h_seed_eq]
 
-      -- Now we need: (plant_seeds ⟨vertexIdx, h_valid⟩).val = (plant_seeds ⟨rhs_idx, rhs_proof⟩).val
+        -- Now we need: (plant_seeds ⟨vertexIdx, h_valid⟩).val = (plant_seeds ⟨rhs_idx, rhs_proof⟩).val
 
-      -- Since vertexIdx and rhs_idx have the same Nat value (by h_rhs_idx_val converted),
-      -- and Seed is Fin, the .val only depends on the Nat value and the seed width.
-      -- The seed widths are both L.seedWidth at indices with the same .val, so they're equal.
+        -- Since vertexIdx and rhs_idx have the same Nat value (by h_rhs_idx_val converted),
+        -- and Seed is Fin, the .val only depends on the Nat value and the seed width.
+        -- The seed widths are both L.seedWidth at indices with the same .val, so they're equal.
 
-      -- The key: plant_seeds is defined as computeSeedChain plant_entropy
-      -- computeSeedChain at index v only depends on v.val (not the proof), so
-      -- plant_seeds ⟨a, p1⟩ = plant_seeds ⟨a, p2⟩ when both have the same Nat value a.
+        -- The key: plant_seeds is defined as computeSeedChain plant_entropy
+        -- computeSeedChain at index v only depends on v.val (not the proof), so
+        -- plant_seeds ⟨a, p1⟩ = plant_seeds ⟨a, p2⟩ when both have the same Nat value a.
 
-      -- Use Fin.ext to show the seeds are equal when indices have equal .val
-      -- Actually, this is automatic since Fin.val only extracts the Nat component
+        -- Use Fin.ext to show the seeds are equal when indices have equal .val
+        -- Actually, this is automatic since Fin.val only extracts the Nat component
 
-      -- Goal: ↑(computeSeedChain plant_n_entropy ⟨vertexIdx, h_valid⟩) =
-      --       ↑(computeSeedChain decode_entropy_from_randomness ⟨1 + L.n + range[i], proof⟩)
-      --
-      -- The key insight: decode_entropy_from_randomness L r and plant_n_entropy are
-      -- structurally the same when L = plant_n ..., so they compute the same seeds.
-      --
-      -- Both entropy functions have identical structure:
-      -- - if v.val == 0 then zero
-      -- - else if v.val <= n then assignment bit
-      -- - else if fg_gate_range then digest bit
-      -- - else zero
-      --
-      -- Since L.n = φ.nvars, the conditions are equivalent.
+        -- Goal: ↑(computeSeedChain plant_n_entropy ⟨vertexIdx, h_valid⟩) =
+        --       ↑(computeSeedChain decode_entropy_from_randomness ⟨1 + L.n + range[i], proof⟩)
+        --
+        -- The key insight: decode_entropy_from_randomness L r and plant_n_entropy are
+        -- structurally the same when L = plant_n ..., so they compute the same seeds.
+        --
+        -- Both entropy functions have identical structure:
+        -- - if v.val == 0 then zero
+        -- - else if v.val <= n then assignment bit
+        -- - else if fg_gate_range then digest bit
+        -- - else zero
+        --
+        -- Since L.n = φ.nvars, the conditions are equivalent.
 
-      -- Use the fact that both entropies are equal pointwise
-      -- h_entropy_eq : decode_entropy v = plant_entropy v (where decode_entropy = decode_entropy_from_randomness L r)
+        -- Use the fact that both entropies are equal pointwise
+        -- h_entropy_eq : decode_entropy v = plant_entropy v (where decode_entropy = decode_entropy_from_randomness L r)
 
-      -- The chains at any index must be equal since the entropies are equal
-      -- Strategy: Both sides compute chains at indices with same .val
-      -- LHS: plant_entropy at ⟨vertexIdx, h_valid⟩
-      -- RHS: decode_entropy at ⟨1 + L.n + range[i], _⟩
-      --
-      -- Since decode_entropy = plant_entropy (by h_entropy_eq) and
-      -- vertexIdx = 1 + L.n + range[i] (since range[i] = i and L.n = φ.nvars),
-      -- both sides compute the same seed.
+        -- The chains at any index must be equal since the entropies are equal
+        -- Strategy: Both sides compute chains at indices with same .val
+        -- LHS: plant_entropy at ⟨vertexIdx, h_valid⟩
+        -- RHS: decode_entropy at ⟨1 + L.n + range[i], _⟩
+        --
+        -- Since decode_entropy = plant_entropy (by h_entropy_eq) and
+        -- vertexIdx = 1 + L.n + range[i] (since range[i] = i and L.n = φ.nvars),
+        -- both sides compute the same seed.
 
-      -- Key insight: use Seed.get_eq_of_val_eq to handle seeds with same val but different indices
-      -- The LHS seed is at ⟨vertexIdx, h_valid⟩
-      -- The RHS seed is at ⟨1 + L.n + range[i], some_proof⟩ where 1 + L.n + range[i] = vertexIdx
+        -- Key insight: use Seed.get_eq_of_val_eq to handle seeds with same val but different indices
+        -- The LHS seed is at ⟨vertexIdx, h_valid⟩
+        -- The RHS seed is at ⟨1 + L.n + range[i], some_proof⟩ where 1 + L.n + range[i] = vertexIdx
 
-      -- First establish the Nat equality of indices
-      have h_rhs_idx_nat : 1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len = vertexIdx := by
-        rw [h_range_simp, h_L_n]
-        simp only [vertexIdx]
-        omega
+        -- First establish the Nat equality of indices
+        have h_rhs_idx_nat : 1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len = vertexIdx := by
+          rw [h_range_simp, h_L_n]
+          simp only [vertexIdx]
+          omega
 
-      -- The goal compares .val of two Seeds. We use the fact that:
-      -- - Both chains are computed from entropy functions that are pointwise equal (h_entropy_eq)
-      -- - The indices have the same .val (h_rhs_idx_nat)
-      -- - computeSeedChain produces seeds of type Seed (seedWidth idx)
-      -- - If idx1.val = idx2.val, then seedWidth idx1 = seedWidth idx2 (since seedWidth depends only on .val)
+        -- The goal compares .val of two Seeds. We use the fact that:
+        -- - Both chains are computed from entropy functions that are pointwise equal (h_entropy_eq)
+        -- - The indices have the same .val (h_rhs_idx_nat)
+        -- - computeSeedChain produces seeds of type Seed (seedWidth idx)
+        -- - If idx1.val = idx2.val, then seedWidth idx1 = seedWidth idx2 (since seedWidth depends only on .val)
 
-      -- Actually the goal is ↑lhs_seed = ↑rhs_seed where both are Seeds (which are Fin)
-      -- So we need to prove the underlying Nat values are equal
+        -- Actually the goal is ↑lhs_seed = ↑rhs_seed where both are Seeds (which are Fin)
+        -- So we need to prove the underlying Nat values are equal
 
-      -- Use the chain extensionality on decode_entropy and plant_entropy at the vertexIdx
-      simp only [decode_entropy] at h_chain_ext
+        -- Use the chain extensionality on decode_entropy and plant_entropy at the vertexIdx
+        simp only [decode_entropy] at h_chain_ext
 
-      -- The LHS is: (plant_seeds ⟨vertexIdx, h_valid⟩).val
-      --           = (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
-      -- The RHS is: (computeSeedChain decode_entropy_from_randomness ⟨rhs_idx, _⟩).val
+        -- The LHS is: (plant_seeds ⟨vertexIdx, h_valid⟩).val
+        --           = (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
+        -- The RHS is: (computeSeedChain decode_entropy_from_randomness ⟨rhs_idx, _⟩).val
 
-      -- Show RHS equals (computeSeedChain decode_entropy_from_randomness ⟨vertexIdx, h_valid⟩).val
-      -- by using Fin proof irrelevance (the indices have equal .val)
+        -- Show RHS equals (computeSeedChain decode_entropy_from_randomness ⟨vertexIdx, h_valid⟩).val
+        -- by using Fin proof irrelevance (the indices have equal .val)
 
-      -- Use LStar.Seed.get_eq_of_val_eq: seeds with same underlying Nat have same bits
-      -- So ↑seed1 = ↑seed2 when seed1.val = seed2.val (for Fin types, this is Fin.val_eq_val)
+        -- Use LStar.Seed.get_eq_of_val_eq: seeds with same underlying Nat have same bits
+        -- So ↑seed1 = ↑seed2 when seed1.val = seed2.val (for Fin types, this is Fin.val_eq_val)
 
-      -- Actually for Fin, if two Fin n values have equal underlying Nat, they're equal
-      -- So we can use Fin.ext
+        -- Actually for Fin, if two Fin n values have equal underlying Nat, they're equal
+        -- So we can use Fin.ext
 
-      -- The crux: show (computeSeedChain decode_entropy_from_randomness L r ⟨rhs_idx, _⟩).val
-      --                = (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
+        -- The crux: show (computeSeedChain decode_entropy_from_randomness L r ⟨rhs_idx, _⟩).val
+        --                = (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
 
-      -- Since decode_entropy_from_randomness L r = decode_entropy = plant_entropy (pointwise),
-      -- computeSeedChain decode_entropy_from_randomness L r = computeSeedChain plant_entropy
+        -- Since decode_entropy_from_randomness L r = decode_entropy = plant_entropy (pointwise),
+        -- computeSeedChain decode_entropy_from_randomness L r = computeSeedChain plant_entropy
 
-      -- And since rhs_idx.val = vertexIdx, the result is the same
+        -- And since rhs_idx.val = vertexIdx, the result is the same
 
-      -- Actually, seeds are Fin, so .val is coercion to Nat. Two Fin with same Nat are equal.
-      -- The key is: computeSeedChain f ⟨n, h1⟩ = computeSeedChain f ⟨n, h2⟩ (proof irrelevance for Fin index)
+        -- Actually, seeds are Fin, so .val is coercion to Nat. Two Fin with same Nat are equal.
+        -- The key is: computeSeedChain f ⟨n, h1⟩ = computeSeedChain f ⟨n, h2⟩ (proof irrelevance for Fin index)
 
-      -- Strategy: Show both seeds have the same .val (underlying Nat)
-      -- 1. decode_entropy_from_randomness = plant_entropy (from h_entropy_eq)
-      -- 2. The Fin indices have equal .val (h_rhs_idx_nat)
+        -- Strategy: Show both seeds have the same .val (underlying Nat)
+        -- 1. decode_entropy_from_randomness = plant_entropy (from h_entropy_eq)
+        -- 2. The Fin indices have equal .val (h_rhs_idx_nat)
 
-      -- Construct the bound for the RHS index (needed below)
-      have h_rhs_bound : 1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len < L.dag.n := by
-        rw [h_range_simp]
-        exact h_dite_cond
+        -- Construct the bound for the RHS index (needed below)
+        have h_rhs_bound : 1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len < L.dag.n := by
+          rw [h_range_simp]
+          exact h_dite_cond
 
-      -- The RHS Fin index equals the LHS (vertexIdx) - they have the same .val
-      have h_idx_fin_eq : (⟨vertexIdx, h_valid⟩ : Fin L.dag.n) =
-          ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩ := by
-        ext
-        exact h_rhs_idx_nat.symm
+        -- The RHS Fin index equals the LHS (vertexIdx) - they have the same .val
+        have h_idx_fin_eq : (⟨vertexIdx, h_valid⟩ : Fin L.dag.n) =
+            ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩ := by
+          ext
+          exact h_rhs_idx_nat.symm
 
-      -- Use h_chain_ext to show the chains are equal
-      have h_rhs_chain := h_chain_ext ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩
-      -- h_rhs_chain : computeSeedChain decode_entropy ⟨rhs_idx, _⟩ = computeSeedChain plant_entropy ⟨rhs_idx, _⟩
+        -- Use h_chain_ext to show the chains are equal
+        have h_rhs_chain := h_chain_ext ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩
+        -- h_rhs_chain : computeSeedChain decode_entropy ⟨rhs_idx, _⟩ = computeSeedChain plant_entropy ⟨rhs_idx, _⟩
 
-      -- The LHS is: (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
-      -- The RHS is: (computeSeedChain decode_entropy ⟨rhs_idx, h_rhs_bound⟩).val
+        -- The LHS is: (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
+        -- The RHS is: (computeSeedChain decode_entropy ⟨rhs_idx, h_rhs_bound⟩).val
 
-      -- Rewrite LHS index to RHS index using h_idx_fin_eq
-      conv_lhs => rw [h_idx_fin_eq]
+        -- Rewrite LHS index to RHS index using h_idx_fin_eq
+        conv_lhs => rw [h_idx_fin_eq]
 
-      -- Now LHS: (computeSeedChain plant_entropy ⟨rhs_idx, h_rhs_bound⟩).val
-      -- RHS: (computeSeedChain decode_entropy ⟨rhs_idx, h_rhs_bound⟩).val
+        -- Now LHS: (computeSeedChain plant_entropy ⟨rhs_idx, h_rhs_bound⟩).val
+        -- RHS: (computeSeedChain decode_entropy ⟨rhs_idx, h_rhs_bound⟩).val
 
-      -- By h_rhs_chain, the chains at the same index are equal
-      -- h_rhs_chain: decode_entropy at idx = plant_entropy at idx
-      -- Goal: ↑(plant_entropy at idx) = ↑(decode_entropy at idx')
+        -- By h_rhs_chain, the chains at the same index are equal
+        -- h_rhs_chain: decode_entropy at idx = plant_entropy at idx
+        -- Goal: ↑(plant_entropy at idx) = ↑(decode_entropy at idx')
 
-      -- The LHS and RHS compute the same seed because:
-      -- 1. decode_entropy = plant_entropy (by h_entropy_eq)
-      -- 2. The indices have the same .val (by h_rhs_idx_nat)
+        -- The LHS and RHS compute the same seed because:
+        -- 1. decode_entropy = plant_entropy (by h_entropy_eq)
+        -- 2. The indices have the same .val (by h_rhs_idx_nat)
 
-      -- Use congrArg to reduce ↑a = ↑b to showing a.val = b.val
-      -- Actually ↑ for Fin is just .val, so we're already comparing Nats
+        -- Use congrArg to reduce ↑a = ↑b to showing a.val = b.val
+        -- Actually ↑ for Fin is just .val, so we're already comparing Nats
 
-      -- Show both sides equal the same Nat
-      -- LHS = (computeSeedChain plant_entropy ⟨idx, h_rhs_bound⟩).val
-      -- RHS = (computeSeedChain decode_entropy ⟨idx', rhs_proof⟩).val
+        -- Show both sides equal the same Nat
+        -- LHS = (computeSeedChain plant_entropy ⟨idx, h_rhs_bound⟩).val
+        -- RHS = (computeSeedChain decode_entropy ⟨idx', rhs_proof⟩).val
 
-      -- Use transitivity: LHS = middle = RHS
-      -- where middle = (computeSeedChain decode_entropy ⟨idx, h_rhs_bound⟩).val
+        -- Use transitivity: LHS = middle = RHS
+        -- where middle = (computeSeedChain decode_entropy ⟨idx, h_rhs_bound⟩).val
 
-      -- Step 1: LHS = middle (by h_rhs_chain.symm applied pointwise)
-      -- Note: decode_entropy := decode_entropy_from_randomness L r h_dgLen_pos (by definition)
-      -- So h_rhs_chain directly applies since the let-binding is definitionally equal
-      have h_lhs_eq : (L.toLStarInstanceFull.computeSeedChain plant_entropy ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩).val =
-          (L.toLStarInstanceFull.computeSeedChain decode_entropy ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩).val := by
-        rw [h_rhs_chain.symm]
+        -- Step 1: LHS = middle (by h_rhs_chain.symm applied pointwise)
+        -- Note: decode_entropy := decode_entropy_from_randomness L r h_dgLen_pos (by definition)
+        -- So h_rhs_chain directly applies since the let-binding is definitionally equal
+        have h_lhs_eq : (L.toLStarInstanceFull.computeSeedChain plant_entropy ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩).val =
+            (L.toLStarInstanceFull.computeSeedChain decode_entropy ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩).val := by
+          rw [h_rhs_chain.symm]
 
-      -- Step 2: middle = RHS (indices have same .val, so seeds are equal)
-      -- The RHS index has the same .val as LHS index (after simplifying range[i] = i)
+        -- Step 2: middle = RHS (indices have same .val, so seeds are equal)
+        -- The RHS index has the same .val as LHS index (after simplifying range[i] = i)
 
-      -- Unfold let-bindings so h_lhs_eq pattern matches goal
-      simp only [L, plant_entropy, dag, seedWidth_val, decode_entropy] at h_lhs_eq ⊢
+        -- Unfold let-bindings so h_lhs_eq pattern matches goal
+        simp only [L, plant_entropy, dag, seedWidth_val, decode_entropy] at h_lhs_eq ⊢
 
-      -- Use convert which is more flexible about proof term differences
-      -- convert using 4 handles proof-irrelevance for Fin bound proofs
-      convert h_lhs_eq using 4
+        -- Use convert which is more flexible about proof term differences
+        -- convert using 4 handles proof-irrelevance for Fin bound proofs
+        convert h_lhs_eq using 4
+
+      -- Goal 2: Prove validity (h_valid : ∀ lit ∈ c.literals, lit.var < nvars)
+      · have h_clause_mem : φ.clauses[i] ∈ φ.clauses := List.getElem_mem h_i_φ
+        exact h_valid_vars _ h_clause_mem
 
 
 

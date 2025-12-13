@@ -1354,6 +1354,37 @@ structure LStarInstanceFG extends LStarInstanceFull where
       Required for complexity proofs where adapter encoding uses encodedφ.nvars. -/
   h_n_eq_nvars : n = encodedφ.nvars
 
+  -- Encoding Size Bounds: These ensure L* instance has polynomial encoding size.
+  -- Required for rawDataSize_poly_bound to prove O(n³) encoding.
+
+  /-- R values bounded by n. For planted instances: R = n at FG gates, 0 elsewhere. -/
+  R_upper : ∀ v, R v ≤ n
+
+  /-- seedWidth bounded by n². Reduction tree accumulates to O(n²). -/
+  seedWidth_upper : ∀ v, seedWidth v ≤ n * n
+
+  /-- R × seedWidth bounded by n². Key: R = 0 at high-seedWidth vertices. -/
+  R_times_seedWidth_upper : ∀ v, R v * seedWidth v ≤ n * n
+
+  /-- Number of clauses bounded by n. -/
+  clauses_upper : encodedφ.clauses.length ≤ n
+
+  /-- Total literals bounded by 3n (3-SAT structure). -/
+  lits_upper : encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 ≤ 3 * n
+
+  /-- maskedVar bounded by nvars (CNF well-formedness). -/
+  maskedVar_upper : ∀ c ∈ encodedφ.clauses, ∀ lit ∈ c.literals, lit.maskedVar ≤ encodedφ.nvars
+
+  -- Note: pools.stride is a construction constant (~10^6 + 2^64 max), not bounded by n².
+  -- It doesn't depend on n, so it's handled as O(1) in the polynomial encoding bound.
+  -- The rawDataSize_poly_bound theorem accounts for stride as an additive constant.
+
+  /-- GateDigest segmentBudget bounded by n. -/
+  gateDigest_budget_upper : ∀ i (h : fg.gateReq i), (fg.gateDigest ⟨i, h⟩).segmentBudget ≤ n
+
+  /-- GateDigest bits length bounded by n. -/
+  gateDigest_bits_upper : ∀ i (h : fg.gateReq i), (fg.gateDigest ⟨i, h⟩).bits.toList.length ≤ n
+
 /-- **Extensionality for LStarInstanceFG**: Two instances are equal if their components match.
 
     This lemma enables proving plant_n equality by showing component equality:
