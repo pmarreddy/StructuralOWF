@@ -5,9 +5,9 @@ import Mathlib.Data.Nat.Log
 /-! ## RanksCore: Core Rank Function Infrastructure
 
 **Main Definitions**:
-- `EmergenceProfile` - Enum for profile selection (only `.exponential` is used)
+- `EmergenceProfile` - Enum for profile selection (`.exponential` only)
 - `computeR` - Profile-parametric R computation
-- `R_of` - Base rank function (legacy QP formula, kept for reference)
+- `R_of` - Base rank function (legacy, kept for compatibility)
 - `is_fg_gate` - FG gate position predicate
 
 **Why extracted**: Breaks circular dependencies (PlantCore ↔ Foundations). Pure rank computation
@@ -32,8 +32,7 @@ namespace LStar.StructuralOWF.Foundations
 The emergence profile determines how R (emergence rank) is computed at FG gates.
 This affects both the hardness bound and the digest size.
 
-- **QP (Quasi-Polynomial)**: R = (log₂ n)², giving 2^R = n^(log n) hardness
-- **Exponential**: R = n, giving 2^R = 2^n hardness
+- **Exponential**: R = n, giving 2^R = 2^n hardness (ACTIVE profile for P≠NP)
 
 The profile is used throughout the codebase to ensure consistent R computation
 in planting, decoding, and verification. -/
@@ -41,13 +40,10 @@ in planting, decoding, and verification. -/
 /-- Emergence profile for FG gates.
 
     Determines how R (emergence rank) is computed:
-    - `qp`: R = (log₂ nvars)² - quasi-polynomial hardness (LEGACY, not used in proof)
     - `exponential`: R = nvars - exponential hardness (ACTIVE profile for P≠NP)
 
-    **Usage**: Pass to `computeR` to get profile-specific R value.
-    **Note**: Only `.exponential` is used in the P≠NP proof chain. -/
+    **Usage**: Pass to `computeR` to get profile-specific R value. -/
 inductive EmergenceProfile
-  | qp          -- R = (log₂ n)², bound = n^(log n) [LEGACY]
   | exponential -- R = n, bound = 2^n [ACTIVE]
   deriving DecidableEq, Repr
 
@@ -56,19 +52,14 @@ inductive EmergenceProfile
     This is the **single source of truth** for R computation.
     All code that needs R at FG gates should use this function.
 
-    **QP Profile**: R = (log₂ nvars)²
-    - Gives quasi-polynomial hardness: 2^R = nvars^(log nvars)
-    - Used in QP-sharp security proofs
-
     **Exponential Profile**: R = nvars
     - Gives exponential hardness: 2^R = 2^nvars
-    - Used in exponential security proofs (stronger but less standard)
+    - Used in P≠NP proof
 
     **Note**: For non-FG vertices, R = 0 regardless of profile. This function
     computes R for FG gates only; use `R_of` or `R_of_flat` for full DAG. -/
 def computeR (profile : EmergenceProfile) (nvars : Nat) : Nat :=
   match profile with
-  | .qp => (Nat.log 2 nvars) ^ 2
   | .exponential => nvars
 
 /-- Exponential profile gives n (the active profile used in P≠NP proof). -/

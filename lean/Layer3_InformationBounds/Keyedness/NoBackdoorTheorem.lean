@@ -13,9 +13,8 @@ at FG gate cannot correctly distinguish all 2^λ configurations.
 **Key Theorems**:
 1. `no_backdoor_on_subset_of_bits` - Strict subset creates indistinguishable collision
 2. `no_polynomial_backdoor_exponential` - Poly-time cannot solve exponential λ
-3. `no_polynomial_backdoor_qp` - Poly-time cannot solve quasi-poly λ
-4. `planted_hardness_by_construction` - Explicit connection to planted instances
-5. `no_backdoor_collision` - Foundation theorem: cfg1 ≠ cfg2 from incomplete observation
+3. `planted_hardness_by_construction` - Explicit connection to planted instances
+4. `no_backdoor_collision` - Foundation theorem: cfg1 ≠ cfg2 from incomplete observation
 
 **What This Proves**:
 -  Deterministic construction (plant_flat)
@@ -214,85 +213,7 @@ theorem no_polynomial_backdoor_exponential_asymptotic
   -- Apply explicit witness form
   exact no_polynomial_backdoor_exponential L v S h_strict
 
-/-! ## Part 4: Polynomial Budget Cannot Solve Quasi-Poly λ
-
-**Setting**: QP profile has λ = R_fg = (log n)² (quasi-polynomial).
-
-**Claim**: Polynomial-time algorithm has poly(log n) = O(log^k n) read budget.
-
-**Conclusion**: When k < 2, budget < λ, so algorithm cannot solve.
-
-This shows even the "weaker" QP bound is sufficient for P≠NP!
--/
-
-/-- **Theorem**: Polynomial budget cannot solve quasi-poly λ (explicit witness form).
-
-**Statement**: For any FG instance L with gate v, if budget |S| < λ, then no backdoor exists.
-
-**Conclusion**: By no_backdoor_on_subset_of_bits, algorithm cannot correctly
-identify configs using only subset S.
-
-**Application to planted instances**: For QP profile with λ = (log n)²,
-even modest polynomial budgets (e.g., O(log n), O(log² n) with small constant)
-are insufficient.
-
-**Generality**: This theorem applies to ANY FG instance, not just planted ones.
-Planted instances (via plant_flat) are the primary use case but not required for the proof.
-
-**Proof**: Direct application of no_backdoor_on_subset_of_bits.
-
-**Trust boundary**:  0 axioms,  0 sorries -/
-theorem no_polynomial_backdoor_qp
-    (L : LStarInstanceFG)
-    (v : {v // L.fg.gateReq v})
-    (S : Finset (Fin (L.R v.val)))
-    (h_budget : S.card < L.R v.val)  -- Explicit: budget is strictly less than λ
-    : ∃ (cfg1 cfg2 : Fin (2^(L.R v.val))),
-        (∀ (i : Fin (L.R v.val)), i ∈ S → getBit cfg1.val i.val = getBit cfg2.val i.val) ∧
-        cfg1 ≠ cfg2 := by
-  -- **Direct application**: h_budget gives us the strict subset property
-  -- Use toLStarInstanceFull to convert FG to Full
-  exact no_backdoor_on_subset_of_bits L.toLStarInstanceFull v.val S h_budget
-
-/-- **Corollary**: Polynomial budget cannot solve quasi-poly λ (conditional form).
-
-**Statement**: For any FG instance L, if polynomial budget c·(log n)^k < (log n)² = λ
-for some n, then no backdoor exists.
-
-**Note on asymptotics**: This theorem provides the CONDITIONAL bridge—it assumes the
-arithmetic inequality h_poly_less_qp for a given n. The full asymptotic domination
-(∃ n₀, ∀ n ≥ n₀, n^(log n) > c·(log n)^k) is proven in `qp_dominates_poly`
-(Infrastructure/Witness/PerInstanceBound.lean). This clean separation allows the
-information-theoretic result (here) to be independent of asymptotic arithmetic.
-
-**Usage**: Bridge between polynomial time bounds and information-theoretic no-backdoor.
-
-**Proof**: Chain arithmetic inequalities, then apply no_polynomial_backdoor_qp.
-
-**Trust boundary**: 0 axioms, 0 sorries -/
-theorem no_polynomial_backdoor_qp_asymptotic
-    (L : LStarInstanceFG)
-    (v : {v // L.fg.gateReq v})
-    (S : Finset (Fin (L.R v.val)))
-    (n : Nat)  -- Explicit problem size
-    (c k : Nat)  -- Polynomial parameters
-    (h_budget_bound : S.card ≤ c * (Nat.log2 n) ^ k)
-    (h_poly_less_qp : c * (Nat.log2 n) ^ k < (Nat.log2 n) ^ 2)
-    (h_qp_equals_lambda : (Nat.log2 n) ^ 2 = L.R v.val)  -- QP formula
-    : ∃ (cfg1 cfg2 : Fin (2^(L.R v.val))),
-        (∀ (i : Fin (L.R v.val)), i ∈ S → getBit cfg1.val i.val = getBit cfg2.val i.val) ∧
-        cfg1 ≠ cfg2 := by
-  -- Chain the bounds: S.card ≤ poly < (log n)² = λ
-  have h_strict : S.card < L.R v.val := by
-    calc S.card
-        ≤ c * (Nat.log2 n) ^ k := h_budget_bound
-      _ < (Nat.log2 n) ^ 2 := h_poly_less_qp
-      _ = L.R v.val := h_qp_equals_lambda
-
-  -- Apply explicit witness form
-  exact no_polynomial_backdoor_qp L v S h_strict
-
-/-! ## Part 5: Explicit Connection to Planted Instances
+/-! ## Part 4: Explicit Connection to Planted Instances
 
 **Purpose**: Make the "hard by construction" claim explicit and citable.
 
@@ -512,8 +433,6 @@ standard Lean foundations (propext, quot.sound, classical.choice).
 #print axioms LStar.StructuralOWF.Foundations.no_backdoor_empty_observation
 #print axioms LStar.StructuralOWF.Foundations.no_polynomial_backdoor_exponential
 #print axioms LStar.StructuralOWF.Foundations.no_polynomial_backdoor_exponential_asymptotic
-#print axioms LStar.StructuralOWF.Foundations.no_polynomial_backdoor_qp
-#print axioms LStar.StructuralOWF.Foundations.no_polynomial_backdoor_qp_asymptotic
 #print axioms LStar.StructuralOWF.Foundations.planted_hardness_by_construction
 #print axioms LStar.StructuralOWF.Foundations.no_backdoor_collision
 #print axioms LStar.StructuralOWF.Foundations.planted_search_hardness_by_construction

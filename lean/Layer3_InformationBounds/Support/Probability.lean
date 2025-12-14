@@ -211,35 +211,6 @@ lemma dominates_from_N_of (C k n : Nat) (hn : N_of C k ≤ n) :
   have : ((C * n^k : Nat) : ℝ) < ((2^n : Nat) : ℝ) := by linarith
   exact Nat.cast_lt.mp this
 
-/-- **Quasi-polynomial eventually dominates polynomial (KEY LEMMA FOR OWFQP).**
-
-For QP-sharp profile with λ_base = (log₂ n)², we need: 2^((log₂ n)²) > C·n^k eventually.
-
-**Strategy**: Use transitivity via exponential dominance:
-1. We already know: C·n^k < 2^n for n ≥ N_of(C,k) (proven above)
-2. We need: 2^((log n)²) > C·n^k
-3. Since 2^((log n)²) << 2^n, we use the INFORMATION-THEORETIC bound instead:
-   - The construction guarantees haltTime ≥ 2^λ_base (from SCL + segment reduction)
-   - The adversary has haltTime ≤ C·n^k (polynomial time)
-   - For large n, these contradict!
-
-**SIMPLER APPROACH**: Just use the exponential bound as the effective dominance!
-For the OWF security proof, we don't actually need 2^((log n)²) > C·n^k.
-We need: "polynomial time insufficient to solve the problem".
-This is guaranteed by: haltTime_required ≥ 2^λ_base AND C·n^k < 2^n.
-
-The gap between 2^λ_base and C·n^k doesn't matter - what matters is that
-BOTH are exponential in the construction parameter, so polynomial can't reach either!
-
-**Application**: Use `dominates_from_N_of` directly in OWFQP - no separate QP lemma needed!
--/
-lemma qp_time_bound_via_exponential_dominance (C k : Nat) :
-    ∃ N₀ : Nat, ∀ n ≥ N₀, C * n^k < 2^n := by
-  -- This is exactly what we need for OWFQP asymptotic proof
-  -- The bound 2^n is stronger than needed (we only use 2^((log n)²))
-  -- But it's PROVEN, and suffices for the contradiction!
-  refine ⟨N_of C k, fun n hn => dominates_from_N_of C k n hn⟩
-
 /-! ## Averaging and Coin-Fixing Utilities
 
 These lemmas support the standard coin-fixing argument in cryptography:
