@@ -264,7 +264,7 @@ theorem work_distribution_from_rwa_and_fg
     (h_family_aligned : ∀ n, n ≥ 128 → AlignedCNFConstraints (Φ n))  -- Family constraint
     : ∀ (n : ℕ) (r : Randomness φ.nvars) (A_inv : LStarInstanceFG → Randomness)
         (C_A k_A C_Ext k_Ext : Nat)
-        (h_meaningful_n : n ≥ 128)  -- Instance size sufficient for parameterized R_v = (log₂ n)²
+        (h_meaningful_n : n ≥ 128)  -- Instance size sufficient for exponential R_v = nvars
         (h_nonzero_A : C_A ≥ 1)     -- Non-trivial adversary
         (h_poly_A : k_A ≥ 1)        -- Non-trivial polynomial
         (v : {v // (plant_flat n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) (h_family_aligned n h_meaningful_n)).fg.gateReq v}),
@@ -318,36 +318,24 @@ theorem work_distribution_from_rwa_and_fg
   -- which proves exactly this for single-run executions.
 
   have h_time_ge_R : run.time ≥ L.R v.val := by
-    -- **REVISED STRATEGY**: Use well-formedness and logarithmic growth bound
+    -- **EXPONENTIAL PROFILE STRATEGY**: Direct R = nvars bound
     --
     -- Given: n ≥ 128, C_A ≥ 1, k_A ≥ 1
     -- run.time = C_A * n^k_A + C_Ext * n^k_Ext
-    -- Need: run.time ≥ L.R v.val = (log₂ φ.nvars)²
+    -- Need: run.time ≥ L.R v.val = nvars (exponential profile)
     --
-    -- Key insight: For well-formed families, φ.nvars ≥ n ≥ 128 ≥ 16
-    -- Therefore: (log₂ φ.nvars)² ≤ φ.nvars (by log_squared_le_linear)
-    -- And: φ.nvars ≤ C_A * n^k_A (for k_A ≥ 1, C_A ≥ 1, since φ.nvars ≥ n)
+    -- Key insight: For aligned families, φ.nvars = n
+    -- Therefore: R_v = n (by plant_flat_R_eq_nvars)
+    -- And: C_A * n^k_A ≥ n (for k_A ≥ 1, C_A ≥ 1)
 
     unfold run runFromSecurityGame buildRun composeTraces traceAdversary traceExtractor
     simp [DeterministicRun.time, ExecutionTrace.totalTime]
 
     -- Goal: C_A * n^k_A + C_Ext * n^k_Ext ≥ L.R v.val
 
-    -- R_v = (log₂ φ.nvars)² for FG gates (parameterized, from Plant construction)
-    have h_R_parameterized : L.R v.val = (Nat.log 2 (Φ n).nvars) ^ 2 := by
-      exact plant_fg_R_eq_lambdaBaseSize n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_aligned v
-
-    -- For well-formed families: φ.nvars ≥ n
-    have h_nvars_ge_n : (Φ n).nvars ≥ n := h_wellformed n h_meaningful_n
-
-    -- (log₂ φ.nvars)² ≤ φ.nvars (by log_squared_le_linear, since φ.nvars ≥ n ≥ 128 ≥ 16)
-    have h_R_le_nvars : L.R v.val ≤ (Φ n).nvars := by
-      rw [h_R_parameterized]
-      apply log_squared_le_linear
-      calc (Φ n).nvars
-          ≥ n := h_nvars_ge_n
-        _ ≥ 128 := h_meaningful_n
-        _ ≥ 16 := by norm_num
+    -- R_v = φ.nvars for FG gates (exponential profile, from plant_flat construction)
+    have h_R_parameterized : L.R v.val = (Φ n).nvars := by
+      exact plant_flat_R_eq_nvars n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_aligned v v.property
 
     -- C_A * n^k_A ≥ n (from h_nonzero_A, h_poly_A, and n ≥ 128 ≥ 1)
     have h_A_term : C_A * n ^ k_A ≥ n := by
@@ -358,55 +346,20 @@ theorem work_distribution_from_rwa_and_fg
         _ ≥ n ^ 1 := by apply Nat.pow_le_pow_right h_n_pos; exact h_poly_A
         _ = n := by simp
 
-    -- Chain: R_v ≤ φ.nvars ≤ C_A * n^k_A (since φ.nvars ≥ n and C_A * n^k_A ≥ n)
-    -- But wait: we have φ.nvars ≥ n, not φ.nvars ≤ n!
-    -- So the correct chain is: R_v ≤ φ.nvars, and we need C_A * n^k_A ≥ φ.nvars
-    --
-    -- Revised approach: For well-formed families with φ.nvars = n (like alignedCNFFamily),
-    -- we have R_v ≤ n ≤ C_A * n^k_A. But for general families with φ.nvars ≥ n,
-    -- we need a different approach.
-    --
-    -- Key insight: Since k_A ≥ 1 and C_A ≥ 1, we have C_A * n^k_A ≥ n.
-    -- And from well-formedness: φ.nvars ≥ n.
-    -- We need: C_A * n^k_A ≥ φ.nvars
-    --
-    -- For k_A ≥ 1: n^k_A ≥ n, so C_A * n^k_A ≥ C_A * n ≥ n
-    -- But we need ≥ φ.nvars, which could be arbitrarily larger than n!
-    --
-    -- SOLUTION: The theorem assumes alignedCNFFamily where φ.nvars = n exactly.
-    -- For general families, we need stronger constraints (bounded growth).
-    -- For k_A ≥ 2, we can show n^k_A ≥ φ.nvars when φ.nvars grows slowly
-    -- (e.g., φ.nvars = O(n)).
-    --
-    -- Actually, let's reconsider: For k_A ≥ 2, C_A ≥ 1, we have:
-    -- C_A * n^k_A ≥ n^2
-    -- And for φ.nvars ≤ n (which is FALSE for well-formed!)...
-    --
-    -- CORRECT approach: Use k_A ≥ 1 to get n^k_A ≥ n, then note that
-    -- for the aligned family (used in practice), φ.nvars = n exactly.
-    -- For general families, this is a gap that needs additional constraints.
-
     have h_budget_sufficient : C_A * n ^ k_A ≥ L.R v.val := by
       -- Use h_tight: (Φ n).nvars = n for aligned families
       have h_nvars_eq_n : (Φ n).nvars = n := h_tight n h_meaningful_n
 
-      -- Substitute: R_v = (log₂ n)² (since φ.nvars = n)
-      have h_R_eq_log_n : L.R v.val = (Nat.log 2 n) ^ 2 := by
+      -- Substitute: R_v = n (since φ.nvars = n in exponential profile)
+      have h_R_eq_n : L.R v.val = n := by
         calc L.R v.val
-            = (Nat.log 2 (Φ n).nvars) ^ 2 := h_R_parameterized
-          _ = (Nat.log 2 n) ^ 2 := by rw [h_nvars_eq_n]
+            = (Φ n).nvars := h_R_parameterized
+          _ = n := h_nvars_eq_n
 
-      -- Apply log_squared_le_linear: (log₂ n)² ≤ n
-      have h_log_sq_le_n : (Nat.log 2 n) ^ 2 ≤ n := by
-        apply log_squared_le_linear
-        calc n ≥ 128 := h_meaningful_n
-          _ ≥ 16 := by norm_num
-
-      -- Chain: R_v = (log₂ n)² ≤ n ≤ C_A * n^k_A
+      -- Chain: R_v = n ≤ C_A * n^k_A
       calc C_A * n ^ k_A
           ≥ n := h_A_term
-        _ ≥ (Nat.log 2 n) ^ 2 := h_log_sq_le_n
-        _ = L.R v.val := h_R_eq_log_n.symm
+        _ = L.R v.val := h_R_eq_n.symm
 
     -- Finally: C_A * n^k_A + C_Ext * n^k_Ext ≥ C_A * n^k_A ≥ R_v
     calc C_A * n ^ k_A + C_Ext * n ^ k_Ext
@@ -448,7 +401,7 @@ theorem per_segment_unit_from_fg
     (h_family_aligned : ∀ n, n ≥ 128 → AlignedCNFConstraints (Φ n))  -- Family constraint
     : ∀ (n : ℕ) (r : Randomness φ.nvars) (A_inv : LStarInstanceFG → Randomness)
         (C_A k_A C_Ext k_Ext : Nat)
-    (h_meaningful_n : n ≥ 128)  -- Instance size sufficient for parameterized R_v = (log₂ n)²
+    (h_meaningful_n : n ≥ 128)  -- Instance size sufficient for exponential R_v = nvars
     (h_nonzero_A : C_A ≥ 1)     -- Non-trivial adversary
     (h_poly_A : k_A ≥ 1)        -- Non-trivial polynomial
       ,
@@ -464,7 +417,7 @@ theorem per_segment_unit_from_fg
   -- plant_fg_wired requires:
   -- 1. r.gateDigests.length > 0 (gates exist in randomness)
   have h_gates_nonempty : 0 < r.gateDigests.length := structural_owf_nonempty_gates n r
-  -- 2. φ.nvars ≥ 4 (QP-sharp formula requirement)
+  -- 2. φ.nvars ≥ 4 (exponential R formula requirement)
   have h_nvars_ge_4 : (Φ n).nvars ≥ 4 := by
     calc (Φ n).nvars
         ≥ n := h_wellformed n h_meaningful_n
