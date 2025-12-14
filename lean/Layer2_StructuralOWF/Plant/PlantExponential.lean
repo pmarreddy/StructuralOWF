@@ -1,6 +1,6 @@
 import Layer2_StructuralOWF.Plant.PlantCore
 import Layer3_InformationBounds.Randomness.RanksExponential  -- Layer 3 dependency (will be updated when Layer 3 is organized)
-import Layer3_InformationBounds.SegmentReduction.WorkLowerBounds  -- Layer 3 dependency
+-- WorkLowerBounds removed: unused and causes circular dependency with this file
 import Layer3_InformationBounds.ConstraintSystem.ConstraintExtraction  -- For RevealedBit, ExecutionPrefixReal
 import Layer1_Construction.Core.LStarInstance
 import Layer1_Construction.Core.MultiLevelDAG
