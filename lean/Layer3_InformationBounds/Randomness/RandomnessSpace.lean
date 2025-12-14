@@ -6,7 +6,6 @@ import Mathlib.Data.Prod.Lex
 import Mathlib.Order.PiLex
 import Mathlib.Order.Synonym
 import Layer0_Foundations.Base.CNF
-import Layer2_StructuralOWF.Extractor.Extractor
 
 /-! ## RandomnessSpace: Finite Randomness Domain for Probability Analysis
 

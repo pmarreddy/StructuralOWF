@@ -1,4 +1,3 @@
-import Layer2_StructuralOWF.Plant.PlantUniqueness
 import Layer2_StructuralOWF.FrontierGate.FrontierGate
 import Layer3_InformationBounds.ConstraintSystem.ConstraintSystem
 import Layer3_InformationBounds.ConstraintSystem.ConstraintExtraction

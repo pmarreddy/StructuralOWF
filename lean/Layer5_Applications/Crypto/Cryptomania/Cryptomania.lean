@@ -2,7 +2,6 @@ import Layer5_Applications.Crypto.Cryptomania.PKE
 import Layer5_Applications.Crypto.Cryptomania.KeyExchange
 import Layer5_Applications.Crypto.Cryptomania.PKSignature
 import Layer5_Applications.Crypto.Minicrypt
-import Layer2_StructuralOWF.Plant.TrapdoorStructuralOWF
 
 /-! # Cryptomania: Public-Key Cryptography from L* Structural OWF
 
@@ -39,7 +38,8 @@ open KeyExchange
 open PKSignature
 
 open LStar.Crypto.Minicrypt  -- Added this to directly use theorems like prg_exists
-open LStar.StructuralOWF.Trapdoor -- To access generateCNF, generateCNF_nvars_ge_4
+-- NOTE: Trapdoor module was deleted (QP-profile specific, not needed for exponential Track A)
+-- open LStar.StructuralOWF.Trapdoor -- To access generateCNF, generateCNF_nvars_ge_4
 open LStar.ZK
 open LStar.ZK.Sigma  -- For ZKSecure
 open LStar.Crypto.PRG
@@ -75,6 +75,18 @@ theorem cryptomania_from_lstar (n : Nat) (h_n : n ≥ 4) :
 
 /-! ## Complete Cryptographic Landscape -/
 
+/-! ## NOTE: Theorem Commented Out (Depends on Deleted Trapdoor Module)
+
+The `complete_crypto_from_lstar` theorem below was commented out because it depends on
+`generateCNF` from the deleted `TrapdoorStructuralOWF` module (QP-profile specific).
+
+This is an EXTENSION result showing that L* enables both Minicrypt and Cryptomania.
+It is NOT required for the main P≠NP proof (Track A exponential profile).
+
+To restore: Reimplement trapdoor CNF generation for the exponential profile.
+-/
+
+/-
 /-- **Complete Cryptographic Foundation**: Minicrypt + Cryptomania from L* OWF.
 
     The L* construction provides BOTH:
@@ -113,11 +125,12 @@ theorem complete_crypto_from_lstar (n : Nat) (h_n : n ≥ 4) :
 
   -- Minicrypt part
   let dummy_assignment : Assignment := fun _ => false
-  let minicrypt_cnf := generateCNF n dummy_assignment h_n
+  let minicrypt_cnf := generateCNF n dummy_assignment h_n  -- BROKEN: generateCNF deleted
   let h_minicrypt_nvars_ge_4 : minicrypt_cnf.nvars ≥ 4 := generateCNF_nvars_ge_4 n dummy_assignment h_n
 
   let minicrypt_res := minicrypt_from_lstar minicrypt_cnf h_minicrypt_nvars_ge_4
 
   exact And.intro cryptomania_res minicrypt_res
+-/
 
 end LStar.Crypto.Cryptomania

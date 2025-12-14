@@ -11,7 +11,6 @@ import Infrastructure.Witness.VerifiedWitness  -- For digestsFromAssignment
 import Layer5_Applications.PvsNP.ComplexityClasses.PPTAdversary  -- For PPTAdversary structure
 import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFAdversary  -- For StructuralOWFAdversary structure (Structural OWF-specific)
 import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFSizedInstances  -- For Sized instances (NEW)
-import Layer2_StructuralOWF.Extractor.Extractor  -- For extract function
 import Layer4_Operational.TuringMachine.TMSemanticProperties  -- For tm_nontrivial_computation_proven, tm_overhead_proven (NEW)
 import Layer5_Applications.PvsNP.PrimaryPath.EncodingHelpers  -- For bitsToRandomness
 import Layer5_Applications.PvsNP.PrimaryPath.ParametricBitstringBridge  -- For Bits

@@ -1,5 +1,4 @@
 import Layer2_StructuralOWF.Plant.PlantCore
-import Layer2_StructuralOWF.Extractor.Extractor
 import Layer2_StructuralOWF.FrontierGate.RandomnessTypes
 import Layer3_InformationBounds.ConstraintSystem.ConfigTypes
 import Layer3_InformationBounds.Support.ObservationModel

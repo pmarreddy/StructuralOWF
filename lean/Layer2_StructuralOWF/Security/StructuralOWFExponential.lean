@@ -4,7 +4,6 @@ import Layer3_InformationBounds.Support.FinsetExtraction
 import Layer5_Applications.PvsNP.ComplexityClasses.PPTAdversary
 import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFAdversary  -- For OWFAdversary structure
 import Layer5_Applications.PvsNP.ComplexityClasses.EncodingDiscipline  -- For a3_emergence_realizability
-import Layer2_StructuralOWF.Extractor.Extractor
 import Layer3_InformationBounds.Theorems.AlignedFamily
 import Layer2_StructuralOWF.Plant.PlantExponential
 import Layer3_InformationBounds.Randomness.RanksExponential

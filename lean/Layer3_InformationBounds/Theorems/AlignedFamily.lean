@@ -1,5 +1,4 @@
 import Layer2_StructuralOWF.Plant.PlantCore
-import Layer2_StructuralOWF.Plant.TrapdoorStructuralOWF
 import Layer3_InformationBounds.SegmentReduction.WorkLowerBounds
 import Infrastructure.Witness.PerInstanceBound
 import Layer3_InformationBounds.Theorems.Quantitative
@@ -154,95 +153,6 @@ theorem alignedCNFFamily_unique_solution (n : Nat) (h_n : n ≥ 128)
   -- simplifies directly to: a i = true
   exact h_l_eval
 
-/-! ## Trapdoor CNF Family
-
-A parameterized CNF family where each instance is generated from a known
-satisfying assignment. This construction has two key properties:
-
-1. **Proven Satisfiability**: The satisfiability of each CNF is a theorem
-   (`trapdoorCNFFamily_satisfiable`), not an assumption. This strengthens
-   the OWF security proof by eliminating the `h_satisfiable` hypothesis.
-
-2. **Trapdoor Structure**: The generating assignment serves as a trapdoor,
-   enabling efficient inversion for the key holder while maintaining
-   hardness for others. This extends the construction from Minicrypt
-   (private-key primitives) to Cryptomania (public-key primitives).
--/
-
-/-- Parameterized CNF family with known satisfying assignments.
-
-    Given an assignment family x_family : ℕ → Assignment, constructs
-    CNF formulas where x_family(n) satisfies the n-th formula.
-
-    For cryptographic applications:
-    - Public key: trapdoorCNFFamily x_family n
-    - Private key: x_family n -/
-def trapdoorCNFFamily (x_family : Nat → Assignment) : CNFFamily :=
-  fun n =>
-    if h : n ≥ 4 then
-      Trapdoor.generateCNF n (x_family n) h
-    else
-      -- Fallback for n < 4 (not used in security proofs, which require n ≥ 128)
-      alignedCNFFamily n
-
-/-- Trapdoor CNF family is well-formed. -/
-theorem trapdoorCNFFamily_wellformed (x_family : Nat → Assignment) :
-    CNFFamily.WellFormed (trapdoorCNFFamily x_family) := by
-  intro m h_m
-  unfold trapdoorCNFFamily
-  have h_m_ge_4 : m ≥ 4 := by omega
-  simp only [h_m_ge_4, ↓reduceDIte, Trapdoor.generateCNF_nvars, le_refl]
-
-/-- Trapdoor CNF family has matching nvars. -/
-theorem trapdoorCNFFamily_nvars_eq (x_family : Nat → Assignment) :
-    ∀ n ≥ 128, (trapdoorCNFFamily x_family n).nvars = n := by
-  intro n h_n
-  unfold trapdoorCNFFamily
-  have h_n_ge_4 : n ≥ 4 := by omega
-  simp only [h_n_ge_4, ↓reduceDIte, Trapdoor.generateCNF_nvars]
-
-/-- Satisfiability theorem for trapdoor CNF family.
-
-    This is the key result: satisfiability is proven constructively by exhibiting
-    the witness x_family(n), rather than assumed as a hypothesis. The OWFBridgeQP
-    theorems can instantiate this to eliminate their `h_satisfiable` parameter. -/
-theorem trapdoorCNFFamily_satisfiable (x_family : Nat → Assignment) :
-    ∀ n ≥ 128, ∃ (a : Assignment), (trapdoorCNFFamily x_family n).satisfies a := by
-  intro n h_n
-  use x_family n
-  unfold trapdoorCNFFamily
-  have h_n_ge_4 : n ≥ 4 := by omega
-  simp only [h_n_ge_4, ↓reduceDIte]
-  exact Trapdoor.generateCNF_satisfied n (x_family n) h_n_ge_4
-
-/-- Trapdoor CNF family has non-empty clauses. -/
-theorem trapdoorCNFFamily_nonempty_clauses (x_family : Nat → Assignment) :
-    ∀ n ≥ 128, 0 < (trapdoorCNFFamily x_family n).clauses.length := by
-  intro n h_n
-  unfold trapdoorCNFFamily
-  have h_n_ge_4 : n ≥ 4 := by omega
-  simp only [h_n_ge_4, ↓reduceDIte, Trapdoor.generateCNF_num_clauses]
-  omega
-
-/-- Trapdoor CNF family is well-formed (all literals valid). -/
-theorem trapdoorCNFFamily_wf_literals (x_family : Nat → Assignment) (n : Nat) (h_n : n ≥ 128) :
-    CNF.WellFormed (trapdoorCNFFamily x_family n) := by
-  unfold trapdoorCNFFamily
-  have h_n_ge_4 : n ≥ 4 := by omega
-  simp only [h_n_ge_4, ↓reduceDIte]
-  exact Trapdoor.generateCNF_wellformed n (x_family n) h_n_ge_4
-
-/-- Trapdoor CNF family has bounded solutions (exactly 1). -/
-theorem trapdoorCNFFamily_bounded_solutions (x_family : Nat → Assignment) :
-    ∃ c, CNFFamily.BoundedSolutions (trapdoorCNFFamily x_family) c := by
-  use 0  -- bound = n^0 = 1
-  intro n h_n
-  use 1  -- exactly 1 solution
-  constructor
-  · simp only [Nat.pow_zero, le_refl]
-  · intro a _h_sat
-    trivial
-
 /-! ## Axiom Verification
 
 These definitions use only standard Lean foundations (propext, quot.sound, classical.choice).
@@ -255,8 +165,5 @@ No custom axioms are introduced.
 #print axioms alignedCNFFamily_nonempty_clauses
 #print axioms alignedCNFFamily_bounded_solutions
 #print axioms alignedCNFFamily_unique_solution
-#print axioms trapdoorCNFFamily_wellformed
-#print axioms trapdoorCNFFamily_satisfiable
-#print axioms trapdoorCNFFamily_bounded_solutions
 
 end LStar.StructuralOWF.Theorems

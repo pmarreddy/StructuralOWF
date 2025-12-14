@@ -74,8 +74,6 @@ open LStar LStar.StructuralOWF LStar.OAP CutConstraint
 
 /-- Number of FG gates in an L* instance.
 
-    For planted instances: `numGates L = r.gateDigests.length` where `L = plant_n n φ r`.
-
     This is the source of truth for digest vector length. -/
 def numGates (L : LStarInstanceFG) : Nat :=
   -- FG gates are in range [clause_start, clause_start + num_fg_gates)
@@ -88,7 +86,7 @@ def numGates (L : LStarInstanceFG) : Nat :=
     With the FG bottleneck architecture, each gate produces R bits (not 1 parity bit).
     This is the correct length for digestBits: sum of R values for all FG gates.
 
-    For single-gate planted instances: `totalRBits L = R_of φ numGates gateVertex`
+    For single-gate instances: `totalRBits L = R_of φ numGates gateVertex`
     which equals `(log₂ φ.nvars)²` for the QP profile. -/
 def totalRBits (L : LStarInstanceFG) : Nat :=
   (Finset.univ.filter (fun v : Fin L.dag.n => L.fg.gateReq v)).sum (fun v => L.R v)
@@ -176,7 +174,6 @@ noncomputable def decodeφFromWitness (L : LStarInstanceFG) (W : Witness L.n)
       let clause_start := 1 + L.n
       let gate_idx := v.val - clause_start
       -- Use ONLY the first R bits of the seed from digestBits
-      -- (matching plant_n_entropy which uses i.val < r.dgLen)
       -- Rest of seedWidth bits are zero (parent contributions handled by seed chain)
       LStar.ofBits (L.seedWidth v) (fun i =>
         if i.val < R then
@@ -214,12 +211,10 @@ noncomputable def decodeφFromWitness (L : LStarInstanceFG) (W : Witness L.n)
 -- NOTE: LStarVerifierFG moved after digestsFromAssignment definition (line ~870)
 -- to avoid forward reference issues.
 
-/-- Entropy function for decoding that matches plant_n_entropy structure.
+/-- Entropy function for decoding that matches planting entropy structure.
 
     This is extracted to a named definition so that proofs involving
-    decodeφFromRandomness can reason about entropy equality more easily.
-
-    The structure matches plant_n_entropy exactly when L = plant_n n φ r ... -/
+    decodeφFromRandomness can reason about entropy equality more easily. -/
 noncomputable def decode_entropy_from_randomness (L : LStarInstanceFG) (r : Randomness L.n)
     (h_dgLen_pos : 0 < r.dgLen)
     (v : Fin L.dag.n) : LStar.Seed (L.seedWidth v) :=
@@ -234,7 +229,7 @@ noncomputable def decode_entropy_from_randomness (L : LStarInstanceFG) (r : Rand
     let bit := r.assignmentInf varIdx
     LStar.ofBits _ (fun i => if i.val == 0 then bit else false)
   else if (clause_start ≤ v.val) ∧ (v.val < fg_end) then
-    -- FG Gate: ALL R bits from digest (matches plant_n_entropy exactly!)
+    -- FG Gate: ALL R bits from digest
     -- The FG gate is the structural bottleneck where SCL's 2^R bound applies
     let idx := v.val - clause_start
     if h : idx < r.gateDigests.length then
@@ -254,13 +249,11 @@ noncomputable def decode_entropy_from_randomness (L : LStarInstanceFG) (r : Rand
 /-- Decode φ from L.encodedφ using full randomness (assignment + gate digests).
 
     This version uses the SAME entropy pattern as planting, including gate digest
-    parity bits for FG gates. This enables proving OAP roundtrip for planted instances.
+    bits for FG gates. This enables proving OAP roundtrip for planted instances.
 
     The key difference from decodeφFromAssignment:
     - decodeφFromAssignment: Uses ZERO entropy for FG gates (for general instances)
     - decodeφFromRandomness: Uses r.gateDigests for FG gates (matches planting)
-
-    For planted instances L = plant_n n φ r ..., this function will recover φ.
 
     Requires h_dgLen_pos : 0 < r.dgLen to ensure digest bits are accessible. -/
 noncomputable def decodeφFromRandomness (L : LStarInstanceFG) (r : Randomness L.n)
@@ -287,503 +280,6 @@ noncomputable def decodeφFromRandomness (L : LStarInstanceFG) (r : Randomness L
 
   -- Decode
   LStar.OAP.decodeWithOAPDep L.encodedφ clauseSeedWidthFn getSeed
-
-/-- Helper: The key theorem we need: plant_n's encoded clause at index i equals encodeClause applied to original -/
-theorem plant_n_encoded_clause_eq (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
-    (h_nvars_min : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (i : Nat) (h_i : i < φ.clauses.length) :
-    let L := plant_n n φ r h_nvars_min h_dgLen
-    let h_i_enc : i < L.encodedφ.clauses.length := by
-      have h_len := plant_n_encodedφ_clauses_length n φ r h_nvars_min h_dgLen
-      rw [h_len]; exact h_i
-    let numGates := r.gateDigests.length
-    let dag := build3SATReductionDAG φ numGates
-    let seedWidth_val : Fin dag.n → Nat := fun v =>
-      Construction.computeSeedWidth φ numGates (Foundations.R_of φ numGates) v
-    let plant_entropy := plant_n_entropy φ r h_nvars_min h_dgLen dag seedWidth_val
-    let plant_seeds := L.toLStarInstanceFull.computeSeedChain plant_entropy
-    let vertexIdx := φ.nvars + 1 + i
-    let h_valid : vertexIdx < dag.n := by
-      simp only [dag, build3SATReductionDAG, Construction.build3SATReductionDAG,
-                 Construction.totalNodes, Construction.reductionTreeSize]
-      omega
-    let clauseSeed := plant_seeds ⟨vertexIdx, h_valid⟩
-    L.encodedφ.clauses[i]'h_i_enc = LStar.OAP.encodeClause φ.clauses[i] clauseSeed i φ.nvars := by
-  intro L h_i_enc numGates dag seedWidth_val plant_entropy plant_seeds vertexIdx h_valid clauseSeed
-
-  -- Get the structure of L.encodedφ from plant_n_encodedφ_eq
-  have h_enc := plant_n_encodedφ_eq n φ r h_nvars_min h_dgLen
-
-  -- Extract clauses equality from h_enc
-  have h_clauses : L.encodedφ.clauses =
-    (plant_n_encode_cnf φ numGates dag seedWidth_val plant_seeds rfl).clauses := by
-    have h_eq : L.encodedφ = plant_n_encode_cnf φ numGates dag seedWidth_val plant_seeds rfl := by
-      calc L.encodedφ
-        _ = (let numGates := r.gateDigests.length
-             let dag := build3SATReductionDAG φ numGates
-             let seedWidth_val := fun v => Construction.computeSeedWidth φ numGates (Foundations.R_of φ numGates) v
-             let entropy := plant_n_entropy φ r h_nvars_min h_dgLen dag seedWidth_val
-             let full := (plant_n n φ r h_nvars_min h_dgLen).toLStarInstanceFull
-             let seeds := full.computeSeedChain entropy
-             plant_n_encode_cnf φ numGates dag seedWidth_val seeds rfl) := h_enc
-        _ = plant_n_encode_cnf φ numGates dag seedWidth_val plant_seeds rfl := rfl
-    rw [h_eq]
-
-  -- Get bound for RHS
-  have h_bound_rhs : i < (plant_n_encode_cnf φ numGates dag seedWidth_val plant_seeds rfl).clauses.length := by
-    unfold plant_n_encode_cnf
-    simp only [LStar.OAP.encodeWithOAPDep_clauses_length]
-    exact h_i
-
-  -- Clauses at index i are equal
-  have h_elem : L.encodedφ.clauses[i]'h_i_enc =
-    (plant_n_encode_cnf φ numGates dag seedWidth_val plant_seeds rfl).clauses[i]'h_bound_rhs := by
-    simp only [h_clauses]
-
-  rw [h_elem]
-
-  -- Now unfold plant_n_encode_cnf to encodeWithOAPDep
-  unfold plant_n_encode_cnf
-
-  -- Define the clauseSeedWidth and getClauseSeed from plant_n_encode_cnf
-  let clauseSeedWidth' : Fin φ.clauses.length → Nat := fun j =>
-    let vIdx := φ.nvars + 1 + j.val
-    seedWidth_val ⟨vIdx, by
-      have h_j_lt := j.isLt
-      simp only [dag, build3SATReductionDAG, Construction.build3SATReductionDAG,
-                 Construction.totalNodes, Construction.reductionTreeSize]
-      omega⟩
-
-  let getClauseSeed' : (j : Fin φ.clauses.length) → Seed (clauseSeedWidth' j) := fun j =>
-    let vIdx := φ.nvars + 1 + j.val
-    plant_seeds ⟨vIdx, by
-      have h_j_lt := j.isLt
-      simp only [L, plant_n, build3SATReductionDAG, Construction.build3SATReductionDAG,
-        Construction.totalNodes, Construction.reductionTreeSize]
-      omega⟩
-
-  -- Apply encodeWithOAPDep_getElem
-  have h_getElem := LStar.OAP.encodeWithOAPDep_getElem φ clauseSeedWidth' getClauseSeed' i h_i
-  rw [h_getElem]
-  -- Goal closed by the rewrite
-
-theorem plant_n_oap_decode (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_valid_vars : ∀ c ∈ φ.clauses, ∀ lit ∈ c.literals, lit.var < φ.nvars) :
-    let h_dgLen_pos : 0 < r.dgLen := by
-      rw [h_dgLen]
-      have h_log_pos : 0 < Nat.log 2 φ.nvars := Nat.log_pos (by omega) (by omega)
-      exact Nat.pow_pos h_log_pos
-    decodeφFromRandomness (plant_n n φ r h_nvars_min h_dgLen) r h_dgLen_pos = φ := by
-  let L := plant_n n φ r h_nvars_min h_dgLen
-
-  -- Derive h_dgLen_pos from h_dgLen and h_nvars_min
-  have h_dgLen_pos : 0 < r.dgLen := by
-    rw [h_dgLen]
-    have h_log_pos : 0 < Nat.log 2 φ.nvars := Nat.log_pos (by omega) (by omega)
-    exact Nat.pow_pos h_log_pos
-
-  -- Define common structures
-  let numGates := r.gateDigests.length
-  let dag := build3SATReductionDAG φ numGates
-  let seedWidth_val := fun v => Construction.computeSeedWidth φ numGates (Foundations.R_of φ numGates) v
-
-  -- Key structural facts
-  have h_L_n : L.n = φ.nvars := rfl
-  have h_L_seedWidth : L.seedWidth = seedWidth_val := rfl
-  have h_L_dag : L.dag = dag := rfl
-
-  -- The decoding entropy (from decodeφFromRandomness) - now uses the named function
-  let decode_entropy : (v : Fin L.dag.n) → LStar.Seed (L.seedWidth v) :=
-    decode_entropy_from_randomness L r h_dgLen_pos
-
-  -- The planting entropy (from plant_n construction)
-  let plant_entropy := plant_n_entropy φ r h_nvars_min h_dgLen dag seedWidth_val
-
-  -- Step 1: Prove entropy functions are equal pointwise
-  -- Key insight: When L = plant_n ..., we have L.n = φ.nvars and L.seedWidth = seedWidth_val
-  -- definitionally. Use dsimp to unfold L and then everything matches.
-  have h_entropy_eq : ∀ v, decode_entropy v = plant_entropy v := by
-    intro v
-    -- Unfold the let-bindings for L and use definitional equality
-    -- L := plant_n n φ r h_nvars_min h_dgLen, and plant_n sets n := φ.nvars, seedWidth := seedWidth_val
-    -- So L.n = φ.nvars and L.seedWidth v = seedWidth_val v definitionally
-    simp only [decode_entropy, plant_entropy]
-    -- dsimp to reduce L.n and L.seedWidth to their definitions
-    -- This closes the goal since both sides become definitionally equal
-    dsimp only [L, plant_n, decode_entropy_from_randomness, plant_n_entropy]
-
-  -- Step 2: Compute seeds from both entropies (they're equal by h_entropy_eq)
-  let plant_seeds := LStar.LStarInstanceFull.computeSeedChain L.toLStarInstanceFull plant_entropy
-
-  -- Step 3: Get the encoding equality from plant_n
-  have h_encoded := plant_n_encodedφ_eq n φ r h_nvars_min h_dgLen
-
-  -- Step 4: Apply OAP roundtrip cleanly via CNF equality
-
-  unfold decodeφFromRandomness
-
-  -- Use CNF.eq_iff to split into nvars and clauses components
-  rw [CNF.eq_iff]
-  constructor
-
-  -- Part 1: nvars equality (straightforward)
-  · simp only [LStar.OAP.decodeWithOAPDep]
-    have h_enc_nvars : L.encodedφ.nvars = φ.nvars := by
-      rw [h_encoded]
-      unfold plant_n_encode_cnf
-      simp only [LStar.OAP.encodeWithOAPDep]
-    exact h_enc_nvars
-
-  -- Part 2: clauses equality (the heart of the proof)
-  · -- Get the clause length equality from encoding
-    have h_enc_len : L.encodedφ.clauses.length = φ.clauses.length := by
-      rw [h_encoded]
-      unfold plant_n_encode_cnf
-      exact LStar.OAP.encodeWithOAPDep_clauses_length φ _ _
-
-    -- Apply List.ext_getElem with the length equality
-    apply List.ext_getElem
-
-    -- Length equality for decoded clauses
-    · simp only [LStar.OAP.decodeWithOAPDep, List.length_map, List.length_range]
-      exact h_enc_len
-
-    -- Element-wise equality for each clause
-    · intro i h_i_enc h_i_φ
-
-      -- Define the clause vertex (used for both encode and decode)
-      let vertexIdx := φ.nvars + 1 + i
-      have h_valid : vertexIdx < dag.n := by
-        simp only [dag, build3SATReductionDAG, Construction.build3SATReductionDAG,
-                   Construction.totalNodes, Construction.reductionTreeSize]
-        omega
-
-      -- Key equality: seeds computed from decode_entropy = plant_seeds
-      have h_seed_eq : ∀ v, L.toLStarInstanceFull.computeSeedChain decode_entropy v = plant_seeds v := by
-        intro v
-        exact LStar.LStarInstanceFull.computeSeedChain_ext L.toLStarInstanceFull decode_entropy plant_entropy h_entropy_eq v
-
-      -- Define the common seed at the clause vertex
-      let clause_seed := plant_seeds ⟨vertexIdx, h_valid⟩
-
-      -- The decode seed equals the clause_seed (via h_seed_eq)
-      have h_decode_seed_eq : L.toLStarInstanceFull.computeSeedChain decode_entropy ⟨vertexIdx, h_valid⟩ = clause_seed := by
-        exact h_seed_eq ⟨vertexIdx, h_valid⟩
-
-      -- Apply the helper theorem for the encoded clause
-      have h_encoded_clause_eq := plant_n_encoded_clause_eq n φ r h_nvars_min h_dgLen i h_i_φ
-
-      -- Step 1: Unfold the decoding to expose the clause structure
-      simp only [LStar.OAP.decodeWithOAPDep, List.getElem_map, List.getElem_range]
-
-      -- Get the actual bound we need
-      have h_bound_enc : i < L.encodedφ.clauses.length := by rw [h_enc_len]; exact h_i_φ
-
-      -- Simplify dite using h_bound_enc
-      rw [dif_pos h_bound_enc]
-
-      -- Simplify the getElem? to getElem
-      have h_getElem_eq_some : L.encodedφ.clauses[i]? = some (L.encodedφ.clauses[i]'h_bound_enc) :=
-        List.getElem?_eq_getElem h_bound_enc
-      rw [h_getElem_eq_some]
-
-      -- The decode dite condition: 1 + L.n + i < L.dag.n
-      have h_dite_cond : 1 + L.n + i < L.dag.n := by
-        simp only [L, plant_n, build3SATReductionDAG, Construction.build3SATReductionDAG,
-                   Construction.totalNodes, Construction.reductionTreeSize]
-        omega
-
-      -- Key: 1 + L.n + i = φ.nvars + 1 + i (since L.n = φ.nvars = φ.nvars)
-      have h_idx_eq : 1 + L.n + i = vertexIdx := by
-        simp only [vertexIdx, h_L_n]
-        omega
-
-      -- The Fin indices are equal
-      have h_fin_eq : (⟨1 + L.n + i, h_dite_cond⟩ : Fin L.dag.n) = ⟨vertexIdx, h_valid⟩ := by
-        ext; exact h_idx_eq
-
-      -- Rewrite the encoded clause
-      conv_lhs => rw [h_encoded_clause_eq]
-
-      -- Goal: decodeClause (encodeClause φ.clauses[i] clause_seed i) decode_seed i = φ.clauses[i]
-
-      -- Apply clause_roundtrip_val_eq to skip the seed width dependency mismatch
-      -- by proving the underlying values are equal.
-
-      -- Simplify any remaining match structure from getElem?
-      dsimp only
-
-      apply LStar.OAP.clause_roundtrip_val_eq
-
-      -- Goal 1: Prove seed value equality (h : encode_seed.val = decode_seed.val)
-      · -- Helper: proof transport preserves .val for Seed (which is Fin)
-        have h_cast_val : ∀ {n m : Nat} (h : n = m) (s : LStar.Seed n), (h ▸ s).val = s.val := by
-          intros n m h s
-          cases h
-          rfl
-
-        -- Goal: clause_seed.val = (if h : cond then h ▸ seed else ...).val
-        -- First simplify the dite using h_dite_cond
-        rw [dif_pos h_dite_cond]
-
-        -- Strip the cast using h_cast_val
-        rw [h_cast_val]
-
-        -- Goal: ↑seed_lhs = ↑seed_rhs  (equality of Nat values)
-        --
-        -- LHS: (computeSeedChain plant_n_entropy ⟨φ.nvars+1+i, h_valid⟩).val
-        -- RHS: (computeSeedChain inline_entropy ⟨1+L.n+(List.range ...)[i], ...⟩).val
-        --
-        -- Strategy: Show both seeds are equal (as Seed/Fin values), then .val equality follows.
-        --
-        -- Key facts:
-        -- 1. plant_n_entropy and inline_entropy are definitionally equal
-        -- 2. The indices have equal .val: φ.nvars+1+i = 1+L.n+(List.range ...)[i] = 1+L.n+i
-        --    (since L.n = φ.nvars and List.range[i] = i)
-
-        -- First, show List.range indexing simplifies
-        have h_range_len : i < (List.range L.encodedφ.clauses.length).length := by
-          simp only [List.length_range]; exact h_bound_enc
-        have h_range_simp : (List.range L.encodedφ.clauses.length)[i]'h_range_len = i :=
-          List.getElem_range h_range_len
-
-        -- The RHS index .val equals 1 + L.n + i (after List.range simplification)
-        -- Show: 1 + L.n + (List.range ...)[i] = 1 + L.n + i = vertexIdx
-        -- We have h_idx_eq: 1 + L.n + i = vertexIdx
-
-        -- Apply congrArg to show seed equality implies .val equality
-        -- ↑a = ↑b when a = b (for Fin/Seed)
-
-        -- Both sides compute via the SAME entropy function (plant_n_entropy = inline_entropy definitionally)
-        -- at indices with the same .val.
-
-        -- Show the seeds are equal by proving both equal clause_seed
-        -- clause_seed = plant_seeds ⟨vertexIdx, h_valid⟩ = computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩
-
-        -- For the RHS: computeSeedChain inline_entropy ⟨rhs_idx, ...⟩
-        -- We need to show this equals clause_seed
-
-        -- The inline entropy is definitionally plant_n_entropy = plant_entropy
-        -- The RHS index has .val = 1 + L.n + i (where List.range[i] = i)
-        -- = φ.nvars + 1 + i = vertexIdx.val
-
-        -- Since computeSeedChain only depends on the entropy function and the index .val
-        -- (seeds at indices with same .val under same entropy are equal), we're done.
-
-        -- The inline entropy in the goal uses `(↑v == 0)` which equals `(v.val == 0)`
-        -- and `(↑j == 0)` which equals `(j.val == 0)`. These should match plant_entropy.
-        --
-        -- However, the index in the goal uses (List.range ...)[i] which needs simplification.
-        --
-        -- Strategy: Use h_entropy_eq (decode_entropy = plant_entropy) and the fact that the
-        -- inline entropy is definitionally decode_entropy. Then use computeSeedChain_ext to
-        -- show the chains are equal, and finally align the indices.
-
-        -- The inline entropy is definitionally equal to decode_entropy
-        -- (both use the same structure with v.val/↑v comparisons)
-
-        -- Use computeSeedChain_ext: if entropies are equal pointwise, chains are equal
-        have h_chain_ext := LStar.LStarInstanceFull.computeSeedChain_ext L.toLStarInstanceFull
-          decode_entropy plant_entropy h_entropy_eq
-
-        -- The RHS index needs simplification. First get the index form.
-        -- The RHS has index ⟨1 + L.n + (List.range ...)[i], some_proof⟩
-        -- We want to show this equals ⟨vertexIdx, h_valid⟩
-
-        -- Get the proof that the RHS index value equals i
-        have h_rhs_idx_val : 1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len = vertexIdx := by
-          simp only [h_range_simp, h_L_n, vertexIdx]
-          omega
-
-        -- The goal compares .val of two seeds
-        -- LHS: (plant_seeds ⟨vertexIdx, h_valid⟩).val = (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
-        -- RHS: (computeSeedChain inline_entropy ⟨rhs_idx, rhs_proof⟩).val
-
-        -- Since inline_entropy = decode_entropy (definitionally) and decode_entropy = plant_entropy (by h_entropy_eq),
-        -- the chains are equal at any index.
-
-        -- Use h_seed_eq which already proves: computeSeedChain decode_entropy v = plant_seeds v
-        -- This means: (computeSeedChain decode_entropy ⟨idx, proof⟩).val = (plant_seeds ⟨idx, proof⟩).val
-
-        -- The RHS inline entropy should be decode_entropy, so use h_seed_eq
-
-        -- First show the indices yield the same seed via h_seed_eq
-        -- h_seed_eq at any index v gives: computeSeedChain decode_entropy v = plant_seeds v
-
-        -- The goal is: ↑clause_seed = ↑(RHS computation)
-        -- clause_seed = plant_seeds ⟨vertexIdx, h_valid⟩
-        -- RHS = computeSeedChain inline_entropy ⟨rhs_idx, rhs_proof⟩
-
-        -- Since inline_entropy = decode_entropy (definitionally), RHS = computeSeedChain decode_entropy ⟨rhs_idx, rhs_proof⟩
-        -- By h_seed_eq: computeSeedChain decode_entropy v = plant_seeds v
-        -- So RHS = plant_seeds ⟨rhs_idx, rhs_proof⟩
-
-        -- Since rhs_idx.val = vertexIdx (by h_rhs_idx_val), we need Fin proof irrelevance
-
-        -- Use the fact that Seeds with equal .val are equal (they're Fin types)
-        -- If two Fin n values have equal underlying Nat, they're equal
-
-        -- Approach: show LHS and RHS both equal the same Nat
-
-        -- LHS = clause_seed.val = (plant_seeds ⟨vertexIdx, h_valid⟩).val
-        -- RHS = (computeSeedChain inline_entropy ⟨rhs_idx, rhs_proof⟩).val
-        --     = (computeSeedChain decode_entropy ⟨rhs_idx, rhs_proof⟩).val  [inline = decode_entropy def'ly]
-        --     = (plant_seeds ⟨rhs_idx, rhs_proof⟩).val                       [by h_seed_eq]
-
-        -- Now we need: (plant_seeds ⟨vertexIdx, h_valid⟩).val = (plant_seeds ⟨rhs_idx, rhs_proof⟩).val
-
-        -- Since vertexIdx and rhs_idx have the same Nat value (by h_rhs_idx_val converted),
-        -- and Seed is Fin, the .val only depends on the Nat value and the seed width.
-        -- The seed widths are both L.seedWidth at indices with the same .val, so they're equal.
-
-        -- The key: plant_seeds is defined as computeSeedChain plant_entropy
-        -- computeSeedChain at index v only depends on v.val (not the proof), so
-        -- plant_seeds ⟨a, p1⟩ = plant_seeds ⟨a, p2⟩ when both have the same Nat value a.
-
-        -- Use Fin.ext to show the seeds are equal when indices have equal .val
-        -- Actually, this is automatic since Fin.val only extracts the Nat component
-
-        -- Goal: ↑(computeSeedChain plant_n_entropy ⟨vertexIdx, h_valid⟩) =
-        --       ↑(computeSeedChain decode_entropy_from_randomness ⟨1 + L.n + range[i], proof⟩)
-        --
-        -- The key insight: decode_entropy_from_randomness L r and plant_n_entropy are
-        -- structurally the same when L = plant_n ..., so they compute the same seeds.
-        --
-        -- Both entropy functions have identical structure:
-        -- - if v.val == 0 then zero
-        -- - else if v.val <= n then assignment bit
-        -- - else if fg_gate_range then digest bit
-        -- - else zero
-        --
-        -- Since L.n = φ.nvars, the conditions are equivalent.
-
-        -- Use the fact that both entropies are equal pointwise
-        -- h_entropy_eq : decode_entropy v = plant_entropy v (where decode_entropy = decode_entropy_from_randomness L r)
-
-        -- The chains at any index must be equal since the entropies are equal
-        -- Strategy: Both sides compute chains at indices with same .val
-        -- LHS: plant_entropy at ⟨vertexIdx, h_valid⟩
-        -- RHS: decode_entropy at ⟨1 + L.n + range[i], _⟩
-        --
-        -- Since decode_entropy = plant_entropy (by h_entropy_eq) and
-        -- vertexIdx = 1 + L.n + range[i] (since range[i] = i and L.n = φ.nvars),
-        -- both sides compute the same seed.
-
-        -- Key insight: use Seed.get_eq_of_val_eq to handle seeds with same val but different indices
-        -- The LHS seed is at ⟨vertexIdx, h_valid⟩
-        -- The RHS seed is at ⟨1 + L.n + range[i], some_proof⟩ where 1 + L.n + range[i] = vertexIdx
-
-        -- First establish the Nat equality of indices
-        have h_rhs_idx_nat : 1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len = vertexIdx := by
-          rw [h_range_simp, h_L_n]
-          simp only [vertexIdx]
-          omega
-
-        -- The goal compares .val of two Seeds. We use the fact that:
-        -- - Both chains are computed from entropy functions that are pointwise equal (h_entropy_eq)
-        -- - The indices have the same .val (h_rhs_idx_nat)
-        -- - computeSeedChain produces seeds of type Seed (seedWidth idx)
-        -- - If idx1.val = idx2.val, then seedWidth idx1 = seedWidth idx2 (since seedWidth depends only on .val)
-
-        -- Actually the goal is ↑lhs_seed = ↑rhs_seed where both are Seeds (which are Fin)
-        -- So we need to prove the underlying Nat values are equal
-
-        -- Use the chain extensionality on decode_entropy and plant_entropy at the vertexIdx
-        simp only [decode_entropy] at h_chain_ext
-
-        -- The LHS is: (plant_seeds ⟨vertexIdx, h_valid⟩).val
-        --           = (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
-        -- The RHS is: (computeSeedChain decode_entropy_from_randomness ⟨rhs_idx, _⟩).val
-
-        -- Show RHS equals (computeSeedChain decode_entropy_from_randomness ⟨vertexIdx, h_valid⟩).val
-        -- by using Fin proof irrelevance (the indices have equal .val)
-
-        -- Use LStar.Seed.get_eq_of_val_eq: seeds with same underlying Nat have same bits
-        -- So ↑seed1 = ↑seed2 when seed1.val = seed2.val (for Fin types, this is Fin.val_eq_val)
-
-        -- Actually for Fin, if two Fin n values have equal underlying Nat, they're equal
-        -- So we can use Fin.ext
-
-        -- The crux: show (computeSeedChain decode_entropy_from_randomness L r ⟨rhs_idx, _⟩).val
-        --                = (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
-
-        -- Since decode_entropy_from_randomness L r = decode_entropy = plant_entropy (pointwise),
-        -- computeSeedChain decode_entropy_from_randomness L r = computeSeedChain plant_entropy
-
-        -- And since rhs_idx.val = vertexIdx, the result is the same
-
-        -- Actually, seeds are Fin, so .val is coercion to Nat. Two Fin with same Nat are equal.
-        -- The key is: computeSeedChain f ⟨n, h1⟩ = computeSeedChain f ⟨n, h2⟩ (proof irrelevance for Fin index)
-
-        -- Strategy: Show both seeds have the same .val (underlying Nat)
-        -- 1. decode_entropy_from_randomness = plant_entropy (from h_entropy_eq)
-        -- 2. The Fin indices have equal .val (h_rhs_idx_nat)
-
-        -- Construct the bound for the RHS index (needed below)
-        have h_rhs_bound : 1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len < L.dag.n := by
-          rw [h_range_simp]
-          exact h_dite_cond
-
-        -- The RHS Fin index equals the LHS (vertexIdx) - they have the same .val
-        have h_idx_fin_eq : (⟨vertexIdx, h_valid⟩ : Fin L.dag.n) =
-            ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩ := by
-          ext
-          exact h_rhs_idx_nat.symm
-
-        -- Use h_chain_ext to show the chains are equal
-        have h_rhs_chain := h_chain_ext ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩
-        -- h_rhs_chain : computeSeedChain decode_entropy ⟨rhs_idx, _⟩ = computeSeedChain plant_entropy ⟨rhs_idx, _⟩
-
-        -- The LHS is: (computeSeedChain plant_entropy ⟨vertexIdx, h_valid⟩).val
-        -- The RHS is: (computeSeedChain decode_entropy ⟨rhs_idx, h_rhs_bound⟩).val
-
-        -- Rewrite LHS index to RHS index using h_idx_fin_eq
-        conv_lhs => rw [h_idx_fin_eq]
-
-        -- Now LHS: (computeSeedChain plant_entropy ⟨rhs_idx, h_rhs_bound⟩).val
-        -- RHS: (computeSeedChain decode_entropy ⟨rhs_idx, h_rhs_bound⟩).val
-
-        -- By h_rhs_chain, the chains at the same index are equal
-        -- h_rhs_chain: decode_entropy at idx = plant_entropy at idx
-        -- Goal: ↑(plant_entropy at idx) = ↑(decode_entropy at idx')
-
-        -- The LHS and RHS compute the same seed because:
-        -- 1. decode_entropy = plant_entropy (by h_entropy_eq)
-        -- 2. The indices have the same .val (by h_rhs_idx_nat)
-
-        -- Use congrArg to reduce ↑a = ↑b to showing a.val = b.val
-        -- Actually ↑ for Fin is just .val, so we're already comparing Nats
-
-        -- Show both sides equal the same Nat
-        -- LHS = (computeSeedChain plant_entropy ⟨idx, h_rhs_bound⟩).val
-        -- RHS = (computeSeedChain decode_entropy ⟨idx', rhs_proof⟩).val
-
-        -- Use transitivity: LHS = middle = RHS
-        -- where middle = (computeSeedChain decode_entropy ⟨idx, h_rhs_bound⟩).val
-
-        -- Step 1: LHS = middle (by h_rhs_chain.symm applied pointwise)
-        -- Note: decode_entropy := decode_entropy_from_randomness L r h_dgLen_pos (by definition)
-        -- So h_rhs_chain directly applies since the let-binding is definitionally equal
-        have h_lhs_eq : (L.toLStarInstanceFull.computeSeedChain plant_entropy ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩).val =
-            (L.toLStarInstanceFull.computeSeedChain decode_entropy ⟨1 + L.n + (List.range L.encodedφ.clauses.length)[i]'h_range_len, h_rhs_bound⟩).val := by
-          rw [h_rhs_chain.symm]
-
-        -- Step 2: middle = RHS (indices have same .val, so seeds are equal)
-        -- The RHS index has the same .val as LHS index (after simplifying range[i] = i)
-
-        -- Unfold let-bindings so h_lhs_eq pattern matches goal
-        simp only [L, plant_entropy, dag, seedWidth_val, decode_entropy] at h_lhs_eq ⊢
-
-        -- Use convert which is more flexible about proof term differences
-        -- convert using 4 handles proof-irrelevance for Fin bound proofs
-        convert h_lhs_eq using 4
-
-      -- Goal 2: Prove validity (h_valid : ∀ lit ∈ c.literals, lit.var < nvars)
-      · have h_clause_mem : φ.clauses[i] ∈ φ.clauses := List.getElem_mem h_i_φ
-        exact h_valid_vars _ h_clause_mem
-
-
 
 /-- Build entropy from assignment (for seed computation).
     This mirrors the entropy pattern in decodeφFromAssignment. -/
@@ -964,7 +460,7 @@ def entropyFromWitness (L : LStarInstanceFG) (W : Witness L.n)
 
     Type invariants:
     - `digest = digestsFromAssignment ...` (enforced by proof field)
-    
+
     The check is:
     1. Extract entropy from W (assignment + digestBits)
     2. Compute seeds
@@ -1129,7 +625,7 @@ theorem digestsFromAssignment_length_eq_totalRBits
     With the FG bottleneck architecture, each gate produces R bits (not 1 parity bit).
     The digest length is the sum of R values for all FG gates.
 
-    For single-gate planted instances: length = R_of φ numGates gateVertex = (log₂ n)². -/
+    For single-gate instances: length = R_of φ numGates gateVertex = (log₂ n)². -/
 theorem verified_witness_length_eq_totalRBits
     (L : LStarInstanceFG)
     (vw : VerifiedWitness L)
@@ -1151,7 +647,7 @@ theorem correct_digests_implies_correct_length
   rw [h]
   exact digestsFromAssignmentWithSeeds_length_eq_totalRBits L W.assignment _
 
-/-- Legacy compatibility: For single-gate planted instances, totalRBits = R at the gate.
+/-- Legacy compatibility: For single-gate instances, totalRBits = R at the gate.
 
     This bridges the old `numGates` based length to the new `totalRBits` semantics. -/
 theorem totalRBits_eq_R_for_single_gate
@@ -1193,173 +689,6 @@ theorem totalRBits_eq_R_for_single_gate
   -- Sum over singleton is just the single element
   simp only [h_eq_singleton, Finset.sum_singleton]
 
-/-- For planted instances, numGates equals r.gateDigests.length.
-
-    Key structural property: In plant_n construction, FG gates are in 1-1
-    correspondence with r.gateDigests entries.
-
-    Precondition: Requires φ to have at least one clause (legitimate OWF requirement).
-    This ensures the DAG has sufficient structure to place the FG gate. -/
-theorem numGates_eq_gateDigests_length_for_planted
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_clauses : 0 < φ.clauses.length)
-    : numGates (plant_n n φ r h_nvars h_dgLen) = r.gateDigests.length := by
-  -- Key insight: This is a definitional property of plant_n construction.
-  --
-  -- In plant_n:
-  --   let numGates_internal := r.gateDigests.length
-  --   gateReq v := decide ((clause_start ≤ v) ∧ (v < clause_start + numGates_internal))
-  --
-  -- So gateReq filters vertices in range [clause_start, clause_start + r.gateDigests.length)
-  -- The cardinality of this range is r.gateDigests.length (by definition of integer ranges)
-  --
-  -- With h_single_gate: r.gateDigests.length = 1
-  -- So the range [clause_start, clause_start + 1) has exactly 1 element
-
-  unfold numGates
-  have h_single : r.gateDigests.length = 1 := r.h_single_gate
-  rw [h_single]
-
-  let L := plant_n n φ r h_nvars h_dgLen
-  let clause_start := 1 + φ.nvars
-
-  -- gateReq is definitionally: (clause_start ≤ v.val) ∧ (v.val < clause_start + 1)
-  -- This is the range [clause_start, clause_start + 1), containing exactly clause_start
-
-  -- Step 1: Show clause_start is in the DAG
-  have h_clause_in_dag : clause_start < L.dag.n := by
-    -- DAG structure: 1 + φ.nvars + φ.clauses.length + reductionTreeSize
-    -- We have φ.clauses.length > 0, so dag.n > 1 + φ.nvars = clause_start
-    have : L.dag.n = 1 + φ.nvars + φ.clauses.length + Construction.reductionTreeSize φ.clauses.length := by
-      rfl  -- Definitional equality from build3SATReductionDAG
-    rw [this]
-    omega
-
-  -- Step 2: Define the unique gate vertex
-  let v_gate : Fin L.dag.n := ⟨clause_start, h_clause_in_dag⟩
-
-  -- Step 3: Show v_gate satisfies gateReq
-  have h_gate_satisfies : L.fg.gateReq v_gate = true := by
-    -- By definition of plant_n, gateReq checks the range condition
-    -- Use decide_eq_true_eq to convert Bool to Prop
-    change decide ((clause_start ≤ v_gate.val) ∧ (v_gate.val < clause_start + r.gateDigests.length)) = true
-    rw [h_single, decide_eq_true_eq]
-    exact ⟨Nat.le_refl _, Nat.lt_succ_self _⟩
-
-  -- Step 4: Show v_gate is unique (no other vertex satisfies gateReq)
-  have h_unique : ∀ v : Fin L.dag.n, L.fg.gateReq v = true → v = v_gate := by
-    intro v h_req
-    -- Convert Bool to Prop
-    change decide ((clause_start ≤ v.val) ∧ (v.val < clause_start + r.gateDigests.length)) = true at h_req
-    rw [h_single, decide_eq_true_eq] at h_req
-    obtain ⟨h_ge, h_lt⟩ := h_req
-    -- clause_start ≤ v.val < clause_start + 1 → v.val = clause_start
-    have h_val_eq : v.val = clause_start := Nat.eq_of_le_of_lt_succ h_ge h_lt
-    ext
-    exact h_val_eq
-
-  -- Step 5: Filter equals singleton
-  have h_filter_eq : Finset.univ.filter (fun v => L.fg.gateReq v) = {v_gate} := by
-    ext v
-    simp only [Finset.mem_filter, Finset.mem_singleton, Finset.mem_univ, true_and]
-    constructor
-    · intro h; exact h_unique v h
-    · intro h; rw [h]; exact h_gate_satisfies
-
-  -- Step 6: Apply card_singleton
-  rw [h_filter_eq]
-  exact Finset.card_singleton v_gate
-
-/-- totalRBits is positive for planted instances with nvars ≥ 4.
-
-    **Key lemma**: For planted instances, there's at least one FG gate with R > 0.
-    This is the crucial bridge for proving digestBits.length > 0.
-
-    Proof sketch:
-    1. numGates L = r.gateDigests.length = 1 (by h_single_gate)
-    2. So there's exactly one FG gate v
-    3. L.R v = R_of φ numGates v.val = (log₂ nvars)² > 0 (by R_of_pos_at_fg_gate)
-    4. totalRBits = sum over FG gates = L.R v > 0
--/
-theorem totalRBits_pos_for_planted
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_clauses : 0 < φ.clauses.length)
-    : totalRBits (plant_n n φ r h_nvars h_dgLen) > 0 := by
-  -- Get the single FG gate
-  let L := plant_n n φ r h_nvars h_dgLen
-  have h_single : r.gateDigests.length = 1 := r.h_single_gate
-  have h_numGates : numGates L = 1 := by
-    have := numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen h_clauses
-    rw [this, h_single]
-
-  -- totalRBits is the sum over FG gates
-  unfold totalRBits
-
-  -- Unfold numGates in h_numGates to get Finset.card = 1
-  simp only [numGates] at h_numGates
-
-  -- h_numGates says the filter has exactly one element → it's nonempty
-  have h_nonempty : (Finset.univ.filter (fun v : Fin L.dag.n => L.fg.gateReq v)).Nonempty := by
-    rw [Finset.nonempty_iff_ne_empty]
-    intro h_empty
-    rw [h_empty, Finset.card_empty] at h_numGates
-    omega
-
-  -- All R values at FG gates are positive (R = (log₂ nvars)² > 0)
-  have h_all_pos : ∀ v ∈ (Finset.univ.filter (fun v : Fin L.dag.n => L.fg.gateReq v)), L.R v > 0 := by
-    intro v hv
-    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hv
-    -- v is an FG gate, so L.R v = R_of φ numGates v.val > 0
-    -- For plant_n, L.R = R_of φ r.gateDigests.length
-    -- R_of_pos_at_fg_gate gives R > 0 for FG gates when nvars ≥ 4
-    have h_R_eq : L.R v = Foundations.R_of φ r.gateDigests.length v.val := rfl
-    rw [h_R_eq]
-    apply Foundations.R_of_pos_at_fg_gate φ r.gateDigests.length v.val h_nvars
-    -- Need to show v is in the FG range for R_of:
-    -- (1 + φ.nvars ≤ v.val) ∧ (v.val < min (1 + φ.nvars + numGates) (1 + φ.nvars + nclauses))
-    -- plant_n's gateReq gives: (1 + φ.nvars ≤ v.val) ∧ (v.val < 1 + φ.nvars + numGates)
-    -- With numGates = 1 and nclauses ≥ 1: min (...+1) (...+nclauses) = ...+1
-    -- hv : L.fg.gateReq v = true, where L = plant_n n φ r h_nvars h_dgLen
-    -- Unfold L's definition to get the gateReq predicate
-    change (plant_n n φ r h_nvars h_dgLen).fg.gateReq v = true at hv
-    simp only [plant_n, decide_eq_true_eq] at hv
-    constructor
-    · exact hv.1
-    · -- v.val < 1 + φ.nvars + r.gateDigests.length
-      -- Need: v.val < min (1 + φ.nvars + numGates) (1 + φ.nvars + nclauses)
-      -- Since numGates = 1 and nclauses ≥ 1, min picks ...+numGates
-      have h_min : min (1 + φ.nvars + r.gateDigests.length) (1 + φ.nvars + φ.clauses.length) =
-                   1 + φ.nvars + r.gateDigests.length := by
-        apply Nat.min_eq_left
-        rw [h_single]
-        omega
-      rw [h_min]
-      exact hv.2
-
-  -- Sum over nonempty set with all positive elements is positive
-  exact Finset.sum_pos h_all_pos h_nonempty
-
-/-- Witness with correct digests has length = totalRBits for planted instances.
-
-    With R-bit architecture, digestBits.length = totalRBits L (sum of R values).
-    For single-gate planted instances, this equals R_of φ numGates gateVertex.
-
-    NOTE: This is NOT equal to r.gateDigests.length (= numGates = 1).
-    The old equation was valid when each gate produced 1 bit, but now each
-    gate produces R bits.
-
-    Precondition: Requires φ to have at least one clause (legitimate OWF requirement). -/
-theorem correct_digests_length_eq_totalRBits_planted
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_clauses : 0 < φ.clauses.length)
-    (W : Witness φ.nvars)
-    (h_correct : HasCorrectDigests (plant_n n φ r h_nvars h_dgLen) W)
-    : W.digestBits.length = totalRBits (plant_n n φ r h_nvars h_dgLen) := by
-  exact correct_digests_implies_correct_length (plant_n n φ r h_nvars h_dgLen) W h_correct
-
 -- Note: canonicalized_digest_matches_assignment theorem removed
 -- It depended on `canonicalize` which was removed due to OAP hardness
 -- (Cannot compute valid digests without solving the cryptographic puzzle)
@@ -1374,32 +703,9 @@ theorem correct_digests_length_eq_totalRBits_planted
 noncomputable def extractParityFromGateDigest {dgLen : Nat} (h_pos : 0 < dgLen) (vec : Vector Bool dgLen) : Bool :=
   vec.get ⟨0, h_pos⟩
 
-/-- Totality theorem imported from PlantCore.lean.
-
-    For valid gate indices in planted instances with well-formed randomness,
-    emergentConfigAtGate returns Some. -/
-theorem emergentConfigAtGate_isSome_for_planted_local
-    (φ : CNF) (r : Randomness φ.nvars) (h_wf : WellFormedRandomness φ r)
-    (h_clauses : 0 < φ.clauses.length)
-    (i : Fin r.gateDigests.length)
-    : (emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment.extend i.val).isSome :=
-  -- Direct application of PlantCore theorem (defined in LStar.StructuralOWF namespace)
-  LStar.StructuralOWF.emergentConfigAtGate_isSome_for_planted φ r h_wf h_clauses i
-
-/-- Helper lemma: For valid gate indices in planted instances, emergentConfigAtGate returns some. -/
-lemma emergentConfigAtGate_some_of_valid_index
-    (φ : CNF) (r : Randomness φ.nvars) (h_wf : WellFormedRandomness φ r)
-    (h_clauses : 0 < φ.clauses.length)
-    (i : Nat) (h_i_bound : i < r.gateDigests.length)
-    : ∃ R_val cfg, emergentConfigAtGate φ φ.nvars_pos r.gateDigests.length r.assignment.extend i = some ⟨R_val, cfg⟩ := by
-  -- Use the local theorem
-  have h_isSome := emergentConfigAtGate_isSome_for_planted_local φ r h_wf h_clauses ⟨i, h_i_bound⟩
-  -- Convert isSome to exists
-  rw [Option.isSome_iff_exists] at h_isSome
-  obtain ⟨val, h_eq⟩ := h_isSome
-  -- val has type PSigma, extract components
-  obtain ⟨R_val, cfg⟩ := val
-  use R_val, cfg
+-- Note: emergentConfigAtGate_some_of_valid_index removed
+-- This was plant_n-specific. For generic instances, use WellFormedRandomness
+-- property directly when needed.
 
 /-! ## Parity Equality from Gate Config Uniqueness
 
