@@ -1,4 +1,5 @@
 import Layer2_StructuralOWF.FrontierGate.FrontierGate
+import Layer2_StructuralOWF.Plant.PlantExponential
 import Layer3_InformationBounds.ConstraintSystem.ConstraintSystem
 import Layer3_InformationBounds.ConstraintSystem.ConstraintExtraction
 import Layer3_InformationBounds.ConstraintSystem.NormalForm
@@ -39,7 +40,7 @@ open Classical
 
 /-- **Planted world satisfies bit-determination constraints** (with consistency hypothesis).
 
-For planted instances, the world constructed via `worldFromWitness` satisfies
+For planted instances, the world constructed via `worldFromWitness_flat` satisfies
 all bit-determination constraints derived from an execution prefix, PROVIDED that
 the prefix's observations are consistent with the planted world.
 
@@ -62,25 +63,25 @@ lemma worldFromWitness_satisfies_bit_constraints
     {L : LStarInstanceFG}
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
+    (h_aligned : AlignedCNFConstraints φ)
+    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
     (h_wf : WellFormedRandomness φ r)
     (C : Finset (Fin L.dag.n))
-    (w : Witness)
+    (w : Witness φ.nvars)
     (π : ExecutionPrefixReal L)
     -- PLANTED PROPERTY: planted instances have no revealed bits
     (h_revealedBits_empty : π.revealedBits = [])
     -- POSITIVE EMERGENCE: Required by extractConstraints_two_part_for_planted
     (h_positive_R : ∀ v ∈ C, 0 < L.R v)
     -- CONSISTENCY HYPOTHESIS (robust, minimal):
-    -- "π's observations match what worldFromWitness produces"
+    -- "π's observations match what worldFromWitness_flat produces"
     (h_consistent : ∀ (rb : RevealedBit L),
         rb ∈ π.revealedBits →
         rb.node ∈ C →
-        let ω := worldFromWitness L w n φ r h_nvars h_dgLen h_L_eq h_wf C
+        let ω := worldFromWitness_flat L n φ r h_nvars h_aligned h_L_eq h_wf w C
         ∃ (h_in : rb.node ∈ C) (h_idx : rb.bitIndex < L.R rb.node),
           CutConstraint.extractBit (ω.assignment rb.node h_in) ⟨rb.bitIndex, h_idx⟩ = rb.value)
-    : let ω := worldFromWitness L w n φ r h_nvars h_dgLen h_L_eq h_wf C
+    : let ω := worldFromWitness_flat L n φ r h_nvars h_aligned h_L_eq h_wf w C
       let nf := ConstraintNF L C π
       ω ∈ NormalForm.FeasibleUnder nf.bitDeterminations := by
   intro ω nf

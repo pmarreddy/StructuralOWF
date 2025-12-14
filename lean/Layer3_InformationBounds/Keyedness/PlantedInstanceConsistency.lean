@@ -22,7 +22,7 @@ wellformed_randomness_exists : Constructive existence proof
 worldFromWitness            : Builds CutWorld from witness using internal parity data
 ```
 
-**Key property**: Emergent configs are defined purely from φ + a (no plant_n dependency),
+**Key property**: Emergent configs are defined purely from φ + a,
 breaking circular definitions. The public instance structure is independent of the witness.
 
 **Trust Boundary**: Proven theorems (no custom axioms).
@@ -87,83 +87,6 @@ lemma emergentConfigAtGate_R_component
       contradiction  -- h_ret : none = some ..., impossible
   · -- Case: gateIndex >= numGates (invalid gate index), returns none
     contradiction  -- h_ret : none = some ..., impossible
-
-/-- **LEMMA**: For valid FG gate indices, emergentConfigAtGate always returns some.
-
-    **Impact**: This eliminates the none case in plant_preserves_wellformedness
-    by proving it's impossible when the index is valid.
-
-    **Proof**: Both plant_n and lstarStructureFromCNF use build3SATReductionDAG φ,
-    so their dag.n values are definitionally equal. Valid FG gates satisfy both
-    index bounds and capacity constraints (R_v ≤ seedWidth_v). -/
-lemma emergentConfigAtGate_some_of_valid_fg_gate
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (v : {v // (plant_n n φ r h_nvars h_dgLen).fg.gateReq v}) :
-    ∃ R_val cfg, emergentConfigAtGate φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignmentInf (v.val.val - (1 + φ.nvars)) = some ⟨R_val, cfg⟩ := by
-  -- Extract gate requirement: v is an FG gate in range [1+φ.nvars, 1+φ.nvars+numGates)
-  have h_prop := v.property
-  unfold plant_n at h_prop
-  simp at h_prop
-  -- h_prop : 1 + φ.nvars ≤ v.val.val ∧ v.val.val < 1 + φ.nvars + r.gateDigests.length
-
-  -- Compute gate-relative index
-  let clause_start := 1 + φ.nvars
-  let gate_idx := v.val.val - clause_start
-
-  -- Prove gate_idx < numGates
-  have h_gate_idx : gate_idx < r.gateDigests.length := by
-    -- From h_prop: clause_start ≤ v.val.val < clause_start + numGates
-    -- Therefore: v.val.val - clause_start < numGates
-    omega
-
-  -- Key insight: DAG sizes match
-  have h_dag_eq : (plant_n n φ r h_nvars h_dgLen).dag.n = (lstarStructureFromCNF φ (by omega : φ.nvars > 0) r.gateDigests.length).dag.n := by
-    unfold plant_n lstarStructureFromCNF build3SATReductionDAG
-    rfl
-
-  -- v.val.val is valid in the DAG
-  have h_vertex_valid : v.val.val < (lstarStructureFromCNF φ (by omega : φ.nvars > 0) r.gateDigests.length).dag.n := by
-    rw [← h_dag_eq]
-    exact v.val.isLt
-
-  -- Show the equality by structural reasoning
-  -- by splitting on the conditionals in emergentConfigAtGate and proving each branch
-
-  -- First, establish the pure L* structure and key indices
-  let L := lstarStructureFromCNF φ (by omega : φ.nvars > 0) r.gateDigests.length
-
-  -- Show vertex_idx = clause_start + gate_idx = v.val.val
-  have h_vertex_eq : clause_start + gate_idx = v.val.val := by
-    omega
-
-  -- Therefore vertex_idx < L.dag.n
-  have h_vertex_in_dag : clause_start + gate_idx < L.dag.n := by
-    rw [h_vertex_eq]
-    exact h_vertex_valid
-
-  -- Define the vertex index
-  let v_idx : Fin L.dag.n := ⟨clause_start + gate_idx, h_vertex_in_dag⟩
-
-  -- Show capacity condition holds
-  have h_cap : L.R v_idx ≤ L.seedWidth v_idx := by
-    have h_seedWidth_ok := L.seedWidth_ok v_idx
-    calc L.R v_idx
-        ≤ (∑ u ∈ L.dag.parents v_idx, L.seedWidth u) + L.R v_idx := Nat.le_add_left _ _
-      _ ≤ L.seedWidth v_idx := h_seedWidth_ok
-
-  -- Provide witnesses
-  use L.R v_idx
-  use emergentBitsToConfig (extractEmergentBits (computeSeedAtVertex φ (by omega : φ.nvars > 0) r.gateDigests.length r.assignmentInf v_idx) (L.R v_idx) h_cap)
-
-  -- Show the equality by unfolding and rewriting conditionals explicitly
-  unfold emergentConfigAtGate
-
-  -- Use dif_pos to rewrite each conditional
-  rw [dif_pos h_gate_idx]  -- First if: gateIndex < numGates
-  rw [dif_pos h_vertex_in_dag]  -- Second if: vertex_idx < L.dag.n
-  rw [dif_pos h_cap]  -- Third if: R_v ≤ seedWidth v
-  -- After these rewrites, the goal is solved (equality holds)
 
 /-! ## Constructive Existence -/
 
@@ -352,7 +275,7 @@ theorem owf_randomness_is_wellformed
 - `emergentConfigAtGate φ a gateIndex`: Computes emergent config from φ and a only
 - `WellFormedRandomness φ r`: Verifies ALL R bits match emergent configs (identity digest)
 - `wellformed_randomness_exists`: Constructive proof of existence
-- `worldFromWitness`: Builds CutWorld from witness using internal parity data
+- `worldFromWitness_flat`: Builds CutWorld from witness (see PlantExponential.lean)
 
 **Key properties**:
 - Public gateDigest is constant (zeros), independent of the witness
@@ -360,132 +283,11 @@ theorem owf_randomness_is_wellformed
 - Injectivity derives from A2 (seed encoding), not from public instance structure
 
 **Result**: Sound architecture with explicit semantic bridges and no circular dependencies.
+
+**Note**: For planted instance helpers (worldFromWitness_flat, planted_fg_gate_ge_clause_start_flat,
+planted_R_eq_R_of_flat), see Layer2_StructuralOWF/Plant/PlantExponential.lean which provides
+these for the exponential (plant_flat) profile used in the main P≠NP proof.
 -/
-
-/-! ## Witness → CutWorld Construction
-
-**PURPOSE**: Build a CutWorld from a witness for planted FG instances.
-
-This is the "witness world" ω_w that satisfies all constraints extracted from
-the witness (used to prove FeasibleUnder is nonempty at acceptance).
-
-**Architecture**: This belongs HERE (planted instance properties), not in TMToExecutionPrefix
-(which is just an integration layer). -/
-
-/-- **HELPER**: For planted FG gates, clause_start ≤ v.val.
-
-    This extracts the lower bound from plant_n's gateReq definition. -/
-lemma planted_fg_gate_ge_clause_start
-    (L : LStarInstanceFG)
-    (v : Fin L.dag.n)
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
-    (h_gate : L.fg.gateReq v = true)
-    : 1 + φ.nvars ≤ v.val := by
-  -- Use subst to replace L (handles dependent types correctly)
-  subst h_L_eq
-  -- Now L is definitionally plant_n n φ r h_nvars h_dgLen everywhere, including in h_gate
-  -- h_gate : (plant_n n φ r h_nvars h_dgLen).fg.gateReq v = true
-  unfold plant_n at h_gate
-  simp only [decide_eq_true_eq] at h_gate
-  -- h_gate : 1 + φ.nvars ≤ v.val ∧ v.val < 1 + φ.nvars + r.gateDigests.length
-  exact h_gate.1
-
-/-- **HELPER**: For planted instances, L.R v = R_of φ numGates v.val.
-
-    This connects the planted instance's R function to R_of. -/
-lemma planted_R_eq_R_of
-    (L : LStarInstanceFG)
-    (v : Fin L.dag.n)
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
-    : L.R v = R_of φ r.gateDigests.length v.val := by
-  -- Use subst to replace L (handles dependent types correctly)
-  subst h_L_eq
-  -- Now L is definitionally plant_n n φ r h_nvars h_dgLen everywhere
-  -- Goal: (plant_n n φ r h_nvars h_dgLen).R v = R_of φ r.gateDigests.length v.val
-  unfold plant_n
-  rfl  -- Definitional from plant_n.R := fun v => R_of φ numGates v.val
-
-/-- **Construct CutWorld from witness** for planted FG instances.
-
-    **Mathematical content**: For planted L = plant_n n φ r, given witness w,
-    construct the unique CutWorld corresponding to w's emergent configurations.
-
-    **Implementation**:
-    - For each node v ∈ C, compute gate index g := v.val - clause_start
-    - Call emergentConfigAtGate φ numGates w.assignment g to get config
-    - Cast config to Fin (2^(L.R v)) using planted R equality
-    - For non-FG nodes or none case, default to 0
-
-    **Usage**: Proves FeasibleUnder nonempty (witness world always satisfies extracted constraints).
-
-    **Why here**: Depends on planted structure (emergentConfigAtGate, planted_R_eq),
-    not on TM execution semantics. -/
-noncomputable def worldFromWitness
-    (n : Nat) (φ : CNF)
-    (L : LStarInstanceFG)
-    (w : Witness φ.nvars)
-    (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_L_eq : L = plant_n n φ r h_nvars h_dgLen)
-    (_h_wf : WellFormedRandomness φ r)
-    (C : Finset (Fin L.dag.n))
-    : CutWorld L C :=
-  let numGates := r.gateDigests.length
-  let clause_start := 1 + φ.nvars
-
-  { assignment := fun v (h_in_C : v ∈ C) =>
-      -- Compute gate-relative index (reverse of: v_nat = clause_start + g)
-      let g := v.val - clause_start
-      match hx : emergentConfigAtGate φ (by omega : φ.nvars > 0) numGates w.assignmentInf g with
-      | none =>
-          -- No emergent config (shouldn't happen for well-formed FG gates, but we need totality)
-          (0 : Fin (2^(L.R v)))
-      | some ⟨R, cfg⟩ =>
-          -- Check if this is an FG gate (if so, cast cfg appropriately)
-          if h_gate : L.fg.gateReq v then
-            -- For FG gates in planted instances, R = L.R v (proven by emergentConfigAtGate_R_component)
-            -- We need the gateIdx as Fin numGates for the lemma, but we know g < numGates
-            -- from FG structure (gate indices are in range [0, numGates))
-            if h_g_valid : g < numGates then
-              let gateIdx : Fin numGates := ⟨g, h_g_valid⟩
-              -- Extract the gateReq constraint: clause_start ≤ v.val
-              have h_v_ge_clause : clause_start ≤ v.val :=
-                planted_fg_gate_ge_clause_start L v n φ r h_nvars h_dgLen h_L_eq h_gate
-              have h_v_valid : clause_start + g < L.dag.n := by
-                -- v.val < L.dag.n (from v : Fin L.dag.n)
-                -- clause_start + g = v.val (by definition of g and h_v_ge_clause)
-                calc clause_start + g
-                    = v.val := by omega  -- g := v.val - clause_start, and clause_start ≤ v.val
-                  _ < L.dag.n := v.isLt
-              have hR : R = L.R v := by
-                -- emergentConfigAtGate_R_component gives: R = R_of φ numGates (1 + φ.nvars + g)
-                -- We need: R = L.R v
-                -- Connection: v.val = clause_start + g = 1 + φ.nvars + g (by definition)
-                have h_R_component := emergentConfigAtGate_R_component φ (by omega : φ.nvars > 0) numGates w.assignmentInf g R cfg hx
-                -- h_R_component : R = R_of φ numGates (1 + φ.nvars + g)
-                -- For planted instances, L.R v = R_of φ numGates v.val
-                -- And v.val = clause_start + g = 1 + φ.nvars + g
-                calc R
-                    = R_of φ numGates (1 + φ.nvars + g) := h_R_component
-                  _ = R_of φ numGates (clause_start + g) := rfl  -- clause_start := 1 + φ.nvars
-                  _ = R_of φ numGates v.val := by
-                      -- v.val = clause_start + g
-                      congr 1
-                      omega  -- from h_v_ge_clause and g := v.val - clause_start
-                  _ = L.R v := (planted_R_eq_R_of L v n φ r h_nvars h_dgLen h_L_eq).symm
-              -- Cast cfg : Fin (2^R) to Fin (2^(L.R v))
-              hR ▸ cfg
-            else
-              -- g >= numGates (shouldn't happen for FG gates, but handle for totality)
-              (0 : Fin (2^(L.R v)))
-          else
-            -- Non-FG gate: default assignment
-            (0 : Fin (2^(L.R v)))
-  }
 
 /-! ## Axiom Verification
 
@@ -496,6 +298,5 @@ No custom axioms are introduced.
 #print axioms WellFormedRandomness
 #print axioms emergentConfigAtGate
 #print axioms wellformed_randomness_exists
-#print axioms worldFromWitness
 
 end LStar.StructuralOWF.Foundations

@@ -1392,12 +1392,12 @@ structure LStarInstanceFG extends LStarInstanceFull where
 
 /-- **Extensionality for LStarInstanceFG**: Two instances are equal if their components match.
 
-    This lemma enables proving plant_n equality by showing component equality:
+    This lemma enables proving plant_flat equality by showing component equality:
     - toLStarInstanceFull (the base structure with DAG, seeds, etc.)
     - encodedφ (the OAP-encoded formula)
     - fg (the FrontierGate configuration, compared via HEq due to type dependency)
 
-    Used in: plant_n_eq_of_randomness_eq (PlantCore.lean) and similar congruence proofs. -/
+    Used in: plant_flat_eq_of_randomness_eq (PlantExponential.lean) and similar congruence proofs. -/
 lemma LStarInstanceFG.ext {A B : LStarInstanceFG}
     (hfull : A.toLStarInstanceFull = B.toLStarInstanceFull)
     (hencoded : A.encodedφ = B.encodedφ)

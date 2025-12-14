@@ -704,7 +704,7 @@ noncomputable def extractParityFromGateDigest {dgLen : Nat} (h_pos : 0 < dgLen) 
   vec.get ⟨0, h_pos⟩
 
 -- Note: emergentConfigAtGate_some_of_valid_index removed
--- This was plant_n-specific. For generic instances, use WellFormedRandomness
+-- This was plant_flat-specific. For generic instances, use WellFormedRandomness
 -- property directly when needed.
 
 /-! ## Parity Equality from Gate Config Uniqueness

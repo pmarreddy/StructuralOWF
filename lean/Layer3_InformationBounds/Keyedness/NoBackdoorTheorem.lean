@@ -18,7 +18,7 @@ at FG gate cannot correctly distinguish all 2^λ configurations.
 5. `no_backdoor_collision` - Foundation theorem: cfg1 ≠ cfg2 from incomplete observation
 
 **What This Proves**:
--  Deterministic construction (plant_flat, plant_n)
+-  Deterministic construction (plant_flat)
 -  A2 injectivity (different configs → different seeds)
 -  No algebraic shortcuts (collision theorem + A2)
 -  Must resolve 2^λ possibilities (information-theoretic)
@@ -216,7 +216,7 @@ theorem no_polynomial_backdoor_exponential_asymptotic
 
 /-! ## Part 4: Polynomial Budget Cannot Solve Quasi-Poly λ
 
-**Setting**: QP profile (plant_n) has λ = R_fg = (log n)² (quasi-polynomial).
+**Setting**: QP profile has λ = R_fg = (log n)² (quasi-polynomial).
 
 **Claim**: Polynomial-time algorithm has poly(log n) = O(log^k n) read budget.
 
@@ -232,12 +232,12 @@ This shows even the "weaker" QP bound is sufficient for P≠NP!
 **Conclusion**: By no_backdoor_on_subset_of_bits, algorithm cannot correctly
 identify configs using only subset S.
 
-**Application to planted instances**: For QP profile (plant_n) with λ = (log n)²,
+**Application to planted instances**: For QP profile with λ = (log n)²,
 even modest polynomial budgets (e.g., O(log n), O(log² n) with small constant)
 are insufficient.
 
 **Generality**: This theorem applies to ANY FG instance, not just planted ones.
-Planted instances (via plant_n) are the primary use case but not required for the proof.
+Planted instances (via plant_flat) are the primary use case but not required for the proof.
 
 **Proof**: Direct application of no_backdoor_on_subset_of_bits.
 
@@ -296,7 +296,7 @@ theorem no_polynomial_backdoor_qp_asymptotic
 
 **Purpose**: Make the "hard by construction" claim explicit and citable.
 
-**Statement**: For planted instances (plant_flat or plant_n), the no-backdoor
+**Statement**: For planted instances (plant_flat), the no-backdoor
 property holds by construction via:
 1. A2 injectivity (KeyednessFromA2.lean)
 2. Information-theoretic collision bounds (StructuralLowerBound.lean)
@@ -315,7 +315,7 @@ subset S of bit positions at FG gate creates an indistinguishable collision.
 2. A2 injectivity: cfg1 ≠ cfg2 → different seeds
 
 **Why hardness holds** (proven elsewhere in architecture, referenced here):
-- **Determinism**: plant_flat/plant_n are deterministic constructions (PlantExponential.lean, PlantCore.lean)
+- **Determinism**: plant_flat is a deterministic construction (PlantExponential.lean)
 - **A2 injectivity**: Different configs → different seeds (KeyednessFromA2.lean)
 - **Uniqueness**: Planted assignment is unique satisfying assignment (proven via A2 + A3)
 - **No randomness bias**: WellFormedRandomness ensures full entropy (RandomnessTypes.lean)
@@ -336,8 +336,7 @@ with understanding that the full chain involves this result + architectural prop
 proven in KeyednessFromA2, PlantExponential/PlantCore, and RandomnessTypes. -/
 theorem planted_hardness_by_construction
     (L : LStarInstanceFG)
-    (_h_planted : (∃ n φ r h_nvars, L = plant_flat n φ r h_nvars) ∨
-                 (∃ n φ r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen))
+    (_h_planted : ∃ n φ r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned)
     (v : {v // L.fg.gateReq v})
     (S : Finset (Fin (L.R v.val)))
     (h_strict_subset : S.card < L.R v.val)
@@ -362,8 +361,7 @@ theorem planted_hardness_by_construction
     **Paper correspondence**: §7 "No Backdoor Property" -/
 theorem planted_hardness_by_construction_parity
     (L : LStarInstanceFG)
-    (_h_planted : (∃ n φ r h_nvars, L = plant_flat n φ r h_nvars) ∨
-                 (∃ n φ r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen))
+    (_h_planted : ∃ n φ r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned)
     (v : {v // L.fg.gateReq v})
     (S : Finset (Fin (L.R v.val)))
     (h_strict_subset : S.card < L.R v.val)
@@ -455,8 +453,7 @@ theorem no_backdoor_collision
     **Paper correspondence**: §7 "Search Hardness", Appendix C.2 -/
 theorem planted_search_hardness_by_construction
     (L : LStarInstanceFG)
-    (_h_planted : (∃ n φ r h_nvars, L = plant_flat n φ r h_nvars) ∨
-                  (∃ n φ r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen))
+    (_h_planted : ∃ n φ r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned)
     (v : {v // L.fg.gateReq v})
     (S : Finset (Fin (L.R v.val)))
     (h_strict_subset : S.card < L.R v.val)
@@ -483,7 +480,7 @@ theorem planted_search_hardness_by_construction
    - Therefore: poly-time cannot solve
 
 3. **Planted Instances** (planted_hardness_by_construction):
-   - Explicit connection to plant_flat, plant_n
+   - Explicit connection to plant_flat
    - All properties hold by construction
    - 0 custom axioms in this file (Layer 3)
    - Note: Full asymptotic story uses Infrastructure layer (0 axioms for both profiles)

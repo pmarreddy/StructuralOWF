@@ -1,5 +1,6 @@
 import Layer2_StructuralOWF.FrontierGate.FrontierGate
 import Layer2_StructuralOWF.Plant.PlantCore
+import Layer2_StructuralOWF.Plant.PlantExponential
 import Layer3_InformationBounds.SegmentReduction.WorkLowerBounds
 import Layer4_Operational.ExecutionSemantics.ExecSemantics
 import Layer3_InformationBounds.Theorems.Quantitative
@@ -16,7 +17,7 @@ import Layer3_InformationBounds.Theorems.Quantitative
 **Key lemma**: log_squared_le_linear - (log₂ n)² ≤ n for n ≥ 16 (inductive proof).
 
 **Main results** (§6, §3.5, §10.1.1):
-- plant_n_has_fg_wiring: FG gates satisfy FGWiringProperty
+- plant_flat_has_fg_wiring: FG gates satisfy FGWiringProperty
 - work_distribution_from_rwa_and_fg: digestOps ≥ R_v = (log₂ n)²
 - per_segment_unit_from_fg: digestOps ≥ 1 (derived)
 
@@ -161,7 +162,7 @@ The fg_config explicitly wires digests into seeds.
 
 This file establishes exponential per-segment verification cost through a three-theorem chain:
 
-**Theorem 1: plant_n_has_fg_wiring** (Structural Verification)
+**Theorem 1: plant_flat_has_fg_wiring** (Structural Verification)
 - Verify FG gate wiring: GateDigest embedded in seeds
 - Check R_v = (log₂ n)² emergence bits allocated for identity digest
 - Confirm digest addresses span all R_v bits (via hermeticity A1)
@@ -203,11 +204,11 @@ We built the instances with this property. The "proof" checks the numbers match.
 
 Added φ.nvars ≥ 128 constraint required by plant_fg_R_ge_one.
 -/
-theorem plant_n_has_fg_wiring (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
+theorem plant_flat_has_fg_wiring (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 128)  -- Required for R_v > 0 proof
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (v : {v // (plant_n n φ r (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).fg.gateReq v}) :
-    FGWiringProperty (plant_n n φ r (nvars_ge_4_of_ge_128 h_nvars) h_dgLen) v := by
+    (h_aligned : AlignedCNFConstraints φ)
+    (v : {v // (plant_flat n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned).fg.gateReq v}) :
+    FGWiringProperty (plant_flat n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned) v := by
   constructor
   · -- h_digest_in_seed: Seed_v contains GateDigest_v
     -- This is True (simplified) in FGWiringProperty structure
@@ -218,10 +219,10 @@ theorem plant_n_has_fg_wiring (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     -- which shows: (digestAddresses L v).card = L.R v.val
     --
     -- The proof uses A1 (hermeticity): each emergent bit has unique designated address
-    exact digestAddresses_card (plant_n n φ r (nvars_ge_4_of_ge_128 h_nvars) h_dgLen) v
+    exact digestAddresses_card (plant_flat n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned) v
   · -- h_R_pos: R_v > 0 for FG gates
     -- Use plant_fg_R_ge_one with the new constraint h_nvars
-    exact plant_fg_R_ge_one n φ r (nvars_ge_4_of_ge_128 h_nvars) h_dgLen v h_nvars
+    exact plant_fg_R_ge_one n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned v h_nvars
 
 /-! ## Work Distribution - DIRECT PROOF (~2-3h)
 
@@ -260,26 +261,27 @@ theorem work_distribution_from_rwa_and_fg
     (h_wellformed : LStar.StructuralOWF.Theorems.CNFFamily.WellFormed Φ)
     (h_tight : ∀ n, n ≥ 128 → (Φ n).nvars = n)  -- Aligned family constraint
     (h_nonempty : ∀ n, n ≥ 128 → 0 < (Φ n).clauses.length)  -- Non-empty clauses for FG gate placement
+    (h_family_aligned : ∀ n, n ≥ 128 → AlignedCNFConstraints (Φ n))  -- Family constraint
     : ∀ (n : ℕ) (r : Randomness φ.nvars) (A_inv : LStarInstanceFG → Randomness)
         (C_A k_A C_Ext k_Ext : Nat)
         (h_meaningful_n : n ≥ 128)  -- Instance size sufficient for parameterized R_v = (log₂ n)²
         (h_nonzero_A : C_A ≥ 1)     -- Non-trivial adversary
         (h_poly_A : k_A ≥ 1)        -- Non-trivial polynomial
-        (h_dgLen : r.dgLen = (Nat.log 2 (Φ n).nvars) ^ 2)
-        (v : {v // (plant_n n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen).fg.gateReq v}),
-      ∀ i : Fin (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen A_inv C_A k_A C_Ext k_Ext
+        (v : {v // (plant_flat n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) (h_family_aligned n h_meaningful_n)).fg.gateReq v}),
+      ∀ i : Fin (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) (h_family_aligned n h_meaningful_n) A_inv C_A k_A C_Ext k_Ext
                     (Nat.le_trans h_nonzero_A (by simpa using Nat.le_add_right C_A C_Ext))
                     (Nat.le_trans (by decide : 1 ≤ 128) h_meaningful_n)).segmentCount,
-        (segmentsFromRun (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen A_inv C_A k_A C_Ext k_Ext
+        (segmentsFromRun (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) (h_family_aligned n h_meaningful_n) A_inv C_A k_A C_Ext k_Ext
                     (Nat.le_trans h_nonzero_A (Nat.le_add_right C_A C_Ext))
                     (Nat.le_trans (by decide : 1 ≤ 128) h_meaningful_n)).toDeterministicRun i).digestOperations ≥
-        (plant_n n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen).R v.val := by
-  intros n r A_inv C_A k_A C_Ext k_Ext h_meaningful_n h_nonzero_A h_poly_A h_dgLen v i
+        (plant_flat n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) (h_family_aligned n h_meaningful_n)).R v.val := by
+  intros n r A_inv C_A k_A C_Ext k_Ext h_meaningful_n h_nonzero_A h_poly_A v i
 
-  let L := plant_n n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen
+  let h_aligned := h_family_aligned n h_meaningful_n
+  let L := plant_flat n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_aligned
   have h_n_pos : 1 ≤ n := Nat.le_trans (by decide : 1 ≤ 128) h_meaningful_n
   have h_budget_nonzero : 1 ≤ C_A + C_Ext := Nat.le_trans h_nonzero_A (Nat.le_add_right C_A C_Ext)
-  let run := runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen A_inv C_A k_A C_Ext k_Ext h_budget_nonzero h_n_pos
+  let run := runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_aligned A_inv C_A k_A C_Ext k_Ext h_budget_nonzero h_n_pos
 
   -- **Fact 1**: segmentCount = 1 (from buildRun construction)
   have h_count_one : run.segmentCount = 1 := by
@@ -301,7 +303,7 @@ theorem work_distribution_from_rwa_and_fg
         ≥ n := h_wellformed n h_meaningful_n
       _ ≥ 128 := h_meaningful_n
   have h_nvars_ge_2 : (Φ n).nvars ≥ 2 := by omega
-  have h_R_pos : 1 ≤ L.R v.val := plant_fg_R_ge_one n (Φ n) r (nvars_ge_4_of_ge_128 h_nvars_ge_128) h_dgLen v h_nvars_ge_128
+  have h_R_pos : 1 ≤ L.R v.val := plant_fg_R_ge_one n (Φ n) r (nvars_ge_4_of_ge_128 h_nvars_ge_128) h_aligned v h_nvars_ge_128
 
   -- **Main proof**: time ≥ R_v
   --
@@ -333,7 +335,7 @@ theorem work_distribution_from_rwa_and_fg
 
     -- R_v = (log₂ φ.nvars)² for FG gates (parameterized, from Plant construction)
     have h_R_parameterized : L.R v.val = (Nat.log 2 (Φ n).nvars) ^ 2 := by
-      exact plant_fg_R_eq_lambdaBaseSize n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen v
+      exact plant_fg_R_eq_lambdaBaseSize n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_aligned v
 
     -- For well-formed families: φ.nvars ≥ n
     have h_nvars_ge_n : (Φ n).nvars ≥ n := h_wellformed n h_meaningful_n
@@ -443,20 +445,20 @@ theorem per_segment_unit_from_fg
     (h_wellformed : LStar.StructuralOWF.Theorems.CNFFamily.WellFormed Φ)
     (h_tight : ∀ n, n ≥ 128 → (Φ n).nvars = n)  -- Aligned family constraint
     (h_nonempty_clauses : ∀ n, n ≥ 128 → 0 < (Φ n).clauses.length)  -- Non-empty clauses for FG gate placement
+    (h_family_aligned : ∀ n, n ≥ 128 → AlignedCNFConstraints (Φ n))  -- Family constraint
     : ∀ (n : ℕ) (r : Randomness φ.nvars) (A_inv : LStarInstanceFG → Randomness)
         (C_A k_A C_Ext k_Ext : Nat)
     (h_meaningful_n : n ≥ 128)  -- Instance size sufficient for parameterized R_v = (log₂ n)²
     (h_nonzero_A : C_A ≥ 1)     -- Non-trivial adversary
     (h_poly_A : k_A ≥ 1)        -- Non-trivial polynomial
-    (h_dgLen : r.dgLen = (Nat.log 2 (Φ n).nvars) ^ 2)
       ,
-      ∀ i : Fin (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen A_inv C_A k_A C_Ext k_Ext
+      ∀ i : Fin (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) (h_family_aligned n h_meaningful_n) A_inv C_A k_A C_Ext k_Ext
                     (Nat.le_trans h_nonzero_A (by simpa using Nat.le_add_right C_A C_Ext))
                     (Nat.le_trans (by decide : 1 ≤ 128) h_meaningful_n)).segmentCount,
-        (segmentsFromRun (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen A_inv C_A k_A C_Ext k_Ext
+        (segmentsFromRun (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) (h_family_aligned n h_meaningful_n) A_inv C_A k_A C_Ext k_Ext
                     (Nat.le_trans h_nonzero_A (by simpa using Nat.le_add_right C_A C_Ext))
                     (Nat.le_trans (by decide : 1 ≤ 128) h_meaningful_n)).toDeterministicRun i).digestOperations ≥ 1 := by
-  intros n r A_inv C_A k_A C_Ext k_Ext h_meaningful_n h_nonzero_A h_poly_A h_dgLen i
+  intros n r A_inv C_A k_A C_Ext k_Ext h_meaningful_n h_nonzero_A h_poly_A i
 
   -- Get some FG gate v (exists by construction)
   -- plant_fg_wired requires:
@@ -471,25 +473,26 @@ theorem per_segment_unit_from_fg
   -- 3. φ.clauses.length > 0 (room in DAG for gates at clause layer)
   -- This is an architectural requirement for FG placement. Guaranteed by h_nonempty_clauses.
   have h_clauses_pos : 0 < (Φ n).clauses.length := h_nonempty_clauses n h_meaningful_n
-  obtain ⟨v, h_gate⟩ := plant_fg_wired n (Φ n) r h_nvars_ge_4 h_dgLen h_gates_nonempty h_nvars_ge_4 h_clauses_pos
+  let h_aligned := h_family_aligned n h_meaningful_n
+  obtain ⟨v, h_gate⟩ := plant_fg_wired n (Φ n) r h_nvars_ge_4 h_aligned h_gates_nonempty h_nvars_ge_4 h_clauses_pos
 
   -- Get work distribution: ∀j, digestOps j ≥ R_v
-  have h_work : ∀ j : Fin (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen A_inv C_A k_A C_Ext k_Ext
+  have h_work : ∀ j : Fin (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_aligned A_inv C_A k_A C_Ext k_Ext
                     (Nat.le_trans h_nonzero_A (Nat.le_add_right C_A C_Ext))
                     (Nat.le_trans (by decide : 1 ≤ 128) h_meaningful_n)).segmentCount,
-      (segmentsFromRun (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen A_inv C_A k_A C_Ext k_Ext
+      (segmentsFromRun (runFromSecurityGame n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_aligned A_inv C_A k_A C_Ext k_Ext
                     (Nat.le_trans h_nonzero_A (Nat.le_add_right C_A C_Ext))
                     (Nat.le_trans (by decide : 1 ≤ 128) h_meaningful_n)).toDeterministicRun j).digestOperations ≥
-      (plant_n n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen).R v.val :=
-    work_distribution_from_rwa_and_fg Φ h_wellformed h_tight h_nonempty_clauses n r A_inv C_A k_A C_Ext k_Ext h_meaningful_n h_nonzero_A h_poly_A h_dgLen v
+      (plant_flat n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_aligned).R v.val :=
+    work_distribution_from_rwa_and_fg Φ h_wellformed h_tight h_nonempty_clauses h_family_aligned n r A_inv C_A k_A C_Ext k_Ext h_meaningful_n h_nonzero_A h_poly_A v
 
   -- Get R_v ≥ 1 (requires φ.nvars ≥ 128)
   have h_nvars_ge_128 : (Φ n).nvars ≥ 128 := by
     calc (Φ n).nvars
         ≥ n := h_wellformed n h_meaningful_n
       _ ≥ 128 := h_meaningful_n
-  have h_R_ge_one : 1 ≤ (plant_n n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_dgLen).R v.val :=
-    plant_fg_R_ge_one n (Φ n) r (nvars_ge_4_of_ge_128 h_nvars_ge_128) h_dgLen v h_nvars_ge_128
+  have h_R_ge_one : 1 ≤ (plant_flat n (Φ n) r (nvars_ge_4_of_ge_128 (by rw [h_tight n h_meaningful_n]; exact h_meaningful_n)) h_aligned).R v.val :=
+    plant_fg_R_ge_one n (Φ n) r (nvars_ge_4_of_ge_128 h_nvars_ge_128) h_aligned v h_nvars_ge_128
 
   -- Apply helper: digestOps i ≥ R_v ∧ R_v ≥ 1 → digestOps i ≥ 1
   -- Check if perSegUnit_of_work_distribution exists in ExecSemantics
@@ -503,7 +506,7 @@ These definitions use only standard Lean foundations (propext, quot.sound, class
 No custom axioms are introduced.
 -/
 
-#print axioms plant_n_has_fg_wiring
+#print axioms plant_flat_has_fg_wiring
 #print axioms work_distribution_from_rwa_and_fg
 #print axioms per_segment_unit_from_fg
 

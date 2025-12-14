@@ -1,6 +1,7 @@
 import Layer4_Operational.TuringMachine.TuringMachineSemantics  -- LocalEncoder, TuringMachine, TMConfig
 import Layer3_InformationBounds.Keyedness.PlantedInstanceConsistency  -- emergentConfigAtGate
-import Layer2_StructuralOWF.Plant.PlantCore  -- plant_n, WellFormedRandomness (also brings Randomness, Witness types)
+import Layer2_StructuralOWF.Plant.PlantCore  -- WellFormedRandomness (also brings Randomness, Witness types)
+import Layer2_StructuralOWF.Plant.PlantExponential  -- plant_flat
 import Layer2_StructuralOWF.FrontierGate.FrontierGate  -- LStarInstanceFG
 
 /-! ## TMEncoderDefs: TM Configuration Encoders (0 axioms)
@@ -30,7 +31,7 @@ variable (L : LStarInstanceFG)
 
 /-! ## Planted Instance Extractors
 
-For hypothesis `h : ∃ n φ r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r`,
+For hypothesis `h : ∃ n φ r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r`,
 we provide extractors to get n, φ, r, and the equality.
 
 These use Classical.choose to extract witnesses noncomputably.
@@ -39,16 +40,16 @@ These use Classical.choose to extract witnesses noncomputably.
 /-- Planted instance hypothesis type alias for cleaner signatures. -/
 abbrev PlantedHyp (L : LStarInstanceFG) :=
   ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
-    L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r
+    (h_aligned : AlignedCNFConstraints φ),
+    L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r
 
 /-- Extract φ from planted instance hypothesis (noncomputable).
 
     **Extraction path**:
-    - h : ∃ n φ r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r
+    - h : ∃ n φ r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r
     - This is syntactic sugar for: ∃ n, (∃ φ, (∃ r, ...))
     - First choose: Classical.choose h extracts n
-    - Classical.choose_spec h : ∃ φ r, L = plant_n n φ r ... ∧ ...
+    - Classical.choose_spec h : ∃ φ r, L = plant_flat n φ r ... ∧ ...
     - Second choose: Classical.choose (Classical.choose_spec h) extracts φ -/
 noncomputable def planted_φ {L : LStarInstanceFG} (h : PlantedHyp L) : CNF :=
   Classical.choose (Classical.choose_spec h)
@@ -68,18 +69,18 @@ noncomputable def planted_h_nvars {L : LStarInstanceFG} (h : PlantedHyp L) : (pl
   let spec3 := Classical.choose_spec spec2
   Classical.choose spec3
 
-/-- Extract h_dgLen from planted instance hypothesis. -/
-noncomputable def planted_h_dgLen {L : LStarInstanceFG} (h : PlantedHyp L) :
-    (planted_r h).dgLen = (Nat.log 2 (planted_φ h).nvars) ^ 2 :=
+/-- Extract h_aligned from planted instance hypothesis. -/
+noncomputable def planted_h_aligned {L : LStarInstanceFG} (h : PlantedHyp L) :
+    AlignedCNFConstraints (planted_φ h) :=
   let spec1 := Classical.choose_spec h
   let spec2 := Classical.choose_spec spec1
   let spec3 := Classical.choose_spec spec2
   let spec4 := Classical.choose_spec spec3
   Classical.choose spec4
 
-/-- Extract L = plant_n equality from planted instance hypothesis. -/
+/-- Extract L = plant_flat equality from planted instance hypothesis. -/
 lemma planted_L_eq {L : LStarInstanceFG} (h : PlantedHyp L) :
-    L = plant_n (planted_n h) (planted_φ h) (planted_r h) (planted_h_nvars h) (planted_h_dgLen h) :=
+    L = plant_flat (planted_n h) (planted_φ h) (planted_r h) (planted_h_nvars h) (planted_h_aligned h) :=
   let spec1 := Classical.choose_spec h
   let spec2 := Classical.choose_spec spec1
   let spec3 := Classical.choose_spec spec2

@@ -425,7 +425,7 @@ and emergence matrices are pure functions of φ.
     - FG gate digests (those require randomness)
     - Assignment-dependent pool assignments
 
-    **Key Property**: Uses R_of φ numGates to compute R values IDENTICALLY to plant_n,
+    **Key Property**: Uses R_of φ numGates to compute R values IDENTICALLY to plant_flat,
     ensuring type consistency (Fin (2^R) indices match perfectly).
 
     **Precondition**: φ must be non-trivial (φ.nvars > 0), now enforced via explicit hypothesis. -/
@@ -435,7 +435,7 @@ noncomputable def lstarStructureFromCNF (φ : CNF) (h_nvars_pos : φ.nvars > 0) 
   let dag := Construction.build3SATReductionDAG φ numGates
 
   -- Compute R values using centralized R_of
-  -- This ensures R values match plant_n exactly, eliminating type mismatches!
+  -- This ensures R values match planted instances exactly, eliminating type mismatches!
   let R_val := LStar.StructuralOWF.Foundations.R_of φ numGates
 
   -- SeedWidth: recursive definition matching paper specification

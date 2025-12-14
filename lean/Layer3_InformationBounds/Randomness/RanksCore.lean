@@ -99,10 +99,10 @@ theorem computeR_exponential (nvars : Nat) : computeR .exponential nvars = nvars
     **Correctness**: Must satisfy:
     - FG gates have R_v > 0 (emergence requirement)
     - Non-FG nodes have R_v = 0 (no emergence)
-    - Matches plant_n's R field exactly (type consistency)
+    - Matches planted instance R field exactly (type consistency)
 
     **Usage**: Used consistently in:
-    - plant_n (PlantCore.lean)
+    - plant_flat (PlantExponential.lean)
     - lstarStructureFromCNF
     - emergentConfigAtGate (via lstarStructureFromCNF)
 

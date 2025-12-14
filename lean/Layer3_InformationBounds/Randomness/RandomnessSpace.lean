@@ -1,11 +1,14 @@
 import Mathlib.Data.Vector.Basic
 import Mathlib.Data.Fintype.Basic
+import Mathlib.Data.Fintype.Pi
+import Mathlib.Data.Fintype.Prod
 import Mathlib.Logic.Equiv.Defs
 import Mathlib.Data.List.Lex
 import Mathlib.Data.Prod.Lex
 import Mathlib.Order.PiLex
 import Mathlib.Order.Synonym
 import Layer0_Foundations.Base.CNF
+import Layer2_StructuralOWF.FrontierGate.RandomnessTypes
 
 /-! ## RandomnessSpace: Finite Randomness Domain for Probability Analysis
 
@@ -49,7 +52,7 @@ Vector α n is mathematically equivalent to (Fin n → α):
 - Backward: Vector.get accesses elements by index
 - These form an equivalence, allowing Fintype transport
 -/
-noncomputable instance vectorFintype {α : Type*} [Fintype α] {n : Nat} :
+noncomputable instance vectorFintype {α : Type*} [DecidableEq α] [Fintype α] {n : Nat} :
     Fintype (Vector α n) :=
   Fintype.ofEquiv (Fin n → α) ⟨
     Vector.ofFn,
@@ -72,7 +75,7 @@ structure RandomnessN (dgLen : Nat) (numGates : Nat) (numVars : Nat) where
   assignment : Fin numVars → Bool
   gateDigests : Vector (Vector Bool dgLen) numGates
   structuralBits : Vector Bool numGates
-  deriving DecidableEq, Repr
+  deriving DecidableEq
 
 /-- Product type isomorphic to RandomnessN -/
 abbrev RandomnessNProduct (dgLen : Nat) (numGates : Nat) (numVars : Nat) :=

@@ -93,7 +93,7 @@ private lemma binary_foldl_bound (bits : List Bool) (n : Nat) (h_len : bits.leng
     - FG Gates: entropy from ALL dgLen bits of gateDigest (2^R bottleneck!)
     - Other: 0 entropy
 
-    This is the exponential-profile analog of `plant_n_entropy`. Like the QP profile,
+    This is the exponential-profile plant entropy function. Like the QP profile,
     ALL dgLen bits flow through the FG gate to create the 2^R information bottleneck.
     The difference is R_v = nvars (exponential) vs R_v = (log n)² (QP).
 -/
@@ -175,7 +175,7 @@ def getClauseSeed (φ : CNF) (numGates : Nat) (dag : DAG)
 /-- **OAP encoding for flat-mode planting**.
 
     Encodes CNF φ using seeds from computeSeedChain with flat entropy.
-    Same mechanism as plant_n_encode_cnf but uses flat seedWidth values.
+    Same mechanism as standard plant encode_cnf but uses flat seedWidth values.
 -/
 def plant_flat_encode_cnf (φ : CNF) (numGates : Nat) (dag : DAG)
     (seedWidth_val : Fin dag.n → Nat)
@@ -310,14 +310,14 @@ structure AlignedCNFConstraints (φ : CNF) : Prop where
 
     **Precondition**: φ.nvars ≥ 4 (ensures R_v ≥ 2 for emergence)
 
-    **Construction**: Identical to plant_n except R formula at FG gates.
+    **Construction**: Standard plant_flat with R formula at FG gates.
 
     **Complexity**:
-    - Lambda: λ = R_v = n (vs. (log n)² in plant_n)
-    - Bound: 2^λ = 2^n (vs. n^(log n) in plant_n)
+    - Lambda: λ = R_v = n (exponential)
+    - Bound: 2^λ = 2^n (full exponential)
     - Adversary time: Must exceed 2^n (exponential)
 
-    **Type**: Returns LStarInstanceFG (same as plant_n)
+    **Type**: Returns LStarInstanceFG
 
     **CNF Constraints** (required for encoding bounds):
     - `h_aligned.clauses_le`: φ.clauses.length ≤ φ.nvars (for clauses_upper)
@@ -332,10 +332,10 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
   let numGates := r.gateDigests.length
   let R_val := Foundations.R_of_flat φ numGates
 
-  -- Build DAG: same as plant_n
+  -- Build DAG: standard construction
   let dag := build3SATReductionDAG φ numGates
 
-  -- Compute seed widths identically to plant_n
+  -- Compute seed widths using standard formula
   let seedWidth_val := fun v : Fin dag.n =>
     Construction.computeSeedWidth φ numGates R_val v
 
@@ -379,7 +379,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
 
   -- FG configuration
   let fg_config : FrontierGateConfig full := {
-    -- Gate placement: same as plant_n (clause layer)
+    -- Gate placement: at clause layer
     gateReq := fun v =>
       let clause_start := 1 + φ.nvars
       let fg_end := clause_start + r.gateDigests.length
@@ -1865,7 +1865,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
 /-- For planted flat instances, numGates equals r.gateDigests.length.
 
     Key structural property: In plant_flat construction, FG gates are in 1-1
-    correspondence with r.gateDigests entries (same as plant_n).
+    correspondence with r.gateDigests entries.
 
     Precondition: Requires φ to have at least one clause (legitimate OWF requirement). -/
 theorem numGates_eq_gateDigests_length_for_planted_flat
@@ -1936,7 +1936,7 @@ theorem correct_digests_length_eq_totalRBits_planted_flat
 /-- **Lemma**: planted_gateReq for flat profile matches interval formula.
 
     This is identical to the QP-sharp version because plant_flat uses the SAME
-    gateReq interval formula as plant_n (only R differs). -/
+    gateReq interval formula (standard construction). -/
 private lemma planted_gateReq_true_iff_interval_flat
     {n φ r h_nvars h_aligned L}
     (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
@@ -3033,18 +3033,14 @@ theorem mem_computedConfigs_decompose_flat
 /-! ## Planted Instance Characterization for Flat Mode
 
 Flat-mode analog of `IsPlantedWithWellFormedRandomness` from AcceptanceUniqueness.lean.
-Since plant_flat and plant_n have different R-profiles, we need parallel infrastructure.
+Parallel infrastructure for plant_flat construction.
 -/
 
 /-- **Flat-mode planted instance predicate**.
 
     This is the analog of `IsPlantedWithWellFormedRandomness` for exponential-bound instances.
 
-    **Key difference**: Uses `plant_flat` instead of `plant_n`.
-
-    **Why needed**: plant_flat ≠ plant_n because R-profiles differ:
-    - plant_flat: R_v = nvars (exponential bound 2^n)
-    - plant_n: R_v = (log n)² (quasi-poly bound n^(log n))
+    **Uses**: `plant_flat` with exponential R-profile (R_v = nvars).
 
     **Properties**: Same structural checks as IsPlantedWithWellFormedRandomness -/
 def IsPlantedFlat (L : LStarInstanceFG) : Prop :=
@@ -3196,11 +3192,11 @@ def HasWitnessUniqueness_flat (L : LStarInstanceFG) (φ : CNF) (h_nvars_pos : φ
     This is the analog of `planted_instances_have_uniqueness` for flat-mode instances.
 
     **Proof strategy**: The uniqueness property follows from FG construction and does not
-    depend on specific R values. Both plant_flat and plant_n have the same FG wiring
+    depend on specific R values. plant_flat has the standard FG wiring
     structure (gates at clause layer), so the same uniqueness argument applies.
 
     **Status**: Follows from AcceptanceUniqueness.lean infrastructure. The proof is
-    identical to planted_instances_have_uniqueness modulo plant_flat vs plant_n. -/
+    identical to planted_instances_have_uniqueness. -/
 theorem planted_instances_have_uniqueness_flat
     (L : LStarInstanceFG) (φ : CNF) (h_nvars_pos : φ.nvars > 0) (h_nvars_ge4 : φ.nvars ≥ 4)
     (h_aligned : AlignedCNFConstraints φ)
@@ -3235,7 +3231,7 @@ theorem planted_instances_have_uniqueness_flat
     **Purpose**: Enable ConfigMatchToUnitRefute.lean to work with IsPlantedFlat.
     The WC-1 callback needs this lemma to prove +1 elimination at boundaries.
 
-    **Proof**: Identical to plant_n version - just uses extensionality on singleton cuts.
+    **Proof**: Uses extensionality on singleton cuts.
     The proof doesn't depend on R formula, so it works for both profiles. -/
 theorem planted_config_uniqueness_flat
     (L : LStarInstanceFG)
@@ -3277,7 +3273,7 @@ theorem planted_config_uniqueness_flat
 /-! ## Bridge Theorem Infrastructure for plant_flat
 
 These lemmas enable plant_flat to use the generic bridge theorems from TMToExecutionPrefix.
-They prove plant_flat satisfies the same structural properties as plant_n.
+They prove plant_flat satisfies the standard structural properties.
 -/
 
 /-- **plant_flat uses the standard gateReq formula**.

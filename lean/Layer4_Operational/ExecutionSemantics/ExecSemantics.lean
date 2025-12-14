@@ -24,7 +24,7 @@ open LStar
 open LStar.StructuralOWF
 open scoped Classical
 
-/-- Helper: Derive plant_n's nvars ≥ 4 requirement from nvars ≥ 128. -/
+/-- Helper: Derive plant_flat's nvars ≥ 4 requirement from nvars ≥ 128. -/
 theorem nvars_ge_4_of_ge_128 {φ : CNF} (h : φ.nvars ≥ 128) : φ.nvars ≥ 4 := by omega
 
 /-- Minimal execution‑semantics hypotheses for a fixed cut `C`. -/
@@ -208,30 +208,30 @@ theorem ExecSemantics.ofSecurityRun
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_nvars : φ.nvars ≥ 128)
-    (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (v : {v // (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).fg.gateReq v})
+    (h_aligned : AlignedCNFConstraints φ)
+    (v : {v // (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).fg.gateReq v})
     (h_inj :
-      Nonempty ({σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} //
+      Nonempty ({σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull {v.val} //
                   ReachableConfig {v.val} σ} ↪
-                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount))
-    (h_per_seg : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
-        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥ 1)
-    : ExecSemantics (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen)
-        (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun
-        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun)
+                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount))
+    (h_per_seg : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
+        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥ 1)
+    : ExecSemantics (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned)
+        (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun
+        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun)
         {v.val} := by
   classical
-  let run := runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos
+  let run := runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos
   let segments := segmentsFromRun run.toDeterministicRun
   refine {
     time_ge_sum := ?tgs
     , inj_reachable := h_inj
     , per_seg_unit := by intro i; simpa using h_per_seg i
-    , single_run := run_is_single_run n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos
+    , single_run := run_is_single_run n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos
   }
   -- Time lower‑bounds the sum (partition lemma)
   have hpos : 0 < run.segmentCount :=
-    runFromSecurityGame_segmentCount_pos n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos
+    runFromSecurityGame_segmentCount_pos n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos
   -- segmentsFromRun_partition_time: sum ≤ time
   simpa using segmentsFromRun_partition_time run.toDeterministicRun
 
@@ -257,15 +257,15 @@ theorem perSegUnit_of_work_distribution
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_nvars : φ.nvars ≥ 128)
-    (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (v : {v // (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).fg.gateReq v})
-    (h_work : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
-        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥
-        (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).R v.val)
-    : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
-        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥ 1 := by
+    (h_aligned : AlignedCNFConstraints φ)
+    (v : {v // (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).fg.gateReq v})
+    (h_work : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
+        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥
+        (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).R v.val)
+    : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
+        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥ 1 := by
   intro i
-  have hR : 1 ≤ (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).R v.val := plant_fg_R_ge_one n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen v h_nvars
+  have hR : 1 ≤ (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).R v.val := plant_fg_R_ge_one n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned v h_nvars
   exact le_trans hR (h_work i)
 
 /-- Build the injection over reachable cut‑configurations for the security run
@@ -277,22 +277,22 @@ theorem inj_from_tracking_for_security_run
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_nvars : φ.nvars ≥ 128)
-    (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (v : {v // (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).fg.gateReq v})
-    (run_tracked : RunWithStateTracking (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} AssignmentInf AssignmentInf)
+    (h_aligned : AlignedCNFConstraints φ)
+    (v : {v // (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).fg.gateReq v})
+    (run_tracked : RunWithStateTracking (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull {v.val} AssignmentInf AssignmentInf)
     (h_tracked_single : run_tracked.strategy = Strategy.singleRun)
-    (h_count_eq : run_tracked.segmentCount = (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount)
-    (h_search_complete : ∀ σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val},
+    (h_count_eq : run_tracked.segmentCount = (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount)
+    (h_search_complete : ∀ σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull {v.val},
         ReachableConfig {v.val} σ → ∃ i : Fin run_tracked.segmentCount, configAtSegment run_tracked i = σ)
-    : Nonempty ({σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} //
+    : Nonempty ({σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull {v.val} //
                   ReachableConfig {v.val} σ} ↪
-                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount) := by
+                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount) := by
   classical
   -- Injection into `Fin run_tracked.segmentCount`
   let inj₀ := explicitInjectionReachable run_tracked h_tracked_single h_search_complete
   -- Transport embedding along segmentCount equality using Fin.cast
-  have : {σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} // ReachableConfig {v.val} σ} ↪
-          Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount := by
+  have : {σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull {v.val} // ReachableConfig {v.val} σ} ↪
+          Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount := by
     refine ⟨fun σ => Fin.cast h_count_eq (inj₀ σ), fun a b hab => ?_⟩
     have := inj₀.injective (Fin.cast_injective h_count_eq hab)
     exact this
@@ -309,21 +309,21 @@ theorem inj_from_tracking_for_security_run_multigate
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_nvars : φ.nvars ≥ 128)
-    (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (C : Finset (Fin (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).dag.n))
-    (run_tracked : RunWithStateTracking (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C AssignmentInf AssignmentInf)
+    (h_aligned : AlignedCNFConstraints φ)
+    (C : Finset (Fin (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).dag.n))
+    (run_tracked : RunWithStateTracking (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull C AssignmentInf AssignmentInf)
     (h_tracked_single : run_tracked.strategy = Strategy.singleRun)
-    (h_count_eq : run_tracked.segmentCount = (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount)
-    (h_search_complete : ∀ σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C,
+    (h_count_eq : run_tracked.segmentCount = (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount)
+    (h_search_complete : ∀ σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull C,
         ReachableConfig C σ → ∃ i : Fin run_tracked.segmentCount, configAtSegment run_tracked i = σ)
-    : Nonempty ({σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C //
+    : Nonempty ({σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull C //
                   ReachableConfig C σ} ↪
-                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount) := by
+                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount) := by
   classical
   -- Same proof as singleton version, just with arbitrary cut C
   let inj₀ := explicitInjectionReachable run_tracked h_tracked_single h_search_complete
-  have : {σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C // ReachableConfig C σ} ↪
-          Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount := by
+  have : {σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull C // ReachableConfig C σ} ↪
+          Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount := by
     refine ⟨fun σ => Fin.cast h_count_eq (inj₀ σ), fun a b hab => ?_⟩
     have := inj₀.injective (Fin.cast_injective h_count_eq hab)
     exact this
@@ -340,23 +340,23 @@ variable {A_inv : (x : LStarInstanceFG) → Randomness x.encodedφ.nvars}
 variable {C_A k_A C_Ext k_Ext : Nat}
 variable {h_nonzero : C_A + C_Ext ≥ 1}
 variable {h_nvars : φ.nvars ≥ 128}
-variable {h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2}
+variable {h_aligned : AlignedCNFConstraints φ}
 
 /-- Canonical embedding of reachable configurations into segment indices. -/
 lemma reachableEmbedding_nonempty
-    {C : Finset (Fin (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).dag.n)}
+    {C : Finset (Fin (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).dag.n)}
     (inst :
-      _root_.LStar.StructuralOWF.Foundations.SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero C) :
-    Nonempty ({σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C //
+      _root_.LStar.StructuralOWF.Foundations.SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero C) :
+    Nonempty ({σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull C //
                    ReachableConfig C σ} ↪
               Fin inst.tracked.segmentCount) :=
   ⟨LStar.StructuralOWF.Foundations.SecurityRunInstrumented.reachableEmbedding inst⟩
 
 /-- Injective enumeration of explored configurations for the instrumented run. -/
 lemma configsEmbedding_nonempty
-    {C : Finset (Fin (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).dag.n)}
+    {C : Finset (Fin (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).dag.n)}
     (inst :
-      _root_.LStar.StructuralOWF.Foundations.SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero C) :
+      _root_.LStar.StructuralOWF.Foundations.SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero C) :
     Nonempty ({σ // σ ∈ inst.configs} ↪ Fin inst.tracked.segmentCount) :=
   ⟨LStar.StructuralOWF.Foundations.SecurityRunInstrumented.configsEmbedding inst⟩
 
@@ -376,15 +376,15 @@ lemma configsEmbedding_nonempty
     Usage: Once we have this, we can invoke `time_ge_segmentCount` to get
     `inst.tracked.time ≥ inst.tracked.segmentCount` directly. -/
 theorem ExecSemantics.ofSecurityRunInstrumented
-    {C : Finset (Fin (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).dag.n)}
-    (inst : _root_.LStar.StructuralOWF.Foundations.SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero C)
+    {C : Finset (Fin (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).dag.n)}
+    (inst : _root_.LStar.StructuralOWF.Foundations.SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero C)
     (h_pos : 0 < inst.tracked.segmentCount)
-    : ExecSemantics (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen)
+    : ExecSemantics (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned)
         inst.tracked.toDeterministicRun
         (segmentsFromRun inst.tracked.toDeterministicRun)
         C := by
   classical
-  let L := plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen
+  let L := plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned
   -- Since RunWithStateTracking extends DeterministicRun, we can use it directly
   let run := inst.tracked.toDeterministicRun
   let segments := segmentsFromRun run
@@ -403,7 +403,7 @@ theorem ExecSemantics.ofSecurityRunInstrumented
   case inj_reachable =>
     -- Injection from reachable configs into segments
     -- This is provided by reachableEmbedding
-    exact @reachableEmbedding_nonempty n φ r_star A_inv C_A k_A C_Ext k_Ext h_nonzero h_nvars h_dgLen C inst
+    exact @reachableEmbedding_nonempty n φ r_star A_inv C_A k_A C_Ext k_Ext h_nonzero h_nvars h_aligned C inst
 
   case per_seg_unit =>
     -- Each segment has ≥ 1 parity operation
@@ -440,16 +440,16 @@ theorem ExecSemantics.ofSecurityRunInstrumented
     2. Invoke `time_ge_segmentCount` on the ExecSemantics instance
     3. Get `inst.tracked.time ≥ inst.tracked.segmentCount` definitionally -/
 theorem time_ge_segmentCount_from_instrumented
-    {C : Finset (Fin (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).dag.n)}
-    (inst : _root_.LStar.StructuralOWF.Foundations.SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero C)
+    {C : Finset (Fin (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).dag.n)}
+    (inst : _root_.LStar.StructuralOWF.Foundations.SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero C)
     (h_pos : 0 < inst.tracked.segmentCount)
     : inst.tracked.time ≥ inst.tracked.segmentCount := by
   classical
   -- Build the ExecSemantics instance
-  let execSem := @ExecSemantics.ofSecurityRunInstrumented n φ r_star A_inv C_A k_A C_Ext k_Ext h_nonzero h_nvars h_dgLen C inst h_pos
+  let execSem := @ExecSemantics.ofSecurityRunInstrumented n φ r_star A_inv C_A k_A C_Ext k_Ext h_nonzero h_nvars h_aligned C inst h_pos
   -- Apply time_ge_segmentCount
   have := time_ge_segmentCount
-    (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen)
+    (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned)
     inst.tracked.toDeterministicRun
     (segmentsFromRun inst.tracked.toDeterministicRun)
     C
@@ -483,7 +483,7 @@ open LStar.StructuralOWF
     - `h_inj`: Injection from reachable configurations at `{v}` into segment indices
     - `h_per_seg`: Each segment accounts for at least one parity operation
 
-    Output: ∃ c > 1, time ≥ c^(lambdaBase (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen) v).
+    Output: ∃ c > 1, time ≥ c^(lambdaBase (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned) v).
 
     This packages the four execution facts via `ExecSemantics.ofSecurityRun` and
     applies `time_lower_bound_closed_singleton`. -/
@@ -494,24 +494,24 @@ theorem quantitative_closed_for_security_run
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_nvars : φ.nvars ≥ 128)
-    (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (v : {v // (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).fg.gateReq v})
+    (h_aligned : AlignedCNFConstraints φ)
+    (v : {v // (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).fg.gateReq v})
     (h_inj :
-      Nonempty ({σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} //
+      Nonempty ({σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull {v.val} //
                   ReachableConfig {v.val} σ} ↪
-                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount))
-    (h_per_seg : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
-        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥ 1)
+                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount))
+    (h_per_seg : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
+        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥ 1)
     : ∃ (c : ℝ) (_hc : 1 < c),
-        ((runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).time : ℝ)
-          ≥ c ^ (lambdaBase (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen) v : ℕ) := by
+        ((runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).time : ℝ)
+          ≥ c ^ (lambdaBase (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned) v : ℕ) := by
   classical
   -- Instantiate the execution capsule
-  let L := plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen
-  let run := runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos
+  let L := plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned
+  let run := runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos
   let segments := segmentsFromRun run.toDeterministicRun
   have hExec : ExecSemantics L run.toDeterministicRun segments {v.val} :=
-    ExecSemantics.ofSecurityRun n φ r_star A_inv C_A k_A C_Ext k_Ext h_n_pos h_nonzero h_nvars h_dgLen v h_inj h_per_seg
+    ExecSemantics.ofSecurityRun n φ r_star A_inv C_A k_A C_Ext k_Ext h_n_pos h_nonzero h_nvars h_aligned v h_inj h_per_seg
   -- Apply the closed singleton-cut bound
   simpa [L, run, segments] using
     time_lower_bound_closed_singleton L v run.toDeterministicRun segments hExec
@@ -538,30 +538,30 @@ theorem quantitative_closed_for_security_run_from_tracking
     (h_n_pos : 1 ≤ n)
     (h_nonzero : C_A + C_Ext ≥ 1)
     (h_nvars : φ.nvars ≥ 128)
-    (h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (v : {v // (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).fg.gateReq v})
+    (h_aligned : AlignedCNFConstraints φ)
+    (v : {v // (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).fg.gateReq v})
     -- Work distribution: each segment performs at least R_v parity ops
-    (h_work : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
-        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥
-        (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).R v.val)
+    (h_work : ∀ i : Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount,
+        (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥
+        (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).R v.val)
     -- Tracked run for `{v}` with single-run strategy and reachable-surject completeness
-    (run_tracked : RunWithStateTracking (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} AssignmentInf AssignmentInf)
+    (run_tracked : RunWithStateTracking (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull {v.val} AssignmentInf AssignmentInf)
     (h_tracked_single : run_tracked.strategy = Strategy.singleRun)
-    (h_count_eq : run_tracked.segmentCount = (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount)
-    (h_search_complete : ∀ σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val},
+    (h_count_eq : run_tracked.segmentCount = (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount)
+    (h_search_complete : ∀ σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull {v.val},
         ReachableConfig {v.val} σ → ∃ i : Fin run_tracked.segmentCount, configAtSegment run_tracked i = σ)
     : ∃ (c : ℝ) (_hc : 1 < c),
-        ((runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).time : ℝ)
-          ≥ c ^ (lambdaBase (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen) v : ℕ) := by
+        ((runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).time : ℝ)
+          ≥ c ^ (lambdaBase (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned) v : ℕ) := by
   -- Build the two operational facts
-  have h_per_seg : ∀ i, (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥ 1 :=
-    perSegUnit_of_work_distribution n φ r_star A_inv C_A k_A C_Ext k_Ext h_n_pos h_nonzero h_nvars h_dgLen v h_work
+  have h_per_seg : ∀ i, (segmentsFromRun (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).toDeterministicRun i).digestOperations ≥ 1 :=
+    perSegUnit_of_work_distribution n φ r_star A_inv C_A k_A C_Ext k_Ext h_n_pos h_nonzero h_nvars h_aligned v h_work
   have h_inj :
-      Nonempty ({σ : LStar.StateFull (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull {v.val} // ReachableConfig {v.val} σ} ↪
-                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount) :=
-    inj_from_tracking_for_security_run n φ r_star A_inv C_A k_A C_Ext k_Ext h_n_pos h_nonzero h_nvars h_dgLen v run_tracked h_tracked_single h_count_eq h_search_complete
+      Nonempty ({σ : LStar.StateFull (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull {v.val} // ReachableConfig {v.val} σ} ↪
+                Fin (runFromSecurityGame n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount) :=
+    inj_from_tracking_for_security_run n φ r_star A_inv C_A k_A C_Ext k_Ext h_n_pos h_nonzero h_nvars h_aligned v run_tracked h_tracked_single h_count_eq h_search_complete
   -- Close via the singleton wrapper
-  exact quantitative_closed_for_security_run n φ r_star A_inv C_A k_A C_Ext k_Ext h_n_pos h_nonzero h_nvars h_dgLen v h_inj h_per_seg
+  exact quantitative_closed_for_security_run n φ r_star A_inv C_A k_A C_Ext k_Ext h_n_pos h_nonzero h_nvars h_aligned v h_inj h_per_seg
 
 /-! WithSegCount helpers removed -/
 
@@ -646,9 +646,9 @@ theorem time_ge_segmentCount_for_instrumented
     {C_A k_A C_Ext k_Ext : Nat}
     {h_nonzero : C_A + C_Ext ≥ 1}
     {h_nvars : φ.nvars ≥ 128}
-    {h_dgLen : r_star.dgLen = (Nat.log 2 φ.nvars) ^ 2}
-    {C : Finset (Fin (plant_n n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).dag.n)}
-    (inst : SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero C)
+    {h_aligned : AlignedCNFConstraints φ}
+    {C : Finset (Fin (plant_flat n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned).dag.n)}
+    (inst : SecurityRunInstrumented n φ r_star (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero C)
     : inst.tracked.time ≥ inst.tracked.segmentCount :=
   -- Extract from the SecurityRunInstrumented field
   -- This field is provided when constructing the instrumented run,

@@ -4,6 +4,7 @@ import Layer2_StructuralOWF.FrontierGate.FrontierGate  -- For configFromBits
 import Layer4_Operational.ExecutionSemantics.ExecutionSemantics
 import Layer1_Construction.Core.SeedChain
 import Layer3_InformationBounds.Keyedness.SeedLockProperties  -- Proves revealedBits = [] is necessary (info theory)
+import Layer2_StructuralOWF.Plant.PlantExponential  -- For plant_flat, AlignedCNFConstraints
 import Mathlib.Data.Finset.Basic
 
 /-! ## ConstraintExtraction: Execution → Constraints Bridge
@@ -582,7 +583,7 @@ with no interaction between them. Well-formedness is ensured by satisfaction alo
 theorem constraints_monotone
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
-    (_h_planted : ∃ n φ r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
+    (_h_planted : ∃ n φ r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r)
     (π₁ π₂ : ExecutionPrefixReal L)
     (h_prefix : isPrefixOf L π₁ π₂)
     (h_revealedBits_empty : π₁.revealedBits = [])

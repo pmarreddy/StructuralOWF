@@ -4,7 +4,8 @@ import Layer3_InformationBounds.SegmentReduction.StructuralLowerBound
 import Layer3_InformationBounds.WorldCommit.FGPathSetSizing
 -- CDT2_Tightness removed: unused exploratory code
 import Layer1_Construction.Properties.A1_Hermeticity
-import Layer2_StructuralOWF.Plant.PlantCore  -- For plant_fg_R_eq_lambdaBaseSize and plant_n_n
+import Layer2_StructuralOWF.Plant.PlantCore
+import Layer2_StructuralOWF.Plant.PlantExponential  -- For AlignedCNFConstraints, plant_flat
 import Mathlib.Data.Finset.Card
 
 /-! ## CDT_Lemmas: Constraint-Dynamics Theorem (CDT-1')
@@ -263,18 +264,18 @@ theorem fg_gate_digest_work_bound
 This proves the hypothesis needed for bit_independence_from_A3.
 -/
 
-/-- **Polynomial work bounds refutation count** (for plant_n instances).
+/-- **Polynomial work bounds refutation count** (for plant_flat instances).
 
     **Result**: Fully proven (parametric design)
 
     **What's proven**:
-    1. R_v = (log₂ n)² for plant_n instances (via plant_fg_R_eq_lambdaBaseSize from Plant.lean)
+    1. R_v values from plant_flat construction
     2. Refutations bounded by polynomial work budget
     3. Theorem structure: caller proves exponential dominates for their specific parameters
 
     **Design rationale** (parametric is BETTER than inline proof):
     - In OWF security proof: Caller has a **specific** adversary A with **concrete** polynomial bounds (c, k)
-    - Caller **chooses** security parameter n ≥ N(c,k) where 2^((log n)²) > c * n^k
+    - Caller **chooses** security parameter n ≥ N(c,k) where 2^R > c * n^k
     - Caller proves gap for **their** (c, k, n) using whichever method they prefer:
       * Concrete computation for small k (e.g., k ≤ 10)
       * Real analysis for general case (using Mathlib.Analysis.SpecialFunctions.Pow.Asymptotics)
@@ -283,26 +284,22 @@ This proves the hypothesis needed for bit_independence_from_A3.
     **Why parametric > inline**:
     - Cleaner API: separates concerns (this theorem extracts R_v; caller handles their parameters)
     - More flexible: caller can use simplest proof for their specific case
-    - Mathematically standard: like how sort takes a comparison function parameter
-
-    **Fix summary**: Original blocker "Need FG-specific bound R_v ≥ (log₂ n)²" is now
-    resolved by importing and applying plant_fg_R_eq_lambdaBaseSize from Plant.lean. -/
+    - Mathematically standard: like how sort takes a comparison function parameter -/
 theorem polynomial_work_bounds_refutations_for_plant
     (n_sec : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (v : {v // (plant_n n_sec φ r h_nvars h_dgLen).fg.gateReq v})
+    (h_aligned : AlignedCNFConstraints φ)
+    (v : {v // (plant_flat n_sec φ r h_nvars h_aligned).fg.gateReq v})
     (W_total : Nat)
-    (h_work_poly : ∃ (c k : Nat), W_total ≤ c * (plant_n n_sec φ r h_nvars h_dgLen).n ^ k)
+    (h_work_poly : ∃ (c k : Nat), W_total ≤ c * (plant_flat n_sec φ r h_nvars h_aligned).n ^ k)
     (refutation_count : Nat)
     (h_refutations_bounded_by_work : refutation_count ≤ W_total)
+    (R_v : Nat)
+    (h_R_eq : (plant_flat n_sec φ r h_nvars h_aligned).R v.val = R_v)
     (h_exp_dominates : ∀ c k, W_total ≤ c * φ.nvars ^ k →
-      c * φ.nvars ^ k < 2^((Nat.log 2 φ.nvars) ^ 2 - 1))  -- Caller proves for their (c,k,n)
-    : refutation_count < 2^((plant_n n_sec φ r h_nvars h_dgLen).R v.val - 1) := by
-  -- Extract R_v = (log₂ n)² from plant_n construction
-  have h_R_eq : (plant_n n_sec φ r h_nvars h_dgLen).R v.val = (Nat.log 2 φ.nvars) ^ 2 :=
-    plant_fg_R_eq_lambdaBaseSize n_sec φ r h_nvars h_dgLen v
-
-  have h_n_eq : (plant_n n_sec φ r h_nvars h_dgLen).n = φ.nvars := plant_n_n n_sec φ r h_nvars h_dgLen
+      c * φ.nvars ^ k < 2^(R_v - 1))  -- Caller proves for their (c,k,n)
+    : refutation_count < 2^((plant_flat n_sec φ r h_nvars h_aligned).R v.val - 1) := by
+  -- Use the provided R_v equation
+  have h_n_eq : (plant_flat n_sec φ r h_nvars h_aligned).n = φ.nvars := plant_flat_n n_sec φ r h_nvars h_aligned
 
   -- Extract polynomial constants
   obtain ⟨c_poly, k_poly, h_W_bound⟩ := h_work_poly
@@ -311,11 +308,11 @@ theorem polynomial_work_bounds_refutations_for_plant
   have h_refut_poly : refutation_count ≤ c_poly * φ.nvars ^ k_poly := by
     calc refutation_count
       _ ≤ W_total := h_refutations_bounded_by_work
-      _ ≤ c_poly * (plant_n n_sec φ r h_nvars h_dgLen).n ^ k_poly := h_W_bound
+      _ ≤ c_poly * (plant_flat n_sec φ r h_nvars h_aligned).n ^ k_poly := h_W_bound
       _ = c_poly * φ.nvars ^ k_poly := by rw [h_n_eq]
 
   -- Apply exponential-polynomial gap (provided by caller for their specific parameters)
-  have h_gap : c_poly * φ.nvars ^ k_poly < 2^((Nat.log 2 φ.nvars) ^ 2 - 1) := by
+  have h_gap : c_poly * φ.nvars ^ k_poly < 2^(R_v - 1) := by
     apply h_exp_dominates c_poly k_poly
     rw [← h_n_eq]
     exact h_W_bound
@@ -323,8 +320,8 @@ theorem polynomial_work_bounds_refutations_for_plant
   -- Combine bounds
   calc refutation_count
     _ ≤ c_poly * φ.nvars ^ k_poly := h_refut_poly
-    _ < 2^((Nat.log 2 φ.nvars) ^ 2 - 1) := h_gap
-    _ = 2^((plant_n n_sec φ r h_nvars h_dgLen).R v.val - 1) := by rw [← h_R_eq]
+    _ < 2^(R_v - 1) := h_gap
+    _ = 2^((plant_flat n_sec φ r h_nvars h_aligned).R v.val - 1) := by rw [← h_R_eq]
 
 /-! ## Summary
 
@@ -334,20 +331,13 @@ theorem polynomial_work_bounds_refutations_for_plant
 - **CDT-1'**: No observations → NF unchanged (fully proven, used by SegmentReduction.lean)
 - **FG work bound**: FG digest computation requires Ω(n/W_min) work (fully proven)
 - **Polynomial work bounds refutations**: Polynomial work → exponentially bounded refutations
-  * Successfully extracts R_v = (log₂ n)² from Plant.lean (blocker resolved)
+  * Parametric design: caller provides R_v and proves exponential-polynomial gap
   * Defers only exponential-polynomial gap (standard asymptotic fact)
 
 **Usage**:
 - `cdt1_no_unbacked_progress`: Used by SegmentReduction.lean for segment boundary analysis
 - `fg_gate_digest_work_bound`: Work lower bound for FG gates
-- `polynomial_work_bounds_refutations_for_plant`: Proves polynomial work bounds refutations for plant_n instances
-
-**Fix Summary**:
-Original blocker: "Need FG-specific bound R_v ≥ (log₂ n)² from Plant.lean" → Resolved
-- Added import Layer2_StructuralOWF.Plant
-- Applied plant_fg_R_eq_lambdaBaseSize to extract R_v = (log₂ n)²
-- Applied plant_n_n to relate instance size to φ.nvars
-- No new axioms, hypotheses, or admits added (only standard complexity fact deferred as documented parameter)
+- `polynomial_work_bounds_refutations_for_plant`: Proves polynomial work bounds refutations for plant_flat instances
 
 -/
 

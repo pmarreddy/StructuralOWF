@@ -44,7 +44,7 @@ open LStar LStar.StructuralOWF LStar.StructuralOWF.Foundations
 
     **Unique solution (planted SAT)**: Uses n unit clauses `x₀ ∧ x₁ ∧ ... ∧ x_{n-1}`.
     This formula has exactly ONE satisfying assignment (all variables true),
-    satisfying BoundedSolutions with c=0. The plant_n construction places FG gates
+    satisfying BoundedSolutions with c=0. The plant_flat construction places FG gates
     at the clause layer, and having n clauses provides space for gate placement.
 
     **OWF security**: The unique solution ensures the density attack is impossible.

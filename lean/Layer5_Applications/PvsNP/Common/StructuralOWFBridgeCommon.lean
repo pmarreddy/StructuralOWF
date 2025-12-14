@@ -22,10 +22,10 @@ quasi-polynomial (QP) profiles for the OWF-based P≠NP proof.
 - `P_ne_NP`: Final theorem
 
 **Design Rationale**:
-The flat and QP profiles differ in:
-1. Digest length: 64 bits (flat) vs (log₂ n)² bits (QP)
-2. Plant function: plant_flat vs plant_n
-3. OWF security theorem: f_is_one_way_exponential_flat vs owf_qp_security
+The exponential profile uses:
+1. Digest length: 64 bits (flat)
+2. Plant function: plant_flat
+3. OWF security theorem: f_is_one_way_exponential_flat
 
 But they share the same adapter encoding machinery, format separation logic,
 and proof structure. This file extracts the common parts to avoid duplication.

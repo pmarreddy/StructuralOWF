@@ -452,7 +452,7 @@ haltTime ≥ 2^ρ
 
 ### TMAdapterQP.lean (2617 lines, 10 axiom audits)
 
-**Purpose**: QP PROFILE ADAPTER for plant_n (R=(log₂ n)² quasi-polynomial bounds).
+**Purpose**: QP PROFILE ADAPTER for plant_flat (R=(log₂ n)² quasi-polynomial bounds).
 
 **Architecture**: Implements ExecutionSemanticsAdapter for Turing Machines using **bottom-up construction**.
 
@@ -490,7 +490,7 @@ theorem tm_proves_keyed_visitation
     (obs : Observation L.toLStarInstanceFull v.val)
     (h_complete : obs.isComplete)
     (h_correct : L.φ.satisfies (tmToWitnessFinder M).output.assignment)
-    (h_planted : ∃ n φ r h_nvars, L = plant_n n φ r h_nvars ∧ WellFormedRandomness φ r)
+    (h_planted : ∃ n φ r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r)
     (keyedness : KeyednessProperty L {v.val} (tmToWitnessFinder M).time)
     (keyedStates : Finset Nat)
     (h_keyed_def : keyedStates = Finset.image (λ cfg => (keyedness.configToState cfg).val) Fintype.elems)
@@ -743,7 +743,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 ### Axiom Summary (Full Chain)
 
-**QP Profile** (plant_n with R=(log₂ n)²) - **2 axioms total**:
+**QP Profile** (plant_flat with R=(log₂ n)²) - **2 axioms total**:
 1. **`algspec_has_tm`** (RandAdv.lean) - Church-Turing bridge (SHARED)
 2. **`executionPrefix_compatible_with_planted`** (PlantedBoundaryDiversity.lean) - Execution model bridge (QP ONLY)
 

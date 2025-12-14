@@ -397,23 +397,22 @@ any polynomial-size subset S ⊂ {0,...,λ-1} leaves at least two configs indist
 **Trust boundary**: 0 axioms (proven from A2 injectivity + parity commitment). -/
 theorem planted_exponential_hardness_from_subset
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-    (v : {v // (plant_flat n φ r h_nvars).fg.gateReq v})
-    (S : Finset (Fin ((plant_flat n φ r h_nvars).R v.val)))
-    (h_strict_subset : S.card < (plant_flat n φ r h_nvars).R v.val)
-    : ∃ (cfg1 cfg2 : Fin (2^((plant_flat n φ r h_nvars).R v.val))),
-        (∀ (i : Fin ((plant_flat n φ r h_nvars).R v.val)), i ∈ S →
+    (h_aligned : AlignedCNFConstraints φ)
+    (v : {v // (plant_flat n φ r h_nvars h_aligned).fg.gateReq v})
+    (S : Finset (Fin ((plant_flat n φ r h_nvars h_aligned).R v.val)))
+    (h_strict_subset : S.card < (plant_flat n φ r h_nvars h_aligned).R v.val)
+    : ∃ (cfg1 cfg2 : Fin (2^((plant_flat n φ r h_nvars h_aligned).R v.val))),
+        (∀ (i : Fin ((plant_flat n φ r h_nvars h_aligned).R v.val)), i ∈ S →
             getBit cfg1.val i.val = getBit cfg2.val i.val) ∧
         parity cfg1 ≠ parity cfg2 ∧
         (StructuralOWF.fgDigestBit cfg1 = true ↔ parity cfg1 = 1) ∧
         (StructuralOWF.fgDigestBit cfg2 = true ↔ parity cfg2 = 1) := by
   -- L is planted via plant_flat
-  let L := plant_flat n φ r h_nvars
+  let L := plant_flat n φ r h_nvars h_aligned
 
   -- Establish plantedness hypothesis for planted_hardness_by_construction
-  have h_planted : (∃ n' φ' r' h_nvars', L = plant_flat n' φ' r' h_nvars') ∨
-                   (∃ n' φ' r' h_nvars' h_dgLen', L = plant_n n' φ' r' h_nvars' h_dgLen') := by
-    left
-    exact ⟨n, φ, r, h_nvars, rfl⟩
+  have h_planted : ∃ n' φ' r' h_nvars' h_aligned', L = plant_flat n' φ' r' h_nvars' h_aligned' := by
+    exact ⟨n, φ, r, h_nvars, h_aligned, rfl⟩
 
   -- Apply planted_hardness_by_construction_parity from NoBackdoorTheorem
   have ⟨cfg1, cfg2, h_agree, h_parity_diff⟩ :=
@@ -521,8 +520,8 @@ theorem planted_exponential_requires_complete_observation
     on plant_flat planted instances.
 
     **Proof**: Identical to TMAdapter.tmToWitnessFinder, but with plant_flat
-    instead of plant_n. The construction is generic over planted instances -
-    it only uses TM execution traces, not plant_n specifics. -/
+    with plant_flat. The construction is generic over planted instances -
+    it only uses TM execution traces, not plant-function specifics. -/
 private noncomputable def tmToWitnessFinder_flat
     {k : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
     [Fintype alphabet] [DecidableEq alphabet]
@@ -624,8 +623,8 @@ These functions are used directly in this file via import.
     - fgNodes.length = r.gateDigests.length (step 1)
     - Result: computedConfigs.length ≤ r.gateDigests.length
 
-    **Mechanical changes from plant_n**:
-    - Change `plant_n` → `plant_flat` throughout
+    **Mechanical changes**:
+    - Uses `plant_flat` throughout
     - Change `tmExecutionToPrefix` → `tmExecutionToPrefix_flat`
     - Change `extractComputedConfigsFromWitness` → `extractComputedConfigsFromWitness_flat`
     - All other logic identical (same interval counting, same filterMap bounds)
@@ -1192,7 +1191,7 @@ For airtight exponential security, use `success_prob_n_coin_exp` instead.
 This definition is preserved for backward compatibility with existing proofs
 that only need quasi-polynomial security bounds.
 
-**Key difference from Security.lean**: Uses `plant_flat` instead of `plant_n` in the success predicate.
+**Key**: Uses `plant_flat` in the success predicate.
 
 **Definition**: For a fixed coin c, the probability that the adversary successfully inverts
 the OWF when using plant_flat construction. This is the count of well-formed randomnesses
@@ -1211,7 +1210,7 @@ noncomputable def success_prob_n_coin_flat
     Finset.univ.filter (fun rN =>
       let r := Foundations.RandomnessN.toRandomness 64 φ.nvars (by omega) rN
       φ.satisfies r.assignment ∧ WellFormedRandomness_flat φ r)
-  -- Key change: Use plant_flat instead of plant_n in success predicate
+  -- Uses plant_flat in success predicate
   -- Domain-constrained OWF: success requires BOTH image match AND adversary output in domain D
   let successful : Finset (Foundations.RandomnessN 64 1 φ.nvars) :=
     wellformed_rands.filter (fun rN =>
@@ -1235,7 +1234,7 @@ noncomputable def avg_success_prob_n_flat
 /-- **Coin-fixing lemma** for plant_flat: if average success ≥ μ, then some coin achieves ≥ μ.
 
 This is the averaging argument (pigeonhole principle): the average cannot exceed all values.
-Adapted from coin_fixing_success_ge_avg theorem to use plant_flat instead of plant_n. -/
+Adapted from coin_fixing_success_ge_avg theorem for plant_flat. -/
 theorem coin_fixing_success_ge_avg_flat
     (n : Nat) (h_n : 0 < n) (h_single : n = 1) (φ : CNF) (h_nvars : φ.nvars ≥ 4)
     (A : Complexity.PPTAdversary LStarInstanceFG Randomness Witness)
@@ -1272,7 +1271,7 @@ The proof works by:
 3. Positive count → nonempty set (via Finset.card_pos)
 4. Classical extraction of witness from nonempty set
 
-**Key insight**: This proof is independent of which plant function is used (plant_n vs plant_flat).
+**Key insight**: This proof is independent of which plant function is used.
 The plant function only appears in the success predicate, not in the probability extraction logic.
 
 **Status**: Fully proven - Adapted from Security.lean. -/
@@ -1356,11 +1355,11 @@ f(r) = plant_flat(n, Φ(n), r) is one-way against all uniform PPT adversaries.
 
 **Status**: Proven - Adapted from Security.lean for exponential profile.
 
-**Key differences from Security.lean (plant_n)**:
+**Key differences**:
 - Lambda: φ.nvars (not (log₂ n)²) → exponential bound 2^n
 - Time bound: Uses TMAdapter_flat.fg_first_commit_time_lower_bound_sub_one (fully proven)
 - Dominance: Uses two_pow_dominates_poly (2^n > poly(n), private axiom for general case)
-- Plant function: plant_flat (not plant_n)
+- Plant function: plant_flat
 
 **Solution Multiplicity Bound** (h_bounded hypothesis):
 OWF security requires #SAT(Φ n) ≤ poly(n). For λ = n (exponential profile),
@@ -1512,7 +1511,7 @@ theorem f_is_structural_owf_exponential_flat
     exists_success_input_flat 1 (by norm_num : 0 < 1) rfl (Φ n.val) h_nvars_ge_4 A.base c_bar hcoin_pos
 
   let A_inv : LStarInstanceFG → Randomness := fun x => A.base.run c_bar x
-  -- NOTE: plant_flat's first parameter is unused (similar to plant_n), so plant_flat 1 = plant_flat n.val
+  -- NOTE: plant_flat's first parameter is unused, so plant_flat 1 = plant_flat n.val
   let L := LStar.StructuralOWF.plant_flat n.val (Φ n.val) r_star h_nvars_ge_4
   have h_L_def : L = LStar.StructuralOWF.plant_flat n.val (Φ n.val) r_star h_nvars_ge_4 := rfl
   -- plant_flat's first arg is unused, so these are definitionally equal

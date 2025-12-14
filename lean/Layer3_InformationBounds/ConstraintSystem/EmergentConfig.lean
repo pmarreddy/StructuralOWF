@@ -14,7 +14,7 @@ import Mathlib.Data.Finset.Basic
 **Main Functions**:
 
 1. **emergentConfigAtGate**: Computes emergent config at gate from φ, numGates, assignment, gateIndex
-   - Pure function (no plant_n dependency)
+   - Pure function (no plant_flat dependency)
    - Parameterized by numGates for consistency
 
 2. **WellFormedRandomness**: Predicate ensuring ALL R bits of r.gateDigests match emergent configs
@@ -76,9 +76,9 @@ open LStar LStar.StructuralOWF
 
     **Termination**: Recursion in computeSeedAtVertex terminates via DAG acyclicity.
 
-    **Non-Circular**: NO reference to plant_n or r! Pure computation from φ, numGates, a.
+    **Non-Circular**: NO reference to plant_flat or r! Pure computation from φ, numGates, a.
 
-    **Type Consistency**: Uses R_of φ numGates internally, matching plant_n exactly! -/
+    **Type Consistency**: Uses R_of φ numGates internally, matching plant_flat exactly! -/
 noncomputable def emergentConfigAtGate (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf) (gateIndex : Nat)
     : Option (@PSigma Nat (fun R => Fin (Nat.pow 2 R))) :=
   -- Get pure L* structure
@@ -140,19 +140,19 @@ lemma emergentConfigAtGate_some_implies_gateIndex_bound
 /-- **DEFINITION** (non-circular): Well-formed randomness for OWF construction.
 
     Uses parameterized emergentConfigAtGate with numGates = r.gateDigests.length
-    to ensure R computation matches plant_n exactly.
+    to ensure R computation matches plant_flat exactly.
 
     **Property**: r.gateDigests encodes ALL R bits of emergent configurations
     computed from r.assignment (identity digest, not just parity).
 
-    **NON-CIRCULAR**: Uses emergentConfigAtGate (pure function) instead of plant_n!
+    **NON-CIRCULAR**: Uses emergentConfigAtGate (pure function) instead of plant_flat!
 
     **Meaning**: For each gate index i:
     - Compute emergent_cfg := emergentConfigAtGate φ numGates r.assignment i
       where numGates := r.gateDigests.length
     - Require: r.gateDigests[i] encodes ALL R bits of emergent_cfg (identity digest)
 
-    **Implementation**: Pure function with no dependency on plant_n.
+    **Implementation**: Pure function with no dependency on plant_flat.
 
     **Mathematical Content**:
     - φ.satisfies r.assignment: The embedded assignment is a valid solution
@@ -166,7 +166,7 @@ lemma emergentConfigAtGate_some_implies_gateIndex_bound
     - Result: Planted instance has digests matching actual emergent configs!
 
     **Type Consistency**: numGates = r.gateDigests.length ensures R values match
-    plant_n exactly, eliminating ALL type mismatches!
+    plant_flat exactly, eliminating ALL type mismatches!
 
     **Track A Refactor**: Randomness is now parametrized by nvars. The assignment
     is finite (Fin nvars → Bool) and is extended to infinite for satisfiability check.
@@ -215,7 +215,7 @@ noncomputable def cfgAtVertex
 /-- Pure cut‑assignment from `a` over the DAG of `lstarStructureFromCNF φ numGates`.
 
     This can be transported (by casting along R equalities) to a `CutWorld` for
-    a planted instance `plant_n n φ r`. -/
+    a planted instance `plant_flat n φ r`. -/
 noncomputable def cutAssignmentFrom
     (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf)
     (C : Finset (Fin (lstarStructureFromCNF φ h_nvars_pos numGates).dag.n)) :

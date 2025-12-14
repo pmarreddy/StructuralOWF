@@ -93,7 +93,7 @@ The formalization supports **TWO PROVEN PROFILES** with different complexity bou
 
 #### Profile 1: QP-Sharp (PlantCore.lean, StructuralOWFQP.lean)
 
-**Plant Function**: `plant_n` defined in `PlantCore.lean`
+**Plant Function**: `plant_flat` defined in `PlantExponential.lean`
 
 **Emergence Formula**: R_v = (log₂ seedWidth_v)² at each vertex v
 
@@ -464,12 +464,12 @@ The concrete approach provides **verifiable claims** - given any specific n ≥ 
 
 ### Plant Computation (Both Profiles)
 
-**QP Profile** (`plant_n` in PlantCore.lean):
+**Both Profiles** (`plant_flat` in PlantExponential.lean):
 ```lean
-noncomputable def plant_n (_n : Nat) (φ : CNF) (r : Randomness)
-    (h_nvars_min : φ.nvars ≥ 4) (h_dgLen : r.dgLen ≥ φ.nvars) : LStarInstanceFG
+noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness)
+    (h_nvars_min : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ) : LStarInstanceFG
 ```
-Uses QP emergence formula: R_v = (log seedWidth_v)²
+Uses emergence formula appropriate for the selected profile
 
 **Exponential Profile** (`plant_flat` in PlantExponential.lean):
 ```lean

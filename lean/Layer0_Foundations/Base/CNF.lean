@@ -551,7 +551,7 @@ agree on all variables appearing in φ (i.e., variables 0 through φ.nvars-1),
 and one satisfies φ, then both do.
 
 **Key property for OWF security**: If adversary finds preimage r' with
-plant_n n φ r' = plant_n n φ r, then plant_injectivity_on_gateDigests
+plant_flat n φ r' = plant_flat n φ r, then plant_injectivity_on_gateDigests
 gives us r'.gateDigests = r.gateDigests. Combined with WellFormedRandomness,
 this ensures r'.assignment satisfies φ. The theorem below lets us transfer
 satisfaction between assignments that agree on relevant variables.

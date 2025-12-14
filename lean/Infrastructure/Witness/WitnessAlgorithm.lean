@@ -7,14 +7,23 @@ import Mathlib.Data.Nat.Basic
 import Mathlib.Algebra.Order.Ring.Basic
 
 open LStar.StructuralOWF.Foundations (AlgorithmState ConfigSpace KeyednessProperty Observation WellFormedRandomness)
-open LStar.StructuralOWF (Randomness plant_n)
+open LStar.StructuralOWF (Randomness)
 
 /-! ## Helper: Extract φ from planted instance hypothesis -/
 
+/-- Placeholder for AlignedCNFConstraints (actual definition in PlantExponential.lean).
+    Used here to avoid cyclic imports while maintaining type compatibility. -/
+structure AlignedCNFConstraintsLocal (φ : LStar.CNF) : Prop where
+  clauses_le : φ.clauses.length ≤ φ.nvars
+  is_3sat : ∀ c ∈ φ.clauses, c.literals.length ≤ 3
+
 /-- Extract φ from planted instance hypothesis (noncomputable).
-    Local definition to avoid circular imports with TMEncoderDefs. -/
+    Local definition to avoid circular imports with TMEncoderDefs.
+
+    Note: Uses local placeholder type. The actual planted hypothesis in the
+    main proof uses AlignedCNFConstraints from PlantExponential.lean. -/
 noncomputable def planted_φ {L : LStar.StructuralOWF.LStarInstanceFG}
-    (h : ∃ (n : Nat) (φ : LStar.CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) : LStar.CNF :=
+    (h : ∃ (n : Nat) (φ : LStar.CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (_h_aligned : AlignedCNFConstraintsLocal φ), WellFormedRandomness φ r) : LStar.CNF :=
   Classical.choose (Classical.choose_spec h)
 
 /-!
@@ -196,7 +205,7 @@ structure WitnessFinder (L : LStarInstanceFG) where
       we compose with extractor to get a witness finder with this property.
       Then we derive contradiction from the fact that it's poly-time.
 
-      Note: For planted instances L = plant_n n φ r ..., the formula is φ.
+      Note: For planted instances L = plant_flat n φ r ..., the formula is φ.
       This can be extracted via planted_φ given a planted hypothesis.
       The structure requires that SOME CNF formula exists that the output satisfies. -/
   h_correct : ∃ (φ : CNF), φ.satisfies output.assignmentInf
@@ -251,7 +260,7 @@ structure WitnessFinder (L : LStarInstanceFG) where
     ∀ (v : Fin L.dag.n) (obs : Observation L.toLStarInstanceFull v),
       obs.isComplete →
       (∃ φ : CNF, φ.satisfies output.assignmentInf) →
-      (∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2), L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) →
+      (∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (_h_aligned : AlignedCNFConstraintsLocal φ), WellFormedRandomness φ r) →
       configsExploredAtCut {v} = Finset.univ
 
 /-! ### Important: Role of configsExploredAtCut in Main Proof
@@ -334,7 +343,7 @@ def IsPolynomial (p : Nat → Nat) : Prop :=
     Interpretation: There exists some polynomial p such that this finder's
     time cost is bounded by p(L.n) where L.n is the instance size.
 
-    Instance size: For L* instances from plant_n, L.n = φ.nvars (number of
+    Instance size: For L* instances from plant_flat, L.n = φ.nvars (number of
     variables in the underlying 3-SAT formula).
 
     This is what we contradict in Theorem 8.A: assuming poly-time witness

@@ -3,6 +3,7 @@ import Layer3_InformationBounds.ConstraintSystem.NormalForm
 import Infrastructure.Witness.VerifiedWitness
 import Layer2_StructuralOWF.FrontierGate.FrontierGate
 import Layer2_StructuralOWF.FrontierGate.RandomnessTypes
+import Layer2_StructuralOWF.Plant.PlantExponential
 import Layer3_InformationBounds.ConstraintSystem.EmergentConfig
 import Layer3_InformationBounds.Decision.LStarNP
 import Mathlib.Data.Finset.Card
@@ -216,7 +217,7 @@ theorem worldFromVerifiedWitness_strongly_compatible
     (C : Finset (Fin L.dag.n))
     (vw : VerifiedWitness L)
     (h_satisfies : φ.satisfies vw.w.assignmentInf)
-    (h_planted : ∃ n r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
+    (h_planted : ∃ n r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r)
     (h_nonempty_φ : φ.clauses.length > 0)
     : WorldCompatibleWithVerifiedWitness φ (worldFromVerifiedWitness L φ C vw) vw := by
   unfold WorldCompatibleWithVerifiedWitness worldFromVerifiedWitness
@@ -245,7 +246,7 @@ theorem worldFromVerifiedWitness_strongly_compatible
         -- First prove psigma_val.fst = L.R v (part 2's goal)
         have h_R_eq : psigma_val.fst = L.R v := by
           -- Extract planted structure (correct order: ∃ ... ∧ gives ⟨..., ⟨eq, wf⟩⟩)
-          obtain ⟨n, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩ := h_planted
+          obtain ⟨n, r, h_nvars, h_aligned, h_L_eq, h_wf⟩ := h_planted
 
           -- Derive φ.nvars > 0 from h_nvars : φ.nvars ≥ 2
           have h_pos : φ.nvars > 0 := by omega
@@ -272,10 +273,10 @@ theorem worldFromVerifiedWitness_strongly_compatible
               have h_φ_eq : φ = φ := rfl
               rw [h_φ_eq]
               -- Now need: v.val < (lstarStructureFromCNF φ φ.nvars_pos (numGates L)).dag.n
-              -- We have v.val < L.dag.n, and L.dag = build3SATReductionDAG φ (from plant_n)
+              -- We have v.val < L.dag.n, and L.dag = build3SATReductionDAG φ (from plant_flat)
               have h_dag_eq : L.dag.n = (lstarStructureFromCNF φ h_pos (numGates L)).dag.n := by
                 rw [h_L_eq]
-                -- plant_n.dag = build3SATReductionDAG φ
+                -- plant_flat.dag = build3SATReductionDAG φ
                 -- lstarStructureFromCNF.dag = build3SATReductionDAG φ
                 rfl  -- Both are definitionally equal
               rw [← h_dag_eq]
@@ -300,10 +301,10 @@ theorem worldFromVerifiedWitness_strongly_compatible
                     exact h_nonempty_φ
                   have h_numGates_eq : numGates L = r.gateDigests.length := by
                     have h1 :
-                        numGates L = numGates (plant_n n φ r h_nvars h_dgLen) := by
+                        numGates L = numGates (plant_flat n φ r h_nvars h_aligned) := by
                       simpa using congrArg numGates h_L_eq
-                    have h2 : numGates (plant_n n φ r h_nvars h_dgLen) = r.gateDigests.length :=
-                      numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen h_nonempty
+                    have h2 : numGates (plant_flat n φ r h_nvars h_aligned) = r.gateDigests.length :=
+                      numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_aligned h_nonempty
                     exact h1.trans h2
                   simpa [h_numGates_eq]  -- avoid rewriting φ (dependent in r)
               _ = L.R v := (h_L_R v).symm
@@ -330,7 +331,7 @@ theorem worldFromVerifiedWitness_strongly_compatible
 
       · -- Part 2: R values match
         -- We proved this above, extract it
-        obtain ⟨n, r, h_nvars, h_dgLen', h_L_eq, h_wf⟩ := h_planted
+        obtain ⟨n, r, h_nvars, h_aligned', h_L_eq, h_wf⟩ := h_planted
 
         -- Derive φ.nvars > 0 from h_nvars : φ.nvars ≥ 4
         have h_pos : φ.nvars > 0 := by omega
@@ -338,7 +339,7 @@ theorem worldFromVerifiedWitness_strongly_compatible
         have h_L_R : ∀ u, L.R u = R_of φ r.gateDigests.length u.val := by
           intro u
           -- Use the dedicated lemma for planted R equality
-          exact planted_R_eq_R_of L u n φ r h_nvars h_dgLen' h_L_eq
+          exact planted_R_eq_R_of_flat L u n φ r h_nvars h_aligned' h_L_eq
 
         have h_struct_R : ∀ u h_valid,
             (lstarStructureFromCNF φ h_pos r.gateDigests.length).R ⟨u, h_valid⟩ = R_of φ r.gateDigests.length u := by
@@ -351,14 +352,14 @@ theorem worldFromVerifiedWitness_strongly_compatible
           have h_nonempty : φ.clauses.length > 0 := by rw [← h_φ_eq]; exact h_nonempty_φ
           have h_numGates_eq : numGates L = r.gateDigests.length := by
             have h1 :
-                numGates L = numGates (plant_n n φ r h_nvars h_dgLen') := by
+                numGates L = numGates (plant_flat n φ r h_nvars h_aligned') := by
               simpa using congrArg numGates h_L_eq
-            have h2 : numGates (plant_n n φ r h_nvars h_dgLen') = r.gateDigests.length :=
-              numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen' h_nonempty
+            have h2 : numGates (plant_flat n φ r h_nvars h_aligned') = r.gateDigests.length :=
+              numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_aligned' h_nonempty
             exact h1.trans h2
 
           have h_L_dag : v.val < (lstarStructureFromCNF φ φ.nvars_pos (numGates L)).dag.n := by
-            -- L.dag = (plant_n ...).dag = build3SATReductionDAG φ
+            -- L.dag = (plant_flat ...).dag = build3SATReductionDAG φ
             -- lstarStructureFromCNF uses the same DAG
             have h_dag_n_eq : L.dag.n = (lstarStructureFromCNF φ φ.nvars_pos (numGates L)).dag.n := by
               rw [h_L_eq]
@@ -421,7 +422,7 @@ theorem strong_compatibility_implies_uniqueness
     (h₁ : WorldCompatibleWithVerifiedWitness φ ω₁ vw)
     (h₂ : WorldCompatibleWithVerifiedWitness φ ω₂ vw)
     (h_C_gates : ∀ v ∈ C, L.fg.gateReq v)
-    (h_planted : ∃ n r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r)
+    (h_planted : ∃ n r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r)
     (h_nonempty_φ : φ.clauses.length > 0)
     : ω₁ = ω₂ := by
   -- Prove by extensionality: show ω₁.assignment v = ω₂.assignment v for all v
@@ -447,15 +448,15 @@ theorem strong_compatibility_implies_uniqueness
       exfalso
       -- emergentConfigAtVertex returns Some for gate vertices in well-formed instances
       -- Unpack planted structure
-      obtain ⟨n, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩ := h_planted
+      obtain ⟨n, r, h_nvars, h_aligned, h_L_eq, h_wf⟩ := h_planted
 
-      -- For plant_n, gateReq v means v is in the gate range
+      -- For plant_flat, gateReq v means v is in the gate range
       have h_gate_range : let clause_start := 1 + φ.nvars
                           clause_start ≤ v.val ∧ v.val < clause_start + r.gateDigests.length := by
         -- Use subst to handle dependent types correctly
         subst h_L_eq
-        -- Now L is definitionally plant_n n φ r h_nvars h_dgLen
-        unfold plant_n at h_is_gate
+        -- Now L is definitionally plant_flat n φ r h_nvars h_aligned
+        unfold plant_flat at h_is_gate
         simp only [FrontierGateConfig.gateReq, decide_eq_true_eq] at h_is_gate
         -- h_is_gate is now the range condition directly
         exact h_is_gate
@@ -463,10 +464,10 @@ theorem strong_compatibility_implies_uniqueness
       -- numGates L = r.gateDigests.length for planted instances
       have h_numGates_eq : numGates L = r.gateDigests.length := by
         have h1 :
-            numGates L = numGates (plant_n n φ r h_nvars h_dgLen) := by
+            numGates L = numGates (plant_flat n φ r h_nvars h_aligned) := by
           simpa using congrArg numGates h_L_eq
-        have h2 : numGates (plant_n n φ r h_nvars h_dgLen) = r.gateDigests.length :=
-          numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_dgLen h_nonempty_φ
+        have h2 : numGates (plant_flat n φ r h_nvars h_aligned) = r.gateDigests.length :=
+          numGates_eq_gateDigests_length_for_planted n φ r h_nvars h_aligned h_nonempty_φ
         exact h1.trans h2
 
       -- emergentConfigAtVertex checks the same range condition
@@ -548,10 +549,10 @@ theorem strong_compatibility_implies_uniqueness
       -- For planted instances, L.dag = build3SATReductionDAG φ = L_struct.dag
       have h_dag_eq : L.dag = L_struct.dag := by
         -- Avoid rewriting the whole dependent structure; project out the DAG field.
-        have h1 : L.dag = (plant_n n φ r h_nvars h_dgLen).dag := by
+        have h1 : L.dag = (plant_flat n φ r h_nvars h_aligned).dag := by
           simpa using congrArg (fun L : LStarInstanceFG => L.dag) h_L_eq
-        -- Definitionally, lstarStructureFromCNF and plant_n share the same DAG construction.
-        -- L_struct was extracted from lstarStructureFromCNF, so its DAG matches plant_n's DAG.
+        -- Definitionally, lstarStructureFromCNF and plant_flat share the same DAG construction.
+        -- L_struct was extracted from lstarStructureFromCNF, so its DAG matches plant_flat's DAG.
         exact h1.trans rfl
 
       -- Transport v to L_struct.dag using this equality
@@ -809,7 +810,7 @@ This theorem IS provable - it's standard reasoning about injective functions and
 /-- Predicate: L is a planted instance with well-formed randomness.
 
     **Purpose**: Abstract characterization avoiding circular dependency with Plant.lean.
-    Instead of directly referencing `plant_n` (which would create import cycle),
+    Instead of directly referencing `plant_flat` (which would create import cycle),
     we characterize planted instances by their structural properties.
 
     **Properties checked**:
@@ -819,9 +820,9 @@ This theorem IS provable - it's standard reasoning about injective functions and
     - r has gate digests (r.gateDigests.length > 0)
 -/
 def IsPlantedWithWellFormedRandomness (L : LStarInstanceFG) : Prop :=
-  ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
+  ∃ (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ),
     WellFormedRandomness φ r ∧
-    L = plant_n n φ r h_nvars h_dgLen ∧
+    L = plant_flat n φ r h_nvars h_aligned ∧
     φ.nvars > 0 ∧
     r.gateDigests.length > 0
 
@@ -834,7 +835,7 @@ def IsPlantedWithWellFormedRandomness (L : LStarInstanceFG) : Prop :=
     This means: two worlds compatible with the same witness must be equal.
 
     **Proof Strategy**:
-    1. From planted structure: ∃ (n, φ, r) with L = plant_n n φ r and WellFormedRandomness φ r
+    1. From planted structure: ∃ (n, φ, r) with L = plant_flat n φ r and WellFormedRandomness φ r
     2. From witness verification: W produces emergent configs at gates
     3. From WellFormedRandomness: r.gateDigests match emergent configs (by definition)
     4. From seed chain determinism (A2): same configs → same seeds → same world
@@ -858,7 +859,7 @@ theorem planted_instances_have_uniqueness
     (h_planted : IsPlantedWithWellFormedRandomness L)
     : ∃ φ : CNF, HasWitnessUniqueness φ L := by
   -- Extract the planted φ from h_planted
-  obtain ⟨n, φ, r, h_nvars, h_dgLen, h_wf, h_L_eq, h_nvars_pos, h_gates_nonempty⟩ := h_planted
+  obtain ⟨n, φ, r, h_nvars, h_aligned, h_wf, h_L_eq, h_nvars_pos, h_gates_nonempty⟩ := h_planted
 
   -- Provide this φ as witness for the existential
   use φ
@@ -867,8 +868,8 @@ theorem planted_instances_have_uniqueness
   unfold HasWitnessUniqueness
   intro vw C h_C_gates ω₁ ω₂ h_compat₁ h_compat₂
 
-  have h_planted_simple : ∃ n r h_nvars h_dgLen, L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r := by
-    exact ⟨n, r, h_nvars, h_dgLen, h_L_eq, h_wf⟩
+  have h_planted_simple : ∃ n r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r := by
+    exact ⟨n, r, h_nvars, h_aligned, h_L_eq, h_wf⟩
 
   have h_nonempty_φ : φ.clauses.length > 0 := by
     -- Use WellFormedRandomness: φ.clauses.length ≥ r.gateDigests.length

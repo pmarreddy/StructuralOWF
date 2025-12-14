@@ -2,6 +2,7 @@ import Layer3_InformationBounds.SegmentReduction.WorkLowerBounds
 import Layer4_Operational.ExecutionSemantics.ExecSemantics
 import Layer1_Construction.Core.SeedChain
 import Layer2_StructuralOWF.Plant.PlantCore
+import Layer2_StructuralOWF.Plant.PlantExponential
 import Layer3_InformationBounds.Theorems.Quantitative
 import Mathlib.Data.Fintype.Card
 
@@ -17,9 +18,9 @@ import Mathlib.Data.Fintype.Card
 **Proof structure** (§7.2.1, Appendix C):
 1. Keyedness lemma: encodeSeed_injective (A2) → configs distinguishable
 2. Injection construction: Classical.choice assigns configs to segments
-3. Apply to plant_n: Verify keyedness holds for concrete instances
+3. Apply to plant_flat: Verify keyedness holds for concrete instances
 
-**Key theorems**: keyedness_from_seed_injectivity, injection_from_keyedness_and_coverage, keyedness_for_plant_n_security_run
+**Key theorems**: keyedness_from_seed_injectivity, injection_from_keyedness_and_coverage, keyedness_for_plant_flat_security_run
 
 **Trust boundary**: 5 axiom audits - all proven
 
@@ -162,13 +163,13 @@ theorem injection_from_keyedness_and_coverage
   -- Package as embedding
   exact ⟨embedding_from_assignment assignment h_inj⟩
 
-/-! ## Step 3: Application to plant_n
+/-! ## Step 3: Application to plant_flat
 
-Now we apply the abstract machinery to concrete plant_n instances.
-The key is showing that plant_n satisfies keyedness via A2 (encodeSeed_injective).
+Now we apply the abstract machinery to concrete plant_flat instances.
+The key is showing that plant_flat satisfies keyedness via A2 (encodeSeed_injective).
 -/
 
-/-- For plant_n instances with runFromSecurityGame, keyedness holds.
+/-- For plant_flat instances with runFromSecurityGame, keyedness holds.
 
 **Proof**: Uses encodeSeed_injective from SeedChain.lean (A2 property).
 
@@ -176,17 +177,17 @@ The key is showing that plant_n satisfies keyedness via A2 (encodeSeed_injective
 the keyedness property is about the SEMANTIC requirement, not the claimed count.
 The contradiction between requirement (exponential) and claim (1) is what
 drives the OWF proof. -/
-theorem keyedness_for_plant_n_security_run
+theorem keyedness_for_plant_flat_security_run
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars : φ.nvars ≥ 128)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_aligned : AlignedCNFConstraints φ)
     (A_inv : LStarInstanceFG → Randomness)
     (C_A k_A C_Ext k_Ext : Nat)
-    (C : Finset (Fin (plant_n n φ r (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).dag.n))
-    : ∀ σ₁ σ₂ : {σ : LStar.StateFull (plant_n n φ r (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C //
+    (C : Finset (Fin (plant_flat n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned).dag.n))
+    : ∀ σ₁ σ₂ : {σ : LStar.StateFull (plant_flat n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull C //
                       ReachableConfig C σ},
       σ₁ ≠ σ₂ →
-      ∃ (v : LStar.InCut (plant_n n φ r (nvars_ge_4_of_ge_128 h_nvars) h_dgLen).toLStarInstanceFull C),
+      ∃ (v : LStar.InCut (plant_flat n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull C),
         σ₁.val v ≠ σ₂.val v := by
   intro σ₁ σ₂ h_ne
   -- Different subtypes have different values
@@ -212,10 +213,10 @@ These theorems make the contradiction explicit:
 /-- runFromSecurityGame has exactly 1 segment by definition. -/
 theorem runFromSecurityGame_segmentCount_eq_one
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 128)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
+    (h_aligned : AlignedCNFConstraints φ)
     (A_inv : LStarInstanceFG → Randomness)
     (C_A k_A C_Ext k_Ext : Nat) (h_nonzero : C_A + C_Ext ≥ 1) (h_n_pos : 1 ≤ n)
-    : (runFromSecurityGame n φ r (nvars_ge_4_of_ge_128 h_nvars) h_dgLen A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount = 1 := by
+    : (runFromSecurityGame n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount = 1 := by
   -- Unfold definition from WorkLowerBounds.lean
   -- runFromSecurityGame calls buildRun with default segCount := 1
   unfold runFromSecurityGame buildRun
@@ -260,7 +261,7 @@ No custom axioms are introduced.
 
 #print axioms keyedness_from_seed_injectivity
 #print axioms injection_from_keyedness_and_coverage
-#print axioms keyedness_for_plant_n_security_run
+#print axioms keyedness_for_plant_flat_security_run
 #print axioms runFromSecurityGame_segmentCount_eq_one
 #print axioms injection_with_exp_configs_impossible
 

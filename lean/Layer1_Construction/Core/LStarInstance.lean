@@ -48,8 +48,8 @@ The polynomial size bound is proven in multiple locations in the codebase:
 
 2. **DAG Size Equals totalNodes** (`PlantCore.lean:863`):
    ```lean
-   theorem plant_n_dag_n :
-     (plant_n n φ r h_nvars_min h_dgLen).dag.n =
+   theorem plant_flat_dag_n :
+     (plant_flat n φ r h_nvars_min h_dgLen).dag.n =
      Construction.totalNodes φ.nvars φ.clauses.length
    ```
 
