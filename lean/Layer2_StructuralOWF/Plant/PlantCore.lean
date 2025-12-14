@@ -58,6 +58,45 @@ open LStar.StructuralOWF.Foundations
 
 -- φ.nvars_pos field is part of CNF structure
 
+/-! ## Helper lemmas for stride bound -/
+
+/-- **Helper**: Binary encoding step preserves bounds. -/
+private lemma binary_foldl_bound_aux (bits : List Bool) (acc : Nat) (k : Nat)
+    (h_acc : acc < 2^k) :
+    bits.foldl (fun a b => 2 * a + if b then 1 else 0) acc < 2^(k + bits.length) := by
+  induction bits generalizing acc k with
+  | nil =>
+    simp only [List.length_nil, add_zero, List.foldl_nil]
+    exact h_acc
+  | cons head tail ih =>
+    simp only [List.foldl_cons, List.length_cons]
+    have h_new_acc : 2 * acc + (if head then 1 else 0) < 2^(k + 1) := by
+      have h_double : 2 * acc < 2 * 2^k := Nat.mul_lt_mul_of_pos_left h_acc (by norm_num : 0 < 2)
+      have : 2^(k+1) = 2 * 2^k := by ring
+      rw [this]
+      by_cases h : head = true
+      · simp only [h, ite_true]
+        omega
+      · simp only [h, ite_false, add_zero]
+        exact h_double
+    have := ih (2 * acc + (if head then 1 else 0)) (k + 1) h_new_acc
+    simp only [add_assoc, add_comm 1] at this
+    exact this
+
+/-- **Helper**: Binary encoding via foldl on n bits is bounded by 2^n. -/
+private lemma binary_foldl_bound (bits : List Bool) (n : Nat) (h_len : bits.length ≤ n) :
+    bits.foldl (fun acc b => 2 * acc + if b then 1 else 0) 0 < 2^n := by
+  let k := n - bits.length
+  have h_acc : (0 : Nat) < 2^k := by
+    apply Nat.zero_lt_of_lt
+    apply Nat.one_le_two_pow
+  have h_aux := binary_foldl_bound_aux bits 0 k h_acc
+  have h_eq : k + bits.length = n := by
+    unfold k
+    exact Nat.sub_add_cancel h_len
+  rw [h_eq] at h_aux
+  exact h_aux
+
 /-!
 ## Concrete Planting Function: f: r ↦ x*
 
@@ -808,6 +847,16 @@ noncomputable def plant_n (_n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nva
     maskedVar_upper := by intro c _ lit _; sorry
     gateDigest_budget_upper := by intro i h; sorry
     gateDigest_bits_upper := by intro i h; sorry
+
+    -- stride_bound: stride ≤ 2^65
+    -- stride = 1_000_003 + (64-bit fold of structuralBits)
+    -- 64-bit fold < 2^64, so stride < 1_000_003 + 2^64 < 2^65
+    stride_bound := by
+      show full.pools.stride ≤ 2^65
+      simp only [full]
+      have h_fold_bound : (r.structuralBits.take 64).foldl (fun acc b => 2 * acc + if b then 1 else 0) 0 < 2^64 :=
+        binary_foldl_bound (r.structuralBits.take 64) 64 (List.length_take_le 64 _)
+      omega
   }
 
   result
@@ -1107,47 +1156,6 @@ theorem plant_deterministic (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (_h_n
 
 Planting is injective on assignments: equal instances imply equal assignments.
 -/
-
-/-- Helper: Generalized binary foldl bound with arbitrary accumulator. -/
-private lemma binary_foldl_bound_aux (bits : List Bool) (acc : Nat) (k : Nat)
-    (h_acc : acc < 2^k) :
-    bits.foldl (fun a b => 2 * a + if b then 1 else 0) acc < 2^(k + bits.length) := by
-  induction bits generalizing acc k with
-  | nil =>
-    simp only [List.length_nil, add_zero, List.foldl_nil]
-    exact h_acc
-  | cons head tail ih =>
-    simp only [List.foldl_cons, List.length_cons]
-    have h_new_acc : 2 * acc + (if head then 1 else 0) < 2^(k + 1) := by
-      have h_double : 2 * acc < 2 * 2^k := Nat.mul_lt_mul_of_pos_left h_acc (by norm_num : 0 < 2)
-      have : 2^(k+1) = 2 * 2^k := by ring
-      rw [this]
-      by_cases h : head = true
-      · simp only [h, ite_true]
-        omega
-      · simp only [h]
-        exact h_double
-    have := ih (2 * acc + (if head then 1 else 0)) (k + 1) h_new_acc
-    simp only [add_assoc, add_comm 1] at this
-    exact this
-
-/-- Binary encoding via foldl on n bits is bounded by 2^n. -/
-private lemma binary_foldl_bound (bits : List Bool) (n : Nat) (h_len : bits.length ≤ n) :
-    bits.foldl (fun acc b => 2 * acc + if b then 1 else 0) 0 < 2^n := by
-  let k := n - bits.length
-
-  have h_acc : (0 : Nat) < 2^k := by
-    apply Nat.zero_lt_of_lt
-    apply Nat.one_le_two_pow
-
-  have h_aux := binary_foldl_bound_aux bits 0 k h_acc
-
-  have h_eq : k + bits.length = n := by
-    unfold k
-    exact Nat.sub_add_cancel h_len
-
-  rw [h_eq] at h_aux
-  exact h_aux
 
 /-!
 ## Plant Extensionality

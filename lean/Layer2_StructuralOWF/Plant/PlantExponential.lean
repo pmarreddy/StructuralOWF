@@ -1848,6 +1848,18 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
         simp only [mkDigest, Vector.length_toList]
         -- Goal: φ.nvars ≤ full.n where full.n = φ.nvars
         rfl
+
+    -- stride_bound: stride ≤ 2^65
+    -- stride = 1_000_003 + (64-bit fold of structuralBits)
+    -- 64-bit fold ≤ 2^64 - 1, so stride ≤ 1_000_003 + 2^64 - 1 < 2^65
+    stride_bound := by
+      show full.pools.stride ≤ 2^65
+      simp only [full]
+      -- The fold converts up to 64 bits to a natural number < 2^64
+      -- stride = 1_000_003 + fold ≤ 1_000_003 + 2^64 - 1 < 2^65
+      have h_fold_bound : (r.structuralBits.take 64).foldl (fun acc b => 2 * acc + if b then 1 else 0) 0 < 2^64 :=
+        binary_foldl_bound (r.structuralBits.take 64) 64 (List.length_take_le 64 _)
+      omega
   }
 
 /-- For planted flat instances, numGates equals r.gateDigests.length.

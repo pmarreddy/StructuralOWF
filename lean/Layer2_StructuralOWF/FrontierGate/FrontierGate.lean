@@ -1386,6 +1386,10 @@ structure LStarInstanceFG extends LStarInstanceFull where
   /-- GateDigest bits length bounded by n. -/
   gateDigest_bits_upper : ∀ i (h : fg.gateReq i), (fg.gateDigest ⟨i, h⟩).bits.toList.length ≤ n
 
+  /-- Stride bounded by 2^65. Construction computes stride = 1_000_003 + (64-bit value),
+      so stride ≤ 1_000_003 + 2^64 - 1 < 2^65. Required for polynomial encoding bounds. -/
+  stride_bound : pools.stride ≤ 2^65
+
 /-- **Extensionality for LStarInstanceFG**: Two instances are equal if their components match.
 
     This lemma enables proving plant_n equality by showing component equality:
