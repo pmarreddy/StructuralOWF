@@ -5,9 +5,9 @@ import Mathlib.Data.Nat.Log
 /-! ## RanksCore: Core Rank Function Infrastructure
 
 **Main Definitions**:
-- `EmergenceProfile` - Enum for profile selection (exponential used)
+- `EmergenceProfile` - Enum for profile selection (only `.exponential` is used)
 - `computeR` - Profile-parametric R computation
-- `R_of` - Base rank function (R = (log₂ n)² formula, kept for reference)
+- `R_of` - Base rank function (legacy QP formula, kept for reference)
 - `is_fg_gate` - FG gate position predicate
 
 **Why extracted**: Breaks circular dependencies (PlantCore ↔ Foundations). Pure rank computation
@@ -41,14 +41,14 @@ in planting, decoding, and verification. -/
 /-- Emergence profile for FG gates.
 
     Determines how R (emergence rank) is computed:
-    - `qp`: R = (log₂ nvars)² - quasi-polynomial hardness
-    - `exponential`: R = nvars - exponential hardness
+    - `qp`: R = (log₂ nvars)² - quasi-polynomial hardness (LEGACY, not used in proof)
+    - `exponential`: R = nvars - exponential hardness (ACTIVE profile for P≠NP)
 
     **Usage**: Pass to `computeR` to get profile-specific R value.
-    **Consistency**: Must match between planting and verification. -/
+    **Note**: Only `.exponential` is used in the P≠NP proof chain. -/
 inductive EmergenceProfile
-  | qp          -- R = (log₂ n)², bound = n^(log n)
-  | exponential -- R = n, bound = 2^n
+  | qp          -- R = (log₂ n)², bound = n^(log n) [LEGACY]
+  | exponential -- R = n, bound = 2^n [ACTIVE]
   deriving DecidableEq, Repr
 
 /-- Compute R (emergence rank) for a given profile and nvars.
@@ -71,10 +71,7 @@ def computeR (profile : EmergenceProfile) (nvars : Nat) : Nat :=
   | .qp => (Nat.log 2 nvars) ^ 2
   | .exponential => nvars
 
-/-- QP profile gives (log₂ n)². -/
-theorem computeR_qp (nvars : Nat) : computeR .qp nvars = (Nat.log 2 nvars) ^ 2 := rfl
-
-/-- Exponential profile gives n. -/
+/-- Exponential profile gives n (the active profile used in P≠NP proof). -/
 theorem computeR_exponential (nvars : Nat) : computeR .exponential nvars = nvars := rfl
 
 #print axioms computeR

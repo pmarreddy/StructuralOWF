@@ -20,13 +20,10 @@ Assignment is now `LStar.Assignment nvars = Fin nvars → Bool` (finite!), not `
 This is required for proper complexity-theoretic formalization where witnesses must be
 finite bit strings that can be encoded in {0,1}^poly(n).
 
-**Security Profiles**:
-- QP-Sharp: dgLen = (log₂ n)² yields quasi-polynomial bounds
-  - dgLen MUST scale because R = (log₂ n)² requires matching digest size
-- Exponential: dgLen can be any constant ≥ 64 (e.g., 64) for exponential bounds
-  - Security comes from R = n, NOT from dgLen
-  - The main P≠NP proof uses dgLen = 64 (sufficient, simpler witness type)
-  - `expDigestLen = n` is the theoretical maximum, not required
+**Security Profile** (Exponential):
+- dgLen can be any constant ≥ 64 (the main P≠NP proof uses dgLen = 64)
+- Security comes from R = n (the flat R-profile), NOT from dgLen
+- `expDigestLen = n` is the theoretical maximum, not required
 
 **Architectural Constraint**: Single FG gate (gateDigests.length = 1) required by
 the fg_emergence_bound invariant Σ_{v∈C} R_v ≤ R_fg.
@@ -75,11 +72,6 @@ structure Randomness (nvars : Nat) where
 def Randomness.assignmentInf {nvars : Nat} (r : Randomness nvars) : LStar.AssignmentInf :=
   r.assignment.extend
 
-/-- QP-Sharp profile digest length: (log₂ n)². -/
-def qpDigestLen (nvars : Nat) : Nat :=
-  let log_n := Nat.log 2 nvars
-  log_n * log_n
-
 /-- Exponential profile digest length: n (theoretical maximum).
 
     NOTE: The main P≠NP proof uses dgLen = 64, not n. This is sufficient because:
@@ -89,23 +81,6 @@ def qpDigestLen (nvars : Nat) : Nat :=
 
     This function exists for theoretical completeness and potential future use. -/
 def expDigestLen (nvars : Nat) : Nat := nvars
-
-/-- QP digest length equals (log₂ n)². -/
-@[simp] theorem qpDigestLen_eq_log_squared (nvars : Nat) :
-    qpDigestLen nvars = (Nat.log 2 nvars) ^ 2 := by
-  unfold qpDigestLen
-  rw [Nat.pow_two]
-
-/-- QP digest length is positive for n ≥ 4. -/
-theorem qpDigestLen_pos (nvars : Nat) (h : nvars ≥ 4) : qpDigestLen nvars > 0 := by
-  unfold qpDigestLen
-  have h_log : Nat.log 2 nvars ≥ 2 := by
-    calc Nat.log 2 nvars ≥ Nat.log 2 4 := Nat.log_mono_right h
-      _ = 2 := Nat.log_two_four_eq_two
-  calc Nat.log 2 nvars * Nat.log 2 nvars
-      ≥ 2 * 2 := Nat.mul_le_mul h_log h_log
-    _ = 4 := by rfl
-    _ > 0 := by decide
 
 /-- Exponential digest length is positive for n ≥ 1. -/
 theorem expDigestLen_pos (nvars : Nat) (h : nvars ≥ 1) : expDigestLen nvars > 0 := by
