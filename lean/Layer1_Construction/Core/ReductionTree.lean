@@ -1,45 +1,22 @@
 import Mathlib.Data.Nat.Basic
 import Mathlib.Data.Nat.Log
+import Mathlib.Data.Finset.Basic
+import Mathlib.Data.Finset.Card
+import Mathlib.Data.List.Range
 import Mathlib.Tactic.Ring
 
 /-! ## ReductionTree: Logarithmic-Depth Clause Combination
 
-**Main Definitions**: Balanced binary tree for combining m clause outputs into single result.
+Balanced reduction tree used to combine `m` clause outputs into a single result
+with logarithmic depth.
 
-**Tree Structure**: For m clause nodes (leaves):
-- **Optimal depth**: d = ⌈log₂ m⌉  (logarithmic in number of clauses)
-- **Implementation depth**: Uses ⌊log₂ m⌋ + 1 (conservative bound, off by 1 for powers of 2)
-- **Internal nodes**: m - 1 reduction nodes (complete binary tree property)
-- **Combination**: Each internal node computes AND of two children
+Reduction nodes are indexed sequentially, level by level from bottom to top.
+For **odd** arities we **carry** the unpaired last item upward (we do not duplicate it).
 
-**Why Logarithmic Depth Matters**:
-DAG depth affects residual complexity λ via emergence accumulation:
-- **Linear depth** (d = m): Total emergence ≈ m² → exponential λ
-- **Logarithmic depth** (d = log m): Total emergence ≈ m log m → manageable λ
-
-Reduction tree achieves d = O(log m), enabling:
-- QP-sharp profile: λ = O((log n)²) → n^{O(log n)} time bound
-- Exponential profile: λ = O(n) → 2^n time bound
-
-**Key Components**:
-- `nodesAtLevel m k`: Number of nodes at level k (halves each level: m, ⌈m/2⌉, ⌈m/4⌉, ...)
-- `depth m`: Tree depth = ⌈log₂ m⌉
-- `size m`: Total internal nodes = m - 1 (complete binary tree property)
-- `simpleChildIndices`: Compute child indices for reduction node (pairwise combination)
-
-**Theorem: simpleChildIndices_children_less_than_parent**:
-```lean
-∀ reduction node at index i, both children have indices < i  (structural acyclicity)
-```
-
-**Significance**: Structural acyclicity satisfies A5 (Dependency) without explicit cycle checking.
-Increasing indices = topological ordering.
-
-**Trust Boundary**: Pure functions and theorems (no axioms). Arithmetic on naturals only.
-
-**Paper**: §3 "Multi-Level DAG Construction", §2.3 "Logarithmic Depth for QP Bounds".
-
-See Layer1_Construction/Layer1_README.md for multi-level DAG architecture and A5 details.
+This yields:
+- depth `O(log m)`
+- exactly `m - 1` reduction nodes for `m > 0`
+- structural acyclicity by construction: every node’s children have smaller indices.
 -/
 
 namespace LStar.Construction.ReductionTree
@@ -48,192 +25,288 @@ namespace LStar.Construction.ReductionTree
 ## Tree Size Computation
 -/
 
-/-- Number of nodes needed at each level of reduction.
+/-- Number of items at each reduction level.
 
-    Level 0: m items
-    Level k: ⌈(nodes at level k-1) / 2⌉ -/
+Level 0 has `m` items.
+Level `k+1` has `⌈(items at level k)/2⌉` items. -/
 def nodesAtLevel (m : Nat) : Nat → Nat
   | 0 => m
   | k + 1 => (nodesAtLevel m k + 1) / 2
 
-/-- Depth of reduction tree for m leaves (⌈log₂ m⌉) -/
+/-- Depth of reduction tree for `m` leaves (a conservative `⌈log₂ m⌉` bound). -/
 def depth (m : Nat) : Nat :=
   if m ≤ 1 then 0 else Nat.log 2 m + 1
 
-/-- Total number of internal nodes in reduction tree -/
+/-- Total number of internal reduction nodes. -/
 def size (m : Nat) : Nat :=
   if m ≤ 1 then 0 else m - 1
 
 /-!
-## Node Indexing
+## Node Indexing and Child Pointers
 
-Reduction nodes are indexed sequentially, level by level from bottom to top.
+We start with the ordered list of clause indices:
+`[clauseBase, clauseBase+1, ..., clauseBase+m-1]`.
+At each reduction level we:
+- combine adjacent pairs `(a,b)` into a new node with the next unused index, and
+- carry an unpaired last item unchanged.
 
-For m clauses at base indices [base, base + m):
-- First ⌈m/2⌉ reduction nodes are at level 1 (depth 0)
-- Next ⌈⌈m/2⌉/2⌉ nodes are at level 2 (depth 1)
-- etc.
+This assigns reduction nodes indices:
+`clauseBase+m, clauseBase+m+1, ..., clauseBase+m+(size m)-1`.
 -/
 
-/-- Starting index for nodes at a given depth in the reduction tree.
+private def nthPairChildren : Nat → List Nat → Nat × Nat
+  | 0, a :: b :: _ => (a, b)
+  | n + 1, _ :: _ :: rest => nthPairChildren n rest
+  | _, _ => (0, 0)
 
-    Depth 0 (level 1): first reduction level, starts at 0
-    Depth d: sum of all nodes at depths 0..d-1 -/
-def startIndexAtDepth (m : Nat) : Nat → Nat
-  | 0 => 0
-  | d + 1 =>
-      let prev := startIndexAtDepth m d
-      let nodes_at_d := nodesAtLevel m (d + 1) - nodesAtLevel m (d + 2)
-      prev + nodes_at_d
+private def pairCount {α : Type} : List α → Nat
+  | _ :: _ :: rest => pairCount rest + 1
+  | _ => 0
 
-/-  Complex recursive child indices function removed due to termination issues.
-    Use simpleChildIndices instead for pairwise reduction. -/
+private def nextItems (nextNodeIdx : Nat) (items : List Nat) : List Nat :=
+  let pairs := pairCount items
+  let newNodes := (List.range pairs).map (fun i => nextNodeIdx + i)
+  newNodes ++ items.drop (2 * pairs)
 
-/-!
-## Simplified Pairwise Reduction
-
-A simpler indexing scheme: nodes are ordered level-by-level, each combining
-the pair of nodes directly below it.
--/
-
-/-- Compute child indices for a reduction node using simple pairwise scheme.
-
-    **Convention**: Reduction nodes are numbered 0 to (m-2) where:
-    - Nodes 0 to ⌈m/2⌉-1: first level, combine clauses pairwise
-    - Nodes ⌈m/2⌉ to ⌈m/2⌉+⌈⌈m/2⌉/2⌉-1: second level
-    - etc.
-
-    **Indexing scheme** (flat sequential numbering):
-    All reduction nodes get sequential indices starting from clauseBase + m.
-    Children are always at lower indices due to bottom-up construction. -/
-def simpleChildIndices (clauseBase m redIdx : Nat) : Nat × Nat :=
-  -- Count nodes at each level to determine which level this node belongs to
-  let firstLevelSize := (m + 1) / 2
-  if redIdx < firstLevelSize then
-    -- First reduction level: combine clauses
-    let left := clauseBase + 2 * redIdx
-    let right := clauseBase + 2 * redIdx + 1
-    if right < clauseBase + m then
-      (left, right)
-    else
-      (left, left) -- odd clause count: duplicate last clause
+private def childIndicesAux (clauseBase m redIdx nextNodeIdx : Nat) (items : List Nat) : Nat × Nat :=
+  let pairs := pairCount items
+  if pairs = 0 then
+    (0, 0)
+  else if redIdx < pairs then
+    nthPairChildren redIdx items
   else
-    -- Higher levels: combine reduction nodes from previous level
-    let prevLevelBase := clauseBase + m -- first reduction node index
-    let idxInLevel := redIdx - firstLevelSize
-    (prevLevelBase + 2 * idxInLevel, prevLevelBase + 2 * idxInLevel + 1)
+    childIndicesAux clauseBase m (redIdx - pairs) (nextNodeIdx + pairs) (nextItems nextNodeIdx items)
+termination_by redIdx
+decreasing_by
+  all_goals
+    simp_wf
+    omega
+
+/-- Child indices for reduction node `redIdx`, assuming `m` clause nodes start at `clauseBase`.
+
+Global indices:
+- clauses: `clauseBase .. clauseBase + m - 1`
+- reductions: `clauseBase + m .. clauseBase + m + size m - 1` -/
+def simpleChildIndices (clauseBase m redIdx : Nat) : Nat × Nat :=
+  let initItems := (List.range m).map (fun i => clauseBase + i)
+  childIndicesAux clauseBase m redIdx (clauseBase + m) initItems
+
+private lemma nthPairChildren_lt {n nextNodeIdx : Nat} {items : List Nat}
+    (h_pairs : pairCount items ≠ 0) (h : n < pairCount items)
+    (h_items : ∀ x ∈ items, x < nextNodeIdx) :
+    (nthPairChildren n items).1 < nextNodeIdx ∧ (nthPairChildren n items).2 < nextNodeIdx := by
+  induction n generalizing items with
+  | zero =>
+      cases items with
+      | nil =>
+          cases h_pairs rfl
+      | cons a t =>
+          cases t with
+          | nil =>
+              cases h_pairs rfl
+          | cons b _ =>
+              simp [nthPairChildren]
+              constructor
+              · exact h_items a (by simp)
+              · exact h_items b (by simp)
+  | succ n ih =>
+      cases items with
+      | nil =>
+          cases h_pairs rfl
+      | cons _ t =>
+          cases t with
+          | nil =>
+              cases h_pairs rfl
+          | cons _ t' =>
+              have h_items' : ∀ x ∈ t', x < nextNodeIdx := by
+                intro x hx
+                exact h_items x (by simp [hx])
+              have h' : n < pairCount t' := by
+                -- `pairCount (_::_::t') = pairCount t' + 1`
+                simpa [pairCount, Nat.succ_eq_add_one, Nat.add_assoc] using (Nat.lt_of_succ_lt_succ h)
+              have h_pairs' : pairCount t' ≠ 0 := by
+                -- `pairCount t' = 0` would imply `pairCount (_::_::t') = 1`, contradicting `h_pairs = 0`.
+                omega
+              simpa [nthPairChildren] using ih (items := t') h_pairs' h' h_items'
+
+private lemma nextItems_lt (nextNodeIdx : Nat) (items : List Nat)
+    (h_items : ∀ x ∈ items, x < nextNodeIdx) :
+    ∀ x ∈ nextItems nextNodeIdx items, x < nextNodeIdx + pairCount items := by
+  intro x hx
+  have hx' : x ∈ ((List.range (pairCount items)).map (fun i => nextNodeIdx + i) ++
+      items.drop (2 * (pairCount items))) := by
+    simpa [nextItems] using hx
+  rcases List.mem_append.1 hx' with hx_new | hx_tail
+  · rcases List.mem_map.1 hx_new with ⟨i, hi, rfl⟩
+    have hi' : i < pairCount items := by simpa [List.mem_range] using hi
+    omega
+  · have hx_items : x ∈ items := List.mem_of_mem_drop hx_tail
+    have : x < nextNodeIdx := h_items x hx_items
+    omega
+
+private lemma childIndicesAux_children_lt_sum
+    (clauseBase m : Nat) :
+    ∀ (redIdx nextNodeIdx : Nat) (items : List Nat),
+      nextNodeIdx > 0 →
+      (∀ x ∈ items, x < nextNodeIdx) →
+      let (l, r) := childIndicesAux clauseBase m redIdx nextNodeIdx items
+      l < nextNodeIdx + redIdx ∧ r < nextNodeIdx + redIdx := by
+  intro redIdx nextNodeIdx items h_next_pos h_items
+  -- strong induction on `redIdx` matches the recursion measure
+  induction redIdx using Nat.strong_induction_on generalizing nextNodeIdx items with
+  | _ redIdx ih =>
+      -- unfold one step of the worker
+      unfold childIndicesAux
+      dsimp
+      set pairs := pairCount items with h_pairs_def
+      by_cases hpairs0 : pairs = 0
+      · -- In this branch the worker returns `(0,0)`. We still have `nextNodeIdx > 0`,
+        -- hence `0 < nextNodeIdx + redIdx`.
+        have : 0 < nextNodeIdx + redIdx := by omega
+        simp [hpairs0, this]
+      · by_cases h : redIdx < pairs
+        · have h_children := nthPairChildren_lt (items := items) (n := redIdx) (nextNodeIdx := nextNodeIdx)
+            (by omega) h h_items
+          have h_next_le : nextNodeIdx ≤ nextNodeIdx + redIdx := Nat.le_add_right _ _
+          -- simplify the worker to the selection branch
+          simpa [hpairs0, h, h_pairs_def, pairs] using
+            (And.intro (lt_of_lt_of_le h_children.1 h_next_le) (lt_of_lt_of_le h_children.2 h_next_le))
+        · have h_ge : pairs ≤ redIdx := by omega
+          let items' := nextItems nextNodeIdx items
+          let next' := nextNodeIdx + pairs
+          have h_items' : ∀ x ∈ items', x < next' := by
+            intro x hx
+            have := nextItems_lt (nextNodeIdx := nextNodeIdx) (items := items) h_items x hx
+            simpa [items', next', h_pairs_def, pairs] using this
+          have h_redIdx_lt : redIdx - pairs < redIdx := by
+            have : pairs > 0 := by omega
+            omega
+          have h_rec := ih (redIdx - pairs) h_redIdx_lt next' items' (by omega) h_items'
+          -- align the target bound: `next' + (redIdx - pairs) = nextNodeIdx + redIdx`
+          -- Rewrite the right-hand side bound to `redIdx + nextNodeIdx`.
+          have h_bound :
+              nextNodeIdx + (pairs + (redIdx - pairs)) = redIdx + nextNodeIdx := by
+            -- Use `pairs ≤ redIdx` to cancel the subtraction.
+            -- `pairs + (redIdx - pairs) = (redIdx - pairs) + pairs = redIdx`
+            calc
+              nextNodeIdx + (pairs + (redIdx - pairs))
+                  = nextNodeIdx + ((redIdx - pairs) + pairs) := by
+                      simp [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+              _ = nextNodeIdx + redIdx := by
+                      simp [Nat.sub_add_cancel h_ge, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+              _ = redIdx + nextNodeIdx := by
+                      simp [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+          -- Finish by aligning both sides.
+          simpa [hpairs0, h, items', next', h_pairs_def, pairs, h_bound,
+            Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using h_rec
 
 /-- Children are always before their parents in the indexing scheme.
 
-    For reduction node at index (clauseBase + m + redIdx), both children
-    have indices < (clauseBase + m + redIdx). -/
+For reduction node at global index `(clauseBase + m + redIdx)`, both children
+have indices `< (clauseBase + m + redIdx)`. -/
 theorem simpleChildIndices_children_less_than_parent
-    (clauseBase m redIdx : Nat) (_h_m : m > 0) (h_redIdx : redIdx < size m) :
+    (clauseBase m redIdx : Nat) (_h_m : m > 0) (_h_redIdx : redIdx < size m) :
     let (left, right) := simpleChildIndices clauseBase m redIdx
     left < clauseBase + m + redIdx ∧ right < clauseBase + m + redIdx := by
-  show (simpleChildIndices clauseBase m redIdx).1 < clauseBase + m + redIdx ∧
-       (simpleChildIndices clauseBase m redIdx).2 < clauseBase + m + redIdx
+  -- Apply the general auxiliary lemma to the initial state.
   unfold simpleChildIndices
-  dsimp only []
-  unfold size at h_redIdx
-  split_ifs at h_redIdx
-  · omega  -- case m ≤ 1, but h_m says m > 0, so this is trivial/impossible
-  split_ifs <;> omega
+  dsimp
+  set initItems := (List.range m).map (fun i => clauseBase + i) with h_initItems
+  set initNext := clauseBase + m with h_initNext
+  have h_items : ∀ x ∈ initItems, x < initNext := by
+    intro x hx
+    rcases List.mem_map.1 hx with ⟨i, hi, rfl⟩
+    have hi' : i < m := by simpa [List.mem_range] using hi
+    omega
+  have h :=
+    childIndicesAux_children_lt_sum clauseBase m redIdx initNext initItems (by omega) h_items
+  -- `initNext + redIdx = clauseBase + m + redIdx`
+  simpa [initNext, h_initNext, initItems, h_initItems, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using h
 
 /-!
 ## Clause Descendant Counting
 
-For proving seedWidth bounds, we need to count how many clause leaves
-are in the subtree rooted at each reduction node.
+For seed-width bounds we need: for every reduction node, the number of distinct
+clause leaves in its subtree is ≤ `m`.
+
+We define the clause-leaf set of a **global** node index (`0..m-1` for leaves,
+`m..m+size m-1` for reduction nodes) by recursion on the parent index using
+`simpleChildIndices 0 m`.
 -/
 
-/-- Count clause descendants of a reduction node.
-
-    For the reduction tree combining m clauses:
-    - First level nodes (redIdx < ⌈m/2⌉): combine 2 clauses each (or 1 for odd case)
-    - Higher level nodes: sum of children's clause descendants
-
-    **Indexing**: redIdx is the reduction node index (0 to m-2).
-    First level nodes are at indices 0 to ⌈m/2⌉-1, then higher levels follow. -/
-def clauseDescendantCount (m redIdx : Nat) : Nat :=
-  if m ≤ 1 then
-    0  -- No reduction tree exists
-  else
-    let firstLevelSize := (m + 1) / 2
-    if redIdx < firstLevelSize then
-      -- First level: directly combines clauses
-      -- Node redIdx combines clauses 2*redIdx and 2*redIdx+1
-      if 2 * redIdx + 1 < m then 2 else 1
-    else if redIdx < m - 1 then
-      -- Higher levels: sum of children's descendants
-      -- Children are at indices 2*(redIdx-firstLevelSize) and 2*(redIdx-firstLevelSize)+1
-      let idxInLevel := redIdx - firstLevelSize
-      let child1 := 2 * idxInLevel
-      let child2 := 2 * idxInLevel + 1
-      clauseDescendantCount m child1 + clauseDescendantCount m child2
+private def clauseSetNodeWithProof (m idx : Nat) : { s : Finset Nat // s ⊆ Finset.range m } :=
+  Nat.strongRecOn' idx (fun idx rec =>
+    if h : idx < m then
+      ⟨{idx}, by
+        intro x hx
+        have : x = idx := by simpa using hx
+        subst this
+        simpa [Finset.mem_range] using h⟩
     else
-      0  -- Invalid index
-termination_by redIdx
-decreasing_by
-  all_goals simp_wf
-  -- For both child1 and child2, show they are less than redIdx
-  -- child1 = 2 * (redIdx - firstLevelSize) where firstLevelSize = (m+1)/2
-  -- For redIdx ≥ firstLevelSize: child1 = 2*(redIdx - firstLevelSize)
-  -- Since redIdx < m - 1 and redIdx ≥ firstLevelSize ≥ m/2, we have
-  -- child1 = 2*redIdx - 2*firstLevelSize < 2*redIdx - m < redIdx when redIdx < m
-  all_goals omega
+      let redIdx := idx - m
+      if h_red : redIdx < size m then
+        let l := (simpleChildIndices 0 m redIdx).1
+        let r := (simpleChildIndices 0 m redIdx).2
+        have hm : m > 0 := by
+          unfold size at h_red
+          by_cases hle : m ≤ 1 <;> simp [hle] at h_red <;> omega
+        have h_children :=
+          simpleChildIndices_children_less_than_parent (clauseBase := 0) (m := m) (redIdx := redIdx) hm h_red
+        have hmle : m ≤ idx := Nat.le_of_not_gt h
+        have h_parent : m + redIdx = idx := by
+          calc
+            m + redIdx = redIdx + m := by simp [Nat.add_comm]
+            _ = idx := by simpa [redIdx] using (Nat.sub_add_cancel hmle)
+        have h_l : l < idx := by
+          simpa [l, h_parent, simpleChildIndices, Nat.add_assoc, Nat.zero_add] using h_children.1
+        have h_r : r < idx := by
+          simpa [r, h_parent, simpleChildIndices, Nat.add_assoc, Nat.zero_add] using h_children.2
+        let sl := (rec l h_l).1
+        let sr := (rec r h_r).1
+        have pl : sl ⊆ Finset.range m := (rec l h_l).2
+        have pr : sr ⊆ Finset.range m := (rec r h_r).2
+        ⟨sl ∪ sr, by
+          intro x hx
+          have hx' : x ∈ sl ∨ x ∈ sr := by
+            simpa [Finset.mem_union] using hx
+          rcases hx' with hx' | hx'
+          · exact pl hx'
+          · exact pr hx'⟩
+      else
+        ⟨∅, by simp⟩)
 
-/-- Clause descendants at first level is 1 or 2. -/
-lemma clauseDescendantCount_first_level (m redIdx : Nat)
-    (h_m : m > 1) (h_first : redIdx < (m + 1) / 2) :
-    clauseDescendantCount m redIdx = if 2 * redIdx + 1 < m then 2 else 1 := by
-  unfold clauseDescendantCount
-  have h_not_le : ¬(m ≤ 1) := by omega
-  simp only [h_not_le, ↓reduceIte, h_first]
+def clauseSetNode (m idx : Nat) : Finset Nat :=
+  (clauseSetNodeWithProof m idx).1
 
-/-- Clause descendants never exceed total clauses.
+/-- Clause-leaf set for reduction node `redIdx` (0-based among reduction nodes). -/
+def clauseSet (m redIdx : Nat) : Finset Nat :=
+  clauseSetNode m (m + redIdx)
 
-    **Mathematical argument**: In the reduction tree, each clause appears in exactly
-    one subtree at each level. The two children of any internal node have disjoint
-    clause descendants (they cover different parts of the clause index space).
-    Therefore, the sum of children's descendant counts equals the parent's count,
-    and no node can have more than m descendants.
+/-- Clause descendant count for reduction node `redIdx` (cardinality of its leaf-set). -/
+def clauseDescendantCount (m redIdx : Nat) : Nat :=
+  (clauseSet m redIdx).card
 
-    **Proof structure**:
-    - First-level nodes: ≤ 2 descendants (trivial)
-    - Higher-level nodes: sum of children's counts, which are disjoint subsets
-    - Disjoint property ensures sum doesn't exceed m
+lemma clauseSetNode_subset_range (m idx : Nat) :
+    clauseSetNode m idx ⊆ Finset.range m :=
+  (clauseSetNodeWithProof m idx).2
 
-    **Note**: The disjoint subtree property requires additional infrastructure to prove
-    formally (tracking which clause indices each node covers). The mathematical
-    argument is sound: in a binary tree where leaves are unique, internal nodes
-    partition their descendants disjointly. -/
+/-- Clause descendants never exceed total clauses. -/
 theorem clauseDescendantCount_le (m redIdx : Nat)
-    (h_m : m > 1) (h_redIdx : redIdx < size m) :
+    (_h_m : m > 1) (_h_redIdx : redIdx < size m) :
     clauseDescendantCount m redIdx ≤ m := by
-  unfold size at h_redIdx
-  have h_not_le : ¬(m ≤ 1) := by omega
-  simp only [h_not_le, ↓reduceIte] at h_redIdx
-  -- First-level nodes have ≤ 2 descendants (trivial)
-  -- Higher-level nodes require disjoint subtree tracking
-  by_cases h_first : redIdx < (m + 1) / 2
-  · -- First level: at most 2 clause descendants
-    rw [clauseDescendantCount_first_level m redIdx h_m h_first]
-    split_ifs <;> omega
-  · -- Higher level: requires disjoint property
-    -- The bound holds because children cover disjoint clause subsets
-    -- Formal proof requires defining clause coverage sets
-    sorry  -- Higher-level bound (disjoint subtree property)
+  unfold clauseDescendantCount
+  calc
+    (clauseSet m redIdx).card ≤ (Finset.range m).card := by
+      exact Finset.card_le_card (clauseSetNode_subset_range m (m + redIdx))
+    _ = m := by simp
 
-/- Axiom audit: Pure arithmetic functions and structural theorem.
-   Only relies on standard Nat operations and omega tactic. -/
+/- Axiom audit: core functions and key theorems. -/
 #print axioms depth
 #print axioms size
-#print axioms startIndexAtDepth
 #print axioms simpleChildIndices
 #print axioms simpleChildIndices_children_less_than_parent
+#print axioms clauseSetNode
 #print axioms clauseDescendantCount
 #print axioms clauseDescendantCount_le
-#print axioms clauseDescendantCount_first_level
 
 end LStar.Construction.ReductionTree
