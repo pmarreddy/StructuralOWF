@@ -3257,9 +3257,10 @@ These functions bridge Turing Machine execution to ExecutionPrefixReal for secur
 They use the explicit parameters from the planted instance (avoiding Classical.choose opacity).
 -/
 
--- TODO: Update tmExecutionToPrefix_flat for parametric Witness type refactor
--- The function requires parametric Witness φ.nvars throughout the TM execution stack.
--- For now, this is commented out pending the full TM adapter refactor.
+-- NOTE: tmExecutionToPrefix_flat is commented out due to circular dependency with TMEncoderDefs.
+-- The TM execution bridge functions require imports that cause Layer cycles.
+-- The dependent code in StructuralOWFExponential.lean (computedConfigs_bounded_by_gates_flat)
+-- is also commented out pending proper Layer organization.
 /-
 /-- **TM execution to ExecutionPrefixReal for plant_flat**.
 
@@ -3271,17 +3272,17 @@ noncomputable def tmExecutionToPrefix_flat
     (L : LStarInstanceFG)
     (M : Foundations.TuringMachine k states alphabet)
     (haltTime : Nat)
-    (extractWitness : Foundations.TMConfig M → Witness φ.nvars)
     (C : Finset (Fin L.dag.n))
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ)
+    (extractWitness : Foundations.TMConfig M → Witness φ.nvars)
     (h_tm_correct : φ.satisfies (Foundations.tmOutputWitness M haltTime extractWitness).assignmentInf)
-    (h_L_eq : L = plant_flat n φ r h_nvars)
+    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
     (h_wf : WellFormedRandomness φ r)
     : Foundations.ExecutionPrefixReal L :=
   { time := haltTime
     revealedBits := extractRevealedBitsFromWitness_flat L
                       (Foundations.tmOutputWitness M haltTime extractWitness) C
-    computedConfigs := extractComputedConfigsFromWitness_flat n φ r h_nvars L h_L_eq h_wf
+    computedConfigs := extractComputedConfigsFromWitness_flat n φ r h_nvars h_aligned L h_L_eq h_wf
                          (Foundations.tmOutputWitness M haltTime extractWitness)
                          h_tm_correct }
 -/
