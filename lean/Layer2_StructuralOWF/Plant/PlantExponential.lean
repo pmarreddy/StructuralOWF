@@ -1167,7 +1167,537 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                         -- The disjoint subtree property is mathematically sound: in a binary tree,
                         -- left and right children partition the ancestor's clause descendants.
 
-                        sorry  -- Reduction tree parent sum ≤ nclauses × nvars
+                        classical
+                        let m : Nat := φ.clauses.length
+                        let clauseBase : Nat := φ.nvars + 1
+                        let dag := Construction.build3SATReductionDAG φ numGates
+                        have h_numGates : numGates = 1 := r.h_single_gate
+                        have hm : m > 1 := by
+                          have : m ≥ 2 := h_nclauses_ge_2
+                          omega
+
+                        -- Reduction index of `v` among reduction nodes
+                        let redIdx : Nat := v.val - φ.nvars - m - 1
+                        have h_redIdx : redIdx < ReductionTree.size m := by
+                          -- `v < totalNodes = (φ.nvars + m + 1) + size m`
+                          have hvlt : v.val < dag.n := v.isLt
+                          have hvlt' : v.val < (φ.nvars + m + 1) + ReductionTree.size m := by
+                            simpa [dag, Construction.build3SATReductionDAG, Construction.totalNodes,
+                              Construction.reductionTreeSize, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hvlt
+                          have hbase : φ.nvars + m + 1 ≤ v.val := by omega
+                          have : v.val - (φ.nvars + m + 1) < ReductionTree.size m :=
+                            Nat.sub_lt_left_of_lt_add hbase hvlt'
+                          -- `redIdx = v.val - (φ.nvars + m + 1)`
+                          have : redIdx = v.val - (φ.nvars + m + 1) := by
+                            simp [redIdx, Nat.sub_sub, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+                          simpa [this]
+
+                        -- Vertex constructors for clause layer and reduction tree
+                        have h_clauseVertex_lt (i : Nat) (hi : i < m) : clauseBase + i < dag.n := by
+                          -- `clauseBase + i < clauseBase + m ≤ dag.n`
+                          have : clauseBase + i < clauseBase + m := Nat.add_lt_add_left hi _
+                          have hn : dag.n = clauseBase + m + ReductionTree.size m := by
+                            simp [dag, Construction.build3SATReductionDAG, Construction.totalNodes,
+                              Construction.reductionTreeSize, clauseBase, m, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+                          have : clauseBase + i < clauseBase + m + ReductionTree.size m := by
+                            exact lt_of_lt_of_le (by simpa [Nat.add_assoc] using this) (Nat.le_add_right _ _)
+                          simpa [hn, Nat.add_assoc] using this
+                        let vClause (i : Nat) (hi : i < m) : Fin dag.n :=
+                          ⟨clauseBase + i, h_clauseVertex_lt i hi⟩
+
+                        have h_redVertex_lt (red : Nat) (hred : red < ReductionTree.size m) :
+                            clauseBase + m + red < dag.n := by
+                          have : clauseBase + m + red < clauseBase + m + ReductionTree.size m :=
+                            Nat.add_lt_add_left hred _
+                          have hn : dag.n = clauseBase + m + ReductionTree.size m := by
+                            simp [dag, Construction.build3SATReductionDAG, Construction.totalNodes,
+                              Construction.reductionTreeSize, clauseBase, m, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+                          simpa [hn] using this
+                        let vRed (red : Nat) (hred : red < ReductionTree.size m) : Fin dag.n :=
+                          ⟨clauseBase + m + red, h_redVertex_lt red hred⟩
+
+                        -- Any local index `c < m + size m` corresponds to a valid DAG vertex `clauseBase + c`.
+                        have h_idx_lt_dag (c : Nat) (hc : c < m + ReductionTree.size m) :
+                            clauseBase + c < dag.n := by
+                          have hn : dag.n = clauseBase + m + ReductionTree.size m := by
+                            simp [dag, Construction.build3SATReductionDAG, Construction.totalNodes,
+                              Construction.reductionTreeSize, clauseBase, m, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+                          have : clauseBase + c < clauseBase + (m + ReductionTree.size m) :=
+                            Nat.add_lt_add_left hc _
+                          simpa [hn, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using this
+
+                        -- The unique FG gate is the first clause vertex (`i = 0`) since `numGates = 1`.
+                        let fg_gate : Fin dag.n := vClause 0 (by omega)
+
+                        have fg_seedWidth_eq : Construction.computeSeedWidth φ numGates R_val fg_gate = φ.nvars := by
+                          have h_is_fg : Foundations.is_fg_gate_flat φ numGates fg_gate.val = true := by
+                            simp [Foundations.is_fg_gate_flat, fg_gate, vClause, clauseBase, h_numGates, m]
+                            omega
+                          have h_R_eq : R_val fg_gate.val = φ.nvars :=
+                            Foundations.R_of_flat_at_fg_gate φ numGates fg_gate.val h_is_fg
+                          have h_cap := Construction.seedWidth_satisfies_capacity φ numGates R_val fg_gate
+                          have h_parent_sum_zero :
+                              (∑ u ∈ dag.parents fg_gate, Construction.computeSeedWidth φ numGates R_val u) = 0 := by
+                            apply Finset.sum_eq_zero
+                            intro u hu
+                            have h_v_clause : Construction.classifyNode φ.nvars m fg_gate.val = .clause := by
+                              have h1 : fg_gate.val ≠ 0 := by
+                                simp [fg_gate, vClause, clauseBase]
+                              have h2 : ¬ fg_gate.val ≤ φ.nvars := by
+                                simp [fg_gate, vClause, clauseBase]
+                              have h3 : fg_gate.val ≤ φ.nvars + m := by
+                                simp [fg_gate, vClause, clauseBase]
+                                omega
+                              simp [Construction.classifyNode, h1, h2, h3]
+                            have h_fg : fg_gate.val - φ.nvars - 1 < numGates := by
+                              simp [fg_gate, vClause, clauseBase, h_numGates]
+                            have h_u_le :=
+                              Construction.fg_gate_parents_in_variable_layer φ numGates fg_gate h_v_clause h_fg u
+                                (by simpa [dag] using hu)
+                            have h_u_below : u.val < 1 + φ.nvars := by omega
+                            have h_nvars_pos : φ.nvars > 0 := by omega
+                            exact computeSeedWidth_zero_for_variable_layer φ h_nvars_pos numGates u h_u_below
+                          -- seedWidth = 0 + nvars
+                          have h_sw : Construction.computeSeedWidth φ numGates R_val fg_gate = φ.nvars := by
+                            rw [← h_cap, h_parent_sum_zero, h_R_eq]
+                            simp
+                          exact h_sw
+
+                        -- Clause seedWidth is always ≤ nvars (single-gate architecture).
+                        have clause_seedWidth_le (i : Nat) (hi : i < m) :
+                            Construction.computeSeedWidth φ numGates R_val (vClause i hi) ≤ φ.nvars := by
+                          by_cases h0 : i = 0
+                          · subst h0
+                            -- `vClause 0` is definitionally `fg_gate`
+                            simpa [fg_gate] using (le_of_eq fg_seedWidth_eq)
+                          ·
+                            have hi_pos : 0 < i := Nat.pos_of_ne_zero h0
+                            have h_is_fg_false : Foundations.is_fg_gate_flat φ numGates (vClause i hi).val = false := by
+                              -- `vClause i` is beyond the (single) FG end, so it cannot be an FG gate.
+                              by_cases hfg : Foundations.is_fg_gate_flat φ numGates (vClause i hi).val = true
+                              · -- `is_fg_gate_flat = true` would force `i < numGates = 1`, contradicting `i ≠ 0`.
+                                have hfg' :
+                                    (1 + φ.nvars ≤ (vClause i hi).val) ∧
+                                      ((vClause i hi).val <
+                                        min (1 + φ.nvars + numGates) (1 + φ.nvars + m)) := by
+                                  -- unpack the boolean conjunction
+                                  simpa [Foundations.is_fg_gate_flat, Bool.and_eq_true, decide_eq_true_eq] using hfg
+                                have hv_lt_left :
+                                    (vClause i hi).val < 1 + φ.nvars + numGates :=
+                                  lt_of_lt_of_le hfg'.2 (Nat.min_le_left _ _)
+                                have hi_lt : i < numGates := by
+                                  -- cancel `1 + nvars` from both sides
+                                  have hv_lt_left' :
+                                      (1 + φ.nvars) + i < (1 + φ.nvars) + numGates := by
+                                    simpa [vClause, clauseBase, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hv_lt_left
+                                  exact (Nat.add_lt_add_iff_left (k := 1 + φ.nvars)).1 hv_lt_left'
+                                have : i = 0 := by
+                                  rw [h_numGates] at hi_lt
+                                  omega
+                                exact (h0 this).elim
+                              · simpa [hfg]
+                            have h_R_zero' : R_val (vClause i hi).val = 0 :=
+                              Foundations.R_of_flat_at_non_fg φ numGates (vClause i hi).val h_is_fg_false
+                            have h_fg_in :
+                                fg_gate ∈ dag.parents (vClause i hi) := by
+                              have h_v_clause : Construction.classifyNode φ.nvars m (vClause i hi).val = .clause := by
+                                have h1 : (vClause i hi).val ≠ 0 := by
+                                  simp [vClause, clauseBase]
+                                have h2 : ¬ (vClause i hi).val ≤ φ.nvars := by
+                                  simp [vClause, clauseBase]
+                                  omega
+                                have h3 : (vClause i hi).val ≤ φ.nvars + m := by
+                                  simp [vClause, clauseBase]
+                                  omega
+                                simp [Construction.classifyNode, h1, h2, h3]
+                              have h_not_fg_idx : (vClause i hi).val - φ.nvars - 1 ≥ numGates := by
+                                simp [vClause, clauseBase, h_numGates]
+                                omega
+                              have h_gate0 : (0 : Nat) < numGates := by rw [h_numGates]; omega
+                              have h_gate_in_dag : φ.nvars + 1 + 0 < dag.n := by
+                                simpa [dag, clauseBase] using (h_clauseVertex_lt 0 (by omega))
+                              have hmem :=
+                                Construction.non_fg_clause_parents_include_fg φ numGates (vClause i hi)
+                                  h_v_clause h_not_fg_idx 0 h_gate0 h_gate_in_dag
+                              simpa [dag, fg_gate, clauseBase] using hmem
+                            -- All other parents are variable-layer, hence seedWidth = 0
+                            have h_other_zero :
+                                ∀ u ∈ dag.parents (vClause i hi), u ≠ fg_gate →
+                                  Construction.computeSeedWidth φ numGates R_val u = 0 := by
+                              intro u hu hne
+                              -- unfold membership back to a Nat index from `computeParents` and use the `clauseParents` filter `≤ nvars`
+                              have hu' : u ∈ (Construction.build3SATReductionDAG φ numGates).parents (vClause i hi) := by
+                                simpa [dag] using hu
+                              simp only [Construction.build3SATReductionDAG, List.mem_toFinset, List.mem_filterMap] at hu'
+                              rcases hu' with ⟨idx, h_mem_filtered, h_eq_some⟩
+                              rw [List.mem_filter] at h_mem_filtered
+                              have h_in_parents : idx ∈ Construction.computeParents φ numGates (vClause i hi).val := h_mem_filtered.1
+                              -- analyze `computeParents` for non-FG clauses (uses `clauseParents ++ [fg_gate]`)
+                              have h_v_clause : Construction.classifyNode φ.nvars m (vClause i hi).val = .clause := by
+                                have h1 : (vClause i hi).val ≠ 0 := by
+                                  simp [vClause, clauseBase]
+                                have h2 : ¬ (vClause i hi).val ≤ φ.nvars := by
+                                  simp [vClause, clauseBase]
+                                  omega
+                                have h3 : (vClause i hi).val ≤ φ.nvars + m := by
+                                  simp [vClause, clauseBase]
+                                  omega
+                                simp [Construction.classifyNode, h1, h2, h3]
+                              have h_clause_num : (vClause i hi).val - φ.nvars - 1 = i := by
+                                simp [vClause, clauseBase]
+                                omega
+                              unfold Construction.computeParents at h_in_parents
+                              have h_clause_idx : (vClause i hi).val - φ.nvars - 1 < φ.clauses.length := by
+                                -- clause_num = i and `hi : i < m = φ.clauses.length`
+                                simpa [h_clause_num, m] using hi
+                              have h_not_fg_check : ¬ ((vClause i hi).val - φ.nvars - 1 < numGates) := by
+                                -- `i ≥ 1` and `numGates = 1`
+                                simp [h_clause_num, h_numGates]
+                                omega
+                              simp [h_v_clause, h_clause_idx, h_not_fg_check, h_clause_num, h_numGates, clauseBase] at h_in_parents
+                              -- From `idx ∈ base_parents ++ fg_indices` and `u ≠ fg_gate`, infer `idx ≤ nvars`.
+                              have hidx_le : idx ≤ φ.nvars := by
+                                -- `base_parents` is `clauseParents`, which is filtered by `≤ nvars`;
+                                -- `fg_indices` is `[nvars+1]` when `numGates = 1`.
+                                -- So if `idx = nvars+1` then `u = fg_gate`, contradiction with `hne`.
+                                have : idx = clauseBase ∨ idx ≤ φ.nvars := by
+                                  -- `idx` is either in `clauseParents` or in the FG-index list.
+                                  have hi' : i < φ.clauses.length := by
+                                    simpa [m] using hi
+                                  have h_or :
+                                      idx ∈ (Construction.clauseParents φ ⟨i, hi'⟩) ∨ idx = clauseBase := by
+                                    -- for non-FG clauses (i ≠ 0, numGates = 1), `computeParents = clauseParents ++ [clauseBase]`
+                                    have h_v_clause' :
+                                        Construction.classifyNode φ.nvars φ.clauses.length (vClause i hi).val = .clause := by
+                                      simpa [m] using h_v_clause
+                                    simpa [h_v_clause', hi', h0, clauseBase, List.mem_append, List.mem_cons] using h_in_parents
+                                  rcases h_or with hbase | hfg
+                                  · right
+                                    -- `clauseParents` filters `≤ nvars`
+                                    unfold Construction.clauseParents at hbase
+                                    simp [List.mem_filter] at hbase
+                                    exact hbase.2
+                                  · left
+                                    exact hfg
+                                rcases this with hidx_eq | hidx_le
+                                · exfalso
+                                  -- `u` came from `idx`, so `u.val = idx = clauseBase`, hence `u = fg_gate`
+                                  have : u.val = clauseBase := by
+                                    -- extract `u.val = idx` from the `filterMap` equality, then use `idx = clauseBase`
+                                    split at h_eq_some
+                                    · case isTrue h_valid =>
+                                      simp only [Option.some.injEq] at h_eq_some
+                                      have huv : u.val = idx := by
+                                        simpa using (congrArg Fin.val h_eq_some).symm
+                                      simpa [hidx_eq] using huv
+                                    · case isFalse =>
+                                      cases h_eq_some
+                                  have : u = fg_gate := by
+                                    ext; simpa [fg_gate, vClause] using this
+                                  exact hne this
+                                · exact hidx_le
+                              have h_u_below : u.val < 1 + φ.nvars := by
+                                -- `idx ≤ nvars` and `u.val = idx`
+                                have huv : u.val = idx := by
+                                  split at h_eq_some
+                                  · case isTrue h_valid =>
+                                    simp only [Option.some.injEq] at h_eq_some
+                                    simpa using (congrArg Fin.val h_eq_some).symm
+                                  · case isFalse =>
+                                    cases h_eq_some
+                                have : idx < 1 + φ.nvars := by omega
+                                simpa [huv] using this
+                              have h_nvars_pos : φ.nvars > 0 := by omega
+                              exact computeSeedWidth_zero_for_variable_layer φ h_nvars_pos numGates u h_u_below
+                            -- parent sum is exactly the FG gate term
+                            have h_parent_sum :
+                                (∑ u ∈ dag.parents (vClause i hi),
+                                    Construction.computeSeedWidth φ numGates R_val u) =
+                                  Construction.computeSeedWidth φ numGates R_val fg_gate := by
+                              refine Finset.sum_eq_single fg_gate ?_ ?_
+                              · intro u hu hne
+                                exact h_other_zero u hu hne
+                              · intro hnot
+                                cases (hnot h_fg_in)
+                            have h_cap := Construction.seedWidth_satisfies_capacity φ numGates R_val (vClause i hi)
+                            have h_sw_eq :
+                                Construction.computeSeedWidth φ numGates R_val (vClause i hi) =
+                                  Construction.computeSeedWidth φ numGates R_val fg_gate := by
+                              -- seedWidth = parentSum + R, and here `R = 0` and parentSum is the FG term
+                              have h_parent_sum' :
+                                  (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents (vClause i hi),
+                                      Construction.computeSeedWidth φ numGates R_val u) =
+                                    Construction.computeSeedWidth φ numGates R_val fg_gate := by
+                                simpa [dag] using h_parent_sum
+                              simpa [h_parent_sum', h_R_zero', Nat.add_zero] using h_cap.symm
+                            -- `fg_gate` seedWidth is `nvars`
+                            simpa [h_sw_eq, fg_seedWidth_eq]
+
+                        -- Reduction-tree bound for the specific reduction node `redIdx`
+                        -- (strong recursion on `redIdx` inside the reduction tree).
+                        have red_seedWidth_le :
+                            ∀ red (hred : red < ReductionTree.size m),
+                              Construction.computeSeedWidth φ numGates R_val (vRed red hred) ≤
+                                ReductionTree.clauseDescendantCount m red * φ.nvars := by
+                          intro red hred
+                          -- strong recursion on `red`, with the size-bound as an explicit hypothesis
+                          revert hred
+                          refine Nat.strongRecOn red (fun red ih => ?_) 
+                          intro hred
+                          -- local children in the `clauseBase = 0` view
+                          let l0 : Nat := (ReductionTree.simpleChildIndices 0 m red).1
+                          let r0 : Nat := (ReductionTree.simpleChildIndices 0 m red).2
+                          -- global children
+                          have h_shift :
+                              ReductionTree.simpleChildIndices clauseBase m red = (clauseBase + l0, clauseBase + r0) := by
+                            simpa [l0, r0] using
+                              (ReductionTree.simpleChildIndices_add (clauseBase := clauseBase) (m := m) (redIdx := red) hm hred)
+                          let childL : Fin dag.n :=
+                            ⟨(ReductionTree.simpleChildIndices clauseBase m red).1, by
+                              have hm0 : m > 0 := by omega
+                              have hlt :=
+                                ReductionTree.simpleChildIndices_children_less_than_parent (clauseBase := clauseBase) (m := m) (redIdx := red) hm0 hred
+                              exact lt_trans hlt.1 (h_redVertex_lt red hred)⟩
+                          let childR : Fin dag.n :=
+                            ⟨(ReductionTree.simpleChildIndices clauseBase m red).2, by
+                              have hm0 : m > 0 := by omega
+                              have hlt :=
+                                ReductionTree.simpleChildIndices_children_less_than_parent (clauseBase := clauseBase) (m := m) (redIdx := red) hm0 hred
+                              exact lt_trans hlt.2 (h_redVertex_lt red hred)⟩
+                          -- helper: map child local index to its seedWidth bound in terms of `clauseSetNode`
+                          have child_bound (c : Nat) (hc : c = l0 ∨ c = r0) :
+                              Construction.computeSeedWidth φ numGates R_val
+                                  (⟨clauseBase + c, by
+                                    -- child local index is always < m + red, hence < m + size m
+                                    have hm0 : m > 0 := by omega
+                                    have ⟨hl, hr⟩ :=
+                                      ReductionTree.simpleChildIndices_children_less_than_parent (clauseBase := 0) (m := m) (redIdx := red) hm0 hred
+                                    simp only [ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id''] at hl hr
+                                    have hc_lt : c < m + red := by
+                                      rcases hc with rfl | rfl
+                                      · simp only [l0, ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hl
+                                      · simp only [r0, ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hr
+                                    have : c < m + ReductionTree.size m := by omega
+                                    exact h_idx_lt_dag c this⟩ : Fin dag.n) ≤
+                                (ReductionTree.clauseSetNode m c).card * φ.nvars := by
+                            by_cases hc_leaf : c < m
+                            · -- clause leaf: card = 1 and seedWidth ≤ nvars
+                              have hset : ReductionTree.clauseSetNode m c = {c} :=
+                                ReductionTree.clauseSetNode_leaf (m := m) (idx := c) hc_leaf
+                              have hcard : (ReductionTree.clauseSetNode m c).card = 1 := by simp [hset]
+                              have hsw : Construction.computeSeedWidth φ numGates R_val (vClause c hc_leaf) ≤ φ.nvars :=
+                                clause_seedWidth_le c hc_leaf
+                              -- identify the vertex
+                              have hv : (⟨clauseBase + c, h_clauseVertex_lt c hc_leaf⟩ : Fin dag.n) = vClause c hc_leaf := rfl
+                              simpa [hv, hcard, Nat.one_mul] using hsw
+                            ·
+                              -- reduction child: apply IH on `c - m`
+                              have hc_ge : m ≤ c := Nat.le_of_not_gt hc_leaf
+                              let childRed : Nat := c - m
+                              have hc_eq : c = m + childRed := by
+                                simp only [childRed]; omega
+                              have hchild_lt : childRed < red := by
+                                -- from `c < m + red` and `c = m + childRed`
+                                have hm0 : m > 0 := by omega
+                                have ⟨hl, hr⟩ :=
+                                  ReductionTree.simpleChildIndices_children_less_than_parent (clauseBase := 0) (m := m) (redIdx := red) hm0 hred
+                                simp only [ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id''] at hl hr
+                                have hc_lt : c < m + red := by
+                                  rcases hc with rfl | rfl
+                                  · simp only [l0, ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hl
+                                  · simp only [r0, ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hr
+                                omega
+                              have hchild_size : childRed < ReductionTree.size m := by
+                                -- any valid child reduction index is < size m
+                                have : c < m + ReductionTree.size m := by omega
+                                omega
+                              have ih' := ih childRed hchild_lt hchild_size
+                              -- relate clauseDescendantCount to card(clauseSetNode m c)
+                              have hcard :
+                                  ReductionTree.clauseDescendantCount m childRed = (ReductionTree.clauseSetNode m c).card := by
+                                simp [ReductionTree.clauseDescendantCount, ReductionTree.clauseSet, hc_eq]
+                              -- identify the reduction child vertex
+                              have hv : vRed childRed hchild_size = (⟨clauseBase + c, by
+                                have : clauseBase + c < dag.n := by
+                                  have : c < m + ReductionTree.size m := by omega
+                                  exact h_idx_lt_dag c this
+                                simpa [dag] using this⟩ : Fin dag.n) := by
+                                ext
+                                simp [vRed, hc_eq, clauseBase, m, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+                              have : Construction.computeSeedWidth φ numGates R_val (⟨clauseBase + c, by
+                                have : c < m + ReductionTree.size m := by omega
+                                simpa [dag] using h_idx_lt_dag c this⟩ : Fin dag.n) ≤
+                                  (ReductionTree.clauseSetNode m c).card * φ.nvars := by
+                                -- apply IH, then rewrite the RHS by `hcard`
+                                simpa [hv, hcard] using ih'
+                              exact this
+                          -- parent sum bound using `parents ⊆ {childL, childR}`
+                          have hparents_subset :
+                              dag.parents (vRed red hred) ⊆ ({childL, childR} : Finset (Fin dag.n)) := by
+                            intro u hu
+                            -- unfold parents membership back to `computeParents`, which is `[left,right]`
+                            have hu' : u ∈ (Construction.build3SATReductionDAG φ numGates).parents (vRed red hred) := by
+                              simpa [dag] using hu
+                            simp only [Construction.build3SATReductionDAG, List.mem_toFinset, List.mem_filterMap] at hu'
+                            rcases hu' with ⟨idx, h_mem_filtered, h_eq_some⟩
+                            rw [List.mem_filter] at h_mem_filtered
+                            have h_in_parents : idx ∈ Construction.computeParents φ numGates (vRed red hred).val := h_mem_filtered.1
+                            -- `computeParents` for reduction nodes
+                            unfold Construction.computeParents at h_in_parents
+                            have hlevel : Construction.classifyNode φ.nvars m (vRed red hred).val = .reduction (Nat.log 2 ((vRed red hred).val - φ.nvars - m - 1 + 1)) := by
+                              -- we're strictly past the clause layer
+                              simp only [Construction.classifyNode, vRed, clauseBase, m]
+                              split_ifs with h1 h2 h3 <;> [omega; omega; omega; rfl]
+                            simp [hlevel, vRed, clauseBase, m] at h_in_parents
+                            -- now `idx` is either the left or right child Nat index
+                            have hidx : idx = (ReductionTree.simpleChildIndices clauseBase m red).1 ∨
+                                idx = (ReductionTree.simpleChildIndices clauseBase m red).2 := by
+                              -- simplify the expanded forms back to clauseBase, m, red
+                              have hcb : φ.nvars + 1 = clauseBase := rfl
+                              have hm' : φ.clauses.length = m := rfl
+                              have hred' : φ.nvars + 1 + φ.clauses.length + red - φ.nvars - φ.clauses.length - 1 = red := by omega
+                              have hred'' : clauseBase + m + red - φ.nvars - m - 1 = red := by simp only [clauseBase]; omega
+                              simp only [hcb, hm', hred', hred''] at h_in_parents
+                              exact h_in_parents
+                            rcases hidx with hidx | hidx
+                            · -- left
+                              have : u = childL := by
+                                split at h_eq_some
+                                · case isTrue h_valid =>
+                                  simp only [Option.some.injEq] at h_eq_some
+                                  have huv : u.val = idx := by simpa using (congrArg Fin.val h_eq_some).symm
+                                  ext; simp only [childL, huv, hidx]
+                                · case isFalse => cases h_eq_some
+                              subst this
+                              simp
+                            · -- right
+                              have : u = childR := by
+                                split at h_eq_some
+                                · case isTrue h_valid =>
+                                  simp only [Option.some.injEq] at h_eq_some
+                                  have huv : u.val = idx := by simpa using (congrArg Fin.val h_eq_some).symm
+                                  ext; simp only [childR, huv, hidx]
+                                · case isFalse => cases h_eq_some
+                              subst this
+                              simp
+                          have hsum_le :
+                              (∑ u ∈ dag.parents (vRed red hred),
+                                  Construction.computeSeedWidth φ numGates R_val u)
+                                ≤ (∑ u ∈ ({childL, childR} : Finset (Fin dag.n)),
+                                    Construction.computeSeedWidth φ numGates R_val u) := by
+                            refine Finset.sum_le_sum_of_subset_of_nonneg hparents_subset ?_
+                            intro u hu hnot
+                            exact Nat.zero_le _
+                          have hsum_children_le :
+                              (∑ u ∈ ({childL, childR} : Finset (Fin dag.n)),
+                                    Construction.computeSeedWidth φ numGates R_val u)
+                                ≤ Construction.computeSeedWidth φ numGates R_val childL +
+                                    Construction.computeSeedWidth φ numGates R_val childR := by
+                            by_cases hEq : childL = childR
+                            · simp only [hEq, Finset.insert_eq_self, Finset.mem_singleton]
+                              simp [Finset.sum_singleton]
+                            ·
+                              have := Finset.sum_pair (f := fun u : Fin dag.n => Construction.computeSeedWidth φ numGates R_val u) hEq
+                              simpa using le_of_eq this
+                          -- `R = 0` at reduction nodes, so seedWidth is parent sum
+                          have h_R_zero_red : R_val (vRed red hred).val = 0 := by
+                            apply Foundations.R_of_flat_at_non_fg
+                            simp [Foundations.is_fg_gate_flat, vRed, clauseBase, m, h_numGates]
+                            omega
+                          have h_cap := Construction.seedWidth_satisfies_capacity φ numGates R_val (vRed red hred)
+                          have hseed_eq :
+                              Construction.computeSeedWidth φ numGates R_val (vRed red hred) =
+                                (∑ u ∈ dag.parents (vRed red hred),
+                                    Construction.computeSeedWidth φ numGates R_val u) := by
+                            -- unfold capacity equality with `R=0`
+                            have := h_cap.symm
+                            simpa [h_R_zero_red, Nat.add_zero] using this
+                          -- disjointness and union for descendant clause sets
+                          have hdisj :
+                              Disjoint (ReductionTree.clauseSetNode m l0) (ReductionTree.clauseSetNode m r0) := by
+                            simpa [l0, r0] using
+                              (ReductionTree.clauseSetNode_children_disjoint (m := m) (redIdx := red) hm hred)
+                          have hunion :
+                              ReductionTree.clauseSetNode m (m + red) =
+                                ReductionTree.clauseSetNode m l0 ∪ ReductionTree.clauseSetNode m r0 := by
+                            simpa [l0, r0] using
+                              (ReductionTree.clauseSetNode_reduction_eq_union (m := m) (redIdx := red) hred)
+                          have hcard_add :
+                              (ReductionTree.clauseSetNode m (m + red)).card =
+                                (ReductionTree.clauseSetNode m l0).card + (ReductionTree.clauseSetNode m r0).card := by
+                            have hinter : (ReductionTree.clauseSetNode m l0 ∩ ReductionTree.clauseSetNode m r0) = (∅ : Finset Nat) :=
+                              Finset.disjoint_iff_inter_eq_empty.mp hdisj
+                            have hcard :=
+                              (Finset.card_union_add_card_inter (ReductionTree.clauseSetNode m l0) (ReductionTree.clauseSetNode m r0))
+                            have : (ReductionTree.clauseSetNode m l0 ∪ ReductionTree.clauseSetNode m r0).card =
+                                (ReductionTree.clauseSetNode m l0).card + (ReductionTree.clauseSetNode m r0).card := by
+                              simpa [hinter] using hcard
+                            simpa [hunion] using this
+
+                          -- child seedWidth bounds in the required form
+                          have hl_bound :
+                              Construction.computeSeedWidth φ numGates R_val childL ≤
+                                (ReductionTree.clauseSetNode m l0).card * φ.nvars := by
+                            -- rewrite `childL.val` to `clauseBase + l0`
+                            have : (ReductionTree.simpleChildIndices clauseBase m red).1 = clauseBase + l0 := by
+                              simpa [h_shift] using rfl
+                            -- use `child_bound`
+                            have := child_bound l0 (Or.inl rfl)
+                            simpa [childL, h_shift, l0] using this
+                          have hr_bound :
+                              Construction.computeSeedWidth φ numGates R_val childR ≤
+                                (ReductionTree.clauseSetNode m r0).card * φ.nvars := by
+                            have := child_bound r0 (Or.inr rfl)
+                            simpa [childR, h_shift, r0] using this
+
+                          -- assemble: seedWidth ≤ (card l + card r) * nvars = descendantCount * nvars
+                          have : Construction.computeSeedWidth φ numGates R_val (vRed red hred) ≤
+                              (ReductionTree.clauseSetNode m (m + red)).card * φ.nvars := by
+                            calc
+                              Construction.computeSeedWidth φ numGates R_val (vRed red hred)
+                                  = (∑ u ∈ dag.parents (vRed red hred),
+                                      Construction.computeSeedWidth φ numGates R_val u) := hseed_eq
+                              _ ≤ (∑ u ∈ ({childL, childR} : Finset (Fin dag.n)),
+                                      Construction.computeSeedWidth φ numGates R_val u) := hsum_le
+                              _ ≤ Construction.computeSeedWidth φ numGates R_val childL +
+                                    Construction.computeSeedWidth φ numGates R_val childR := hsum_children_le
+                              _ ≤ (ReductionTree.clauseSetNode m l0).card * φ.nvars +
+                                    (ReductionTree.clauseSetNode m r0).card * φ.nvars := Nat.add_le_add hl_bound hr_bound
+                              _ = ((ReductionTree.clauseSetNode m l0).card + (ReductionTree.clauseSetNode m r0).card) * φ.nvars := by
+                                    ring
+                              _ = (ReductionTree.clauseSetNode m (m + red)).card * φ.nvars := by
+                                    simpa [hcard_add]
+                          -- rewrite RHS to `clauseDescendantCount`
+                          simpa [ReductionTree.clauseDescendantCount, ReductionTree.clauseSet] using this
+
+                        -- Apply to `v` itself and finish with `clauseDescendantCount_le`.
+                        have hv : v = vRed redIdx h_redIdx := by
+                          ext
+                          -- `v.val = clauseBase + m + redIdx` by definition of `redIdx`
+                          have hbase : φ.nvars + m + 1 ≤ v.val := by omega
+                          have hred : v.val - (φ.nvars + m + 1) = redIdx := by
+                            simp [redIdx, Nat.sub_sub, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+                          have : v.val = (φ.nvars + m + 1) + redIdx := by
+                            have h1 := Nat.sub_add_cancel hbase
+                            rw [hred] at h1; omega
+                          -- `clauseBase + m = φ.nvars + m + 1`
+                          simpa [vRed, clauseBase, this, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+                        have hseed_le : Construction.computeSeedWidth φ numGates R_val v ≤
+                            ReductionTree.clauseDescendantCount m redIdx * φ.nvars := by
+                          simpa [hv] using red_seedWidth_le redIdx h_redIdx
+                        have hcount_le : ReductionTree.clauseDescendantCount m redIdx ≤ m :=
+                          ReductionTree.clauseDescendantCount_le (m := m) (redIdx := redIdx) hm h_redIdx
+                        -- `seedWidth ≤ count*nvars ≤ m*nvars`
+                        have hsw_bound : Construction.computeSeedWidth φ numGates R_val v ≤ m * φ.nvars :=
+                          le_trans hseed_le (Nat.mul_le_mul_right _ hcount_le)
+                        -- Since R = 0, seedWidth v = parent sum, so parent sum ≤ m * nvars
+                        have h_parent_sum_eq : (∑ u ∈ dag.parents v, Construction.computeSeedWidth φ numGates R_val u) =
+                            Construction.computeSeedWidth φ numGates R_val v := by
+                          have hcap := Construction.seedWidth_satisfies_capacity φ numGates R_val v
+                          have hR0 : R_val v.val = 0 := h_R_zero
+                          simp only [hR0, Nat.add_zero] at hcap
+                          exact hcap
+                        simpa [m, dag, h_parent_sum_eq] using hsw_bound
               _ ≤ φ.nvars * φ.nvars := Nat.mul_le_mul_right _ h_nclauses_bound
 
       -- Lift: nvars² ≤ 2n² = 2 * nvars * nvars
