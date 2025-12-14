@@ -12,5 +12,4 @@ import Layer4_Operational.TuringMachine.TMEncoderDefs
 import Layer4_Operational.TimeBridge.TMAdapterExponential  -- Exponential profile
 
 -- Execution semantics
-import Layer4_Operational.ExecutionSemantics.ExecSemantics
 import Layer4_Operational.ExecutionSemantics.ExecutionSemantics

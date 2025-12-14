@@ -1,5 +1,4 @@
 import Layer3_InformationBounds.SegmentReduction.WorkLowerBounds
-import Layer4_Operational.ExecutionSemantics.ExecSemantics
 import Layer1_Construction.Core.SeedChain
 import Layer2_StructuralOWF.Plant.PlantCore
 import Layer2_StructuralOWF.Plant.PlantExponential
@@ -163,96 +162,6 @@ theorem injection_from_keyedness_and_coverage
   -- Package as embedding
   exact ⟨embedding_from_assignment assignment h_inj⟩
 
-/-! ## Step 3: Application to plant_flat
-
-Now we apply the abstract machinery to concrete plant_flat instances.
-The key is showing that plant_flat satisfies keyedness via A2 (encodeSeed_injective).
--/
-
-/-- For plant_flat instances with runFromSecurityGame, keyedness holds.
-
-**Proof**: Uses encodeSeed_injective from SeedChain.lean (A2 property).
-
-**Semantic note**: Even though runFromSecurityGame has segmentCount=1,
-the keyedness property is about the SEMANTIC requirement, not the claimed count.
-The contradiction between requirement (exponential) and claim (1) is what
-drives the OWF proof. -/
-theorem keyedness_for_plant_flat_security_run
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
-    (h_nvars : φ.nvars ≥ 128)
-    (h_aligned : AlignedCNFConstraints φ)
-    (A_inv : LStarInstanceFG → Randomness)
-    (C_A k_A C_Ext k_Ext : Nat)
-    (C : Finset (Fin (plant_flat n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned).dag.n))
-    : ∀ σ₁ σ₂ : {σ : LStar.StateFull (plant_flat n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull C //
-                      ReachableConfig C σ},
-      σ₁ ≠ σ₂ →
-      ∃ (v : LStar.InCut (plant_flat n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned).toLStarInstanceFull C),
-        σ₁.val v ≠ σ₂.val v := by
-  intro σ₁ σ₂ h_ne
-  -- Different subtypes have different values
-  have h_val_ne : σ₁.val ≠ σ₂.val := by
-    intro h_eq
-    have : σ₁ = σ₂ := by
-      cases σ₁; cases σ₂
-      simp [Subtype.mk.injEq] at h_eq
-      cases h_eq
-      rfl
-    exact h_ne this
-  -- Apply configs_have_different_seeds
-  exact configs_have_different_seeds σ₁.val σ₂.val h_val_ne
-
-/-! ## SHORT-TERM: Explicit Impossibility Lemmas
-
-These theorems make the contradiction explicit:
-- 2^λ > 1 (exponentially many configs from SCL)
-- segmentCount = 1 (from runFromSecurityGame definition)
-- injection: 2^λ configs ↪ 1 segment → FALSE!
--/
-
-/-- runFromSecurityGame has exactly 1 segment by definition. -/
-theorem runFromSecurityGame_segmentCount_eq_one
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 128)
-    (h_aligned : AlignedCNFConstraints φ)
-    (A_inv : LStarInstanceFG → Randomness)
-    (C_A k_A C_Ext k_Ext : Nat) (h_nonzero : C_A + C_Ext ≥ 1) (h_n_pos : 1 ≤ n)
-    : (runFromSecurityGame n φ r (nvars_ge_4_of_ge_128 h_nvars) h_aligned A_inv C_A k_A C_Ext k_Ext h_nonzero h_n_pos).segmentCount = 1 := by
-  -- Unfold definition from WorkLowerBounds.lean
-  -- runFromSecurityGame calls buildRun with default segCount := 1
-  unfold runFromSecurityGame buildRun
-  rfl
-
-/-- Core impossibility: cannot inject 2^k elements into 1 element when 2^k > 1.
-
-This is the heart of the contradiction! -/
-theorem injection_with_exp_configs_impossible
-    {k : Nat} (h_k_large : 2^k > 1)
-    (h_inj : Nonempty (Fin (2^k) ↪ Fin 1))
-    : False := by
-  -- Extract the injection
-  obtain ⟨inj⟩ := h_inj
-  -- Injection implies card(domain) ≤ card(codomain)
-  have h_card_le : Fintype.card (Fin (2^k)) ≤ Fintype.card (Fin 1) :=
-    Fintype.card_le_of_embedding inj
-  -- Simplify cardinalities
-  simp [Fintype.card_fin] at h_card_le
-  -- Now we have: 2^k ≤ 1, but h_k_large says 2^k > 1
-  omega
-
-/-! ## MULTI-GATE EXTENSION
-
-Extend the injection proof from singleton cuts to arbitrary multi-gate cuts.
-This is the key theorem needed to eliminate h_cut_injection_for completely.
-
-**Key insight**: For multi-gate cut C = {v1, v2, ..., vk}:
-- λ_total = Σ_{v∈C} R_v (sum of residuals)
-- 2^λ_total reachable configs (from SCL - already proven for arbitrary cuts!)
-- Injection into segments means 2^λ_total ≤ segmentCount
-- With segmentCount = 1: 2^λ_total ≤ 1 → contradiction
-
-The proof structure is identical to the singleton case, just using `lambdaTotal` instead of `lambdaBase`.
--/
-
 /-! ## Axiom Verification
 
 These definitions use only standard Lean foundations (propext, quot.sound, classical.choice).
@@ -261,8 +170,6 @@ No custom axioms are introduced.
 
 #print axioms keyedness_from_seed_injectivity
 #print axioms injection_from_keyedness_and_coverage
-#print axioms keyedness_for_plant_flat_security_run
-#print axioms runFromSecurityGame_segmentCount_eq_one
-#print axioms injection_with_exp_configs_impossible
+#print axioms configs_have_different_seeds
 
 end LStar.StructuralOWF.Foundations

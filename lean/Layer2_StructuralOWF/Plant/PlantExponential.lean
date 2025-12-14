@@ -5,7 +5,7 @@ import Layer3_InformationBounds.ConstraintSystem.ConstraintExtraction  -- For Re
 import Layer1_Construction.Core.LStarInstance
 import Layer1_Construction.Core.MultiLevelDAG
 import Infrastructure.Witness.VerifiedWitness  -- For totalRBits, HasCorrectDigests
-import Layer4_Operational.TuringMachine.TMEncoderDefs  -- For TM types used in bridge functions
+-- TMEncoderDefs removed: was causing circular dependency, usages are commented out
 import Mathlib.Tactic
 
 /-! ## PlantExponential: Exponential Profile Plant Function

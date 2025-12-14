@@ -2,7 +2,6 @@ import Layer3_InformationBounds.Keyedness.StateConfigCorrespondence
 import Layer3_InformationBounds.Support.TimingModel
 import Layer3_InformationBounds.Keyedness.LaneDefinitions
 import Layer3_InformationBounds.Support.ObservationModel
-import Layer3_InformationBounds.SegmentReduction.WorkLowerBounds
 import Layer3_InformationBounds.Keyedness.PlantedInstanceConsistency
 import Layer1_Construction.Core.SeedChain
 import Layer1_Construction.Properties.A2_Injectivity

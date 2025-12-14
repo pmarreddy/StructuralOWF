@@ -25,7 +25,6 @@ import Layer3_InformationBounds.SegmentReduction.SegmentReduction
 import Layer3_InformationBounds.SegmentReduction.SegmentCounting
 import Layer3_InformationBounds.SegmentReduction.SegmentBoundaries
 import Layer3_InformationBounds.SegmentReduction.SegmentInjection
-import Layer3_InformationBounds.SegmentReduction.SegmentWorkBounds
 -- SegmentSequentiality (experimental file, not in active proof chain) requires Mathlib API migration
 -- (List.Chain' → List.IsChain, cons → cons_cons, Chain'.tail field notation)
 -- import Layer3_InformationBounds.SegmentReduction.SegmentSequentiality
