@@ -1860,5 +1860,6 @@ def buildRun
     preFinalAgreement := 0  -- Conservative: no early resolution
     trace := opTrace }
 
+end  -- close noncomputable section
 
 end LStar.StructuralOWF.Foundations

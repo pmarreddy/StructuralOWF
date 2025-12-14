@@ -121,7 +121,7 @@ theorem alignedCNFFamily_bounded_solutions : ∃ c, CNFFamily.BoundedSolutions a
     r'.assignment = r.assignment = all_true. This closes the "assignment correspondence"
     gap in the OWF security proof. -/
 theorem alignedCNFFamily_unique_solution (n : Nat) (h_n : n ≥ 128)
-    (a : Assignment) (h_sat : (alignedCNFFamily n).satisfies a) :
+    (a : AssignmentInf) (h_sat : (alignedCNFFamily n).satisfies a) :
     ∀ i : Fin n, a i.val = true := by
   intro ⟨i, h_i⟩
   -- alignedCNFFamily n has clauses: [x₀], [x₁], ..., [x_{n-1}]

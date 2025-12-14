@@ -281,13 +281,14 @@ noncomputable def tmOutputWitnessEncoded
     {k : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
     [Fintype alphabet] [DecidableEq alphabet]
     {α : Type} [LStar.Complexity.Sized α]
+    {nvars : Nat}
     (M : TuringMachine k states alphabet)
     (enc : LStar.Complexity.TMInputEncodingBase α alphabet)
     (x : α)
     (t : Nat)
     (h_k_pos : 0 < k)
     (h_blank : M.blank = enc.blank)
-    (extractWitness : TMConfig M → Witness) : Witness :=
+    (extractWitness : TMConfig M → Witness nvars) : Witness nvars :=
   let init_cfg := LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank
   let final_cfg := (TMConfig.step (M := M))^[t] init_cfg
   extractWitness final_cfg
@@ -323,7 +324,8 @@ noncomputable def tmOutputWitnessEncoded
     arguments in the security proofs.
 -/
 theorem tm_algorithm_correspondence
-  (A : LStar.Complexity.StructuralOWFAdversary)
+  {nvars : Nat}
+  (A : LStar.Complexity.StructuralOWFAdversary nvars)
   (L : LStarInstanceFG)
   (c : Fin A.base.num_coins)
   (t : Nat)
@@ -358,11 +360,12 @@ theorem tm_algorithm_correspondence
 def TM_satisfies_nontrivial_computation
     {tapeCount : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
     [Fintype alphabet] [DecidableEq alphabet]
+    {nvars : Nat}
     (M : TuringMachine tapeCount states alphabet)
-    (extractWitness : TMConfig M → Witness) : Prop :=
+    (extractWitness : TMConfig M → Witness nvars) : Prop :=
   ∀ (haltTime : Nat) (φ : CNF),
     φ.nvars ≥ 4 →
-    φ.satisfies (tmOutputWitness M haltTime extractWitness).assignment →
+    φ.satisfies (tmOutputWitness M haltTime extractWitness).assignmentInf →
     haltTime ≥ 2
 
 /-! NontrivialComputation is a structural field in OWFAdversary (Layer5), not an axiom.
@@ -394,17 +397,19 @@ def TM_satisfies_nontrivial_computation
     5. Contradiction: Polynomial-time adversary cannot perform exponential work
 -/
 theorem ppt_adversary_correct_bridge
-  (A : LStar.Complexity.StructuralOWFAdversary)
+  {nvars : Nat}
+  (A : LStar.Complexity.StructuralOWFAdversary nvars)
   (L : LStarInstanceFG)
   (φ : CNF)  -- NOTE: Added φ as explicit parameter since L doesn't have .φ field
   (t : Nat)
   (c : Fin A.base.num_coins)
   (h_time : t ≥ A.base.C * (Complexity.Sized.size L + 1) ^ A.base.k)
-  (h_success : φ.satisfies (A.base.run c L).assignment)
+  (h_success : φ.satisfies (A.base.run c L).assignmentInf)
   : φ.satisfies (tmOutputWitnessEncoded A.base.M A.base.encoding.input (c, L) t
-      A.base.h_tape_pos A.base.h_blank_consistent A.base.extractWitness).assignment := by
+      A.base.h_tape_pos A.base.h_blank_consistent A.base.extractWitness).assignmentInf := by
   have h_tm_matches := tm_algorithm_correspondence A L c t h_time
-  rw [h_tm_matches]
+  -- .assignmentInf = .assignment.extend, so equal .assignment implies equal .assignmentInf
+  simp only [Witness.assignmentInf, Randomness.assignmentInf, h_tm_matches]
   exact h_success
 
 /-! ## Witness Extractor Structure
@@ -419,8 +424,9 @@ This makes the property definitional (structure field) rather than axiomatic.
 -/
 structure WitnessExtractor {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
+    {nvars : Nat}
     (M : TuringMachine k states alphabet) (h_k_pos : 0 < k) where
-  extract : TMConfig M → Witness
+  extract : TMConfig M → Witness nvars
   reads_tape0_only : ∀ (cfg1 cfg2 : TMConfig M),
       (∀ (i : Nat), cfg1.tapes ⟨0, h_k_pos⟩ i = cfg2.tapes ⟨0, h_k_pos⟩ i) →
       extract cfg1 = extract cfg2
@@ -428,8 +434,9 @@ structure WitnessExtractor {k : Nat} {states alphabet : Type}
 theorem witnessExtractor_deterministic
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
+    {nvars : Nat}
     {M : TuringMachine k states alphabet} {h_k_pos : 0 < k}
-    (extractor : WitnessExtractor M h_k_pos)
+    (extractor : WitnessExtractor (nvars := nvars) M h_k_pos)
     : ∀ (cfg1 cfg2 : TMConfig M),
         (∀ (i : Nat), cfg1.tapes ⟨0, h_k_pos⟩ i = cfg2.tapes ⟨0, h_k_pos⟩ i) →
         extractor.extract cfg1 = extractor.extract cfg2 :=
@@ -449,21 +456,27 @@ theorem witnessExtractor_deterministic
 /-- Domain-constrained OWF verifier: returns true iff plant equality AND CNF satisfaction.
 
     **Input**: ⟨n, (L, w)⟩ where n is security parameter, L is instance, w is witness
-    **Output**: true iff L = plant_flat(Φ_n, bitsToRandomness(w)) AND (Φ n).satisfies r.assignment
+    **Output**: true iff L = plant_flat(Φ_n, bitsToRandomness(w)) AND (Φ n).satisfies r.assignmentInf
 
-    **Domain Constraint**: Valid preimages must be in D(Φ) = {r | φ.satisfies r.assignment}.
+    **Domain Constraint**: Valid preimages must be in D(Φ) = {r | φ.satisfies r.assignmentInf}.
     This is still polynomial-time since CNF satisfaction is O(formula_size).
+
+    **Note**: Requires h_nvars_eq : (Φ n).nvars = n (standard CNF family pattern).
 -/
 noncomputable def verifyOWFInversion_sigma
     (Φ : LStar.StructuralOWF.Theorems.CNFFamily)
+    (h_nvars_eq : ∀ n ≥ 128, (Φ n).nvars = n)
     (h_nvars : ∀ n ≥ 128, (Φ n).nvars ≥ 4)
+    (h_aligned : ∀ n ≥ 128, AlignedCNFConstraints (Φ n))
     : (Σ n, LStarInstanceFG × LStar.Complexity.BitstringBridge.Bits (n + 128)) → Bool :=
   fun ⟨n, L, w⟩ =>
     if h : n ≥ 128 then
       -- Domain-constrained OWF: verify BOTH plant equality AND CNF satisfaction
       -- Note: Using dgLen=64 for fixed-size verification (n + 64 + 64 = n + 128)
       let r := LStar.Complexity.StructuralOWFBridge.bitsToRandomness n 64 (by omega) w
-      @decide (L = plant_flat n (Φ n) r (h_nvars n h) ∧ (Φ n).satisfies r.assignment)
+      -- Cast r from Randomness n to Randomness (Φ n).nvars using h_nvars_eq
+      let r' : Randomness (Φ n).nvars := (h_nvars_eq n h).symm ▸ r
+      @decide (L = plant_flat n (Φ n) r' (h_nvars n h) (h_aligned n h) ∧ (Φ n).satisfies r'.assignmentInf)
         (Classical.propDecidable _)
     else
       false
@@ -480,11 +493,13 @@ noncomputable def verifyOWFInversion_sigma
 -/
 noncomputable def verifyOWFInversion_algspec
     (Φ : LStar.StructuralOWF.Theorems.CNFFamily)
+    (h_nvars_eq : ∀ n ≥ 128, (Φ n).nvars = n)
     (h_nvars : ∀ n ≥ 128, (Φ n).nvars ≥ 4)
+    (h_aligned : ∀ n ≥ 128, AlignedCNFConstraints (Φ n))
     : LStar.Complexity.AlgSpec
         (Σ n, LStarInstanceFG × LStar.Complexity.BitstringBridge.Bits (n + 128))
         Bool 1 where
-  run := fun _ input => verifyOWFInversion_sigma Φ h_nvars input
+  run := fun _ input => verifyOWFInversion_sigma Φ h_nvars_eq h_nvars h_aligned input
   time_bound := fun n => 200 * (n + 1) ^ 3
   C := 200
   k := 3
@@ -493,8 +508,8 @@ noncomputable def verifyOWFInversion_algspec
   poly_explicit := fun _ => le_refl _
   time_bound_uniform := fun _ => le_refl _
   output_bounded := fun _ x => by
-    show LStar.Complexity.Sized.size (verifyOWFInversion_sigma Φ h_nvars x) ≤ 200 * (LStar.Complexity.Sized.size x + 1) ^ 3
-    have h_bool : LStar.Complexity.Sized.size (verifyOWFInversion_sigma Φ h_nvars x) = 1 := rfl
+    show LStar.Complexity.Sized.size (verifyOWFInversion_sigma Φ h_nvars_eq h_nvars h_aligned x) ≤ 200 * (LStar.Complexity.Sized.size x + 1) ^ 3
+    have h_bool : LStar.Complexity.Sized.size (verifyOWFInversion_sigma Φ h_nvars_eq h_nvars h_aligned x) = 1 := rfl
     rw [h_bool]
     have h1 : (LStar.Complexity.Sized.size x + 1) ^ 3 ≥ 1 := Nat.one_le_pow 3 _ (by omega)
     calc 1 ≤ 200 := by omega
@@ -515,7 +530,9 @@ noncomputable def verifyOWFInversion_algspec
 -/
 theorem plant_equality_tm_exists
     (Φ : LStar.StructuralOWF.Theorems.CNFFamily)
-    (h_nvars : ∀ n ≥ 128, (Φ n).nvars ≥ 4) :
+    (h_nvars_eq : ∀ n ≥ 128, (Φ n).nvars = n)
+    (h_nvars : ∀ n ≥ 128, (Φ n).nvars ≥ 4)
+    (h_aligned : ∀ n ≥ 128, AlignedCNFConstraints (Φ n)) :
   ∃ (alphabetSize : Nat) (h_alpha : alphabetSize > 0)
     (stateCount tapeCount C k : Nat)
     (_h_state_pos : stateCount > 0)
@@ -533,13 +550,13 @@ theorem plant_equality_tm_exists
       let init := LStar.Complexity.initWithEncodingBase M enc_in (⟨0, by omega⟩, input) h_tape_pos h_blank
       let final := (TMConfig.step (M := M))^[t] init
       enc_out.decode (LStar.Complexity.getTape0 final h_tape_pos) =
-        verifyOWFInversion_sigma Φ h_nvars input) ∧
+        verifyOWFInversion_sigma Φ h_nvars_eq h_nvars h_aligned input) ∧
     (∀ (input : Σ n, LStarInstanceFG × LStar.Complexity.BitstringBridge.Bits (n + 128)),
       let t := C * (LStar.Complexity.Sized.size input + 1) ^ k
       let init := LStar.Complexity.initWithEncodingBase M enc_in (⟨0, by omega⟩, input) h_tape_pos h_blank
       let final := (TMConfig.step (M := M))^[t] init
       final.state ∈ M.halt) := by
-  let A := verifyOWFInversion_algspec Φ h_nvars
+  let A := verifyOWFInversion_algspec Φ h_nvars_eq h_nvars h_aligned
   obtain ⟨M_randadv, h_run_eq, h_C_eq, h_k_eq⟩ := LStar.Complexity.algspec_has_tm A
   use M_randadv.alphabetSize, M_randadv.h_alphabet_pos
   use M_randadv.stateCount, M_randadv.tapeCount, M_randadv.C, M_randadv.k

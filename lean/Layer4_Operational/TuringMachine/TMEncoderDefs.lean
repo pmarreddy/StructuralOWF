@@ -162,7 +162,7 @@ noncomputable def tmEmergentEncoder {nvars : Nat}
 #print axioms planted_r
 #print axioms planted_n
 #print axioms planted_h_nvars
-#print axioms planted_h_dgLen
+#print axioms planted_h_aligned
 #print axioms tmOutputWitness
 #print axioms tmEmergentEncoder
 

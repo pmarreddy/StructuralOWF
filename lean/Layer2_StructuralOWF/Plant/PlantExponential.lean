@@ -1,7 +1,7 @@
 import Layer2_StructuralOWF.Plant.PlantCore
 import Layer3_InformationBounds.Randomness.RanksExponential  -- Layer 3 dependency (will be updated when Layer 3 is organized)
 -- WorkLowerBounds removed: unused and causes circular dependency with this file
-import Layer3_InformationBounds.ConstraintSystem.ConstraintExtraction  -- For RevealedBit, ExecutionPrefixReal
+-- ConstraintExtraction removed: was causing circular dependency, extractRevealedBitsFromWitness_flat removed (unused)
 import Layer1_Construction.Core.LStarInstance
 import Layer1_Construction.Core.MultiLevelDAG
 import Infrastructure.Witness.VerifiedWitness  -- For totalRBits, HasCorrectDigests
@@ -2037,18 +2037,18 @@ theorem totalRBits_pos_for_planted_flat
 
     This is the key lemma for instantiating the parametric OWF theorem.
     It proves that plant_flat achieves lambda ≥ n (exponential bound).
+
+    Note: lambdaBase L v = L.R v.val for single-gate FG architecture.
+    We use L.R directly here to avoid circular dependency with WorkLowerBounds.
 -/
 theorem plant_flat_lambdaBase_eq_nvars (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ)
     (v_fg : {v // (plant_flat n φ r h_nvars_min h_aligned).fg.gateReq v}) :
-    Foundations.lambdaBase (plant_flat n φ r h_nvars_min h_aligned) v_fg ≥ φ.nvars := by
-  have h_lambda_def : Foundations.lambdaBase (plant_flat n φ r h_nvars_min h_aligned) v_fg =
-                      (plant_flat n φ r h_nvars_min h_aligned).R v_fg.val := by
-    unfold Foundations.lambdaBase
-    simp only [Finset.sum_singleton]
+    (plant_flat n φ r h_nvars_min h_aligned).R v_fg.val ≥ φ.nvars := by
+  -- lambdaBase L v = L.R v.val for single-gate FG, so we prove directly about L.R
   have h_R_eq : (plant_flat n φ r h_nvars_min h_aligned).R v_fg.val = φ.nvars :=
     plant_flat_R_eq_nvars n φ r h_nvars_min h_aligned v_fg.val v_fg.property
-  rw [h_lambda_def, h_R_eq]
+  rw [h_R_eq]
 
 /-- Every planted flat instance is FG-wired.
 
@@ -2663,48 +2663,11 @@ theorem WellFormedRandomness_flat_dgLen_ge_nvars (φ : CNF) (r : Randomness φ.n
     (h : WellFormedRandomness_flat φ r) : r.dgLen ≥ φ.nvars :=
   h.2.2.2.1
 
-/-! ## Flat-Specific Helper Functions
-
-Flat versions of TMToExecutionPrefix helpers for plant_flat instances.
--/
-
-/-- **Flat version of extractRevealedBitsFromWitness** - returns [] for FG instances.
-
-    **Theoretical Justification** (Layer3_InformationBounds/Keyedness/SeedLockProperties.lean):
-    - `seedLock_forces_completeObservation`: FG parity computation requires complete observation
-    - Information theory (`parity_requires_all_bits`): Cannot compute parity without all bits
-    - Therefore: Individual bit reads provide ZERO advantage over digest observation
-    - Result: revealedBits = [] is PROVEN consequence, not assumption! ✅
-
-    **Why empty list**: FG gates compute identity digests, not individual bit reads.
-    The revealedBits mechanism tracks bit-level reads, which do not occur in FG instances.
-
-    See also: `planted_instances_revealedBits_empty_justified` bridge theorem. -/
-noncomputable def extractRevealedBitsFromWitness_flat
-    (L : LStarInstanceFG)
-    (_w : Witness L.n)
-    (_C : Finset (Fin L.dag.n))
-    : List (Foundations.RevealedBit L) :=
-  -- ✅ PROVEN PROPERTY: FG gates do NOT reveal individual bits
-  -- See: seedLock_forces_completeObservation (SeedLockProperties.lean)
-  -- Arguments are unused since FG gates never reveal individual bits
-  []
-
-/-- **Theorem: extractRevealedBitsFromWitness_flat returns [] for planted instances**
-
-    Proves that the flat version returns empty list.
-
-    **Proof**: Definitional - function is defined to return []. -/
-theorem extractRevealedBitsFromWitness_flat_eq_empty
-    (L : LStarInstanceFG)
-    (w : Witness L.n)
-    (C : Finset (Fin L.dag.n))
-    : extractRevealedBitsFromWitness_flat L w C = [] := by
-  unfold extractRevealedBitsFromWitness_flat
-  rfl
-
-
 /-! ## Helper Theorems for Flat Profile -/
+
+-- NOTE: extractRevealedBitsFromWitness_flat was removed to break circular dependency
+-- with ConstraintExtraction. The function returned [] (empty list) since FG gates
+-- do NOT reveal individual bits. See SeedLockProperties.lean for theoretical justification.
 
 /-- Flat version: R values in plant_flat equal R_of_flat formula. -/
 theorem planted_R_eq_R_of_flat

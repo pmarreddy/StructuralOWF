@@ -83,7 +83,7 @@ structure WitnessFinderBridge (L : LStarInstanceFG) (W : WitnessFinder L) (lambd
 
       **Time preservation**: run.time MUST equal W.time - this is the key property
       that lets us transfer lower bounds from the run back to the witness finder. -/
-  run : DeterministicRun Assignment Witness
+  run : DeterministicRun AssignmentInf AssignmentInf
 
   /-- Segment decomposition of the run.
 
@@ -234,7 +234,7 @@ noncomputable def witnessFinderBridgeSingleRun
       (h_exhaustive := h_exhaustive)
   let coverage : SingleRunCoverage L W {v.val} lambda := Classical.choose data
   let data₁ := Classical.choose_spec data
-  let run : DeterministicRun Assignment Witness := Classical.choose data₁
+  let run : DeterministicRun AssignmentInf AssignmentInf := Classical.choose data₁
   let data₂ := Classical.choose_spec data₁
   let segments : Fin run.segmentCount → Segment := Classical.choose data₂
   let data₃ := Classical.choose_spec data₂
