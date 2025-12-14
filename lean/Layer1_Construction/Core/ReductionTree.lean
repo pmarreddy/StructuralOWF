@@ -601,6 +601,178 @@ private lemma simpleChildIndices_at_level (m k i : Nat) (h_i : i < levelPairs m 
     _ = nthPairChildren i (levelItems m k) := by
         simp [childIndicesAux, hpairs_ne, hlt]
 
+private lemma pairCount_map {α β : Type} (f : α → β) :
+    ∀ l : List α, pairCount (l.map f) = pairCount l := by
+  intro l
+  -- strong induction on list length (since `pairCount` consumes 2 items per step)
+  let P : Nat → Prop :=
+    fun n => ∀ l : List α, l.length = n → pairCount (l.map f) = pairCount l
+  have hP : ∀ n, P n := by
+    intro n
+    refine Nat.strongRecOn n (fun n ih => ?_)
+    intro l hl
+    cases l with
+    | nil =>
+        simp [pairCount] at hl
+        subst hl
+        simp [pairCount]
+    | cons a t =>
+        cases t with
+        | nil =>
+            simp at hl
+            subst hl
+            simp [pairCount]
+        | cons b rest =>
+            have hrest_len : rest.length < n := by
+              have : rest.length + 2 = n := by simpa using hl
+              omega
+            have hrest : pairCount (rest.map f) = pairCount rest := by
+              have := ih rest.length hrest_len
+              exact this rest rfl
+            simp [pairCount, hrest]
+  exact hP l.length l rfl
+
+private lemma nextItems_map_add (base nextNodeIdx : Nat) (items : List Nat) :
+    nextItems (base + nextNodeIdx) (items.map (fun x => base + x)) =
+      (nextItems nextNodeIdx items).map (fun x => base + x) := by
+  unfold nextItems
+  set pairs := pairCount items
+  have hpairs : pairCount (items.map (fun x => base + x)) = pairs := by
+    simpa [pairs] using (pairCount_map (f := fun x : Nat => base + x) items)
+  -- rewrite `pairs` on the LHS to match the RHS
+  simp [pairs, hpairs, List.map_append, List.map_map, List.map_drop, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+
+private lemma nthPairChildren_map_add (base n : Nat) (items : List Nat) (h : n < pairCount items) :
+    nthPairChildren n (items.map (fun x => base + x)) =
+      (base + (nthPairChildren n items).1, base + (nthPairChildren n items).2) := by
+  induction n generalizing items with
+  | zero =>
+      cases items with
+      | nil => simpa [pairCount] using h
+      | cons a t =>
+          cases t with
+          | nil => simpa [pairCount] using h
+          | cons b rest =>
+              simp [nthPairChildren]
+  | succ n ih =>
+      cases items with
+      | nil => simpa [pairCount] using h
+      | cons a t =>
+          cases t with
+          | nil => simpa [pairCount] using h
+          | cons b rest =>
+              have h' : n < pairCount rest := by
+                -- `pairCount (_::_::rest) = pairCount rest + 1`
+                simpa [pairCount, Nat.succ_eq_add_one, Nat.add_assoc] using (Nat.lt_of_succ_lt_succ h)
+              simpa [nthPairChildren] using ih (items := rest) h'
+
+private lemma childIndicesAux_offset_eq_level_add (clauseBase m : Nat) :
+    ∀ k i,
+      childIndicesAux clauseBase m (levelOffset m k + i) (clauseBase + m)
+        ((List.range m).map (fun j => clauseBase + j)) =
+        childIndicesAux clauseBase m i (clauseBase + levelNext m k)
+          ((levelItems m k).map (fun j => clauseBase + j)) := by
+  intro k
+  induction k with
+  | zero =>
+      intro i
+      simp [levelOffset, levelNext, levelItems, levelState]
+  | succ k ih =>
+      intro i
+      set next0 := levelNext m k
+      set items0 := levelItems m k
+      set pairs := levelPairs m k
+      have h_off : levelOffset m (k + 1) = levelOffset m k + pairs := by
+        simpa [pairs, levelPairs] using (levelOffset_succ (m := m) (k := k))
+      have h_idx :
+          levelOffset m (k + 1) + i = levelOffset m k + (pairs + i) := by
+        simp [h_off, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+      have ih' :
+          childIndicesAux clauseBase m (levelOffset m k + (pairs + i)) (clauseBase + m)
+              ((List.range m).map (fun j => clauseBase + j)) =
+            childIndicesAux clauseBase m (pairs + i) (clauseBase + next0)
+              (items0.map (fun j => clauseBase + j)) := by
+        simpa [next0, items0, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using ih (i := pairs + i)
+      by_cases hp0 : pairs = 0
+      · -- stable level
+        have h_next : levelNext m (k + 1) = next0 := by
+          simp [next0, pairs, hp0, levelNext_succ]
+        have h_items0 : nextItems next0 items0 = items0 := by
+          have : pairCount items0 = 0 := by simpa [pairs, levelPairs, items0] using hp0
+          simp [nextItems, this]
+        have h_items : levelItems m (k + 1) = items0 := by
+          simpa [items0, next0, h_items0] using (levelItems_succ (m := m) (k := k))
+        have h_off' : levelOffset m (k + 1) = levelOffset m k := by simp [h_off, hp0]
+        simpa [h_idx, hp0, h_next, h_items, h_off', next0, items0] using ih'
+      · -- real reduction step
+        have hpc : pairCount (items0.map (fun j => clauseBase + j)) = pairs := by
+          simpa [pairs, levelPairs, items0] using
+            (pairCount_map (f := fun x : Nat => clauseBase + x) items0)
+        have h_not_lt : ¬ (pairs + i < pairCount (items0.map (fun j => clauseBase + j))) := by
+          have : ¬ (pairs + i < pairs) := Nat.not_lt.mpr (Nat.le_add_right pairs i)
+          simpa [hpc] using this
+        have hpairs_ne : pairCount (items0.map (fun j => clauseBase + j)) ≠ 0 := by
+          simpa [hpc] using hp0
+        have h_step :
+            childIndicesAux clauseBase m (pairs + i) (clauseBase + next0) (items0.map (fun j => clauseBase + j)) =
+              childIndicesAux clauseBase m i ((clauseBase + next0) + pairs)
+                (nextItems (clauseBase + next0) (items0.map (fun j => clauseBase + j))) := by
+          have h1 :
+              childIndicesAux clauseBase m (pairs + i) (clauseBase + next0) (items0.map (fun j => clauseBase + j)) =
+                childIndicesAux clauseBase m ((pairs + i) - pairCount (items0.map (fun j => clauseBase + j)))
+                  ((clauseBase + next0) + pairCount (items0.map (fun j => clauseBase + j)))
+                  (nextItems (clauseBase + next0) (items0.map (fun j => clauseBase + j))) := by
+            conv_lhs => unfold childIndicesAux
+            simp [hpairs_ne, h_not_lt]
+          simpa [hpc, Nat.add_sub_cancel_left, Nat.add_assoc] using h1
+        have h_next : levelNext m (k + 1) = next0 + pairs := by
+          simpa [next0, pairs, levelPairs] using (levelNext_succ (m := m) (k := k))
+        have h_items : levelItems m (k + 1) = nextItems next0 items0 := by
+          simpa [next0, items0] using (levelItems_succ (m := m) (k := k))
+        have h_items_map :
+            nextItems (clauseBase + next0) (items0.map (fun j => clauseBase + j)) =
+              (nextItems next0 items0).map (fun j => clauseBase + j) := by
+          simpa using (nextItems_map_add (base := clauseBase) (nextNodeIdx := next0) (items := items0))
+        calc
+          childIndicesAux clauseBase m (levelOffset m (k + 1) + i) (clauseBase + m)
+              ((List.range m).map (fun j => clauseBase + j))
+              = childIndicesAux clauseBase m (levelOffset m k + (pairs + i)) (clauseBase + m)
+                  ((List.range m).map (fun j => clauseBase + j)) := by
+                    simpa [h_idx]
+          _ = childIndicesAux clauseBase m (pairs + i) (clauseBase + next0)
+                (items0.map (fun j => clauseBase + j)) := ih'
+          _ = childIndicesAux clauseBase m i ((clauseBase + next0) + pairs)
+                (nextItems (clauseBase + next0) (items0.map (fun j => clauseBase + j))) := h_step
+          _ = childIndicesAux clauseBase m i (clauseBase + levelNext m (k + 1))
+                ((levelItems m (k + 1)).map (fun j => clauseBase + j)) := by
+                simp [h_next, h_items, h_items_map, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+
+private lemma simpleChildIndices_at_level_add (clauseBase m k i : Nat) (h_i : i < levelPairs m k) :
+    simpleChildIndices clauseBase m (levelOffset m k + i) =
+      (clauseBase + (nthPairChildren i (levelItems m k)).1, clauseBase + (nthPairChildren i (levelItems m k)).2) := by
+  unfold simpleChildIndices
+  dsimp
+  have h0 := childIndicesAux_offset_eq_level_add (clauseBase := clauseBase) (m := m) (k := k) (i := i)
+  have hlt : i < pairCount (levelItems m k) := by simpa [levelPairs] using h_i
+  have hpairs_ne : pairCount ((levelItems m k).map (fun j => clauseBase + j)) ≠ 0 := by
+    have : pairCount (levelItems m k) ≠ 0 := Nat.ne_of_gt (lt_of_le_of_lt (Nat.zero_le i) hlt)
+    have hpc : pairCount ((levelItems m k).map (fun j => clauseBase + j)) = pairCount (levelItems m k) := by
+      simpa using (pairCount_map (f := fun j : Nat => clauseBase + j) (levelItems m k))
+    simpa [hpc] using this
+  have hlt' : i < pairCount ((levelItems m k).map (fun j => clauseBase + j)) := by
+    have hpc : pairCount ((levelItems m k).map (fun j => clauseBase + j)) = pairCount (levelItems m k) := by
+      simpa using (pairCount_map (f := fun j : Nat => clauseBase + j) (levelItems m k))
+    simpa [hpc] using hlt
+  calc
+    childIndicesAux clauseBase m (levelOffset m k + i) (clauseBase + m)
+        ((List.range m).map (fun j => clauseBase + j))
+        = childIndicesAux clauseBase m i (clauseBase + levelNext m k)
+            ((levelItems m k).map (fun j => clauseBase + j)) := h0
+    _ = nthPairChildren i ((levelItems m k).map (fun j => clauseBase + j)) := by
+          simp [childIndicesAux, hpairs_ne, hlt']
+    _ = (clauseBase + (nthPairChildren i (levelItems m k)).1, clauseBase + (nthPairChildren i (levelItems m k)).2) := by
+          simpa using (nthPairChildren_map_add (base := clauseBase) (n := i) (items := levelItems m k) hlt)
+
 /-!
 ## Disjointness (airtight path)
 
@@ -610,6 +782,32 @@ the left and right subtrees under any reduction node must have disjoint clause-l
 
 private def ItemsDisjoint (m : Nat) (items : List Nat) : Prop :=
   items.Pairwise (fun a b => Disjoint (clauseSetNode m a) (clauseSetNode m b))
+
+private lemma range_get (m : Nat) (i : Fin (List.range m).length) :
+    (List.range m).get i = (i : Nat) := by
+  -- bridge `List.get` and `getElem`, then use the `range'` indexing lemma
+  rw [List.get_eq_getElem]
+  have hi : (i : Nat) < (List.range' 0 m).length := by
+    simpa [List.range_eq_range'] using i.isLt
+  calc
+    (List.range m)[(i : Nat)] = (List.range' 0 m)[(i : Nat)] := by
+      simp [List.range_eq_range']
+    _ = (0 : Nat) + (i : Nat) := List.getElem_range'_1 (n := 0) (m := m) (i := (i : Nat)) hi
+    _ = (i : Nat) := by simp
+
+private lemma ItemsDisjoint_range (m : Nat) :
+    ItemsDisjoint m (List.range m) := by
+  unfold ItemsDisjoint
+  -- use the indexing characterization of `Pairwise`
+  rw [List.pairwise_iff_get]
+  intro i j hij
+  have hi_lt : (i : Nat) < m := by simpa using (show (i : Nat) < (List.range m).length from i.isLt)
+  have hj_lt : (j : Nat) < m := by simpa using (show (j : Nat) < (List.range m).length from j.isLt)
+  have hij' : (i : Nat) < (j : Nat) := hij
+  have hne : (i : Nat) ≠ (j : Nat) := ne_of_lt hij'
+  have hne' : (j : Nat) ≠ (i : Nat) := Ne.symm hne
+  -- all elements of `List.range m` are leaves, so clause sets are singletons
+  simp [range_get, clauseSetNode_leaf, hi_lt, hj_lt, Finset.disjoint_singleton, hne']
 
 private lemma nthPairChildren_mem {n : Nat} {items : List Nat} (h : n < pairCount items) :
     (nthPairChildren n items).1 ∈ items ∧ (nthPairChildren n items).2 ∈ items := by
@@ -670,6 +868,76 @@ private lemma nthPairChildren_children_disjoint (m n : Nat) (items : List Nat)
               have h' : n < pairCount rest := by
                 simpa [pairCount, Nat.succ_eq_add_one, Nat.add_assoc] using (Nat.lt_of_succ_lt_succ h)
               simpa [nthPairChildren] using ih (items := rest) h_tail h'
+
+private lemma nthPairChildren_mem_take_paired {n : Nat} {items : List Nat} (h : n < pairCount items) :
+    (nthPairChildren n items).1 ∈ items.take (2 * pairCount items) ∧
+      (nthPairChildren n items).2 ∈ items.take (2 * pairCount items) := by
+  induction n generalizing items with
+  | zero =>
+      cases items with
+      | nil => simpa [pairCount] using h
+      | cons a t =>
+          cases t with
+          | nil => simpa [pairCount] using h
+          | cons b rest =>
+              -- `take (2 * (pairCount rest + 1)) (a::b::rest)` contains `a` and `b`
+              have hmul : 2 * pairCount (a :: b :: rest) = 2 + 2 * pairCount rest := by
+                simp [pairCount, Nat.mul_add, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+              constructor
+              · -- `a` is the head of the taken list
+                -- rewrite `2 + t` as `t + 2` so the addition reduces
+                rw [hmul]
+                rw [Nat.add_comm 2 (2 * pairCount rest)]
+                simp [nthPairChildren, pairCount]
+              · -- `b` is the second element of the taken list
+                rw [hmul]
+                rw [Nat.add_comm 2 (2 * pairCount rest)]
+                simp [nthPairChildren, pairCount]
+  | succ n ih =>
+      cases items with
+      | nil => simpa [pairCount] using h
+      | cons a t =>
+          cases t with
+          | nil => simpa [pairCount] using h
+          | cons b rest =>
+              have h' : n < pairCount rest := by
+                simpa [pairCount, Nat.succ_eq_add_one, Nat.add_assoc] using (Nat.lt_of_succ_lt_succ h)
+              have ih' := ih (items := rest) h'
+              constructor
+              ·
+                  -- lift membership from `rest` into the larger `take`
+                  have hmem : (nthPairChildren n rest).1 ∈ rest.take (2 * pairCount rest) := ih'.1
+                  have htake :
+                      (a :: b :: rest).take (2 * pairCount (a :: b :: rest)) =
+                        a :: b :: (rest.take (2 * pairCount rest)) := by
+                    -- `pairCount (a::b::rest) = pairCount rest + 1`, and `take` of a `2+...` prefix peels two conses
+                    have hmul : 2 * pairCount (a :: b :: rest) = 2 + 2 * pairCount rest := by
+                      simp [pairCount, Nat.mul_add, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+                    rw [hmul]
+                    rw [Nat.add_comm 2 (2 * pairCount rest)]
+                    simp
+                  -- rewrite the target `take`, then lift membership through the two conses
+                  rw [htake]
+                  exact List.mem_cons_of_mem a (List.mem_cons_of_mem b hmem)
+              ·
+                  have hmem : (nthPairChildren n rest).2 ∈ rest.take (2 * pairCount rest) := ih'.2
+                  have htake :
+                      (a :: b :: rest).take (2 * pairCount (a :: b :: rest)) =
+                        a :: b :: (rest.take (2 * pairCount rest)) := by
+                    have hmul : 2 * pairCount (a :: b :: rest) = 2 + 2 * pairCount rest := by
+                      simp [pairCount, Nat.mul_add, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+                    rw [hmul]
+                    rw [Nat.add_comm 2 (2 * pairCount rest)]
+                    simp
+                  rw [htake]
+                  exact List.mem_cons_of_mem a (List.mem_cons_of_mem b hmem)
+
+private lemma disjoint_union_union {α : Type} [DecidableEq α] (A B C D : Finset α)
+    (hAC : Disjoint A C) (hAD : Disjoint A D) (hBC : Disjoint B C) (hBD : Disjoint B D) :
+    Disjoint (A ∪ B) (C ∪ D) := by
+  have h1 : Disjoint (A ∪ B) C := (Finset.disjoint_union_left).2 ⟨hAC, hBC⟩
+  have h2 : Disjoint (A ∪ B) D := (Finset.disjoint_union_left).2 ⟨hAD, hBD⟩
+  exact (Finset.disjoint_union_right).2 ⟨h1, h2⟩
 
 private lemma nthPairChildren_cross_disjoint (m : Nat) :
     ∀ {i j : Nat} {items : List Nat},
@@ -736,6 +1004,353 @@ private lemma nthPairChildren_cross_disjoint (m : Nat) :
                     simpa [pairCount, Nat.succ_eq_add_one, Nat.add_assoc] using (Nat.lt_of_succ_lt_succ hj)
                   -- rewrite both pairs into `rest` and apply IH
                   simpa [nthPairChildren] using ih (j := j') (items := rest) h_rest hij' hj'
+
+private lemma m_le_levelNext (m : Nat) : ∀ k, m ≤ levelNext m k := by
+  intro k
+  induction k with
+  | zero =>
+      simp [levelNext, levelState]
+  | succ k ih =>
+      have : levelNext m k ≤ levelNext m (k + 1) := by
+        simp [levelNext_succ, Nat.le_add_right]
+      exact le_trans ih this
+
+private lemma clauseSetNode_levelNext_add_eq_union (m k i : Nat) (h_m : m > 1) (h_i : i < levelPairs m k) :
+    clauseSetNode m (levelNext m k + i) =
+      clauseSetNode m (nthPairChildren i (levelItems m k)).1 ∪
+        clauseSetNode m (nthPairChildren i (levelItems m k)).2 := by
+  -- rewrite node index as `m + redIdx`
+  have h_red : levelOffset m k + i < size m := levelOffset_add_lt_size (m := m) (k := k) (i := i) h_m h_i
+  have hmle : m ≤ levelNext m k := m_le_levelNext (m := m) k
+  have h_idx : levelNext m k + i = m + (levelOffset m k + i) := by
+    have hnext : levelNext m k = m + levelOffset m k := by
+      unfold levelOffset
+      -- `Nat.sub_add_cancel hmle : levelNext - m + m = levelNext`
+      simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using (Nat.sub_add_cancel hmle).symm
+    calc
+      levelNext m k + i = (m + levelOffset m k) + i := by simpa [hnext]
+      _ = m + (levelOffset m k + i) := by simp [Nat.add_assoc]
+  -- unfold at the corresponding reduction node
+  have hunion := clauseSetNode_reduction_eq_union (m := m) (redIdx := levelOffset m k + i) h_red
+  -- identify children as the `nthPairChildren` of this level
+  have hchild :
+      simpleChildIndices 0 m (levelOffset m k + i) = nthPairChildren i (levelItems m k) := by
+    simpa using (simpleChildIndices_at_level (m := m) (k := k) (i := i) h_i)
+  -- finish
+  simpa [h_idx, hchild] using hunion
+
+private lemma ItemsDisjoint_levelItems (m : Nat) (h_m : m > 1) :
+    ∀ k, ItemsDisjoint m (levelItems m k) := by
+  intro k
+  induction k with
+  | zero =>
+      simp [levelItems, levelState, ItemsDisjoint_range]
+  | succ k ih =>
+      -- abbreviations
+      set items := levelItems m k
+      set next := levelNext m k
+      set pairs := levelPairs m k
+      have h_items : ItemsDisjoint m items := by simpa [items] using ih
+      -- split `items` into paired prefix and carry tail
+      let n := 2 * pairCount items
+      have hpairwise_split :
+          (items.take n).Pairwise (fun a b => Disjoint (clauseSetNode m a) (clauseSetNode m b)) ∧
+            (items.drop n).Pairwise (fun a b => Disjoint (clauseSetNode m a) (clauseSetNode m b)) ∧
+              ∀ a, a ∈ items.take n → ∀ b, b ∈ items.drop n →
+                Disjoint (clauseSetNode m a) (clauseSetNode m b) := by
+        have hpa :
+            (items.take n ++ items.drop n).Pairwise (fun a b => Disjoint (clauseSetNode m a) (clauseSetNode m b)) := by
+          simpa [n, items, List.take_append_drop, ItemsDisjoint] using h_items
+        simpa using (List.pairwise_append.1 hpa)
+      have h_take := hpairwise_split.1
+      have h_drop := hpairwise_split.2.1
+      have h_cross := hpairwise_split.2.2
+      -- show the new nodes (the `range pairs` mapped) are pairwise disjoint
+      have h_new :
+          ((List.range pairs).map (fun i => next + i)).Pairwise
+            (fun a b => Disjoint (clauseSetNode m a) (clauseSetNode m b)) := by
+        -- use `pairwise_map` to reduce to a Pairwise statement on `List.range pairs`
+        apply (List.pairwise_map).2
+        -- now prove Pairwise on indices `i<j<pairs`
+        rw [List.pairwise_iff_get]
+        intro i j hij
+        have hi_lt : (i : Nat) < pairs := by
+          simpa [pairs] using (show (i : Nat) < (List.range pairs).length from i.isLt)
+        have hj_lt : (j : Nat) < pairs := by
+          simpa [pairs] using (show (j : Nat) < (List.range pairs).length from j.isLt)
+        have hij' : (i : Nat) < (j : Nat) := hij
+        have hgi : (List.range pairs).get i = (i : Nat) := range_get pairs i
+        have hgj : (List.range pairs).get j = (j : Nat) := range_get pairs j
+        -- expand each new node as a union of its two children (at level `k`)
+        have hi_pairs : (i : Nat) < levelPairs m k := by simpa [pairs, levelPairs, items] using hi_lt
+        have hj_pairs : (j : Nat) < levelPairs m k := by simpa [pairs, levelPairs, items] using hj_lt
+        have hUi := clauseSetNode_levelNext_add_eq_union (m := m) (k := k) (i := (i : Nat)) h_m hi_pairs
+        have hUj := clauseSetNode_levelNext_add_eq_union (m := m) (k := k) (i := (j : Nat)) h_m hj_pairs
+        -- disjointness between the four child combinations
+        have hcross' :=
+          nthPairChildren_cross_disjoint (m := m) (i := (i : Nat)) (j := (j : Nat)) (items := items)
+            h_items hij' (by simpa [pairs, levelPairs, items] using hj_lt)
+        -- package into disjointness of unions
+        have hdisj :=
+          disjoint_union_union
+            (clauseSetNode m (nthPairChildren (i : Nat) items).1)
+            (clauseSetNode m (nthPairChildren (i : Nat) items).2)
+            (clauseSetNode m (nthPairChildren (j : Nat) items).1)
+            (clauseSetNode m (nthPairChildren (j : Nat) items).2)
+            hcross'.1 hcross'.2.1 hcross'.2.2.1 hcross'.2.2.2
+        -- rewrite the goal into the union form, then close with `hdisj` (avoid simp expanding `Disjoint _ (∪_)`)
+        have hUi' :
+            clauseSetNode m (next + (i : Nat)) =
+              clauseSetNode m (nthPairChildren (i : Nat) items).1 ∪
+                clauseSetNode m (nthPairChildren (i : Nat) items).2 := by
+          simpa [next, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hUi
+        have hUj' :
+            clauseSetNode m (next + (j : Nat)) =
+              clauseSetNode m (nthPairChildren (j : Nat) items).1 ∪
+                clauseSetNode m (nthPairChildren (j : Nat) items).2 := by
+          simpa [next, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hUj
+        -- `Pairwise` goal uses `get` from `List.range`
+        -- so first rewrite those gets, then rewrite by `hUi'`/`hUj'`.
+        -- (the goal is `Disjoint (clauseSetNode m (next + (range.get i))) (clauseSetNode m (next + (range.get j)))`)
+        -- (after rewriting: `Disjoint (clauseSetNode m (next + i)) (clauseSetNode m (next + j))`)
+        simpa [hgi, hgj] using (by
+          -- now in the simplified goal
+          -- rewrite both sides to unions and finish
+          simpa [hUi', hUj'] using hdisj)
+      -- now assemble `nextItems`: newNodes ++ carryTail
+      have h_items_succ : levelItems m (k + 1) = nextItems next items := by
+        simpa [next, items] using (levelItems_succ (m := m) (k := k))
+      -- `nextItems next items = newNodes ++ items.drop (2*pairs)`
+      unfold nextItems at h_items_succ
+      -- restate with `items`/`pairs`/`next`
+      have h_items_succ' :
+          levelItems m (k + 1) = ((List.range pairs).map (fun i => next + i)) ++ (items.drop (2 * pairs)) := by
+        simpa [h_items_succ, pairs, levelPairs, items, next, List.map_append, List.map_map, Nat.add_assoc]
+      -- prove Pairwise on the append via `pairwise_append`
+      unfold ItemsDisjoint
+      -- show: Pairwise R (newNodes ++ tail)
+      rw [h_items_succ']
+      -- use `pairwise_append` characterization
+      rw [List.pairwise_append]
+      refine ⟨h_new, ?_, ?_⟩
+      · -- tail is a drop of `items`, so inherits Pairwise from the split lemma
+        simpa [pairs, levelPairs, items, n] using h_drop
+      · intro a ha b hb
+        -- `a` is a fresh node `next + i` for some `i < pairs`
+        rcases List.mem_map.1 ha with ⟨i, hi, rfl⟩
+        have hi_lt : i < pairs := by simpa [List.mem_range] using hi
+        have hi_pairs : i < levelPairs m k := by simpa [pairs, levelPairs, items] using hi_lt
+        have hU := clauseSetNode_levelNext_add_eq_union (m := m) (k := k) (i := i) h_m hi_pairs
+        -- `b` is in the carry tail `items.drop (2*pairs)`, so also in `items.drop n`
+        have hb' : b ∈ items.drop n := by
+          simpa [n, pairs, levelPairs, items] using hb
+        -- children are in the paired prefix `items.take n`
+        have hmem := nthPairChildren_mem_take_paired (items := items) (n := i) (by simpa [pairs, levelPairs, items] using hi_lt)
+        have h1 : Disjoint (clauseSetNode m (nthPairChildren i items).1) (clauseSetNode m b) :=
+          h_cross _ hmem.1 _ hb'
+        have h2 : Disjoint (clauseSetNode m (nthPairChildren i items).2) (clauseSetNode m b) :=
+          h_cross _ hmem.2 _ hb'
+        -- conclude union disjointness
+        have : Disjoint (clauseSetNode m (nthPairChildren i items).1 ∪ clauseSetNode m (nthPairChildren i items).2)
+            (clauseSetNode m b) :=
+          (Finset.disjoint_union_left).2 ⟨h1, h2⟩
+        -- avoid `simp` rewriting `Disjoint (A ∪ B) _` into a conjunction
+        have hU' :
+            clauseSetNode m (next + i) =
+              clauseSetNode m (nthPairChildren i items).1 ∪ clauseSetNode m (nthPairChildren i items).2 := by
+          simpa [next] using hU
+        rw [hU']
+        exact this
+
+private lemma levelItems_length_pos (m k : Nat) (h_m0 : 0 < m) : 0 < (levelItems m k).length := by
+  induction k with
+  | zero =>
+      simp [levelItems, levelState, h_m0]
+  | succ k ih =>
+      have h_items :
+          levelItems m (k + 1) = nextItems (levelNext m k) (levelItems m k) :=
+        levelItems_succ (m := m) (k := k)
+      -- rewrite the goal to the `nextItems` view, then case-split on the current frontier list
+      rw [h_items]
+      cases hL : levelItems m k with
+      | nil =>
+          -- impossible: the frontier is never empty when `m > 0`
+          have : False := by simpa [hL] using ih
+          cases this
+      | cons a t =>
+          cases t with
+          | nil =>
+              -- singleton: `pairCount = 0`, so the item is carried upward
+              simp [nextItems, pairCount, hL]
+          | cons b rest =>
+              -- at least 2 items: show `0 < len - pairCount` then use `nextItems_length`
+              have h2 :
+                  2 * pairCount (a :: b :: rest) ≤ (a :: b :: rest).length :=
+                two_mul_pairCount_le_length (items := a :: b :: rest)
+              have hpc_pos : 0 < pairCount (a :: b :: rest) := by simp [pairCount]
+              have hpc1_le_2pc :
+                  pairCount (a :: b :: rest) + 1 ≤ 2 * pairCount (a :: b :: rest) := by
+                have : 1 ≤ pairCount (a :: b :: rest) := Nat.succ_le_iff.2 hpc_pos
+                have : pairCount (a :: b :: rest) + 1 ≤
+                    pairCount (a :: b :: rest) + pairCount (a :: b :: rest) := by omega
+                simpa [two_mul] using this
+              have hpc1_le_len :
+                  pairCount (a :: b :: rest) + 1 ≤ (a :: b :: rest).length :=
+                le_trans hpc1_le_2pc h2
+              have hpc_lt_len :
+                  pairCount (a :: b :: rest) < (a :: b :: rest).length :=
+                lt_of_lt_of_le (Nat.lt_succ_self _) hpc1_le_len
+              have hpos :
+                  0 < (a :: b :: rest).length - pairCount (a :: b :: rest) :=
+                Nat.sub_pos_of_lt hpc_lt_len
+              have hlen :
+                  (nextItems (levelNext m k) (a :: b :: rest)).length =
+                    (a :: b :: rest).length - pairCount (a :: b :: rest) := by
+                simpa using
+                  (nextItems_length (nextNodeIdx := levelNext m k) (items := a :: b :: rest))
+              -- close via the length formula
+              simpa [hlen] using hpos
+
+private lemma levelOffset_le_size (m k : Nat) (h_m : m > 1) : levelOffset m k ≤ size m := by
+  have h_m0 : 0 < m := by omega
+  have hlen_pos : 0 < (levelItems m k).length := levelItems_length_pos (m := m) (k := k) h_m0
+  have hlen_ge1 : 1 ≤ (levelItems m k).length := Nat.succ_le_iff.2 hlen_pos
+  have hinv := levelOffset_add_length_levelItems (m := m) k
+  have hoff : levelOffset m k = m - (levelItems m k).length := by
+    have := congrArg (fun t => t - (levelItems m k).length) hinv
+    simpa [Nat.add_sub_cancel] using this
+  have h_off_le_m1 : levelOffset m k ≤ m - 1 := by
+    rw [hoff]
+    exact Nat.sub_le_sub_left hlen_ge1 m
+  have hsize : size m = m - 1 := by
+    have : ¬ m ≤ 1 := by omega
+    simp [size, this]
+  simpa [hsize] using h_off_le_m1
+
+private lemma pairCount_pos_of_length_ge_two {α : Type} (items : List α) (h : 2 ≤ items.length) :
+    0 < pairCount items := by
+  cases items with
+  | nil => simpa using h
+  | cons a t =>
+      cases t with
+      | nil => simpa using h
+      | cons b rest =>
+          simp [pairCount]
+
+private lemma levelPairs_pos_of_offset_lt (m k : Nat) (h_m : m > 1) (h_off : levelOffset m k < size m) :
+    0 < levelPairs m k := by
+  have hsize : size m = m - 1 := by
+    have : ¬ m ≤ 1 := by omega
+    simp [size, this]
+  have hinv := levelOffset_add_length_levelItems (m := m) k
+  have hlen : (levelItems m k).length = m - levelOffset m k := by
+    have := congrArg (fun t => t - levelOffset m k) hinv
+    simpa [Nat.add_sub_cancel_left] using this
+  have hlen_ge : 2 ≤ (levelItems m k).length := by
+    -- `offset < m-1` implies `m - offset ≥ 2`
+    have : levelOffset m k ≤ m - 2 := by omega
+    omega
+  unfold levelPairs
+  exact pairCount_pos_of_length_ge_two (items := levelItems m k) hlen_ge
+
+private lemma levelOffset_ge_id (m : Nat) (h_m : m > 1) :
+    ∀ k, k ≤ size m → k ≤ levelOffset m k := by
+  intro k hk
+  induction k with
+  | zero => simp
+  | succ k ih =>
+      have hk' : k ≤ size m := by omega
+      have ih' : k ≤ levelOffset m k := ih hk'
+      -- either we are already at the final offset, or we advance by at least 1
+      by_cases h_eq : levelOffset m k = size m
+      · -- stable: `offset(k+1) = offset(k) + pairs = size + 0 = size`
+        have : k + 1 ≤ size m := by omega
+        have : k + 1 ≤ levelOffset m k := by simpa [h_eq] using this
+        have hmono : levelOffset m k ≤ levelOffset m (k + 1) := by
+          simp [levelOffset_succ, Nat.le_add_right]
+        exact le_trans this hmono
+      · -- strict: `offset k < size`, so `pairs > 0` and offset increases
+        have h_lt : levelOffset m k < size m := lt_of_le_of_ne (levelOffset_le_size (m := m) (k := k) h_m) h_eq
+        have hpairs : 0 < levelPairs m k := levelPairs_pos_of_offset_lt (m := m) (k := k) h_m h_lt
+        have hoff : levelOffset m (k + 1) = levelOffset m k + levelPairs m k := levelOffset_succ (m := m) (k := k)
+        have : k + 1 ≤ levelOffset m k + levelPairs m k := by omega
+        simpa [hoff] using this
+
+private lemma levelOffset_at_size (m : Nat) (h_m : m > 1) : levelOffset m (size m) = size m := by
+  have hle : size m ≤ levelOffset m (size m) :=
+    levelOffset_ge_id (m := m) h_m (size m) (by rfl)
+  have hge : levelOffset m (size m) ≤ size m := levelOffset_le_size (m := m) (k := size m) h_m
+  exact le_antisymm hge hle
+
+private lemma exists_level_rep (m redIdx : Nat) (h_m : m > 1) (h_red : redIdx < size m) :
+    ∃ k i, i < levelPairs m k ∧ redIdx = levelOffset m k + i := by
+  -- choose the first `k` such that `redIdx < levelOffset (k+1)`
+  have hex : ∃ k, redIdx < levelOffset m (k + 1) := by
+    refine ⟨size m - 1, ?_⟩
+    have hpos : 0 < size m := by omega
+    have : size m - 1 + 1 = size m := Nat.sub_add_cancel (Nat.succ_le_iff.2 hpos)
+    -- `levelOffset (size) = size`, so `redIdx < size = levelOffset (size)`
+    simpa [this, levelOffset_at_size (m := m) h_m] using h_red
+  let k0 := Nat.find hex
+  have hk0 : redIdx < levelOffset m (k0 + 1) := Nat.find_spec hex
+  have hk0_min : ∀ k < k0, ¬ redIdx < levelOffset m (k + 1) := by
+    intro k hk hk'
+    have : k0 ≤ k := Nat.find_min' hex (m := k) hk'
+    exact Nat.not_le_of_gt hk this
+  have hle : levelOffset m k0 ≤ redIdx := by
+    by_cases hk0z : k0 = 0
+    · simpa [hk0z, levelOffset_zero]
+    · have hk0pos : 0 < k0 := Nat.pos_of_ne_zero hk0z
+      have hk1_lt : k0 - 1 < k0 := Nat.sub_lt hk0pos (by omega)
+      have hnot : ¬ redIdx < levelOffset m ((k0 - 1) + 1) := hk0_min (k0 - 1) hk1_lt
+      have hnot' : ¬ redIdx < levelOffset m k0 := by
+        simpa [Nat.sub_add_cancel (Nat.succ_le_iff.2 hk0pos)] using hnot
+      exact le_of_not_gt hnot'
+  let i := redIdx - levelOffset m k0
+  have hi : i < levelPairs m k0 := by
+    have hk0' : redIdx < levelOffset m (1 + k0) := by
+      simpa [Nat.add_comm] using hk0
+    have hoff : levelOffset m (1 + k0) = levelOffset m k0 + levelPairs m k0 := by
+      simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using
+        (levelOffset_succ (m := m) (k := k0))
+    have hlt : redIdx < levelOffset m k0 + levelPairs m k0 := by
+      simpa [hoff, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hk0'
+    have : redIdx - levelOffset m k0 < levelPairs m k0 :=
+      Nat.sub_lt_left_of_lt_add hle hlt
+    simpa [i] using this
+  refine ⟨k0, i, hi, ?_⟩
+  have : redIdx = (redIdx - levelOffset m k0) + levelOffset m k0 :=
+    (Nat.sub_add_cancel hle).symm
+  simpa [i, Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using this
+
+theorem simpleChildIndices_add (clauseBase m redIdx : Nat) (h_m : m > 1) (h_red : redIdx < size m) :
+    simpleChildIndices clauseBase m redIdx =
+      (clauseBase + (simpleChildIndices 0 m redIdx).1, clauseBase + (simpleChildIndices 0 m redIdx).2) := by
+  rcases exists_level_rep (m := m) (redIdx := redIdx) h_m h_red with ⟨k, i, hi, hrepr⟩
+  subst hrepr
+  have h0 : simpleChildIndices 0 m (levelOffset m k + i) = nthPairChildren i (levelItems m k) := by
+    simpa using (simpleChildIndices_at_level (m := m) (k := k) (i := i) hi)
+  have hb :
+      simpleChildIndices clauseBase m (levelOffset m k + i) =
+        (clauseBase + (nthPairChildren i (levelItems m k)).1, clauseBase + (nthPairChildren i (levelItems m k)).2) := by
+    simpa using
+      (simpleChildIndices_at_level_add (clauseBase := clauseBase) (m := m) (k := k) (i := i) hi)
+  simpa [h0] using hb
+
+theorem clauseSetNode_children_disjoint (m redIdx : Nat) (h_m : m > 1) (h_red : redIdx < size m) :
+    let l := (simpleChildIndices 0 m redIdx).1
+    let r := (simpleChildIndices 0 m redIdx).2
+    Disjoint (clauseSetNode m l) (clauseSetNode m r) := by
+  rcases exists_level_rep (m := m) (redIdx := redIdx) h_m h_red with ⟨k, i, hi, hrepr⟩
+  -- rewrite the child computation to the `nthPairChildren` view at level `k`
+  have hsc : simpleChildIndices 0 m redIdx = nthPairChildren i (levelItems m k) := by
+    subst hrepr
+    simpa using (simpleChildIndices_at_level (m := m) (k := k) (i := i) hi)
+  have h_items : ItemsDisjoint m (levelItems m k) := ItemsDisjoint_levelItems (m := m) h_m k
+  have hi' : i < pairCount (levelItems m k) := by simpa [levelPairs] using hi
+  have hdisj := nthPairChildren_children_disjoint (m := m) (n := i) (items := levelItems m k) h_items hi'
+  -- unpack `l`/`r`
+  simpa [hsc] using hdisj
 
 /- Axiom audit: core functions and key theorems. -/
 #print axioms depth
