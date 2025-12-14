@@ -318,7 +318,7 @@ With k = O(log m): seedWidth = O(m · R) = poly(n) ✓
 3. **SeedChain.lean** - encodeSeed definition and injectivity (A2)
 4. **EmergenceMatrix.lean** - Full-rank emergence matrices (A3)
 5. **InstanceOps.lean** - seedWidth computation, capacity constraints
-6. **ReductionTree.lean** - Binary tree reduction structure
+6. **BalancedBinaryTree.lean** - Balanced binary tree for O(log m) aggregation
 7. **MultiLevelDAG.lean** - Complete multi-level DAG construction (depth O(log m))
 8. **OAPEncoding.lean** - OAP (Observation-Assignment Pair) encoding helpers
 9. **OAPLocalFlip.lean** - Local flip lemmas for OAP XOR properties

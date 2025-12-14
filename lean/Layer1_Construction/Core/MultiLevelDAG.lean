@@ -1,6 +1,6 @@
 import Layer0_Foundations.Base.DAG
 import Layer0_Foundations.Base.CNF
-import Layer1_Construction.Core.ReductionTree
+import Layer1_Construction.Core.BalancedBinaryTree
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Fintype.BigOperators
 

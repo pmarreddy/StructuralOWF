@@ -4,7 +4,7 @@ Exports all Layer 1 modules: Core components and A1-A5 properties.
 
 **Core Components**:
 - Pools, EmergenceMatrix, Core structure
-- SeedChain, ReductionTree, MultiLevelDAG
+- SeedChain, BalancedBinaryTree, MultiLevelDAG
 - LStarFull (complete instance with operations)
 
 **Properties**:
@@ -16,7 +16,7 @@ import Layer1_Construction.Core.Pools
 import Layer1_Construction.Core.EmergenceMatrix
 import Layer1_Construction.Core.LStarInstance
 import Layer1_Construction.Core.SeedChain
-import Layer1_Construction.Core.ReductionTree
+import Layer1_Construction.Core.BalancedBinaryTree
 import Layer1_Construction.Core.MultiLevelDAG
 import Layer1_Construction.Core.InstanceOps
 

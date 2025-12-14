@@ -6,18 +6,33 @@ import Mathlib.Data.List.Pairwise
 import Mathlib.Data.List.Range
 import Mathlib.Tactic.Ring
 
-/-! ## ReductionTree: Logarithmic-Depth Clause Combination
+/-! ## BalancedBinaryTree: Logarithmic-Depth Aggregation Structure
 
-Balanced reduction tree used to combine `m` clause outputs into a single result
-with logarithmic depth.
+A balanced binary tree for aggregating `m` leaf items into a single root
+with O(log m) depth. This is a generic combinatorial structure used whenever
+we need to combine many items without blowing up the depth.
 
-Reduction nodes are indexed sequentially, level by level from bottom to top.
-For **odd** arities we **carry** the unpaired last item upward (we do not duplicate it).
+**Structure**: Given m leaves indexed `[base, base+1, ..., base+m-1]`, the tree
+creates `m-1` internal nodes that pairwise combine items level by level.
 
-This yields:
-- depth `O(log m)`
-- exactly `m - 1` reduction nodes for `m > 0`
-- structural acyclicity by construction: every node’s children have smaller indices.
+**Indexing**: Internal nodes are numbered sequentially by level, bottom-up:
+- Level 0: m leaves (input items)
+- Level 1: ⌊m/2⌋ internal nodes pairing adjacent leaves
+- Level 2: ⌊⌊m/2⌋/2⌋ internal nodes pairing level-1 outputs
+- ...continuing until one root remains
+
+**Odd arities**: When a level has an odd number of items, the unpaired last
+item is carried upward unchanged (no duplication).
+
+**Key properties**:
+- Depth: O(log m)
+- Internal nodes: exactly m - 1
+- Acyclicity: children always have smaller indices than parents
+- Disjointness: left and right subtrees have disjoint leaf sets
+
+**Application**: Used in the DAG to combine m items into a single root.
+The disjointness property is critical for proving that summation over the
+tree doesn't cause double-counting.
 -/
 
 namespace LStar.Construction.ReductionTree
@@ -26,33 +41,32 @@ namespace LStar.Construction.ReductionTree
 ## Tree Size Computation
 -/
 
-/-- Number of items at each reduction level.
+/-- Number of items at each tree level.
 
-Level 0 has `m` items.
+Level 0 has `m` items (the leaves).
 Level `k+1` has `⌈(items at level k)/2⌉` items. -/
 def nodesAtLevel (m : Nat) : Nat → Nat
   | 0 => m
   | k + 1 => (nodesAtLevel m k + 1) / 2
 
-/-- Depth of reduction tree for `m` leaves (a conservative `⌈log₂ m⌉` bound). -/
+/-- Depth of the tree for `m` leaves (a conservative `⌈log₂ m⌉` bound). -/
 def depth (m : Nat) : Nat :=
   if m ≤ 1 then 0 else Nat.log 2 m + 1
 
-/-- Total number of internal reduction nodes. -/
+/-- Total number of internal nodes: exactly `m - 1` for `m > 1`. -/
 def size (m : Nat) : Nat :=
   if m ≤ 1 then 0 else m - 1
 
 /-!
 ## Node Indexing and Child Pointers
 
-We start with the ordered list of clause indices:
-`[clauseBase, clauseBase+1, ..., clauseBase+m-1]`.
-At each reduction level we:
-- combine adjacent pairs `(a,b)` into a new node with the next unused index, and
+We start with the ordered list of leaf indices:
+`[base, base+1, ..., base+m-1]`.
+At each level we:
+- combine adjacent pairs `(a,b)` into a new internal node, and
 - carry an unpaired last item unchanged.
 
-This assigns reduction nodes indices:
-`clauseBase+m, clauseBase+m+1, ..., clauseBase+m+(size m)-1`.
+Internal nodes are assigned indices `base+m, base+m+1, ..., base+m+(size m)-1`.
 -/
 
 private def nthPairChildren : Nat → List Nat → Nat × Nat
@@ -83,11 +97,11 @@ decreasing_by
     simp_wf
     omega
 
-/-- Child indices for reduction node `redIdx`, assuming `m` clause nodes start at `clauseBase`.
+/-- Child indices for internal node `redIdx`, given `m` leaves starting at `clauseBase`.
 
-Global indices:
-- clauses: `clauseBase .. clauseBase + m - 1`
-- reductions: `clauseBase + m .. clauseBase + m + size m - 1` -/
+Index ranges:
+- Leaves: `clauseBase .. clauseBase + m - 1`
+- Internal nodes: `clauseBase + m .. clauseBase + m + size m - 1` -/
 def simpleChildIndices (clauseBase m redIdx : Nat) : Nat × Nat :=
   let initItems := (List.range m).map (fun i => clauseBase + i)
   childIndicesAux clauseBase m redIdx (clauseBase + m) initItems
@@ -201,10 +215,10 @@ private lemma childIndicesAux_children_lt_sum
           simpa [hpairs0, h, items', next', h_pairs_def, pairs, h_bound,
             Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using h_rec
 
-/-- Children are always before their parents in the indexing scheme.
+/-- Children always have smaller indices than their parent (ensures acyclicity).
 
-For reduction node at global index `(clauseBase + m + redIdx)`, both children
-have indices `< (clauseBase + m + redIdx)`. -/
+For internal node at index `clauseBase + m + redIdx`, both children
+have indices strictly less than the parent. -/
 theorem simpleChildIndices_children_less_than_parent
     (clauseBase m redIdx : Nat) (_h_m : m > 0) (_h_redIdx : redIdx < size m) :
     let (left, right) := simpleChildIndices clauseBase m redIdx
@@ -225,14 +239,14 @@ theorem simpleChildIndices_children_less_than_parent
   simpa [initNext, h_initNext, initItems, h_initItems, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using h
 
 /-!
-## Clause Descendant Counting
+## Leaf Descendant Sets
 
-For seed-width bounds we need: for every reduction node, the number of distinct
-clause leaves in its subtree is ≤ `m`.
+For any internal node, we compute the set of leaves in its subtree.
+This is essential for proving that aggregation over the tree doesn't
+double-count: each leaf contributes to exactly one path to the root.
 
-We define the clause-leaf set of a **global** node index (`0..m-1` for leaves,
-`m..m+size m-1` for reduction nodes) by recursion on the parent index using
-`simpleChildIndices 0 m`.
+We define the leaf set of a node index (`0..m-1` for leaves,
+`m..m+size m-1` for internal nodes) by recursion using `simpleChildIndices 0 m`.
 -/
 
 private def clauseSetNodeWithProof (m idx : Nat) : { s : Finset Nat // s ⊆ Finset.range m } :=
@@ -279,11 +293,11 @@ private def clauseSetNodeWithProof (m idx : Nat) : { s : Finset Nat // s ⊆ Fin
 def clauseSetNode (m idx : Nat) : Finset Nat :=
   (clauseSetNodeWithProof m idx).1
 
-/-- Clause-leaf set for reduction node `redIdx` (0-based among reduction nodes). -/
+/-- Leaf set for internal node `redIdx` (0-based among internal nodes). -/
 def clauseSet (m redIdx : Nat) : Finset Nat :=
   clauseSetNode m (m + redIdx)
 
-/-- Clause descendant count for reduction node `redIdx` (cardinality of its leaf-set). -/
+/-- Leaf descendant count for internal node `redIdx` (cardinality of its leaf set). -/
 def clauseDescendantCount (m redIdx : Nat) : Nat :=
   (clauseSet m redIdx).card
 
@@ -291,7 +305,7 @@ lemma clauseSetNode_subset_range (m idx : Nat) :
     clauseSetNode m idx ⊆ Finset.range m :=
   (clauseSetNodeWithProof m idx).2
 
-/-- Clause descendants never exceed total clauses. -/
+/-- Leaf descendants never exceed total leaves. -/
 theorem clauseDescendantCount_le (m redIdx : Nat)
     (_h_m : m > 1) (_h_redIdx : redIdx < size m) :
     clauseDescendantCount m redIdx ≤ m := by
@@ -302,12 +316,12 @@ theorem clauseDescendantCount_le (m redIdx : Nat)
     _ = m := by simp
 
 /-!
-## Tight-path unfold lemmas
+## Recursive Structure Lemmas
 
-These are used downstream when turning “seedWidth sums along the reduction tree” into a statement
-about “how many clause leaves are under a node”.
+Key lemmas for unfolding the leaf set computation at leaves vs internal nodes.
 -/
 
+/-- At a leaf node, the leaf set is the singleton containing just that leaf. -/
 lemma clauseSetNode_leaf (m idx : Nat) (h : idx < m) :
     clauseSetNode m idx = {idx} := by
   unfold clauseSetNode
@@ -315,7 +329,7 @@ lemma clauseSetNode_leaf (m idx : Nat) (h : idx < m) :
   rw [Nat.strongRecOn'_beta]
   simp [h]
 
-/-- Unfold `clauseSetNode` at a valid reduction node: it is the union of its children’s clause sets. -/
+/-- At an internal node, the leaf set is the union of its children's leaf sets. -/
 lemma clauseSetNode_reduction_eq_union (m redIdx : Nat) (h_red : redIdx < size m) :
     let l := (simpleChildIndices 0 m redIdx).1
     let r := (simpleChildIndices 0 m redIdx).2
@@ -327,11 +341,11 @@ lemma clauseSetNode_reduction_eq_union (m redIdx : Nat) (h_red : redIdx < size m
   simp [h_not, h_red]
 
 /-!
-## Level-by-level indexing facts (tight-path infrastructure)
+## Level-by-Level Indexing
 
-These lemmas model the reduction process “level by level” and give arithmetic invariants about
-how many internal nodes have been allocated after `k` levels. They are used by the airtight
-disjointness/additivity proof (next step).
+These lemmas model the tree construction level by level and establish arithmetic
+invariants about node allocation. They enable the disjointness proof by providing
+a representation for each internal node index as `levelOffset m k + i`.
 -/
 
 private def levelState (m : Nat) : Nat → Nat × List Nat
@@ -774,10 +788,11 @@ private lemma simpleChildIndices_at_level_add (clauseBase m k i : Nat) (h_i : i 
           simpa using (nthPairChildren_map_add (base := clauseBase) (n := i) (items := levelItems m k) hlt)
 
 /-!
-## Disjointness (airtight path)
+## Subtree Disjointness
 
-To turn “seedWidth = parent sum” into an `nclauses × nvars` bound, we need additivity:
-the left and right subtrees under any reduction node must have disjoint clause-leaf sets.
+The critical property: left and right subtrees of any internal node have
+disjoint leaf sets. This ensures that summing over the tree doesn't
+double-count any leaf.
 -/
 
 private def ItemsDisjoint (m : Nat) (items : List Nat) : Prop :=
