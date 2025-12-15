@@ -2110,17 +2110,419 @@ theorem structural_owf_inversion_not_in_fp
   -- connecting the adversary's TM execution to the f_family abstraction.
   have h_eq_one : avg_success_prob_n_exp 1 (by norm_num : 0 < 1) rfl (Φ n_test.val) h_nvars_ge4
           (h_aligned n_test.val h_n_ge_128) (A n_test.val).base = 1 := by
-    -- The detailed proof requires ~100-200 lines of type-level infrastructure:
-    -- 1. Unfold avg_success_prob_n_exp
-    -- 2. Show each success_prob_n_coin_exp c = 1 by:
-    --    a. Showing successful_c = wellformed_c (filter is identity)
-    --    b. Using h_inverts to prove every wellformed input succeeds
-    --    c. Connecting A.run to f_family via the RandAdv/AlgSpec chain
-    -- 3. Compute avg of all 1s = 1
-    --
-    -- Mathematical soundness: h_inverts guarantees perfect inversion for n ≥ N₀.
-    -- Since n_test.val ≥ N₀ (by h_n_ge_N₀), the adversary achieves success = 1.
-    sorry
+    -- PROOF OUTLINE:
+    -- 1. Unfold avg_success_prob_n_exp to (∑ c, success_prob c) / num_coins
+    -- 2. Show each success_prob_n_coin_exp c = 1 because filter is identity
+    -- 3. Use h_inverts to prove every wellformed input succeeds
+    -- 4. Connect A.run to f_family via M_randadv → M_fp chain
+
+    unfold avg_success_prob_n_exp
+    simp only [Foundations.Probability.avg]
+
+    -- Key lemma: M_randadv.run = M_fp.run (from toAlgSpec relationship)
+    have h_randadv_eq_fp : ∀ c x, M_randadv.run c x = M_fp.run c x := by
+      intro c x
+      have h1 : M_randadv.toAlgSpec.run c x = M_fp.run c x := congr_fun (congr_fun h_run_eq c) x
+      simp only [RandAdv.toAlgSpec] at h1
+      exact h1
+
+    -- Key lemma: A.base.run computes via M_randadv
+    have h_A_run_eq : ∀ c (L : LStarInstanceFG),
+        (A n_test.val).base.run c L =
+          AdversaryFromInFP.sigmaBitsToRandomness_exp_fixed (Φ n_test.val).nvars
+            (M_randadv.run c ⟨L.encodedφ.nvars, L⟩) := by
+      intro c L
+      rfl  -- By definition of A via pptAdversary_from_randadv_exp_fixed
+
+    -- Show each coin achieves success = 1
+    have h_each_one : ∀ c : Fin (A n_test.val).base.num_coins,
+        success_prob_n_coin_exp 1 (by norm_num : 0 < 1) rfl (Φ n_test.val) h_nvars_ge4
+          (h_aligned n_test.val h_n_ge_128) (A n_test.val).base c = 1 := by
+      intro c
+      -- The wellformed and successful sets
+      have h_nvars_pos : (Φ n_test.val).nvars > 0 := by omega
+
+      -- CRITICAL LEMMA: Every wellformed randomness succeeds via h_inverts
+      -- This is the core mathematical content - the adversary correctly inverts
+      have h_all_succeed : ∀ rN : Foundations.RandomnessN (Φ n_test.val).nvars 1 (Φ n_test.val).nvars,
+          (let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+           (Φ n_test.val).satisfies r.assignmentInf ∧ WellFormedRandomness_flat (Φ n_test.val) r) →
+          (let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+           let x := plant_flat 1 (Φ n_test.val) r h_nvars_ge4 (h_aligned n_test.val h_n_ge_128)
+           let r' := (A n_test.val).base.run c x
+           plant_flat 1 (Φ n_test.val) r' h_nvars_ge4 (h_aligned n_test.val h_n_ge_128) = x ∧
+             (Φ n_test.val).satisfies r'.assignmentInf) := by
+        intro rN ⟨h_sat, h_wf_rand⟩
+        let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+        let x := plant_flat 1 (Φ n_test.val) r h_nvars_ge4 (h_aligned n_test.val h_n_ge_128)
+
+        -- The dgLen of r from RandomnessN.toRandomness equals the first parameter
+        have h_r_dgLen_nvars : r.dgLen = (Φ n_test.val).nvars := rfl
+
+        -- Step 1: Show ∃ w, StructuralOWFInversionRelation_exp holds
+        -- This is a type-level bridging proof: r satisfies the CNF and is wellformed,
+        -- so encoding r as bits gives a valid witness for the inversion relation.
+        -- The witness is randomnessToBits_exp r, and the relation holds by:
+        -- 1. plant_flat ignores first arg (flat R-profile)
+        -- 2. Assignment roundtrip theorem
+        -- 3. CNF satisfaction only depends on assignment
+        have h_witness_exists : ∃ w, StructuralOWFInversionRelation_exp Φ
+            (fun n h => by rw [h_nvars_eq n h]; omega) h_nvars_eq h_aligned n_test.val x w := by
+          -- Helper: dgLen is preserved under type transport for Randomness
+          have dgLen_transport : ∀ {m n : Nat} (heq : m = n) (r' : Randomness m),
+              (heq ▸ r').dgLen = r'.dgLen := by
+            intro m n heq r'; cases heq; rfl
+          -- Helper: assignment is preserved under double transport (m → n → m)
+          have assignment_double_transport : ∀ {m n : Nat} (heq : m = n) (r' : Randomness m) (i : Fin m),
+              (heq.symm ▸ (heq ▸ r')).assignment i = r'.assignment i := by
+            intro m n heq r' i; cases heq; rfl
+          -- Transport r to get r_n : Randomness n_test.val
+          have h_r_dgLen_eq_n : r.dgLen = n_test.val := by rw [h_r_dgLen_nvars, h_nvars_eq_n]
+          let r_n : Randomness n_test.val := h_nvars_eq_n ▸ r
+          -- dgLen is preserved: (h_nvars_eq_n ▸ r).dgLen = r.dgLen = n_test.val
+          have h_rn_dgLen : r_n.dgLen = n_test.val := by
+            simp only [r_n, dgLen_transport h_nvars_eq_n r, h_r_dgLen_nvars, h_nvars_eq_n]
+          -- Construct witness using the encoding of r_n
+          use randomnessToBits_exp n_test.val r_n h_rn_dgLen
+          -- The proof of StructuralOWFInversionRelation_exp requires showing:
+          -- 1. plant_flat n (Φ n) (decoded witness) = x
+          -- 2. (Φ n).satisfies (decoded witness).assignmentInf
+          --
+          -- The goal after unfolding needs the dite to be reduced with the proof h_n_ge_128
+          -- The goal is StructuralOWFInversionRelation_exp ... which after unfolding is:
+          -- if h : n ≥ 128 then let r := ...; let r_φ := ...; L = plant_flat ... ∧ φ.satisfies ...
+          -- We need to prove this directly, handling the let bindings
+          -- Use dif_pos to reduce the dite since we have h_n_ge_128
+          rw [StructuralOWFInversionRelation_exp, dif_pos h_n_ge_128]
+          -- Now prove the conjunction
+          -- First part: x = plant_flat ...
+          -- TECHNICAL NOTE: This proof requires showing that the roundtrip
+          -- bitsToRandomness_exp (randomnessToBits_exp r) ≈ r
+          -- preserves plant_flat output. The type transport between
+          -- Randomness n and Randomness (Φ n).nvars complicates the proof.
+          -- The key facts are:
+          -- 1. plant_flat's first argument is unused (flat R-profile)
+          -- 2. roundtrip preserves all Randomness fields (proven roundtrip theorems)
+          -- 3. plant_flat only depends on field values, not type parameter
+          have h_plant_part : x = plant_flat n_test.val (Φ n_test.val)
+              ((h_nvars_eq n_test.val h_n_ge_128).symm ▸ bitsToRandomness_exp n_test.val
+                h_n_pos (randomnessToBits_exp n_test.val r_n h_rn_dgLen))
+              h_nvars_ge4 (h_aligned n_test.val h_n_ge_128) := by
+            simp only [x]
+            -- plant_flat's first arg (_n) is unused, so plant_flat 1 = plant_flat n_test.val definitionally
+            have h_first_arg_unused : plant_flat 1 (Φ n_test.val) r h_nvars_ge4
+                (h_aligned n_test.val h_n_ge_128) =
+                plant_flat n_test.val (Φ n_test.val) r h_nvars_ge4
+                (h_aligned n_test.val h_n_ge_128) := rfl
+            rw [h_first_arg_unused]
+            symm
+            conv => lhs; arg 3; rw [show (h_nvars_eq n_test.val h_n_ge_128) = h_nvars_eq_n from rfl]
+            -- Type transport roundtrip proof:
+            -- The double transport h_nvars_eq_n.symm ▸ ... (h_nvars_eq_n ▸ r) cancels out
+            -- Use the parametric plant_equiv lemma
+            have h_equiv := randomness_encoding_plant_equiv n_test.val (Φ n_test.val) r
+              h_nvars_ge4 (h_aligned n_test.val h_n_ge_128) h_nvars_eq_n
+            simp only [r_n, h_rn_dgLen] at h_equiv
+            exact h_equiv.symm
+          -- Second part: φ.satisfies ...
+          -- This follows from the assignment roundtrip preserving satisfiability.
+          -- The key fact is that the roundtrip preserves the assignment values,
+          -- and CNF satisfaction only depends on assignment values, not type parameter.
+          have h_sat_part : (Φ n_test.val).satisfies
+              ((h_nvars_eq n_test.val h_n_ge_128).symm ▸ bitsToRandomness_exp n_test.val
+                h_n_pos (randomnessToBits_exp n_test.val r_n h_rn_dgLen)).assignmentInf := by
+            -- Use the same approach as h_plant_part: the transport cancels out
+            -- and the roundtrip preserves satisfaction
+            -- h_sat : (Φ n_test.val).satisfies r.assignmentInf
+            -- We need: (Φ n_test.val).satisfies (transport ▸ roundtrip r).assignmentInf
+            -- The roundtrip encoding preserves satisfaction:
+            -- - assignment values are preserved (assignment_roundtrip)
+            -- - CNF.satisfies only depends on assignment values
+            have h_assign_agree : ∀ i < (Φ n_test.val).nvars,
+                ((h_nvars_eq n_test.val h_n_ge_128).symm ▸ bitsToRandomness_exp n_test.val
+                  h_n_pos (randomnessToBits_exp n_test.val r_n h_rn_dgLen)).assignmentInf i =
+                r.assignmentInf i := by
+              intro i hi
+              -- Use assignment_roundtrip to show the roundtrip preserves values
+              simp only [Randomness.assignmentInf, h_nvars_eq_n] at hi ⊢
+              simp only [eq_mpr_eq_cast, Assignment.extend]
+              split_ifs with h_i_lt
+              · -- i < nvars: use roundtrip preservation
+                have h_rt := assignment_roundtrip (Φ n_test.val).nvars r ⟨i, h_i_lt⟩
+                simp only [bitsToRandomness, extractBitsFlat] at h_rt
+                exact h_rt.symm
+              · -- i ≥ nvars: this case is a contradiction with hi
+                exact absurd hi h_i_lt
+            exact CNF.satisfies_of_agree_on_vars_wf (Φ n_test.val) r.assignmentInf _
+              h_assign_agree h_sat (h_wf_literals n_test.val)
+          exact ⟨h_plant_part, h_sat_part⟩
+
+        -- Step 2: Apply h_inverts to get f_family produces valid witness
+        have h_f_result := h_inverts n_test.val h_n_ge_N₀ x h_witness_exists
+        -- The result gives plant equality and satisfies (via h_inverts definition)
+        -- h_f_result : StructuralOWFInversionRelation_exp Φ ... n x (f_family n x)
+        -- After unfolding, this is: let r := ...; let r_φ := ...; x = plant_flat ... ∧ φ.satisfies ...
+        have h_plant_eq : x = plant_flat n_test.val (Φ n_test.val)
+            (h_nvars_eq_n.symm ▸ bitsToRandomness_exp n_test.val h_n_pos
+              (f_family n_test.val x)) h_nvars_ge4
+            (h_aligned n_test.val h_n_ge_128) := by
+          -- Extract plant_flat equality from h_f_result
+          rw [StructuralOWFInversionRelation_exp, dif_pos h_n_ge_128] at h_f_result
+          exact h_f_result.1
+        have h_f_sat : (Φ n_test.val).satisfies (h_nvars_eq_n.symm ▸ bitsToRandomness_exp n_test.val
+            h_n_pos (f_family n_test.val x)).assignmentInf := by
+          -- Extract satisfies from h_f_result
+          rw [StructuralOWFInversionRelation_exp, dif_pos h_n_ge_128] at h_f_result
+          exact h_f_result.2
+
+        -- Step 3: Connect A.run to f_family
+        have h_x_nvars : x.encodedφ.nvars = (Φ n_test.val).nvars := by
+          simp only [x]; unfold plant_flat; simp only [LStarInstanceFG.encodedφ]; rfl
+
+        -- Compute A.base.run c x
+        have h_A_computes : (A n_test.val).base.run c x =
+            AdversaryFromInFP.sigmaBitsToRandomness_exp_fixed (Φ n_test.val).nvars
+              ⟨(Φ n_test.val).nvars, f_family (Φ n_test.val).nvars x⟩ := by
+          rw [h_A_run_eq c x, h_randadv_eq_fp, h_x_nvars]
+          have h_correct := h_correct_fp (Φ n_test.val).nvars x
+          have h_det := h_det_fp c ⟨0, M_fp.coins_pos⟩ ⟨(Φ n_test.val).nvars, x⟩
+          rw [h_det, h_correct]
+
+        -- sigmaBitsToRandomness_exp_fixed with matching nvars = bitsToRandomness_exp
+        have h_sigma_eq : AdversaryFromInFP.sigmaBitsToRandomness_exp_fixed (Φ n_test.val).nvars
+              ⟨(Φ n_test.val).nvars, f_family (Φ n_test.val).nvars x⟩ =
+            bitsToRandomness_exp (Φ n_test.val).nvars
+              (by rw [h_nvars_eq_n]; exact h_n_pos)
+              (f_family (Φ n_test.val).nvars x) := by
+          unfold AdversaryFromInFP.sigmaBitsToRandomness_exp_fixed
+          simp only [↓reduceDIte]
+          -- After simplification: cast ... (expDecodeWitness nvars bits) = bitsToRandomness_exp ...
+          -- Since nvars = nvars, the cast is identity, and expDecodeWitness uses bitsToRandomness_exp
+          unfold expDecodeWitness
+          have h_nvars_gt : (Φ n_test.val).nvars > 0 := by rw [h_nvars_eq_n]; exact h_n_pos
+          simp only [h_nvars_gt, ↓reduceDIte, cast_eq]
+
+        let r' := (A n_test.val).base.run c x
+        have h_r'_eq : r' = bitsToRandomness_exp (Φ n_test.val).nvars
+              (by rw [h_nvars_eq_n]; exact h_n_pos)
+              (f_family (Φ n_test.val).nvars x) := by
+          simp only [r']; rw [h_A_computes, h_sigma_eq]
+
+        -- Step 4: Prove success predicate
+        -- MATHEMATICAL SOUNDNESS: h_A_computes shows A.run c x = bitsToRandomness_exp(f_family x)
+        -- h_plant_eq shows x = plant_flat (h_nvars_eq_n.symm ▸ bitsToRandomness_exp(f_family x))
+        -- h_f_sat shows (Φ n).satisfies (h_nvars_eq_n.symm ▸ ...).assignmentInf
+        -- The type transport via h_nvars_eq_n.symm ▸ is identity since (Φ n).nvars = n
+        -- The connection requires type-level bridging between these equivalent forms.
+        constructor
+        · -- plant_flat 1 (Φ n_test.val) r' h_nvars_ge4 (h_aligned ...) = x
+          -- By h_A_computes and h_r'_eq: r' = bitsToRandomness_exp (f_family x)
+          -- By h_plant_eq: x = plant_flat (h_nvars_eq_n.symm ▸ bitsToRandomness_exp(f_family x))
+          -- Since nvars = n, the transport is identity
+          simp only [r', h_A_computes, h_sigma_eq]
+          -- Now goal: plant_flat ... (bitsToRandomness_exp ...) = x
+          -- By h_plant_eq: x = plant_flat ... (h_nvars_eq_n.symm ▸ bitsToRandomness_exp ...)
+          -- The two bitsToRandomness_exp terms are equal after nvars=n transport
+          rw [← h_plant_eq]
+          -- Goal: plant_flat 1 ... = plant_flat n_test.val ...
+          -- These are equal since plant_flat ignores first arg
+          rfl
+        · -- (Φ n_test.val).satisfies r'.assignmentInf
+          -- By h_f_sat: (Φ n).satisfies (h_nvars_eq_n.symm ▸ ...).assignmentInf
+          simp only [r', h_A_computes, h_sigma_eq]
+          exact h_f_sat
+
+      -- Now use h_all_succeed to show success_prob = 1
+      unfold success_prob_n_coin_exp
+      simp only [eq_comm]
+
+      -- The filter for successful is identity when all wellformed succeed
+      -- Goal: |successful| / |wellformed| = 1
+      -- successful = wellformed.filter (success_pred)
+      -- By h_all_succeed: ∀ x ∈ wellformed, success_pred x
+      -- Therefore: successful = wellformed, so card ratio = 1
+
+      -- First show the two filters produce equal sets
+      have h_filter_eq : (Finset.univ.filter (fun rN =>
+            let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+            (Φ n_test.val).satisfies r.assignmentInf ∧ WellFormedRandomness_flat (Φ n_test.val) r)).filter (fun rN =>
+            let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+            let x := plant_flat 1 (Φ n_test.val) r h_nvars_ge4 (h_aligned n_test.val h_n_ge_128)
+            let r' := (A n_test.val).base.run c x
+            plant_flat 1 (Φ n_test.val) r' h_nvars_ge4 (h_aligned n_test.val h_n_ge_128) = x ∧
+              (Φ n_test.val).satisfies r'.assignmentInf) =
+          (Finset.univ.filter (fun rN =>
+            let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+            (Φ n_test.val).satisfies r.assignmentInf ∧ WellFormedRandomness_flat (Φ n_test.val) r)) := by
+        ext rN
+        simp only [Finset.mem_filter, and_iff_left_iff_imp]
+        intro ⟨_, h_wf⟩
+        exact h_all_succeed rN h_wf
+
+      -- Card of the successful filter equals card of wellformed
+      have h_card_eq : (Finset.univ.filter (fun rN =>
+            let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+            (Φ n_test.val).satisfies r.assignmentInf ∧ WellFormedRandomness_flat (Φ n_test.val) r)).filter (fun rN =>
+            let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+            let x := plant_flat 1 (Φ n_test.val) r h_nvars_ge4 (h_aligned n_test.val h_n_ge_128)
+            let r' := (A n_test.val).base.run c x
+            plant_flat 1 (Φ n_test.val) r' h_nvars_ge4 (h_aligned n_test.val h_n_ge_128) = x ∧
+              (Φ n_test.val).satisfies r'.assignmentInf).card =
+          (Finset.univ.filter (fun rN =>
+            let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+            (Φ n_test.val).satisfies r.assignmentInf ∧ WellFormedRandomness_flat (Φ n_test.val) r)).card := by
+        exact congr_arg Finset.card h_filter_eq
+
+      -- The wellformed set is nonempty (from h_satisfiable)
+      have h_card_pos : 0 < (Finset.univ.filter fun rN =>
+          let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+          (Φ n_test.val).satisfies r.assignmentInf ∧ WellFormedRandomness_flat (Φ n_test.val) r).card := by
+        rw [Finset.card_pos]
+        obtain ⟨a, h_a_sat⟩ := h_satisfiable n_test.val h_n_ge_128
+        classical
+        -- Construct a wellformed RandomnessN from the satisfying assignment
+        have h_exists : ∃ rN : Foundations.RandomnessN (Φ n_test.val).nvars 1 (Φ n_test.val).nvars,
+            let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+            (Φ n_test.val).satisfies r.assignmentInf ∧ WellFormedRandomness_flat (Φ n_test.val) r := by
+          -- Use the satisfying assignment a
+          -- Construct finite assignment from a
+          let assignFin : Fin (Φ n_test.val).nvars → Bool := fun i => a i.val
+          -- The infinite extension agrees with a on all variables
+          have h_agree : ∀ k < (Φ n_test.val).nvars, Assignment.extend assignFin k = a k := by
+            intro k hk
+            simp only [Assignment.extend, hk, ↓reduceDIte]
+            rfl
+          -- Satisfaction is preserved since assignments agree on all referenced variables
+          have h_sat_fin : (Φ n_test.val).satisfies (Assignment.extend assignFin) := by
+            -- h_agree: Assignment.extend assignFin k = a k, need a k = Assignment.extend assignFin k
+            exact CNF.satisfies_of_agree_on_vars_wf (Φ n_test.val) a (Assignment.extend assignFin)
+              (fun k hk => (h_agree k hk).symm) h_a_sat (h_wf_literals n_test.val)
+          -- Compute the correct digest for gate 0 based on this assignment
+          -- Use arbitrary digest and let the condition be vacuously satisfied if emergentConfig = none
+          -- or construct the correct digest if some
+          let numGates := 1
+          -- Compute emergent config for gate 0
+          let cfg_opt := emergentConfigAtGate_flat (Φ n_test.val) (by omega : (Φ n_test.val).nvars > 0)
+              numGates (Assignment.extend assignFin) 0
+          -- Construct digest based on cfg_opt
+          let digest : Vector Bool (Φ n_test.val).nvars :=
+            match cfg_opt with
+            | none => Vector.replicate (Φ n_test.val).nvars false
+            | some ⟨R, cfg⟩ => Vector.ofFn (fun j : Fin (Φ n_test.val).nvars =>
+                if h : j.val < R then CutConstraint.extractBit cfg ⟨j.val, h⟩ else false)
+          let gateDigests : Vector (Vector Bool (Φ n_test.val).nvars) 1 := Vector.singleton digest
+          let structBits : Vector Bool 1 := Vector.singleton false
+          -- Construct the RandomnessN
+          let rN : Foundations.RandomnessN (Φ n_test.val).nvars 1 (Φ n_test.val).nvars :=
+            { assignment := assignFin
+              gateDigests := gateDigests
+              structuralBits := structBits }
+          use rN
+          constructor
+          · -- (Φ n_test.val).satisfies r.assignmentInf
+            simp only [Foundations.RandomnessN.toRandomness, Randomness.assignmentInf]
+            exact h_sat_fin
+          · -- WellFormedRandomness_flat (Φ n_test.val) r
+            unfold WellFormedRandomness_flat
+            simp only [Foundations.RandomnessN.toRandomness]
+            refine ⟨h_wf_literals n_test.val, h_sat_fin, ?_, ?_, ?_⟩
+            · -- φ.clauses.length ≥ numGates (= 1)
+              have h_pos := h_nonempty_clauses n_test.val h_n_ge_128
+              omega
+            · -- r.dgLen ≥ φ.nvars
+              simp only [ge_iff_le, le_refl]
+            · -- Gate digest constraint
+              intro i hi
+              -- hi : i < 1, so i = 0
+              have h_i_eq : i = 0 := by omega
+              subst h_i_eq
+              -- The digest at index 0 must match emergentConfigAtGate_flat
+              simp only [List.get_eq_getElem, Vector.toList_singleton, List.getElem_singleton]
+              -- cfg_opt = emergentConfigAtGate_flat ... (Assignment.extend assignFin) 0
+              match h_cfg : cfg_opt with
+              | none => trivial
+              | some ⟨R, cfg⟩ =>
+                -- digest was constructed to match cfg
+                -- The goal needs to show rN's digest matches the emergent config
+                -- Since digest was constructed from cfg_opt, we need to connect the goal's
+                -- emergentConfigAtGate_flat call to cfg_opt
+                -- Key observations:
+                -- 1. rN.gateDigests.toList.length = 1 = numGates
+                -- 2. The Randomness constructed in the goal has assignment = rN.assignment = assignFin
+                -- 3. Therefore emergentConfigAtGate_flat ... = cfg_opt = some ⟨R, cfg⟩
+                -- First show that the goal's emergentConfigAtGate_flat equals cfg_opt
+                have h_len_eq : rN.gateDigests.toList.length = numGates := by
+                  simp only [rN, gateDigests, Vector.toList_singleton, List.length_singleton, numGates]
+                -- The goal's Randomness has the same assignmentInf as the one used for cfg_opt
+                have h_goal_cfg_eq : emergentConfigAtGate_flat (Φ n_test.val) h_nvars_pos
+                    rN.gateDigests.toList.length
+                    (Randomness.mk (Φ n_test.val).nvars h_nvars_pos rN.assignment
+                      rN.gateDigests.toList
+                      (rN.structuralBits.toList ++ List.replicate 63 false)
+                      (by simp only [rN, structBits, Vector.toList_singleton,
+                          List.length_singleton, List.length_append, List.length_replicate]; omega)
+                      (by simp only [rN, gateDigests, Vector.toList_singleton, List.length_singleton])).assignmentInf
+                    0 = cfg_opt := by
+                  simp only [h_len_eq, Randomness.assignmentInf, rN]
+                rw [h_goal_cfg_eq, h_cfg]
+                constructor
+                · -- digest.size ≥ R
+                  simp only [Vector.size]
+                  -- R comes from emergentConfigAtGate_flat, so R ≤ nvars
+                  -- This follows from the definition of emergentConfigAtGate_flat
+                  have h_R_le : R ≤ (Φ n_test.val).nvars := by
+                    unfold emergentConfigAtGate_flat at h_cfg
+                    simp only [numGates] at h_cfg
+                    split at h_cfg <;> try contradiction
+                    split at h_cfg <;> try contradiction
+                    split at h_cfg <;> try contradiction
+                    rename_i h_gate h_vertex h_cap
+                    simp only [Option.some.injEq, PSigma.mk.injEq] at h_cfg
+                    obtain ⟨h_R_eq, _⟩ := h_cfg
+                    -- R_v = L.R v where L = lstarStructureFromCNF_flat
+                    -- For flat profile, R_v = φ.nvars
+                    subst h_R_eq
+                    -- Need to show (lstarStructureFromCNF_flat ...).R v ≤ φ.nvars
+                    -- By definition, R = φ.nvars for flat profile
+                    rfl
+                  exact h_R_le
+                · -- ∀ j : Fin R, digest[j.val]? = some (CutConstraint.extractBit cfg j)
+                  intro j
+                  -- First establish j.val < nvars (since R ≤ nvars and j : Fin R)
+                  have h_R_le : R ≤ (Φ n_test.val).nvars := by
+                    unfold emergentConfigAtGate_flat at h_cfg
+                    simp only [numGates] at h_cfg
+                    split at h_cfg <;> try contradiction
+                    split at h_cfg <;> try contradiction
+                    split at h_cfg <;> try contradiction
+                    rename_i h_gate h_vertex h_cap
+                    simp only [Option.some.injEq, PSigma.mk.injEq] at h_cfg
+                    obtain ⟨h_R_eq, _⟩ := h_cfg
+                    subst h_R_eq
+                    rfl
+                  have h_j_lt : j.val < (Φ n_test.val).nvars := Nat.lt_of_lt_of_le j.isLt h_R_le
+                  -- digest[j.val]? = some digest[j.val] since j.val < nvars
+                  -- digest[j.val] = (Vector.ofFn f)[j.val] = f ⟨j.val, h_j_lt⟩
+                  -- Since j.val < R, the dite evaluates to CutConstraint.extractBit
+                  simp only [Vector.getElem?_eq_getElem h_j_lt, Vector.getElem_ofFn, j.isLt, ↓reduceDIte]
+        obtain ⟨rN, h_rN⟩ := h_exists
+        exact ⟨rN, Finset.mem_filter.mpr ⟨Finset.mem_univ _, h_rN⟩⟩
+
+      -- Now: |successful| / |wellformed| = |wellformed| / |wellformed| = 1
+      rw [h_card_eq]
+      have h_pos : (0 : ℝ) < (Finset.univ.filter fun rN =>
+          let r := Foundations.RandomnessN.toRandomness (Φ n_test.val).nvars (Φ n_test.val).nvars h_nvars_pos rN
+          (Φ n_test.val).satisfies r.assignmentInf ∧ WellFormedRandomness_flat (Φ n_test.val) r).card :=
+        Nat.cast_pos.mpr h_card_pos
+      exact div_self (ne_of_gt h_pos)
+
+    -- Use h_each_one to conclude avg = 1
+    simp only [h_each_one]
+    simp only [Finset.sum_const, Finset.card_fin, smul_eq_mul, mul_one]
+    have h_coins_pos : (0 : ℝ) < (A n_test.val).base.num_coins := by
+      exact Nat.cast_pos.mpr (A n_test.val).base.coins_pos
+    simp only [Fintype.card_fin, Nat.smul_one_eq_cast]
+    exact div_self (ne_of_gt h_coins_pos)
 
   -- Step 9: Derive contradiction
   rw [h_eq_one] at h_bound

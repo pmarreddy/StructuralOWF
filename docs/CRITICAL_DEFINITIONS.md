@@ -2047,6 +2047,31 @@ structure LStarInstanceFG extends LStarInstanceFull where
 
 **Theory**: Extension types (type theory) - modular construction
 
+**Bitstring Encoding** (LStarEncoding.lean):
+```lean
+-- Explicit bitstring encoding: LStarInstanceFG → List Bool
+noncomputable def encodeBits (x : LStarInstanceFG) : List Bool :=
+  Encodable.encode (toRawLStarInstanceFG x)
+
+-- Polynomial length bound: O(n³) encoding overhead
+theorem encode_len_poly (L : LStarInstanceFG) :
+  (encodeBits L).length ≤ 3072 * (Sized.size L + 1) ^ 3 + 8 * L.pools.stride + 100
+
+-- L* as a set of bitstrings (canonical definition)
+def LStarLanguage : Set (List Bool) :=
+  { bs | ∃ (L : LStarInstanceFG), encodeBits L = bs ∧ IsYesInstance L }
+
+-- Yes-instance: witness with correct digests exists
+def IsYesInstance (L : LStarInstanceFG) : Prop :=
+  ∃ (W : Witness L.n), HasCorrectDigests L W
+```
+
+**This addresses "L* is not defined as a set of strings"**:
+- `encodeBits` provides explicit `LStarInstanceFG → {0,1}*` mapping
+- `encode_len_poly` proves polynomial encoding overhead
+- `LStarLanguage` defines L* ⊆ {0,1}* as encodings of yes-instances
+- TM encoding: `lstarTMInputEncodingBase : TMInputEncodingBase LStarInstanceFG (Fin 3)`
+
 ---
 
 ### 5.5 L* Instance (Base) - Supporting
