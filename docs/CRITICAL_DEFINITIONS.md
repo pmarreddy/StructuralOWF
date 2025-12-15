@@ -917,7 +917,7 @@ Result: localParity(5) = 0 (even parity)
 
 ---
 
-### 3.3 Digest Bit Wrapper (Information Bottleneck)
+### 3.3 Parity Discriminator (Proof Witness, NOT Hardness Source)
 
 **Definition**: `fgDigestBit` (Layer2_StructuralOWF/FrontierGate/FrontierGate.lean)
 
@@ -928,18 +928,29 @@ def fgDigestBit {n : Nat} (cfg : Fin (2^n)) : Bool :=
   | _ => true
 ```
 
-**Mathematical Object**: THE function that creates the information bottleneck
+**Mathematical Object**: Parity function used as discriminator in proofs
 - **Input**: Configuration cfg ∈ Fin(2^n) (emergent value at FG gate)
 - **Output**: Single parity bit (XOR of all n bits)
 - **Computation**: localParity folds XOR over all bits (GF(2) arithmetic)
 
-**Why Critical**:
-- **The state compression bottleneck**: R bits at FG create 2^R configurations
-- **Keyedness (A2)**: Each config maps to distinct seed → distinct state required
-- **Pigeonhole**: Incomplete observation → indistinguishable configs with different correct outputs
-- **Exponential barrier**: 2^R configurations must map to 2^R states (compression causes correctness failure)
+**Architectural Note (Discriminator vs Hardness)**:
+- **Discriminator role**: Parity witnesses that two configurations differ
+- **NOT the hardness source**: If parity alone were the source, only 2 possibilities would exist
+- **Hardness source**: R-bit identity digest + A2 injectivity → 2^R configurations
 
-**Without this**: No keyedness → state compression possible → OWF fails!
+**Proof Chain**:
+```
+incomplete observation
+  → parity differs [discriminator: fgDigestBit]
+  → configs differ [parity sensitivity]
+  → seeds differ [A2 injectivity on identity digest]
+  → must explore 2^R configs [hardness]
+```
+
+**Why Critical in Proofs**:
+- Used in `parity_requires_all_bits` theorem to construct witness configs
+- Parity's full sensitivity (flip any bit → parity flips) enables proof construction
+- **The construction uses identity digest**; parity is just for proof witnessing
 
 **Example**:
 ```
@@ -948,7 +959,7 @@ localParity = (1 ⊕ 0 ⊕ 1 ⊕ 1) mod 2 = 1 mod 2 = 1
 fgDigestBit = true
 ```
 
-**Theory**: Pigeonhole principle - 2^n configurations require 2^n distinguishable states (collision indistinguishability ensures injection)
+**Theory**: Decision tree lower bounds for parity (Wegener 1987) - parity requires reading all inputs
 
 ---
 
@@ -2745,11 +2756,13 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
      * Primary theorem: `∃ L, InNP_Alg L ∧ ¬InP L` (uses NP directly in goal!)
    - **Without InNP_Alg**: Extractor can't verify extracted witnesses → OWF → FP≠FNP fails!
 
-2. **Why fgDigestBit is Core** (THE state compression bottleneck):
-   - **Single function** that creates exponential barrier
-   - **R bits at FG**: Keyedness ensures 2^R configs map to distinct states (pigeonhole)
-   - **Incomplete observation** → indistinguishable configs with different correct outputs
-   - **Without fgDigestBit**: No keyedness → state compression possible → polynomial algorithm!
+2. **Why fgDigestBit is Core** (proof discriminator for lower bounds):
+   - **Role**: Parity function used as DISCRIMINATOR in proofs (NOT the hardness source)
+   - **Hardness source**: R-bit identity digest + A2 injectivity → 2^R configurations
+   - **Why parity in proofs**: Full sensitivity enables witness construction
+     * `parity_requires_all_bits`: incomplete obs → ∃ cfg1,cfg2 with different parities
+     * Different parities → different configs → different seeds (A2)
+   - **Without parity proofs**: No way to witness that incomplete obs leaves ambiguity!
 
 3. **Why WellFormedRandomness is Core** (breaks OWF circularity):
    - **Circularity problem**: Plant(φ, r) needs well-formed r, but how to verify?
@@ -3034,16 +3047,24 @@ def computeAddress {n k : Nat}
 **Definition**: `computeDigest` (Layer2_StructuralOWF/FrontierGate/FrontierGate.lean)
 
 ```lean
+/-- R-bit identity digest: the digest IS the configuration bits -/
+def identityDigestVec {n : Nat} (cfg : Fin (2^n)) : Vector Bool n :=
+  Vector.ofFn fun i : Fin n => (cfg.val >>> i.val) % 2 = 1
+
 def computeDigest {n : Nat} (cfg : Fin (2^n)) : GateDigest :=
-  { segmentBudget := 1
-  , bits := ⟨#[fgDigestBit cfg], rfl⟩ }
+  { segmentBudget := n
+  , bits := identityDigestVec cfg }  -- ALL n bits, not just parity
 ```
 
 **Mathematical Object**: Full FG digest structure from configuration
 - **Transparent**: Definitional computation (not axiomatic)
-- **Structure**: GateDigest with segment budget and R emergence bits (all R bits, not just parity)
+- **Structure**: GateDigest with segment budget = n and ALL R emergence bits (identity function)
+- **Hardness source**: 2^R configurations require exhaustive search (A2 injectivity)
 
-**Why Moderate**: fgDigestBit is the core, this is wrapper infrastructure
+**Note on parity**: The `fgDigestBit` (parity) function still exists and is used in **proofs** as a
+discriminator to witness that two configs differ, but the **construction** uses identity digest.
+
+**Why Moderate**: identityDigestVec is the core, this is wrapper infrastructure
 
 **Theory**: Commitment schemes (Naor 1989) - information-theoretic binding
 

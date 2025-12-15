@@ -328,6 +328,12 @@ def fgDigestBit {n : Nat} (cfg : Fin (2^n)) : Bool :=
 - Bit extraction via `(cfg.val >>> i) % 2` is standard
 - Parity is "maximally non-local" — correct (Wegener 1987)
 
+**Architectural Clarification (2025-12-15)**:
+- **Role**: Parity is a DISCRIMINATOR in proofs, NOT the hardness source
+- **Hardness source**: R-bit identity digest (`identityDigestVec`) + A2 injectivity → 2^R configs
+- **Construction uses**: `computeDigest` returns ALL R bits (identity function)
+- **Proofs use**: `fgDigestBit` (parity) to witness that configs differ
+
 ---
 
 ### Definition 3.3a: Randomness
@@ -671,7 +677,7 @@ Catalog: 46 core + 13 supporting + 49 auxiliary = 98 total
 
 Critical insights verified:
 1. **Why InNP_Alg is Core**: Needed for OWF security (witness extraction verification) ✓
-2. **Why fgDigestBit is Core**: Creates exponential barrier via pigeonhole ✓
+2. **Why fgDigestBit is Core**: Proof discriminator for lower bounds (witnesses config differences; hardness from R-bit identity + A2) ✓
 3. **Why WellFormedRandomness is Core**: Breaks circularity ✓
 
 ---
