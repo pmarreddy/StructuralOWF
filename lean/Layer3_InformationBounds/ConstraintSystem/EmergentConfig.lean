@@ -168,8 +168,8 @@ lemma emergentConfigAtGate_some_implies_gateIndex_bound
     **Type Consistency**: numGates = r.gateDigests.length ensures R values match
     plant_flat exactly, eliminating ALL type mismatches!
 
-    **Track A Refactor**: Randomness is now parametrized by nvars. The assignment
-    is finite (Fin nvars → Bool) and is extended to infinite for satisfiability check.
+    Randomness is parametrized by nvars with finite assignment (Fin nvars → Bool),
+    extended to infinite for satisfiability check.
 
     **Precondition**: Requires φ.nvars > 0, provided by CNF structure invariant. -/
 def WellFormedRandomness (φ : CNF) (r : Randomness φ.nvars) : Prop :=

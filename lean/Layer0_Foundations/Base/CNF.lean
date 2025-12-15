@@ -128,7 +128,7 @@ structure CNF where
     - σ(i) = true means variable xᵢ is assigned TRUE
     - σ(i) = false means variable xᵢ is assigned FALSE
 
-    **Design Note - Why Finite (Track A Refactor)**:
+    **Design Note - Why Finite**:
     We use finite functions Fin n → Bool (not Nat → Bool) because:
     1. **Complexity-theoretic correctness**: NP witnesses must be finite bit strings
     2. **OWF domain/codomain**: One-way functions map {0,1}^m → {0,1}^n (finite!)

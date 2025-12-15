@@ -159,8 +159,7 @@ def Assign (v : NodeData) : Type := v.UnknownIdx → Bool
 
 ---
 
-### 1.4a CNF Formula (SAT Problem Infrastructure) ⭐ ADDED
-
+### 1.4a CNF Formula (SAT Problem Infrastructure)
 **Definition**: `CNF`, `Clause`, `Literal` (Layer0_Foundations/Base/CNF.lean)
 
 ```lean
@@ -176,7 +175,7 @@ structure CNF where
   clauses : List Clause    -- Conjunction (all must be satisfied)
   nvars_pos : nvars > 0    -- Non-triviality invariant
 
--- FINITE assignment (Track A refactor): exactly n bits, encodable as {0,1}^n
+-- FINITE assignment: exactly n bits, encodable as {0,1}^n
 def Assignment (n : Nat) := Fin n → Bool
 
 -- INFINITE assignment: for internal CNF evaluation (extends finite by false)
@@ -203,8 +202,7 @@ def Assignment.extend {n : Nat} (a : Assignment n) : AssignmentInf :=
 
 ---
 
-### 1.4b DAG Structure (Dependency Graph) ⭐ ADDED
-
+### 1.4b DAG Structure (Dependency Graph)
 **Definition**: `DAG` (Layer0_Foundations/Base/DAG.lean)
 
 ```lean
@@ -232,8 +230,7 @@ def isAcyclic (dag : DAG) : Prop := ∃ order, hasTopoOrder dag order
 
 ---
 
-### 1.4c DeterministicRun Structure (Execution Model) ⭐ ADDED
-
+### 1.4c DeterministicRun Structure (Execution Model)
 **Definition**: `DeterministicRun` (Layer3_InformationBounds/Support/TimingModel.lean)
 
 ```lean
@@ -336,8 +333,7 @@ def cut_lambda (C : CutData) : Nat :=
 
 ---
 
-### 1.7 Pre-Final Agreement (Parametric Bound Parameter) ⭐ CRITICAL
-
+### 1.7 Pre-Final Agreement (Parametric Bound Parameter)
 **Definition**: `PreFinalAgreement` (Layer3_InformationBounds/SegmentReduction/SegmentCounting.lean)
 
 ```lean
@@ -380,8 +376,7 @@ Bound: 2^(128-32) = 2^96 (weaker by factor 2^32)
 
 ---
 
-### 1.8 Effective Residual (Parametric Bound Computation) ⭐ CRITICAL
-
+### 1.8 Effective Residual (Parametric Bound Computation)
 **Definition**: `EffectiveResidual` (Layer3_InformationBounds/SegmentReduction/SegmentCounting.lean)
 
 ```lean
@@ -517,8 +512,7 @@ def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
 
 ---
 
-**Definition**: `PeqNP_classical` (Layer5_Applications/PvsNP/ComplexityClasses/ComplexityClasses.lean) ⭐ NEW
-
+**Definition**: `PeqNP_classical` (Layer5_Applications/PvsNP/ComplexityClasses/ComplexityClasses.lean)
 ```lean
 def PeqNP_classical : Prop :=
   ∀ (α : Type) [Sized α] (L : Lang α),
@@ -811,13 +805,11 @@ def PeqNP_parametric : Prop :=
 
 **Theory Connection**: One-way functions (Diffie-Hellman 1976), cryptographic hardness
 
-### 3.1 One-Way Function Construction ⭐ UPDATED (Track A Refactor)
-
+### 3.1 One-Way Function Construction
 **Definition**: `plant_flat` (Layer2_StructuralOWF/Plant/PlantExponential.lean)
 
 ```lean
--- PARAMETRIC: r : Randomness φ.nvars (Track A refactor)
--- AlignedCNFConstraints bundles clause count and 3-SAT constraints
+-- PARAMETRIC: r : Randomness φ.nvars-- AlignedCNFConstraints bundles clause count and 3-SAT constraints
 structure AlignedCNFConstraints (φ : CNF) : Prop where
   clauses_le : φ.clauses.length ≤ φ.nvars    -- Clause count bound
   is_3sat : ∀ c ∈ φ.clauses, c.literals.length ≤ 3  -- 3-SAT constraint
@@ -842,7 +834,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
 - **Construction**: Builds full DAG with R_v = nvars (exponential emergence profile)
 - **FG wiring**: Integrates R-bit identity digests into seed chain via FrontierGateConfig
 
-**Track A Refactor Note**: Now takes `r : Randomness φ.nvars` instead of `r : Randomness`.
+**Note**:Now takes `r : Randomness φ.nvars` instead of `r : Randomness`.
 The parametric type ensures the assignment has exactly φ.nvars bits. The `AlignedCNFConstraints`
 structure bundles clause count and 3-SAT constraints to guarantee proper CNF well-formedness.
 
@@ -963,12 +955,11 @@ fgDigestBit = true
 
 ---
 
-### 3.3a Randomness Structure (OWF Input) ⭐ UPDATED (Track A Refactor)
-
+### 3.3a Randomness Structure (OWF Input)
 **Definition**: `Randomness` (Layer2_StructuralOWF/FrontierGate/RandomnessTypes.lean)
 
 ```lean
--- PARAMETRIC by nvars (Track A refactor): enables finite, encodable witnesses
+-- PARAMETRIC by nvars: enables finite, encodable witnesses
 structure Randomness (nvars : Nat) where
   dgLen : Nat                                -- Parametric digest length (profile-dependent)
   h_dgLen_pos : dgLen > 0                    -- Positivity constraint
@@ -1005,7 +996,7 @@ def Randomness.assignmentInf {nvars : Nat} (r : Randomness nvars) : AssignmentIn
 - **Non-leaking**: Public fields encode R-bit digest/salt only, not assignment bits
 - **Single-gate invariant**: Type-level constraint ensures FG architecture consistency
 
-**Track A Refactor Note**: Previously `assignment : Nat → Bool` (infinite). Now `assignment : Assignment nvars`
+**Note**:Previously `assignment : Nat → Bool` (infinite). Now `assignment : Assignment nvars`
 (finite, `Fin nvars → Bool`). This is required for proper complexity-theoretic formalization where
 witnesses must be finite bit strings in {0,1}^poly(n).
 
@@ -1013,8 +1004,7 @@ witnesses must be finite bit strings in {0,1}^poly(n).
 
 ---
 
-### 3.3b GateDigest Structure (R-bit Identity Digest Mechanism) ⭐ ADDED
-
+### 3.3b GateDigest Structure (R-bit Identity Digest Mechanism)
 **Definition**: `GateDigest` (Layer2_StructuralOWF/FrontierGate/FrontierGate.lean)
 
 ```lean
@@ -1036,13 +1026,11 @@ structure GateDigest where
 
 ---
 
-### 3.4 Well-Formed Randomness (Exponential Profile) ⭐ UPDATED (Track A Refactor)
-
+### 3.4 Well-Formed Randomness (Exponential Profile)
 **Definition**: `WellFormedRandomness_flat` (Layer2_StructuralOWF/Plant/PlantExponential.lean)
 
 ```lean
--- PARAMETRIC: r : Randomness φ.nvars (Track A refactor)
--- Exponential profile: includes CNF.WellFormed + dgLen ≥ nvars
+-- PARAMETRIC: r : Randomness φ.nvars-- Exponential profile: includes CNF.WellFormed + dgLen ≥ nvars
 def WellFormedRandomness_flat (φ : CNF) (r : Randomness φ.nvars) : Prop :=
   let numGates := r.gateDigests.length
   φ.WellFormed ∧  -- CNF well-formedness: all literal indices < nvars
@@ -1068,7 +1056,7 @@ def WellFormedRandomness_flat (φ : CNF) (r : Randomness φ.nvars) : Prop :=
 - **Check 2**: Architectural constraint φ.clauses.length ≥ numGates (sufficient clauses for gates)
 - **Check 3**: ALL R bits of FG digest match emergent configuration (creates 2^R bottleneck)
 
-**Track A Refactor Note**: Now takes `r : Randomness φ.nvars` instead of `r : Randomness`. Uses
+**Note**:Now takes `r : Randomness φ.nvars` instead of `r : Randomness`. Uses
 `r.assignmentInf` (infinite extension) for CNF satisfaction checks since `CNF.satisfies` expects
 `Nat → Bool`. The finite assignment `r.assignment : Fin φ.nvars → Bool` is extended by padding
 with `false` beyond `φ.nvars`.
@@ -1129,12 +1117,11 @@ structure FrontierGateConfig (L : LStarInstanceFull) where
 
 ---
 
-### 3.6 Witness Structure ⭐ UPDATED (Track A Refactor)
-
+### 3.6 Witness Structure
 **Definition**: `Witness` (Layer2_StructuralOWF/FrontierGate/RandomnessTypes.lean)
 
 ```lean
--- PARAMETRIC by nvars (Track A refactor): enables finite, encodable witnesses
+-- PARAMETRIC by nvars: enables finite, encodable witnesses
 structure Witness (nvars : Nat) where
   assignment : Assignment nvars  -- FINITE: exactly nvars bits, encodable as {0,1}^nvars
   gateProofs : List GateProofItem  -- Gate verification data
@@ -1159,7 +1146,7 @@ def Witness.assignmentInf {nvars : Nat} (w : Witness nvars) : AssignmentInf :=
 - **Inversion reduction**: OWF inverter → witness extractor → contradiction
 - **FG-specific**: Includes gate verification data (not just SAT assignment)
 
-**Track A Refactor Note**: Previously `assignment : Nat → Bool` (infinite). Now `assignment : Assignment nvars`
+**Note**:Previously `assignment : Nat → Bool` (infinite). Now `assignment : Assignment nvars`
 (finite, `Fin nvars → Bool`). This is required for proper complexity-theoretic formalization where
 witnesses must be finite bit strings in {0,1}^poly(n).
 
@@ -1169,12 +1156,11 @@ witnesses must be finite bit strings in {0,1}^poly(n).
 
 ---
 
-### 3.7 Extractor (Witness Recovery) ⭐ UPDATED (Track A Refactor)
-
+### 3.7 Extractor (Witness Recovery)
 **Definition**: `extract` (Layer2_StructuralOWF/Extractor/Extractor.lean)
 
 ```lean
--- PARAMETRIC by nvars (Track A refactor): preserves finite encoding
+-- PARAMETRIC by nvars: preserves finite encoding
 def extract {nvars : Nat} (L : LStarInstanceFG) (r : Randomness nvars) : Witness nvars :=
   { assignment := r.assignment  -- Direct: finite assignment passes through
     gateProofs :=
@@ -1205,7 +1191,7 @@ def extract {nvars : Nat} (L : LStarInstanceFG) (r : Randomness nvars) : Witness
 - **Simple extraction**: No complex decoding needed - just repackage randomness fields
 - **FINITE preservation**: Parametric nvars ensures output witness is finite and encodable
 
-**Track A Refactor Note**: Now parametric in nvars. Input `Randomness nvars` directly yields
+**Note**:Now parametric in nvars. Input `Randomness nvars` directly yields
 output `Witness nvars` - the finite assignment passes through unchanged.
 
 **Design Rationale**: Since OWF inverter provides randomness r (not just output), extraction is trivial - the witness is literally embedded in r. This is SIMPLER than decoding from output bits.
@@ -1214,8 +1200,7 @@ output `Witness nvars` - the finite assignment passes through unchanged.
 
 ---
 
-### 3.8 Witness Uniqueness (Planted Instance Property) ⭐ IMPORTANT
-
+### 3.8 Witness Uniqueness (Planted Instance Property)
 **Definition**: `HasWitnessUniqueness` (Layer3_InformationBounds/Keyedness/AcceptanceUniqueness.lean)
 
 ```lean
@@ -1252,8 +1237,7 @@ While the formal definition uses CutWorld compatibility, the intuition is that p
 
 ---
 
-### 3.9 Profile-Specific Bounds (Exponential Profile) ⭐ IMPORTANT
-
+### 3.9 Profile-Specific Bounds (Exponential Profile)
 **Theorem**: `plant_flat_lambdaBase_eq_nvars` (Layer2_StructuralOWF/Plant/PlantExponential.lean)
 
 ```lean
@@ -1348,8 +1332,7 @@ structure TMConfig {k : Nat} {states alphabet : Type}
 
 ---
 
-### 4.2 Execution Trace ⭐ CORRECTED
-
+### 4.2 Execution Trace
 **Definition**: `ExecutionPrefix` (Layer3_InformationBounds/WorldCommit/CutWorlds.lean)
 
 ```lean
@@ -1390,8 +1373,7 @@ structure ExecutionPrefixReal (L : LStarInstanceFG) extends ExecutionPrefix L wh
 
 ---
 
-### 4.3 Refutation Count (Segment Reduction Result) ⭐ THEOREM RESULT
-
+### 4.3 Refutation Count (Segment Reduction Result)
 **Note**: Two equivalent definitions exist (information-theoretic vs operational)
 
 **Definition 1** (Information-Theoretic): `refutationCount` (Layer3_InformationBounds/SegmentReduction/SegmentReduction.lean)
@@ -1473,8 +1455,7 @@ Segment reduction: If ρ-s = 10, then 950 ≥ 2^10 - 1 = 1023 (contradiction if 
 
 ---
 
-### 4.4 Observation Model ⭐ CRITICAL
-
+### 4.4 Observation Model
 **Definition**: `Observation` (Layer3_InformationBounds/Support/ObservationModel.lean)
 
 ```lean
@@ -1519,8 +1500,7 @@ Complete observation:
 
 ---
 
-### 4.5 Computational State Model ⭐ CRITICAL
-
+### 4.5 Computational State Model
 **Definition**: `AlgorithmState` (Layer3_InformationBounds/ConstraintSystem/ConfigTypes.lean)
 
 ```lean
@@ -1557,7 +1537,7 @@ structure WitnessFinder (L : LStarInstanceFG) where
 
 ---
 
-### 4.6 Witness-Finding Algorithm Model ⭐⭐⭐ MOST CRITICAL
+### 4.6 Witness-Finding Algorithm Model MOST CRITICAL
 
 **Definition**: `WitnessFinder` (Infrastructure/Witness/WitnessAlgorithm.lean)
 
@@ -1568,12 +1548,12 @@ structure WitnessFinder (L : LStarInstanceFG) where
   stateTrace : Fin time → AlgorithmState
   h_trace_lt : ∀ t : Fin time, stateTrace t < time         -- Trace values bounded
   h_trace_card : (Finset.image stateTrace Finset.univ).card = states_visited  -- Cardinality invariant
-  h_visit_bound : states_visited ≤ time                    -- ⭐ CRITICAL: Can't visit more states than time
-  h_states_pos : states_visited ≥ 1                        -- ⭐ CRITICAL: Non-triviality
+  h_visit_bound : states_visited ≤ time                    --CRITICAL: Can't visit more states than time
+  h_states_pos : states_visited ≥ 1                        --CRITICAL: Non-triviality
   output : Witness
   h_correct : ∃ (φ : CNF), φ.satisfies output.assignment    -- Output satisfies some formula
   configsExploredAtCut : (C : Finset (Fin L.dag.n)) → Finset (ConfigSpace L C)  -- Cut-indexed exploration
-  h_complete_obs_forces_full_exploration :                 -- ⭐ CRITICAL: Complete obs → full exploration
+  h_complete_obs_forces_full_exploration :                 --CRITICAL: Complete obs → full exploration
     ∀ (v : Fin L.dag.n) (obs : Observation L.toLStarInstanceFull v),
       obs.isComplete → L.φ.satisfies output.assignment →
       (∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
@@ -1588,12 +1568,12 @@ structure WitnessFinder (L : LStarInstanceFG) where
 - **stateTrace**: State at each time step (computational history)
 - **h_trace_lt**: Trace values are bounded by time
 - **h_trace_card**: Trace cardinality equals states_visited
-- **h_visit_bound**: ⭐ CRITICAL INVARIANT - Cannot visit more states than time steps
-- **h_states_pos**: ⭐ CRITICAL - Non-triviality (witness finding requires computation)
+- **h_visit_bound**:Cannot visit more states than time steps
+- **h_states_pos**:Non-triviality (witness finding requires computation)
 - **output**: Witness produced (assignment + gate proofs)
 - **h_correct**: Existential proof that output satisfies some CNF formula (∃ φ, φ.satisfies output.assignment)
 - **configsExploredAtCut**: Cut-indexed configuration exploration tracking
-- **h_complete_obs_forces_full_exploration**: ⭐ CRITICAL - Complete observation implies full config exploration
+- **h_complete_obs_forces_full_exploration**:Complete observation implies full config exploration
 
 **Why THE MOST CRITICAL MISSING DEFINITION**:
 - **Theorem 8.A foundation**: THIS IS THE CENTRAL ABSTRACTION for per-instance bounds
@@ -1647,8 +1627,7 @@ This derives the bound DIRECTLY from keyedness, bypassing these fields entirely.
 
 ---
 
-### 4.7 TM Execution Trace (Layer 4 Bridge) ⭐ CRITICAL
-
+### 4.7 TM Execution Trace (Layer 4 Bridge)
 **Definition**: `TMExecutionTrace` (Layer4_Operational/TimeBridge/TMToExecutionPrefix.lean)
 
 ```lean
@@ -2029,7 +2008,7 @@ def satisfies_A3 (L : LStarInstanceFull) : Prop :=
 
 ```lean
 structure LStarInstanceFG extends LStarInstanceFull where
-  encodedφ : EncodedCNF                                -- ⭐ OAP-encoded CNF (seed-locked)
+  encodedφ : EncodedCNF                                --OAP-encoded CNF (seed-locked)
   fg : FrontierGateConfig toLStarInstanceFull
   fg_emergence_bound : ∀ (v_fg : {v // fg.gateReq v}) (C : Finset (Fin dag.n)),
     Finset.sum C (fun v => R v) ≤ R v_fg.val
@@ -2037,12 +2016,12 @@ structure LStarInstanceFG extends LStarInstanceFull where
       W_min > 0 ∧ n ≥ W_min ∧
       ∃ (c_lower c_upper : Nat),
         c_lower > 0 ∧ c_upper > 0 ∧
-        c_lower * (n / W_min) ≥ 1 ∧                    -- ⭐ Non-degeneracy
+        c_lower * (n / W_min) ≥ 1 ∧                    --Non-degeneracy
         ∀ (v : {v // fg.gateReq v}),
           c_lower * (n / W_min) ≤ R v.val ∧
           R v.val ≤ c_upper * (n / W_min)
-  dag_size_ge_n : dag.n ≥ n                            -- ⭐ DAG size lower bound
-  h_n_eq_nvars : n = encodedφ.nvars                    -- ⭐ Parameter consistency
+  dag_size_ge_n : dag.n ≥ n                            --DAG size lower bound
+  h_n_eq_nvars : n = encodedφ.nvars                    --Parameter consistency
 ```
 
 **Mathematical Object**: FG-equipped L* instance (THE instance type used in proofs)
@@ -2083,7 +2062,7 @@ structure LStarInstanceFull where
 
   -- Dependency structure (A5: Dependency property)
   dag : DAG                         -- Computation dependency graph
-  dagAcyclic : DAG.isAcyclic dag    -- ⭐ Enables topological ordering
+  dagAcyclic : DAG.isAcyclic dag    --Enables topological ordering
 
   -- Seed configuration
   seedWidth : Fin dag.n → Nat       -- Seed width per node
@@ -2096,7 +2075,7 @@ structure LStarInstanceFull where
   pools : PoolConfig dag.n          -- Designated read pools
 
   -- Capacity constraint
-  seedWidth_ok : ∀ v : Fin dag.n,   -- ⭐ Seeds hold parent contributions + emergent bits
+  seedWidth_ok : ∀ v : Fin dag.n,   --Seeds hold parent contributions + emergent bits
     (dag.parents v).sum (fun u => seedWidth u) + R v ≤ seedWidth v
 ```
 
@@ -2275,8 +2254,7 @@ P ≠ NP
 - **lambda**: Standard information dimension measure (Hartley 1928, Rényi-0)
 - **keyed**: Data processing inequality application (no compression without loss)
 
-### 7.1b Parity Lower Bound (Information-Theoretic Necessity) ⭐ NEW
-
+### 7.1b Parity Lower Bound (Information-Theoretic Necessity)
 **Theorem**: `parity_requires_all_bits` (Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean)
 
 ```lean
@@ -2577,18 +2555,18 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
   h_state_pos : 0 < stateCount
   h_alphabet_pos : 0 < alphabetSize
   h_tape_pos : 0 < tapeCount
-  M : TuringMachine tapeCount (Fin stateCount) (Fin alphabetSize)  -- ⭐ Concrete TM
+  M : TuringMachine tapeCount (Fin stateCount) (Fin alphabetSize)  --Concrete TM
   encoding : TMEncodingBase α β (Fin alphabetSize)  -- Bidirectional encoding
   output_input_encoding : TMInputEncodingBase β (Fin alphabetSize)  -- Output encoding
   h_blank_consistent : M.blank = encoding.input.blank
   h_output_blank_consistent : output_input_encoding.blank = encoding.input.blank
-  run_correct : ∀ (c : Fin T) (x : α) (t : Nat), ...  -- ⭐ TM matches run
+  run_correct : ∀ (c : Fin T) (x : α) (t : Nat), ...  --TM matches run
   time_bound : Nat → Nat
   C : Nat                            -- Uniform polynomial constant
   k : Nat                            -- Uniform polynomial exponent
   h_C_pos : C > 0
   h_k_pos : k > 0
-  poly_explicit : ∀ x : α, time_bound (size x) ≤ C * (size x + 1) ^ k  -- ⭐ Explicit sizes
+  poly_explicit : ∀ x : α, time_bound (size x) ≤ C * (size x + 1) ^ k  --Explicit sizes
   time_bound_uniform : ∀ n, time_bound n ≤ C * (n + 1) ^ k  -- Uniform bound on function
   halts : ∀ (c : Fin T) (x : α), ...  -- TM halts within time bound
   output_bounded : ∀ c x, size (run c x) ≤ time_bound (size x)  -- Output size ≤ runtime
@@ -2639,8 +2617,8 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 4. **Assign** - Assignment space (2^λ counting)
 5. **ofBits** - Bitstring encoding (injectivity enabler for encodeSeed)
 6. **cut_lambda** - Compositional residual (multi-node cuts)
-7. **PreFinalAgreement** ⭐ NEW - The "s" parameter in 2^(ρ-s) bounds
-8. **EffectiveResidual** ⭐ NEW - Computes ρ-s (parametric bound computation)
+7. **PreFinalAgreement** -The "s" parameter in 2^(ρ-s) bounds
+8. **EffectiveResidual** -Computes ρ-s (parametric bound computation)
 
 **Construction Mechanisms** (9 definitions - A1/A2/A3 + bridges + verification):
 7. **EmergenceMatrix** - A3 mechanism (type-enforced rank)
@@ -2676,9 +2654,9 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 29. **fgDigestBit** - Digest bit wrapper (parity → Bool)
 30. **WellFormedRandomness** - Circularity breaking (non-circular OWF verification)
 31. **plant_flat** - One-way function construction (exponential profile)
-32. **HasWitnessUniqueness** ⭐ NEW - Planted instance singleton witness property
-33. **plant_flat_lambdaBase_eq_nvars** ⭐ NEW - Exponential profile λ ≥ n bound
-34. **plant_flat_R_eq_nvars** ⭐ NEW - FG gate R = nvars (parametric bound formula)
+32. **HasWitnessUniqueness** -Planted instance singleton witness property
+33. **plant_flat_lambdaBase_eq_nvars** -Exponential profile λ ≥ n bound
+34. **plant_flat_R_eq_nvars** -FG gate R = nvars (parametric bound formula)
 
 **Operational Foundation** (9 definitions - 5 NEW):
 35. **FrontierGateConfig** - FG gate configuration (information bottleneck wiring)
@@ -2686,13 +2664,13 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 37. **NodeDataFull** - L* → NodeData bridge (enables SCL application)
 38. **ExecutionPrefix** - Observation-based execution model (info theory bridge)
 39. **refutationCount** - Segment reduction result (exponential time bound!)
-40. **Observation** ⭐⭐⭐ NEW - Partial/complete observation model (info-theoretic foundation)
-41. **AlgorithmState** ⭐⭐⭐ NEW - Abstract computational state (model-agnostic)
-42. **WitnessFinder** ⭐⭐⭐ NEW - THE MOST CRITICAL: Abstract witness-finding algorithm (Theorem 8.A foundation!)
-43. **TMExecutionTrace** ⭐⭐⭐ NEW - TM trace with observations (Layer 4 bridge)
-44. **RevealedBit** ⭐⭐ NEW - Single bit revelation (ExecutionPrefixReal component)
-45. **tmExecutionToPrefix** ⭐ NEW - TM → ExecutionPrefix bridge function
-46. **observations_le_time** ⭐ NEW - Time bound theorem (observations ≤ time)
+40. **Observation** NEW - Partial/complete observation model (info-theoretic foundation)
+41. **AlgorithmState** NEW - Abstract computational state (model-agnostic)
+42. **WitnessFinder** NEW - THE MOST CRITICAL: Abstract witness-finding algorithm (Theorem 8.A foundation!)
+43. **TMExecutionTrace** NEW - TM trace with observations (Layer 4 bridge)
+44. **RevealedBit** NEW - Single bit revelation (ExecutionPrefixReal component)
+45. **tmExecutionToPrefix** -TM → ExecutionPrefix bridge function
+46. **observations_le_time** -Time bound theorem (observations ≤ time)
 
 **Supporting Infrastructure** (13 additional definitions - proof fails without):
 
@@ -2711,18 +2689,6 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 59. **LStarInstanceFull** - Base instance (supports critical LStarInstanceFG)
 
 **Grand Total**: 60 critical definitions form the complete logical foundation (46 core + 14 supporting)
-- ⭐ **13 NEW definitions/theorems added (2025-11-18)**: Closes ALL major gaps!
-  - **Primary additions (10)**: Operational semantics foundation
-  - **Secondary additions (3)**: Theorem statements & classical formulations
-- **Most critical addition**: WitnessFinder (§4.6) - THE central abstraction for Theorem 8.A
-- **Information-theoretic**: PreFinalAgreement, EffectiveResidual (parametric bounds 2^(ρ-s))
-- **Observation model**: Observation, RevealedBit (partial vs complete observation)
-- **TM bridge**: TMExecutionTrace, tmExecutionToPrefix (Layer 4 → Layer 3)
-- **Witness properties**: HasWitnessUniqueness (planted instance characterization)
-- **Profile bounds**: plant_flat theorems (exponential profile λ ≥ n)
-- **Theorem statements**: refutation_count_exponential_bound (full Layer 3 version)
-- **Parity foundation**: parity_requires_all_bits (proves s=0 for FG, not assumes!)
-- **Classical P=NP**: PeqNP_classical (standard textbook formulation)
 
 **Theoretical Foundations**:
 - Information theory (Hartley, Shannon)
@@ -2868,7 +2834,7 @@ def cast {k1 k2 : Nat} (h : k1 = k2) (s : Seed k1) : Seed k2 :=
 **Definition**: `Assignment` (Layer0_Foundations/Base/CNF.lean)
 
 ```lean
--- FINITE assignment (Track A refactor): exactly n bits
+-- FINITE assignment: exactly n bits
 def Assignment (n : Nat) := Fin n → Bool
 
 -- INFINITE assignment: for internal CNF evaluation
@@ -3395,7 +3361,7 @@ def tmExecutionToPrefix (trace : TMExecutionTrace L M) : ExecutionPrefixReal L :
 ```lean
 class Sized (α : Type) where
   size : α → Nat
-  size_pos : ∀ x, 0 < size x   -- ⭐ Ensures non-degeneracy
+  size_pos : ∀ x, 0 < size x   --Ensures non-degeneracy
 ```
 
 **Mathematical Object**: Explicit size function for complexity analysis

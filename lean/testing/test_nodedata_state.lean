@@ -179,10 +179,10 @@ example (v : NodeData) (h_keyed : keyed v) :
 - ✅ lambda computation correct
 - ✅ keyed property structure (injectivity)
 - ✅ SCL_node theorem proven (keyed → |State| ≥ 2^λ)
-- ✅ **Edge cases**: lambda=0, lambda=1, lambda=3 ⭐ NEW!
-- ✅ **Injectivity**: keyed → state injective on assignments ⭐ NEW!
-- ✅ **Monotonicity**: λ ≤ log₂|State| ⭐ NEW!
-- ✅ **Non-emptiness**: Assignment and State spaces inhabited ⭐ NEW!
+- ✅ **Edge cases**: lambda=0, lambda=1, lambda=3
+- ✅ **Injectivity**: keyed → state injective on assignments
+- ✅ **Monotonicity**: λ ≤ log₂|State|
+- ✅ **Non-emptiness**: Assignment and State spaces inhabited
 
 **Confidence Impact**: 93% → 93.5% (+0.5% from Phase 2/3 validation)
 

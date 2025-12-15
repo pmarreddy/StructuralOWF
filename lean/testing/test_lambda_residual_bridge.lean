@@ -183,10 +183,10 @@ example (φ : CNF) (numGates v : Nat) :
 - ✅ FG gate detection works correctly
 - ✅ Rank functions are deterministic
 - ✅ Lambda residual = R_v (since q_v = 0 for emergent bits)
-- ✅ **Edge cases**: Minimal instances (n=1), non-FG nodes ⭐ NEW!
-- ✅ **Monotonicity**: Larger CNF → larger R ⭐ NEW!
-- ✅ **Consistency**: QP and Exp profiles agree on structure ⭐ NEW!
-- ✅ **Totality**: R formulas always defined ⭐ NEW!
+- ✅ **Edge cases**: Minimal instances (n=1), non-FG nodes
+- ✅ **Monotonicity**: Larger CNF → larger R
+- ✅ **Consistency**: QP and Exp profiles agree on structure
+- ✅ **Totality**: R formulas always defined
 
 **Confidence Impact**: 91% → 93% (+2% from Phase 2/3 validation)
 

@@ -179,9 +179,9 @@ example {n : Nat} (cfg : Fin (2^n)) :
 - ✅ Digest structure correct (64-bit vectors)
 - ✅ Randomness structure well-formed
 - ✅ Salt constraint enforced (≥64 structural bits)
-- ✅ **Digest length**: 64 bits verified ⭐ NEW!
-- ✅ **Concrete instances**: buildTestRandomness satisfies all constraints ⭐ NEW!
-- ✅ **Consistency**: Equality preservation, distinctness ⭐ NEW!
+- ✅ **Digest length**: 64 bits verified
+- ✅ **Concrete instances**: buildTestRandomness satisfies all constraints
+- ✅ **Consistency**: Equality preservation, distinctness
 
 **Confidence Impact**: 95% → 97% (+2% from Phase 2/3 validation)
 

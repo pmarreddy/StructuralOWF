@@ -183,9 +183,9 @@ example (L : LStarInstanceFG) (W : WitnessFinder L) :
 - ✅ Polynomial-time transitivity (time poly → states poly)
 - ✅ WitnessFinder structure deterministic
 - ✅ Witness output well-defined
-- ✅ **Concrete polynomial bounds**: Quadratic example ⭐ NEW!
-- ✅ **Edge cases**: Minimum states, tight bounds ⭐ NEW!
-- ✅ **Consistency**: Range, cardinality, totality ⭐ NEW!
+- ✅ **Concrete polynomial bounds**: Quadratic example
+- ✅ **Edge cases**: Minimum states, tight bounds
+- ✅ **Consistency**: Range, cardinality, totality
 
 **Confidence Impact**: 92% → 93% (+1% from Phase 2/3 validation)
 

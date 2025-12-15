@@ -187,10 +187,10 @@ example (v : NodeData) (h : keyed v) :
 - ✅ keyed property is well-behaved (symmetric, deterministic, proof-irrelevant)
 - ✅ Contrapositive reasoning works (collision → equality)
 - ✅ Non-constancy (keyed prevents state merging)
-- ✅ **Concrete bounds**: lambda=0,3 specialized ⭐ NEW!
-- ✅ **Injectivity**: inject_at is truly injective ⭐ NEW!
-- ✅ **Biconditional**: a1≠a2 ↔ state(a1)≠state(a2) ⭐ NEW!
-- ✅ **Proof irrelevance**: keyed proofs don't affect behavior ⭐ NEW!
+- ✅ **Concrete bounds**: lambda=0,3 specialized
+- ✅ **Injectivity**: inject_at is truly injective
+- ✅ **Biconditional**: a1≠a2 ↔ state(a1)≠state(a2)
+- ✅ **Proof irrelevance**: keyed proofs don't affect behavior
 
 **Confidence Impact**: 93% → 94% (+1% from Phase 2/3 validation)
 

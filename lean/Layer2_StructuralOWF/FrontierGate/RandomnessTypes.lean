@@ -15,10 +15,9 @@ This module defines the randomness input type for the planting function f: r ↦
 - `gateDigests`: FG digest values (single dgLen-bit digest)
 - `structuralBits`: Cryptographic salts (≥64 bits)
 
-**Track A Refactor (Bitstring Encoding)**:
-Assignment is now `LStar.Assignment nvars = Fin nvars → Bool` (finite!), not `Nat → Bool`.
-This is required for proper complexity-theoretic formalization where witnesses must be
-finite bit strings that can be encoded in {0,1}^poly(n).
+**Bitstring Encoding**:
+Assignment is `LStar.Assignment nvars = Fin nvars → Bool` (finite), enabling proper
+complexity-theoretic formalization where witnesses must be finite bit strings in {0,1}^poly(n).
 
 **Security Profile** (Exponential):
 - dgLen can be any constant ≥ 64 (the main P≠NP proof uses dgLen = 64)
@@ -43,7 +42,7 @@ namespace LStar.StructuralOWF
 Represents r ∈ {0,1}^m with security constraints enforced at the type level.
 The parametric nvars and dgLen enable different CNF sizes and security profiles.
 
-**Track A**: Now parametrized by nvars, with finite assignment type. -/
+Parametrized by nvars, with finite assignment type. -/
 structure Randomness (nvars : Nat) where
   /-- Digest length parameter, scaling with security profile. -/
   dgLen : Nat
@@ -104,9 +103,8 @@ structure GateProofItem where
 
 /-- Witness for L* verification: W = (assignment, gateProofs, digestBits).
 
-    **Track A Refactor**: Now parametrized by `nvars` with FINITE assignment type.
-    This is required for proper complexity-theoretic formalization where witnesses
-    must be finite bit strings in {0,1}^poly(n).
+    Parametrized by `nvars` with FINITE assignment type, required for proper
+    complexity-theoretic formalization where witnesses must be finite bit strings.
 
     **What each field is**:
     - `assignment`: The satisfying assignment α for the CNF formula φ (FINITE: nvars bits)

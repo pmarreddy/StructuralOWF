@@ -4,9 +4,8 @@ import Layer5_Applications.Crypto.PRG.GoldreichLevin
 
 ## NOTE: Module Partially Disabled (Depends on Deleted Trapdoor)
 
-This module references `generateCNF` from the deleted `TrapdoorStructuralOWF` module
-(QP-profile specific). This is an EXTENSION result showing public-key crypto from L*.
-It is NOT required for the main P≠NP proof (Track A exponential profile).
+This module references `generateCNF` from a deleted module. This is an EXTENSION
+result showing public-key crypto from L*. It is NOT required for the main P≠NP proof.
 
 ## Construction (Goldreich 2004, Section 5.4)
 

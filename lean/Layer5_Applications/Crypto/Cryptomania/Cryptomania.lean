@@ -37,9 +37,7 @@ open PKE
 open KeyExchange
 open PKSignature
 
-open LStar.Crypto.Minicrypt  -- Added this to directly use theorems like prg_exists
--- NOTE: Trapdoor module was deleted (QP-profile specific, not needed for exponential Track A)
--- open LStar.StructuralOWF.Trapdoor -- To access generateCNF, generateCNF_nvars_ge_4
+open LStar.Crypto.Minicrypt
 open LStar.ZK
 open LStar.ZK.Sigma  -- For ZKSecure
 open LStar.Crypto.PRG
@@ -81,7 +79,7 @@ The `complete_crypto_from_lstar` theorem below was commented out because it depe
 `generateCNF` from the deleted `TrapdoorStructuralOWF` module (QP-profile specific).
 
 This is an EXTENSION result showing that L* enables both Minicrypt and Cryptomania.
-It is NOT required for the main P≠NP proof (Track A exponential profile).
+It is NOT required for the main P≠NP proof.
 
 To restore: Reimplement trapdoor CNF generation for the exponential profile.
 -/

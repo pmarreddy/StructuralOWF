@@ -11,9 +11,8 @@ Provides `Sized` typeclass instances for types used in OWF security proofs.
 - `Randomness nvars`: size = nvars (assignment bits) + digest length + structural bits
 - `Witness nvars`: size = nvars (assignment bits) + proof count + digest bits + 1
 
-**Track A Refactor**: Randomness and Witness are now parametrized by nvars with finite
-assignment type (Fin nvars → Bool). The size measure now uses nvars directly instead
-of computing support size.
+Randomness and Witness are parametrized by nvars with finite assignment type
+(Fin nvars → Bool). The size measure uses nvars directly.
 
 **Trust Boundary**: Definitional instances with no axioms.
 -/

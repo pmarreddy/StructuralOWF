@@ -2470,8 +2470,8 @@ theorem tmEmergentEncoder_surjective_flat
     (v : {v // L.fg.gateReq v})
     (extractWitness : TMConfig M → Witness L.n)
     (h_planted : PlantedHyp_flat L)
-    (h_extractWitness_surj : ∀ (bound : Nat) (σ : AssignmentInf),
-        (∀ i ≥ bound, σ i = false) →
+    (h_extractWitness_surj : ∀ (σ : AssignmentInf),
+        (∀ i ≥ L.n, σ i = false) →
         ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (val : Fin (2^(L.R v.val))) :
     ∃ cfg : TMConfig M,
@@ -2549,8 +2549,39 @@ theorem tmEmergentEncoder_surjective_flat
     have h_shift_zero : val'.val >>> i = 0 := shift_high_bits_zero val' i hi
     simp [h_shift_zero]
 
+  -- Establish R = L.n to convert h_bounded to new signature format
+  -- Step 7a: Show vertex is FG gate
+  have h_is_fg : Foundations.is_fg_gate_flat φ numGates (1 + φ.nvars + gateIndex) = true := by
+    unfold Foundations.is_fg_gate_flat
+    simp only [decide_eq_true_eq]
+    constructor
+    · -- 1 + φ.nvars ≤ 1 + φ.nvars + gateIndex
+      omega
+    · -- 1 + φ.nvars + gateIndex < min(1 + φ.nvars + numGates)(1 + φ.nvars + φ.clauses.length)
+      have h_lt := h_gate_valid  -- gateIndex < numGates
+      simp only [Nat.lt_min]
+      constructor <;> omega
+
+  -- Step 7b: R = φ.nvars at FG gates
+  have h_R_eq_nvars : R = φ.nvars := Foundations.R_of_flat_at_fg_gate φ numGates (1 + φ.nvars + gateIndex) h_is_fg
+
+  -- Step 7c: L.n = φ.nvars for planted instances
+  have h_L_n_eq : L.n = φ.nvars := by
+    rw [h_L_eq]
+    exact plant_flat_n n φ r h_nvars h_aligned
+
+  -- Step 7d: Therefore R = L.n
+  have h_R_eq_L_n : R = L.n := by rw [h_R_eq_nvars, h_L_n_eq]
+
+  -- Step 7e: Convert h_bounded to use L.n
+  have h_bounded_L_n : ∀ i ≥ L.n, σ_val i = false := by
+    intro i hi
+    apply h_bounded
+    rw [← h_R_eq_L_n]
+    exact hi
+
   -- Step 7: Use h_extractWitness_surj to get a TM config
-  obtain ⟨tm_cfg, h_assign_eq⟩ := h_extractWitness_surj R σ_val h_bounded
+  obtain ⟨tm_cfg, h_assign_eq⟩ := h_extractWitness_surj σ_val h_bounded_L_n
 
   -- Step 8: Show the encoder produces val.val
   use tm_cfg

@@ -176,9 +176,9 @@ example {k : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
 - ✅ init creates correct initial configuration (state = q0, heads = 0, tapes = blank)
 - ✅ TuringMachine structure has required fields (q0, δ, blank, halt)
 - ✅ run base case and inductive structure correct
-- ✅ **Composition**: run(m+n) = iterate step n (run m) ⭐ NEW!
-- ✅ **Totality**: run and δ total for all inputs ⭐ NEW!
-- ✅ **Equality**: Configuration equality structural ⭐ NEW!
+- ✅ **Composition**: run(m+n) = iterate step n (run m)
+- ✅ **Totality**: run and δ total for all inputs
+- ✅ **Equality**: Configuration equality structural
 
 **Confidence Impact**: 97.3% → 97.5% (+0.2% from Phase 2/3 validation)
 

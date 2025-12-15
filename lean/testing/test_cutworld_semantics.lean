@@ -190,11 +190,11 @@ example (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) :
 - ✅ cutWorldEquiv is a valid bijection (left/right inverses)
 - ✅ CutWorld is finite and has decidable equality
 - ✅ Extensionality works correctly (both directions)
-- ✅ **Cartesian product structure**: 2-node cut = 2^(R₁ + R₂) ⭐ NEW!
-- ✅ **Empty/trivial cuts**: Correct boundary behavior ⭐ NEW!
-- ✅ **Assignment bounds**: Well-typed in Fin (2^R) ⭐ NEW!
-- ✅ **Distinctness**: Different worlds have different assignments ⭐ NEW!
-- ✅ **Equivalence preserves structure**: Cardinality invariant ⭐ NEW!
+- ✅ **Cartesian product structure**: 2-node cut = 2^(R₁ + R₂)
+- ✅ **Empty/trivial cuts**: Correct boundary behavior
+- ✅ **Assignment bounds**: Well-typed in Fin (2^R)
+- ✅ **Distinctness**: Different worlds have different assignments
+- ✅ **Equivalence preserves structure**: Cardinality invariant
 - ✅ ConsistentWith stub is safe (returns True for emptyPrefix)
 - ✅ FeasibleWorlds with emptyPrefix = all worlds
 - ✅ Initial world count formula is correct (2^Σ R_v)

@@ -164,9 +164,9 @@ noncomputable example (R n : Nat) (E : EmergenceMatrix R n) :
 - ✅ rank_leftIdentityBlock proves full row rank R
 - ✅ constructFullRank provides certified full-rank matrices
 - ✅ apply function computes E·x over GF(2)
-- ✅ **Concrete dimensions**: R=1,n=1 and R=2,n=3 verified ⭐ NEW!
-- ✅ **Rank certificate**: Type parameter consistency verified ⭐ NEW!
-- ✅ **Consistency**: Equality preservation, determinism ⭐ NEW!
+- ✅ **Concrete dimensions**: R=1,n=1 and R=2,n=3 verified
+- ✅ **Rank certificate**: Type parameter consistency verified
+- ✅ **Consistency**: Equality preservation, determinism
 
 **Status**: ✅ COMPLETE - All tests passing.
 

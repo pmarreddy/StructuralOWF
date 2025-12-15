@@ -169,9 +169,9 @@ noncomputable example (L : LStarInstanceFull) (v : Vertex L)
 - ✅ ParentHistory and Vertex types well-formed
 - ✅ Bit concatenation mechanism supports both A2 and A4 properties
 - ✅ Capacity reasoning (seedWidth_ok) prevents overflow
-- ✅ **Contrapositive injectivity**: Equal seeds → equal inputs ⭐ NEW!
-- ✅ **Totality**: All functions total (decodeSeed, packParents) ⭐ NEW!
-- ✅ **Type instances**: Fintype, DecidableEq verified ⭐ NEW!
+- ✅ **Contrapositive injectivity**: Equal seeds → equal inputs
+- ✅ **Totality**: All functions total (decodeSeed, packParents)
+- ✅ **Type instances**: Fintype, DecidableEq verified
 
 **Confidence Impact**: 97.7% → 97.9% (+0.2% from Phase 2/3 validation)
 

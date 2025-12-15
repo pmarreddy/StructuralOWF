@@ -194,9 +194,9 @@ example {α β : Nat → Type} [∀ n, Sized (α n)] [∀ n, Sized (β n)] (f : 
 - ✅ Polynomial bounds uniform across all n
 - ✅ Determinism requirements enforced
 - ✅ Correctness conditions properly structured
-- ✅ **Degree extraction**: Witness degree from parametric definition ⭐ NEW!
-- ✅ **Forward/Inverse**: FPneFNP has both function and relation ⭐ NEW!
-- ✅ **Witness relations**: InNP has polynomial-checkable witnesses ⭐ NEW!
+- ✅ **Degree extraction**: Witness degree from parametric definition
+- ✅ **Forward/Inverse**: FPneFNP has both function and relation
+- ✅ **Witness relations**: InNP has polynomial-checkable witnesses
 
 **Confidence Impact**: 97.5% → 97.7% (+0.2% from Phase 2/3 validation)
 

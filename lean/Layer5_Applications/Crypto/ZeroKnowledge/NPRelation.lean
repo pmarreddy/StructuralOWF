@@ -23,8 +23,7 @@ structure Statement where
   h_aligned : AlignedCNFConstraints φ
   x : LStarInstanceFG
 
-/-- Witness: randomness r parametrized by nvars.
-    Track A Refactor: Witness is now tied to a specific nvars. -/
+/-- Witness: randomness r parametrized by nvars. -/
 structure ZKWitness (nvars : Nat) where
   r : Randomness nvars
 

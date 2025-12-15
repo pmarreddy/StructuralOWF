@@ -212,10 +212,10 @@ noncomputable example (L : LStarInstanceFG) (v : Fin L.dag.n) (haltTime : Nat) :
 - ✅ Designated reads are well-defined (unique extraction)
 - ✅ q_v count is deterministic (well-defined)
 - ✅ Constraint-based q_v works correctly
-- ✅ **Long-run determinism**: 100-1000 step consistency ⭐ NEW!
-- ✅ **Edge cases**: Empty constraints, time 0, totality ⭐ NEW!
-- ✅ **Monotonicity**: Constraint count never decreases ⭐ NEW!
-- ✅ **Type safety**: Non-negative counts, finite sets ⭐ NEW!
+- ✅ **Long-run determinism**: 100-1000 step consistency
+- ✅ **Edge cases**: Empty constraints, time 0, totality
+- ✅ **Monotonicity**: Constraint count never decreases
+- ✅ **Type safety**: Non-negative counts, finite sets
 - ✅ First-use property implicit in deterministic extraction
 
 **Confidence Impact**: 89% → 92% (+3% from Phase 2/3 validation)

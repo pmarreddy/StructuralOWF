@@ -218,7 +218,7 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 - **NormalForm.lean**: Constraint normalization
 
 ### Keyedness/ (10 files)
-- **KeyednessFromA2.lean**: ⭐ Keyedness proven from A2 (eliminates axiom!)
+- **KeyednessFromA2.lean**: Keyedness proven from A2 (eliminates axiom)
 - **KeyednessBounds.lean**: Keyedness lower bounds
 - **AcceptanceUniqueness.lean**: Unique acceptance semantics
 - **LaneDefinitions.lean**: FG vs. non-FG lane separation
@@ -230,7 +230,7 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 - **NoBackdoorTheorem.lean**: Absence of algorithmic backdoors in planted instances
 
 ### SegmentReduction/ (8 files)
-- **SegmentReduction.lean**: ⭐ Main theorem (refutationCount ≥ 2^(ρ-s) - 1)
+- **SegmentReduction.lean**: Main theorem (refutationCount ≥ 2^(ρ-s) - 1)
 - **CanonicalKeyednessBounds.lean**: Keyedness for canonical witnesses
 - **ParityLowerBound.lean**: Parity-based lower bounds
 - **SegmentBoundaries.lean**: Segment boundary definitions
@@ -240,7 +240,7 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 - **WorkLowerBounds.lean**: Lower bound aggregation
 
 ### WorldCommit/ (9 files)
-- **WorldCommit.lean**: ⭐ WC-1 property (exact -1 exclusion)
+- **WorldCommit.lean**: WC-1 property (exact -1 exclusion)
 - **AppendixJBridge.lean**: Appendix J bridge theorems (multiplicative world counting)
 - **CDT_Lemmas.lean**: Canonical Deterministic Trajectory lemmas
 - **ConfigMatchToUnitRefute.lean**: ConfigMatch → UnitRefute equivalence
