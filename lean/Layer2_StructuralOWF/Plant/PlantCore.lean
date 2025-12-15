@@ -42,7 +42,7 @@ See Layer2_StructuralOWF/Layer2_README.md for Plant function details and FG mech
 namespace LStar.StructuralOWF
 
 open LStar
-open LStar.Construction.ReductionTree
+open LStar.Construction.BalancedBinaryTree
 open LStar.StructuralOWF.Foundations
 
 /-! ## Helper lemmas for stride bound -/

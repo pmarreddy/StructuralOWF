@@ -1097,13 +1097,13 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                   -- 4. Max sum at root = nclauses × nvars
 
                   -- Use the fact that nclauses ≥ 2 for reduction tree to exist
-                  -- (if nclauses ≤ 1, ReductionTree.size = 0 and there are no reduction nodes)
+                  -- (if nclauses ≤ 1, BalancedBinaryTree.size = 0 and there are no reduction nodes)
                   have h_nclauses_ge_2 : φ.clauses.length ≥ 2 := by
                     -- v is in reduction tree, which only exists when nclauses > 1
-                    -- ReductionTree.size nclauses = if nclauses ≤ 1 then 0 else nclauses - 1
+                    -- BalancedBinaryTree.size nclauses = if nclauses ≤ 1 then 0 else nclauses - 1
                     -- v.val > nvars + nclauses and v.val < totalNodes
-                    -- totalNodes = 1 + nvars + nclauses + ReductionTree.size nclauses
-                    -- If nclauses ≤ 1, then ReductionTree.size = 0
+                    -- totalNodes = 1 + nvars + nclauses + BalancedBinaryTree.size nclauses
+                    -- If nclauses ≤ 1, then BalancedBinaryTree.size = 0
                     -- So v.val < 1 + nvars + nclauses + 0 = 1 + nvars + nclauses
                     -- But v.val > nvars + nclauses, so v.val ≥ nvars + nclauses + 1
                     -- This contradicts v.val < 1 + nvars + nclauses unless nclauses ≥ 2
@@ -1111,7 +1111,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                     push_neg at h_lt_2
                     have h_nclauses_le_1 : φ.clauses.length ≤ 1 := by omega
                     have h_tree_size_zero : Construction.reductionTreeSize φ.clauses.length = 0 := by
-                      simp only [Construction.reductionTreeSize, ReductionTree.size]
+                      simp only [Construction.reductionTreeSize, BalancedBinaryTree.size]
                       simp only [h_nclauses_le_1, ↓reduceIte]
                     have h_v_lt : v.val < Construction.totalNodes φ.nvars φ.clauses.length := v.isLt
                     unfold Construction.totalNodes at h_v_lt
@@ -1149,7 +1149,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                     _ = (∑ u ∈ (Construction.build3SATReductionDAG φ numGates).parents v,
                           Construction.computeSeedWidth φ numGates R_val u) := by ring
                     _ ≤ φ.clauses.length * φ.nvars := by
-                        -- **Mathematical argument** (see ReductionTree.clauseDescendantCount):
+                        -- **Mathematical argument** (see BalancedBinaryTree.clauseDescendantCount):
                         -- 1. Each clause has seedWidth = nvars (proved above in clause case)
                         -- 2. Reduction nodes have R = 0, so seedWidth = parent_sum (no additional R)
                         -- 3. Therefore: seedWidth v = (clause descendant count) × nvars
@@ -1160,7 +1160,7 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                         -- Since v's seedWidth ≤ nclauses × nvars, the parent sum is too.
                         --
                         -- **Formal proof path**:
-                        -- - Use ReductionTree.clauseDescendantCount to count clause descendants
+                        -- - Use BalancedBinaryTree.clauseDescendantCount to count clause descendants
                         -- - Prove: seedWidth v = clauseDescendantCount (v's redIdx) × nvars
                         -- - Apply clauseDescendantCount_le (with its sorry for disjoint property)
                         --
@@ -1178,14 +1178,14 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
 
                         -- Reduction index of `v` among reduction nodes
                         let redIdx : Nat := v.val - φ.nvars - m - 1
-                        have h_redIdx : redIdx < ReductionTree.size m := by
+                        have h_redIdx : redIdx < BalancedBinaryTree.size m := by
                           -- `v < totalNodes = (φ.nvars + m + 1) + size m`
                           have hvlt : v.val < dag.n := v.isLt
-                          have hvlt' : v.val < (φ.nvars + m + 1) + ReductionTree.size m := by
+                          have hvlt' : v.val < (φ.nvars + m + 1) + BalancedBinaryTree.size m := by
                             simpa [dag, Construction.build3SATReductionDAG, Construction.totalNodes,
                               Construction.reductionTreeSize, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hvlt
                           have hbase : φ.nvars + m + 1 ≤ v.val := by omega
-                          have : v.val - (φ.nvars + m + 1) < ReductionTree.size m :=
+                          have : v.val - (φ.nvars + m + 1) < BalancedBinaryTree.size m :=
                             Nat.sub_lt_left_of_lt_add hbase hvlt'
                           -- `redIdx = v.val - (φ.nvars + m + 1)`
                           have : redIdx = v.val - (φ.nvars + m + 1) := by
@@ -1196,33 +1196,33 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                         have h_clauseVertex_lt (i : Nat) (hi : i < m) : clauseBase + i < dag.n := by
                           -- `clauseBase + i < clauseBase + m ≤ dag.n`
                           have : clauseBase + i < clauseBase + m := Nat.add_lt_add_left hi _
-                          have hn : dag.n = clauseBase + m + ReductionTree.size m := by
+                          have hn : dag.n = clauseBase + m + BalancedBinaryTree.size m := by
                             simp [dag, Construction.build3SATReductionDAG, Construction.totalNodes,
                               Construction.reductionTreeSize, clauseBase, m, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
-                          have : clauseBase + i < clauseBase + m + ReductionTree.size m := by
+                          have : clauseBase + i < clauseBase + m + BalancedBinaryTree.size m := by
                             exact lt_of_lt_of_le (by simpa [Nat.add_assoc] using this) (Nat.le_add_right _ _)
                           simpa [hn, Nat.add_assoc] using this
                         let vClause (i : Nat) (hi : i < m) : Fin dag.n :=
                           ⟨clauseBase + i, h_clauseVertex_lt i hi⟩
 
-                        have h_redVertex_lt (red : Nat) (hred : red < ReductionTree.size m) :
+                        have h_redVertex_lt (red : Nat) (hred : red < BalancedBinaryTree.size m) :
                             clauseBase + m + red < dag.n := by
-                          have : clauseBase + m + red < clauseBase + m + ReductionTree.size m :=
+                          have : clauseBase + m + red < clauseBase + m + BalancedBinaryTree.size m :=
                             Nat.add_lt_add_left hred _
-                          have hn : dag.n = clauseBase + m + ReductionTree.size m := by
+                          have hn : dag.n = clauseBase + m + BalancedBinaryTree.size m := by
                             simp [dag, Construction.build3SATReductionDAG, Construction.totalNodes,
                               Construction.reductionTreeSize, clauseBase, m, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
                           simpa [hn] using this
-                        let vRed (red : Nat) (hred : red < ReductionTree.size m) : Fin dag.n :=
+                        let vRed (red : Nat) (hred : red < BalancedBinaryTree.size m) : Fin dag.n :=
                           ⟨clauseBase + m + red, h_redVertex_lt red hred⟩
 
                         -- Any local index `c < m + size m` corresponds to a valid DAG vertex `clauseBase + c`.
-                        have h_idx_lt_dag (c : Nat) (hc : c < m + ReductionTree.size m) :
+                        have h_idx_lt_dag (c : Nat) (hc : c < m + BalancedBinaryTree.size m) :
                             clauseBase + c < dag.n := by
-                          have hn : dag.n = clauseBase + m + ReductionTree.size m := by
+                          have hn : dag.n = clauseBase + m + BalancedBinaryTree.size m := by
                             simp [dag, Construction.build3SATReductionDAG, Construction.totalNodes,
                               Construction.reductionTreeSize, clauseBase, m, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
-                          have : clauseBase + c < clauseBase + (m + ReductionTree.size m) :=
+                          have : clauseBase + c < clauseBase + (m + BalancedBinaryTree.size m) :=
                             Nat.add_lt_add_left hc _
                           simpa [hn, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using this
 
@@ -1436,33 +1436,33 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                         -- Reduction-tree bound for the specific reduction node `redIdx`
                         -- (strong recursion on `redIdx` inside the reduction tree).
                         have red_seedWidth_le :
-                            ∀ red (hred : red < ReductionTree.size m),
+                            ∀ red (hred : red < BalancedBinaryTree.size m),
                               Construction.computeSeedWidth φ numGates R_val (vRed red hred) ≤
-                                ReductionTree.clauseDescendantCount m red * φ.nvars := by
+                                BalancedBinaryTree.clauseDescendantCount m red * φ.nvars := by
                           intro red hred
                           -- strong recursion on `red`, with the size-bound as an explicit hypothesis
                           revert hred
                           refine Nat.strongRecOn red (fun red ih => ?_) 
                           intro hred
                           -- local children in the `clauseBase = 0` view
-                          let l0 : Nat := (ReductionTree.simpleChildIndices 0 m red).1
-                          let r0 : Nat := (ReductionTree.simpleChildIndices 0 m red).2
+                          let l0 : Nat := (BalancedBinaryTree.simpleChildIndices 0 m red).1
+                          let r0 : Nat := (BalancedBinaryTree.simpleChildIndices 0 m red).2
                           -- global children
                           have h_shift :
-                              ReductionTree.simpleChildIndices clauseBase m red = (clauseBase + l0, clauseBase + r0) := by
+                              BalancedBinaryTree.simpleChildIndices clauseBase m red = (clauseBase + l0, clauseBase + r0) := by
                             simpa [l0, r0] using
-                              (ReductionTree.simpleChildIndices_add (clauseBase := clauseBase) (m := m) (redIdx := red) hm hred)
+                              (BalancedBinaryTree.simpleChildIndices_add (clauseBase := clauseBase) (m := m) (redIdx := red) hm hred)
                           let childL : Fin dag.n :=
-                            ⟨(ReductionTree.simpleChildIndices clauseBase m red).1, by
+                            ⟨(BalancedBinaryTree.simpleChildIndices clauseBase m red).1, by
                               have hm0 : m > 0 := by omega
                               have hlt :=
-                                ReductionTree.simpleChildIndices_children_less_than_parent (clauseBase := clauseBase) (m := m) (redIdx := red) hm0 hred
+                                BalancedBinaryTree.simpleChildIndices_children_less_than_parent (clauseBase := clauseBase) (m := m) (redIdx := red) hm0 hred
                               exact lt_trans hlt.1 (h_redVertex_lt red hred)⟩
                           let childR : Fin dag.n :=
-                            ⟨(ReductionTree.simpleChildIndices clauseBase m red).2, by
+                            ⟨(BalancedBinaryTree.simpleChildIndices clauseBase m red).2, by
                               have hm0 : m > 0 := by omega
                               have hlt :=
-                                ReductionTree.simpleChildIndices_children_less_than_parent (clauseBase := clauseBase) (m := m) (redIdx := red) hm0 hred
+                                BalancedBinaryTree.simpleChildIndices_children_less_than_parent (clauseBase := clauseBase) (m := m) (redIdx := red) hm0 hred
                               exact lt_trans hlt.2 (h_redVertex_lt red hred)⟩
                           -- helper: map child local index to its seedWidth bound in terms of `clauseSetNode`
                           have child_bound (c : Nat) (hc : c = l0 ∨ c = r0) :
@@ -1471,20 +1471,20 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                                     -- child local index is always < m + red, hence < m + size m
                                     have hm0 : m > 0 := by omega
                                     have ⟨hl, hr⟩ :=
-                                      ReductionTree.simpleChildIndices_children_less_than_parent (clauseBase := 0) (m := m) (redIdx := red) hm0 hred
-                                    simp only [ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id''] at hl hr
+                                      BalancedBinaryTree.simpleChildIndices_children_less_than_parent (clauseBase := 0) (m := m) (redIdx := red) hm0 hred
+                                    simp only [BalancedBinaryTree.simpleChildIndices, Nat.zero_add, List.map_id''] at hl hr
                                     have hc_lt : c < m + red := by
                                       rcases hc with rfl | rfl
-                                      · simp only [l0, ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hl
-                                      · simp only [r0, ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hr
-                                    have : c < m + ReductionTree.size m := by omega
+                                      · simp only [l0, BalancedBinaryTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hl
+                                      · simp only [r0, BalancedBinaryTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hr
+                                    have : c < m + BalancedBinaryTree.size m := by omega
                                     exact h_idx_lt_dag c this⟩ : Fin dag.n) ≤
-                                (ReductionTree.clauseSetNode m c).card * φ.nvars := by
+                                (BalancedBinaryTree.clauseSetNode m c).card * φ.nvars := by
                             by_cases hc_leaf : c < m
                             · -- clause leaf: card = 1 and seedWidth ≤ nvars
-                              have hset : ReductionTree.clauseSetNode m c = {c} :=
-                                ReductionTree.clauseSetNode_leaf (m := m) (idx := c) hc_leaf
-                              have hcard : (ReductionTree.clauseSetNode m c).card = 1 := by simp [hset]
+                              have hset : BalancedBinaryTree.clauseSetNode m c = {c} :=
+                                BalancedBinaryTree.clauseSetNode_leaf (m := m) (idx := c) hc_leaf
+                              have hcard : (BalancedBinaryTree.clauseSetNode m c).card = 1 := by simp [hset]
                               have hsw : Construction.computeSeedWidth φ numGates R_val (vClause c hc_leaf) ≤ φ.nvars :=
                                 clause_seedWidth_le c hc_leaf
                               -- identify the vertex
@@ -1500,34 +1500,34 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                                 -- from `c < m + red` and `c = m + childRed`
                                 have hm0 : m > 0 := by omega
                                 have ⟨hl, hr⟩ :=
-                                  ReductionTree.simpleChildIndices_children_less_than_parent (clauseBase := 0) (m := m) (redIdx := red) hm0 hred
-                                simp only [ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id''] at hl hr
+                                  BalancedBinaryTree.simpleChildIndices_children_less_than_parent (clauseBase := 0) (m := m) (redIdx := red) hm0 hred
+                                simp only [BalancedBinaryTree.simpleChildIndices, Nat.zero_add, List.map_id''] at hl hr
                                 have hc_lt : c < m + red := by
                                   rcases hc with rfl | rfl
-                                  · simp only [l0, ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hl
-                                  · simp only [r0, ReductionTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hr
+                                  · simp only [l0, BalancedBinaryTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hl
+                                  · simp only [r0, BalancedBinaryTree.simpleChildIndices, Nat.zero_add, List.map_id'']; exact hr
                                 omega
-                              have hchild_size : childRed < ReductionTree.size m := by
+                              have hchild_size : childRed < BalancedBinaryTree.size m := by
                                 -- any valid child reduction index is < size m
-                                have : c < m + ReductionTree.size m := by omega
+                                have : c < m + BalancedBinaryTree.size m := by omega
                                 omega
                               have ih' := ih childRed hchild_lt hchild_size
                               -- relate clauseDescendantCount to card(clauseSetNode m c)
                               have hcard :
-                                  ReductionTree.clauseDescendantCount m childRed = (ReductionTree.clauseSetNode m c).card := by
-                                simp [ReductionTree.clauseDescendantCount, ReductionTree.clauseSet, hc_eq]
+                                  BalancedBinaryTree.clauseDescendantCount m childRed = (BalancedBinaryTree.clauseSetNode m c).card := by
+                                simp [BalancedBinaryTree.clauseDescendantCount, BalancedBinaryTree.clauseSet, hc_eq]
                               -- identify the reduction child vertex
                               have hv : vRed childRed hchild_size = (⟨clauseBase + c, by
                                 have : clauseBase + c < dag.n := by
-                                  have : c < m + ReductionTree.size m := by omega
+                                  have : c < m + BalancedBinaryTree.size m := by omega
                                   exact h_idx_lt_dag c this
                                 simpa [dag] using this⟩ : Fin dag.n) := by
                                 ext
                                 simp [vRed, hc_eq, clauseBase, m, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
                               have : Construction.computeSeedWidth φ numGates R_val (⟨clauseBase + c, by
-                                have : c < m + ReductionTree.size m := by omega
+                                have : c < m + BalancedBinaryTree.size m := by omega
                                 simpa [dag] using h_idx_lt_dag c this⟩ : Fin dag.n) ≤
-                                  (ReductionTree.clauseSetNode m c).card * φ.nvars := by
+                                  (BalancedBinaryTree.clauseSetNode m c).card * φ.nvars := by
                                 -- apply IH, then rewrite the RHS by `hcard`
                                 simpa [hv, hcard] using ih'
                               exact this
@@ -1550,8 +1550,8 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                               split_ifs with h1 h2 h3 <;> [omega; omega; omega; rfl]
                             simp [hlevel, vRed, clauseBase, m] at h_in_parents
                             -- now `idx` is either the left or right child Nat index
-                            have hidx : idx = (ReductionTree.simpleChildIndices clauseBase m red).1 ∨
-                                idx = (ReductionTree.simpleChildIndices clauseBase m red).2 := by
+                            have hidx : idx = (BalancedBinaryTree.simpleChildIndices clauseBase m red).1 ∨
+                                idx = (BalancedBinaryTree.simpleChildIndices clauseBase m red).2 := by
                               -- simplify the expanded forms back to clauseBase, m, red
                               have hcb : φ.nvars + 1 = clauseBase := rfl
                               have hm' : φ.clauses.length = m := rfl
@@ -1614,45 +1614,45 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                             simpa [h_R_zero_red, Nat.add_zero] using this
                           -- disjointness and union for descendant clause sets
                           have hdisj :
-                              Disjoint (ReductionTree.clauseSetNode m l0) (ReductionTree.clauseSetNode m r0) := by
+                              Disjoint (BalancedBinaryTree.clauseSetNode m l0) (BalancedBinaryTree.clauseSetNode m r0) := by
                             simpa [l0, r0] using
-                              (ReductionTree.clauseSetNode_children_disjoint (m := m) (redIdx := red) hm hred)
+                              (BalancedBinaryTree.clauseSetNode_children_disjoint (m := m) (redIdx := red) hm hred)
                           have hunion :
-                              ReductionTree.clauseSetNode m (m + red) =
-                                ReductionTree.clauseSetNode m l0 ∪ ReductionTree.clauseSetNode m r0 := by
+                              BalancedBinaryTree.clauseSetNode m (m + red) =
+                                BalancedBinaryTree.clauseSetNode m l0 ∪ BalancedBinaryTree.clauseSetNode m r0 := by
                             simpa [l0, r0] using
-                              (ReductionTree.clauseSetNode_reduction_eq_union (m := m) (redIdx := red) hred)
+                              (BalancedBinaryTree.clauseSetNode_reduction_eq_union (m := m) (redIdx := red) hred)
                           have hcard_add :
-                              (ReductionTree.clauseSetNode m (m + red)).card =
-                                (ReductionTree.clauseSetNode m l0).card + (ReductionTree.clauseSetNode m r0).card := by
-                            have hinter : (ReductionTree.clauseSetNode m l0 ∩ ReductionTree.clauseSetNode m r0) = (∅ : Finset Nat) :=
+                              (BalancedBinaryTree.clauseSetNode m (m + red)).card =
+                                (BalancedBinaryTree.clauseSetNode m l0).card + (BalancedBinaryTree.clauseSetNode m r0).card := by
+                            have hinter : (BalancedBinaryTree.clauseSetNode m l0 ∩ BalancedBinaryTree.clauseSetNode m r0) = (∅ : Finset Nat) :=
                               Finset.disjoint_iff_inter_eq_empty.mp hdisj
                             have hcard :=
-                              (Finset.card_union_add_card_inter (ReductionTree.clauseSetNode m l0) (ReductionTree.clauseSetNode m r0))
-                            have : (ReductionTree.clauseSetNode m l0 ∪ ReductionTree.clauseSetNode m r0).card =
-                                (ReductionTree.clauseSetNode m l0).card + (ReductionTree.clauseSetNode m r0).card := by
+                              (Finset.card_union_add_card_inter (BalancedBinaryTree.clauseSetNode m l0) (BalancedBinaryTree.clauseSetNode m r0))
+                            have : (BalancedBinaryTree.clauseSetNode m l0 ∪ BalancedBinaryTree.clauseSetNode m r0).card =
+                                (BalancedBinaryTree.clauseSetNode m l0).card + (BalancedBinaryTree.clauseSetNode m r0).card := by
                               simpa [hinter] using hcard
                             simpa [hunion] using this
 
                           -- child seedWidth bounds in the required form
                           have hl_bound :
                               Construction.computeSeedWidth φ numGates R_val childL ≤
-                                (ReductionTree.clauseSetNode m l0).card * φ.nvars := by
+                                (BalancedBinaryTree.clauseSetNode m l0).card * φ.nvars := by
                             -- rewrite `childL.val` to `clauseBase + l0`
-                            have : (ReductionTree.simpleChildIndices clauseBase m red).1 = clauseBase + l0 := by
+                            have : (BalancedBinaryTree.simpleChildIndices clauseBase m red).1 = clauseBase + l0 := by
                               simpa [h_shift] using rfl
                             -- use `child_bound`
                             have := child_bound l0 (Or.inl rfl)
                             simpa [childL, h_shift, l0] using this
                           have hr_bound :
                               Construction.computeSeedWidth φ numGates R_val childR ≤
-                                (ReductionTree.clauseSetNode m r0).card * φ.nvars := by
+                                (BalancedBinaryTree.clauseSetNode m r0).card * φ.nvars := by
                             have := child_bound r0 (Or.inr rfl)
                             simpa [childR, h_shift, r0] using this
 
                           -- assemble: seedWidth ≤ (card l + card r) * nvars = descendantCount * nvars
                           have : Construction.computeSeedWidth φ numGates R_val (vRed red hred) ≤
-                              (ReductionTree.clauseSetNode m (m + red)).card * φ.nvars := by
+                              (BalancedBinaryTree.clauseSetNode m (m + red)).card * φ.nvars := by
                             calc
                               Construction.computeSeedWidth φ numGates R_val (vRed red hred)
                                   = (∑ u ∈ dag.parents (vRed red hred),
@@ -1661,14 +1661,14 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                                       Construction.computeSeedWidth φ numGates R_val u) := hsum_le
                               _ ≤ Construction.computeSeedWidth φ numGates R_val childL +
                                     Construction.computeSeedWidth φ numGates R_val childR := hsum_children_le
-                              _ ≤ (ReductionTree.clauseSetNode m l0).card * φ.nvars +
-                                    (ReductionTree.clauseSetNode m r0).card * φ.nvars := Nat.add_le_add hl_bound hr_bound
-                              _ = ((ReductionTree.clauseSetNode m l0).card + (ReductionTree.clauseSetNode m r0).card) * φ.nvars := by
+                              _ ≤ (BalancedBinaryTree.clauseSetNode m l0).card * φ.nvars +
+                                    (BalancedBinaryTree.clauseSetNode m r0).card * φ.nvars := Nat.add_le_add hl_bound hr_bound
+                              _ = ((BalancedBinaryTree.clauseSetNode m l0).card + (BalancedBinaryTree.clauseSetNode m r0).card) * φ.nvars := by
                                     ring
-                              _ = (ReductionTree.clauseSetNode m (m + red)).card * φ.nvars := by
+                              _ = (BalancedBinaryTree.clauseSetNode m (m + red)).card * φ.nvars := by
                                     simpa [hcard_add]
                           -- rewrite RHS to `clauseDescendantCount`
-                          simpa [ReductionTree.clauseDescendantCount, ReductionTree.clauseSet] using this
+                          simpa [BalancedBinaryTree.clauseDescendantCount, BalancedBinaryTree.clauseSet] using this
 
                         -- Apply to `v` itself and finish with `clauseDescendantCount_le`.
                         have hv : v = vRed redIdx h_redIdx := by
@@ -1683,10 +1683,10 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness φ.nvars)
                           -- `clauseBase + m = φ.nvars + m + 1`
                           simpa [vRed, clauseBase, this, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
                         have hseed_le : Construction.computeSeedWidth φ numGates R_val v ≤
-                            ReductionTree.clauseDescendantCount m redIdx * φ.nvars := by
+                            BalancedBinaryTree.clauseDescendantCount m redIdx * φ.nvars := by
                           simpa [hv] using red_seedWidth_le redIdx h_redIdx
-                        have hcount_le : ReductionTree.clauseDescendantCount m redIdx ≤ m :=
-                          ReductionTree.clauseDescendantCount_le (m := m) (redIdx := redIdx) hm h_redIdx
+                        have hcount_le : BalancedBinaryTree.clauseDescendantCount m redIdx ≤ m :=
+                          BalancedBinaryTree.clauseDescendantCount_le (m := m) (redIdx := redIdx) hm h_redIdx
                         -- `seedWidth ≤ count*nvars ≤ m*nvars`
                         have hsw_bound : Construction.computeSeedWidth φ numGates R_val v ≤ m * φ.nvars :=
                           le_trans hseed_le (Nat.mul_le_mul_right _ hcount_le)

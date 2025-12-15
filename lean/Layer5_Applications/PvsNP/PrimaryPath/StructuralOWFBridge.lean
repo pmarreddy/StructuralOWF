@@ -225,7 +225,7 @@ ensuring the digest contains ALL n emergent bits for full 2^n hardness.
     Since expWLen n = 2n + 64 and we need n + n + 64 = 2n + 64 bits, the extraction
     is exact (no padding needed). -/
 noncomputable def bitsToRandomness_exp (n : Nat) (h_n_pos : n > 0)
-    (w : Bits (expWLen n)) : Randomness :=
+    (w : Bits (expWLen n)) : Randomness n :=
   let dgLen := expDgLen n  -- = n
   have h_dgLen_pos : dgLen > 0 := h_n_pos  -- expDgLen n = n by definition
   -- Extract first (n + dgLen + 64) bits using extractBitsFlat (avoids ▸ transport)
@@ -1168,7 +1168,7 @@ theorem structural_owf_inversion_not_in_fp
     (h_wf_literals : ∀ n, CNF.WellFormed (Φ n))
     (h_nvars_eq : ∀ n ≥ 128, (Φ n).nvars = n)
     (h_nonempty_clauses : ∀ n, n ≥ 128 → 0 < (Φ n).clauses.length)
-    (h_satisfiable : ∀ n, n ≥ 128 → ∃ (a : Assignment), (Φ n).satisfies a)
+    (h_satisfiable : ∀ n, n ≥ 128 → ∃ (a : AssignmentInf), (Φ n).satisfies a)
     -- Polynomial clause bound: needed for dag size to be polynomial in nvars
     (h_clauses_poly : ∃ C_cl k_cl, C_cl > 0 ∧ k_cl > 0 ∧ ∀ n ≥ 128, (Φ n).clauses.length ≤ C_cl * n^k_cl)
     -- CNF family has positive clauses: Required for encoding semantics derivation
@@ -2453,7 +2453,7 @@ theorem structural_owf_inversion_not_in_fp
 /-- Helper lemma: reductionTreeSize is bounded by number of clauses. -/
 lemma reductionTreeSize_bound (m : Nat) :
     Construction.reductionTreeSize m ≤ m := by
-  unfold Construction.reductionTreeSize Construction.ReductionTree.size
+  unfold Construction.reductionTreeSize Construction.BalancedBinaryTree.size
   split_ifs <;> omega
 
 /-- Main bridge theorem: OWF implies FP≠FNP.
@@ -2464,7 +2464,7 @@ theorem structural_owf_implies_fpnefnp
     (h_wf_literals : ∀ n, CNF.WellFormed (Φ n))
     (h_nvars_eq : ∀ n ≥ 128, (Φ n).nvars = n)
     (h_nonempty_clauses : ∀ n, n ≥ 128 → 0 < (Φ n).clauses.length)
-    (h_satisfiable : ∀ n, n ≥ 128 → ∃ (a : Assignment), (Φ n).satisfies a)
+    (h_satisfiable : ∀ n, n ≥ 128 → ∃ (a : AssignmentInf), (Φ n).satisfies a)
     -- Polynomial clause bound: needed for dag size to be polynomial in nvars
     (h_clauses_poly : ∃ C_cl k_cl, C_cl > 0 ∧ k_cl > 0 ∧ ∀ n ≥ 128, (Φ n).clauses.length ≤ C_cl * n^k_cl)
     -- CNF family has positive clauses: Required for encoding semantics derivation
@@ -2477,7 +2477,7 @@ theorem structural_owf_implies_fpnefnp
   -- Define type family as planted instances from Φ
   -- This enables bounding dag.n via the CNF family structure
   let α : Nat → Type := fun n =>
-    {L : LStarInstanceFG // ∃ (h_n : n ≥ 128) (r : Randomness φ.nvars),
+    {L : LStarInstanceFG // ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars),
       L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega)}
 
   -- Sized instance for the subtype
@@ -2738,7 +2738,7 @@ theorem structural_owf_implies_fpnefnp
 
     -- Construct f_base using Classical.decidable to handle the subtype constraint (exponential)
     let f_base : ∀ n, LStarInstanceFG → Bits (expWLen n) := fun n L =>
-      @dite _ (∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
+      @dite _ (∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
         (Classical.dec _)
         (fun h => f_lifted n ⟨L, h⟩)
         (fun _ => Vector.replicate (expWLen n) false)
@@ -2753,8 +2753,8 @@ theorem structural_owf_implies_fpnefnp
       have h_n_ge_128 : n ≥ 128 := Nat.le_trans (Nat.le_max_left 128 N₀_lifted) h_n
       have h_n_ge_N₀ : n ≥ N₀_lifted := Nat.le_trans (Nat.le_max_right 128 N₀_lifted) h_n
       -- h_rel : StructuralOWFInversionRelation_exp unfolds to (when n ≥ 128): L = plant_flat n (Φ n) (bitsToRandomness_exp n w) ...
-      -- Need: ∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r ...
-      have h_planted : ∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega) := by
+      -- Need: ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars), L = plant_flat n (Φ n) r ...
+      have h_planted : ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega) := by
         unfold StructuralOWFInversionRelation_exp at h_rel
         simp only [h_n_ge_128, dite_true] at h_rel
         obtain ⟨h_plant_eq, _h_sat⟩ := h_rel
@@ -2781,7 +2781,7 @@ theorem structural_owf_implies_fpnefnp
         run := fun c input =>
           let n := input.fst
           let L := input.snd
-          @dite _ (∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
+          @dite _ (∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
             (Classical.dec _)
             (fun h => M_lifted.run c ⟨n, ⟨L, h⟩⟩)
             (fun _ => ⟨n, Vector.replicate (expWLen n) false⟩)
@@ -2800,7 +2800,7 @@ theorem structural_owf_implies_fpnefnp
            -- Output is either M_lifted.run (planted) or ⟨n, replicate⟩ (default)
            let n := input.fst
            let L := input.snd
-           show Sized.size (@dite _ (∃ (h_n : n ≥ 128) (r : Randomness φ.nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
+           show Sized.size (@dite _ (∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars), L = plant_flat n (Φ n) r (by rw [h_nvars_eq n h_n]; omega))
                   (Classical.dec _)
                   (fun h => M_lifted.run c ⟨n, ⟨L, h⟩⟩)
                   (fun _ => ⟨n, Vector.replicate (expWLen n) false⟩))
@@ -2940,7 +2940,7 @@ theorem pnenp : ¬BitstringBridge.PeqNP_parametric := by
     | Nat.succ m =>
       exact LStar.StructuralOWF.Theorems.alignedCNFFamily_wf_literals (Nat.succ m) (Nat.succ_pos m)
   have h_nvars_eq := LStar.StructuralOWF.Theorems.alignedCNFFamily_nvars_eq
-  have h_satisfiable : ∀ n, n ≥ 128 → ∃ (a : Assignment), (Φ n).satisfies a := by
+  have h_satisfiable : ∀ n, n ≥ 128 → ∃ (a : AssignmentInf), (Φ n).satisfies a := by
     intro n _h_n
     -- Unique solution: all variables true
     exists (fun _ => true)

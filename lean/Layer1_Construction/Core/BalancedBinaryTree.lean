@@ -35,7 +35,7 @@ The disjointness property is critical for proving that summation over the
 tree doesn't cause double-counting.
 -/
 
-namespace LStar.Construction.ReductionTree
+namespace LStar.Construction.BalancedBinaryTree
 
 /-!
 ## Tree Size Computation
@@ -1376,4 +1376,4 @@ theorem clauseSetNode_children_disjoint (m redIdx : Nat) (h_m : m > 1) (h_red : 
 #print axioms clauseDescendantCount
 #print axioms clauseDescendantCount_le
 
-end LStar.Construction.ReductionTree
+end LStar.Construction.BalancedBinaryTree

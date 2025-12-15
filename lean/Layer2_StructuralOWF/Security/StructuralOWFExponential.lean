@@ -1797,7 +1797,7 @@ theorem f_is_structural_owf_exponential_flat
       simp only [Construction.build3SATReductionDAG, Construction.totalNodes]
       have h_tree_le : Construction.reductionTreeSize (Φ n.val).clauses.length ≤ (Φ n.val).clauses.length := by
         unfold Construction.reductionTreeSize
-        simp only [Construction.ReductionTree.size]
+        simp only [Construction.BalancedBinaryTree.size]
         split <;> omega
       omega
 
@@ -1973,7 +1973,7 @@ theorem f_is_structural_owf_exponential_flat
       simp only [Construction.build3SATReductionDAG, Construction.totalNodes]
       have h_tree_le : Construction.reductionTreeSize (Φ n.val).clauses.length ≤ (Φ n.val).clauses.length := by
         unfold Construction.reductionTreeSize
-        simp only [Construction.ReductionTree.size]
+        simp only [Construction.BalancedBinaryTree.size]
         split <;> omega
       omega
 
@@ -2419,7 +2419,7 @@ theorem f_is_structural_owf_exponential_true
       simp only [Construction.build3SATReductionDAG, Construction.totalNodes]
       have h_tree_le : Construction.reductionTreeSize (Φ n.val).clauses.length ≤ (Φ n.val).clauses.length := by
         unfold Construction.reductionTreeSize
-        simp only [Construction.ReductionTree.size]
+        simp only [Construction.BalancedBinaryTree.size]
         split <;> omega
       omega
 
@@ -2555,7 +2555,7 @@ theorem f_is_structural_owf_exponential_true
       simp only [Construction.build3SATReductionDAG, Construction.totalNodes]
       have h_tree_le : Construction.reductionTreeSize (Φ n.val).clauses.length ≤ (Φ n.val).clauses.length := by
         unfold Construction.reductionTreeSize
-        simp only [Construction.ReductionTree.size]
+        simp only [Construction.BalancedBinaryTree.size]
         split <;> omega
       omega
 

@@ -72,7 +72,7 @@ DAG depth determines total emergence:
 **Theorem: build3SATReductionDAG**: Complete construction with acyclicity proof.
 Structural acyclicity via increasing indices (source < vars < clauses < reduction nodes).
 
-**Trust Boundary**: Pure construction (no axioms). Uses ReductionTree for binary tree layer.
+**Trust Boundary**: Pure construction (no axioms). Uses BalancedBinaryTree for binary tree layer.
 
 **Paper**: §6 "L* Construction", §3 "Logarithmic Depth Architecture", §2.4.3 "Multi-Level DAG".
 
@@ -144,7 +144,7 @@ def reductionTreeDepth (nclauses : Nat) : Nat :=
 
 /-- Total number of nodes in reduction tree (internal nodes only) -/
 def reductionTreeSize (nclauses : Nat) : Nat :=
-  ReductionTree.size nclauses
+  BalancedBinaryTree.size nclauses
 
 /-!
 ## DAG Index Computation
@@ -246,7 +246,7 @@ def computeParents (φ : CNF) (numGates : Nat) (v_idx : Nat) : List Nat :=
       -- Compute the two children of this reduction node
       let red_idx := v_idx - nvars - nclauses - 1
       let clauseBase := nvars + 1
-      let (left, right) := ReductionTree.simpleChildIndices clauseBase nclauses red_idx
+      let (left, right) := BalancedBinaryTree.simpleChildIndices clauseBase nclauses red_idx
       [left, right]
 
 /-!
@@ -438,7 +438,7 @@ lemma parents_have_smaller_indices (φ : CNF) (numGates : Nat := 1) (v u : Fin (
       -- Extract that v.val > φ.nvars + φ.clauses.length
       have h_v_gt := classifyNode_reduction_bounds φ.nvars φ.clauses.length v.val ⟨_, heq⟩
       -- Extract DAG size bound explicitly
-      have h_v_bound : v.val < 1 + φ.nvars + φ.clauses.length + ReductionTree.size φ.clauses.length := by
+      have h_v_bound : v.val < 1 + φ.nvars + φ.clauses.length + BalancedBinaryTree.size φ.clauses.length := by
         have : v.val < (build3SATReductionDAG φ numGates).n := v.isLt
         unfold build3SATReductionDAG totalNodes reductionTreeSize at this
         exact this
@@ -450,8 +450,8 @@ lemma parents_have_smaller_indices (φ : CNF) (numGates : Nat := 1) (v u : Fin (
         push_neg at h_neg
         -- h_neg: φ.clauses.length ≤ 0, so nclauses = 0
         have h_nclauses_zero : φ.clauses.length = 0 := by omega
-        -- Then ReductionTree.size 0 = 0
-        have h_size_zero : ReductionTree.size 0 = 0 := by rfl
+        -- Then BalancedBinaryTree.size 0 = 0
+        have h_size_zero : BalancedBinaryTree.size 0 = 0 := by rfl
         -- From h_v_gt: v.val > φ.nvars + 0
         -- From h_v_bound: v.val < 1 + φ.nvars + 0 + 0
         -- This is impossible: v.val > nvars and v.val < 1 + nvars means v.val = nvars + something where something ≥ 1 and something < 1
@@ -462,17 +462,17 @@ lemma parents_have_smaller_indices (φ : CNF) (numGates : Nat := 1) (v u : Fin (
             _ = φ.nvars := by omega
         have h2 : v.val < 1 + φ.nvars := by
           calc v.val
-            _ < 1 + φ.nvars + φ.clauses.length + ReductionTree.size φ.clauses.length := h_v_bound
-            _ = 1 + φ.nvars + 0 + ReductionTree.size 0 := by rw [h_nclauses_zero]
+            _ < 1 + φ.nvars + φ.clauses.length + BalancedBinaryTree.size φ.clauses.length := h_v_bound
+            _ = 1 + φ.nvars + 0 + BalancedBinaryTree.size 0 := by rw [h_nclauses_zero]
             _ = 1 + φ.nvars + 0 := by rw [h_size_zero]
             _ = 1 + φ.nvars := by omega
         omega
 
       -- Now prove the red_idx bound
-      have h_red_idx_bound : v.val - φ.nvars - φ.clauses.length - 1 < ReductionTree.size φ.clauses.length := by
-        -- ReductionTree.size m = if m ≤ 1 then 0 else m - 1
-        -- So ReductionTree.size φ.clauses.length = φ.clauses.length - 1 (since nclauses > 0)
-        have h_size_eq : ReductionTree.size φ.clauses.length = if φ.clauses.length ≤ 1 then 0 else φ.clauses.length - 1 := rfl
+      have h_red_idx_bound : v.val - φ.nvars - φ.clauses.length - 1 < BalancedBinaryTree.size φ.clauses.length := by
+        -- BalancedBinaryTree.size m = if m ≤ 1 then 0 else m - 1
+        -- So BalancedBinaryTree.size φ.clauses.length = φ.clauses.length - 1 (since nclauses > 0)
+        have h_size_eq : BalancedBinaryTree.size φ.clauses.length = if φ.clauses.length ≤ 1 then 0 else φ.clauses.length - 1 := rfl
         -- From h_v_bound: v.val < 1 + nvars + nclauses + size
         -- Rearranging: v.val - nvars - nclauses - 1 < size
         by_cases h_case : φ.clauses.length ≤ 1
@@ -488,31 +488,31 @@ lemma parents_have_smaller_indices (φ : CNF) (numGates : Nat := 1) (v u : Fin (
 
       cases h_mem with
       | inl h_left =>
-        -- h_left : idx = (ReductionTree.simpleChildIndices ...).1
+        -- h_left : idx = (BalancedBinaryTree.simpleChildIndices ...).1
         simp [h_left]
-        show (ReductionTree.simpleChildIndices (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1)).1 < v.val
+        show (BalancedBinaryTree.simpleChildIndices (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1)).1 < v.val
         -- Apply the theorem about children indices
-        have h_children_lt := ReductionTree.simpleChildIndices_children_less_than_parent
+        have h_children_lt := BalancedBinaryTree.simpleChildIndices_children_less_than_parent
           (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1) h_nclauses_pos h_red_idx_bound
         -- Bridge the gap: clauseBase + nclauses + red_idx = v.val
         have h_arith : (φ.nvars + 1) + φ.clauses.length + (v.val - φ.nvars - φ.clauses.length - 1) = v.val := by
           -- This should be trivial arithmetic given h_v_gt
           omega
-        calc (ReductionTree.simpleChildIndices (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1)).1
+        calc (BalancedBinaryTree.simpleChildIndices (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1)).1
           _ < (φ.nvars + 1) + φ.clauses.length + (v.val - φ.nvars - φ.clauses.length - 1) := h_children_lt.1
           _ = v.val := h_arith
 
       | inr h_right =>
         cases h_right with
         | inl h_right' =>
-          -- h_right' : idx = (ReductionTree.simpleChildIndices ...).2
+          -- h_right' : idx = (BalancedBinaryTree.simpleChildIndices ...).2
           simp [h_right']
-          show (ReductionTree.simpleChildIndices (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1)).2 < v.val
+          show (BalancedBinaryTree.simpleChildIndices (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1)).2 < v.val
           -- Apply the theorem about children indices (same as left case)
-          have h_children_lt := ReductionTree.simpleChildIndices_children_less_than_parent
+          have h_children_lt := BalancedBinaryTree.simpleChildIndices_children_less_than_parent
             (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1) h_nclauses_pos h_red_idx_bound
           have h_arith : (φ.nvars + 1) + φ.clauses.length + (v.val - φ.nvars - φ.clauses.length - 1) = v.val := by omega
-          calc (ReductionTree.simpleChildIndices (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1)).2
+          calc (BalancedBinaryTree.simpleChildIndices (φ.nvars + 1) φ.clauses.length (v.val - φ.nvars - φ.clauses.length - 1)).2
             _ < (φ.nvars + 1) + φ.clauses.length + (v.val - φ.nvars - φ.clauses.length - 1) := h_children_lt.2
             _ = v.val := h_arith
         | inr h_empty =>
