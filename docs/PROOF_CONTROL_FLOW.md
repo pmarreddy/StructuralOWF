@@ -54,7 +54,7 @@ This section presents **only** the essential theorems constituting the proof bac
                                 ↑
                                 │ REQUIRES FP≠FNP from
 ┌───────────────────────────────┴──────────────────────────────────┐
-│  [10] parity_owf_implies_fpnefnp                                 │
+│  [10] structural_owf_implies_fpnefnp                             │
 │       Location: Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean │
 │       Statement: OWF exists → FP≠FNP                             │
 │       Proof: OWF inversion relation is in FNP but not FP         │
@@ -62,8 +62,8 @@ This section presents **only** the essential theorems constituting the proof bac
                                 ↑
                                 │ REQUIRES OWF from
 ┌───────────────────────────────┴──────────────────────────────────┐
-│  [9] f_is_parity_owf_exponential_flat                               │
-│       Location: Layer2/StructuralOWFExponential.lean                       │
+│  [9] f_is_structural_owf_exponential_flat                           │
+│       Location: Layer2_StructuralOWF/Security/StructuralOWFExponential.lean │
 │       Statement: Plant_flat is one-way (negligible inversion)    │
 │       Proof: Contradiction via exponential time bound            │
 └──────────────────────────────────────────────────────────────────┘
@@ -73,15 +73,15 @@ This section presents **only** the essential theorems constituting the proof bac
        ┌─────────┴─────────┐        ┌──────────┴─────────┐
        │  [8] Witness      │        │   Time Bound       │
        │      Extractor    │        │   (TOP-DOWN)       │
-       │  plant_extract_   │        │                    │
-       │  correct          │        │                    │
+       │  (Randomness.     │        │                    │
+       │   assignment)     │        │                    │
        └───────────────────┘        └─────────┬──────────┘
                                               │
                                    ┌──────────┴──────────┐
                                    │   [7]               │
                                    │ fg_first_commit_    │
                                    │ time_lower_bound    │
-                                   │ (TMAdapterExp)      │
+                                   │ _encoded (TMAdapter)│
                                    └──────────┬──────────┘
                                               │
                          ┌────────────────────┼────────────────────┐
@@ -406,11 +406,11 @@ theorem visitedEncodings_card_ge_pow {k : Nat} {states alphabet : Type}
 
 ---
 
-#### [7] fg_first_commit_time_lower_bound: TM Time Bound (Top-Down)
+#### [7] fg_first_commit_time_lower_bound_encoded: TM Time Bound (Top-Down)
 
 **Location**: `Layer4_Operational/TimeBridge/TMAdapterExponential.lean`
 
-**Theorem Name**: `fg_first_commit_time_lower_bound`
+**Theorem Name**: `fg_first_commit_time_lower_bound_encoded`
 
 **Formal Statement** (schematic—actual Lean signature includes additional context parameters):
 ```lean
@@ -441,9 +441,9 @@ theorem fg_first_commit_time_lower_bound
 - parity_requires_all_bits [5] (information-theoretic necessity)
 - visitedEncodings_card_ge_pow [6] (counting lemma)
 - correctness_implies_realizesAllValues (semantic bridge lemma)
-- [AXIOM] collision_indistinguishability_under_incomplete_observation (applies information theory to TM)
+- [AXIOM] tm_correctness_implies_realizesAllValuesFrom_flat_encoded (applies information theory to TM)
 
-**Axiomatic Content**: 1 (collision_indistinguishability - see Axiom 3 below)
+**Axiomatic Content**: 1 (tm_correctness_implies_realizesAllValuesFrom_flat_encoded - see Axiom 2/2 below)
 
 **Paper Reference**: §9 "Time bound derivation", §7.4 "Operational semantics bridge"
 
@@ -453,41 +453,38 @@ theorem fg_first_commit_time_lower_bound
 
 ---
 
-#### [8] plant_extract_correct: Witness Extraction from Planted Instances
+#### [8] Witness Extraction: Implicit via Randomness Structure
 
-**Location**: `Layer2_StructuralOWF/Extractor/Extractor.lean`
+**Location**: `Layer2_StructuralOWF/FrontierGate/RandomnessTypes.lean`
 
-**Theorem Name**: `plant_extract_correct`
+**Note**: There is no standalone `Extractor.lean` file. Witness extraction is **trivial by construction**—the `Randomness` structure directly contains the satisfying assignment.
 
-**Formal Statement**:
+**Key Definition**:
 ```lean
-theorem plant_extract_correct (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-    (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2)
-    (h_sat : φ.satisfies r.assignment) :
-    let x := plant_n n φ r h_nvars h_dgLen
-    φ.satisfies (extract x r).assignment
+structure Randomness (nvars : Nat) where
+  assignment : LStar.Assignment nvars  -- The embedded satisfying assignment
+  gateDigests : List (Vector Bool dgLen)
+  structuralBits : List Bool
+  ...
+
+def Randomness.assignmentInf {nvars : Nat} (r : Randomness nvars) : LStar.AssignmentInf :=
+  r.assignment.extend
 ```
 
-**Supporting Theorem**: `extract_preserves_assignment` proves `(extract L r).assignment = r.assignment`.
+**Theorem Content**: Successful OWF inversion yields `r : Randomness nvars`, from which `r.assignment` directly provides the satisfying assignment. No separate extraction step is required.
 
-**Theorem Content**: The extraction procedure recovers a satisfying assignment from any planted instance.
+**Significance**: **Completes reduction loop**. A polynomial-time inverter for Plant recovers the randomness `r`, and `r.assignment` is the SAT witness. This is direct field access, not search.
 
-**Significance**: **Completes reduction loop**. Demonstrates that polynomial-time inverter for Plant → polynomial-time witness extraction → polynomial-time SAT solver → contradiction with hardness. This is the final component needed to derive the impossibility result.
-
-**Proof Technique**: Direct witness preservation via structural observation
-1. Planted instance construction embeds valid satisfying assignment in randomness structure r
-2. Extractor simply accesses r.assignment field (trivial extraction—no search required)
-3. Bridge theorem composition: plant_n(φ, r) → extract recovers satisfying assignment
-4. Time complexity: O(n) for field access and copying
+**Why no separate extractor theorem**: The OWF is `f : Randomness → LStarInstanceFG`. Inversion recovers `r`, and `r.assignment` trivially satisfies the CNF by the `WellFormedRandomness_flat` constraint which requires `φ.satisfies r.assignmentInf`.
 
 **Dependencies**:
-- A4_closure (closure property - enables deterministic seed recovery)
+- Randomness structure (RandomnessTypes.lean) - contains explicit assignment field
+- WellFormedRandomness_flat (PlantExponential.lean) - enforces satisfaction constraint
 - Plant construction (PlantCore.lean) - planting procedure specification
-- Randomness structure (contains explicit assignment field)
 
 **Axiomatic Content**: 0
 
-**Paper Reference**: §9.1 "Extractor construction", §6.4 "A4 closure property"
+**Paper Reference**: §9.1 "Extractor construction", §4.1 "Randomness Structure"
 
 ---
 
@@ -495,15 +492,15 @@ theorem plant_extract_correct (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : �
 
 ---
 
-#### [9] f_is_parity_owf_exponential_flat: OWF Security
+#### [9] f_is_structural_owf_exponential_flat: OWF Security
 
 **Location**: `Layer2_StructuralOWF/Security/StructuralOWFExponential.lean`
 
-**Theorem Name**: `f_is_parity_owf_exponential_flat`
+**Theorem Name**: `f_is_structural_owf_exponential_flat`
 
 **Formal Statement** (schematic—actual Lean signature includes additional type parameters):
 ```lean
-theorem f_is_parity_owf_exponential_flat
+theorem f_is_structural_owf_exponential_flat
   (A : PPTAdversary) (φ : planted_CNF_instance) :
   Pr[A successfully_inverts Plant_flat φ] ≤ 2^{-Ω(n)}
 ```
@@ -516,19 +513,19 @@ theorem f_is_parity_owf_exponential_flat
 
 **Proof Technique**: Proof by contradiction
 1. Assumption for contradiction: Suppose polynomial-time inverter A exists
-2. Extraction step: Apply plant_extract_correct [8] → A yields polynomial-time SAT witness
-3. Time bound: Apply fg_first_commit_time_lower_bound [7] → A requires ≥ 2^n steps
+2. Extraction step: A recovers r : Randomness, from which r.assignment gives SAT witness [8]
+3. Time bound: Apply fg_first_commit_time_lower_bound_encoded [7] → A requires ≥ 2^n steps
 4. Polynomial bound: But A is PPT → A executes ≤ C·n^k steps
 5. Contradiction: For sufficiently large n, 2^n > C·n^k (exponential growth dominates)
 6. Conclusion: No such polynomial-time inverter A can exist ∎
 
 **Dependencies**:
-- plant_extract_correct [8] (witness extraction correctness)
-- fg_first_commit_time_lower_bound [7] (exponential time lower bound)
-- [AXIOM] collision_indistinguishability_under_incomplete_observation (information-theoretic semantic bridge)
+- Randomness.assignment [8] (witness extraction via field access)
+- fg_first_commit_time_lower_bound_encoded [7] (exponential time lower bound)
+- [AXIOM] tm_correctness_implies_realizesAllValuesFrom_flat_encoded (information-theoretic semantic bridge)
 - [AXIOM] algspec_has_tm (Church-Turing equivalence)
 
-**Axiomatic Content**: 2 (algspec_has_tm, collision_indistinguishability - see Axiom Summary)
+**Axiomatic Content**: 2 (algspec_has_tm, tm_correctness_implies_realizesAllValuesFrom_flat_encoded - see Axiom Summary)
 
 **Paper Reference**: §9 "OWF security proof", §9.2 "Contradiction derivation"
 
@@ -538,15 +535,15 @@ theorem f_is_parity_owf_exponential_flat
 
 ---
 
-#### [10] parity_owf_implies_fpnefnp: OWF → FP≠FNP Bridge
+#### [10] structural_owf_implies_fpnefnp: OWF → FP≠FNP Bridge
 
 **Location**: `Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean`
 
-**Theorem Name**: `parity_owf_implies_fpnefnp`
+**Theorem Name**: `structural_owf_implies_fpnefnp`
 
 **Formal Statement**:
 ```lean
-theorem parity_owf_implies_fpnefnp
+theorem structural_owf_implies_fpnefnp
     (Φ : LStar.StructuralOWF.Theorems.CNFFamily)
     (h_wellformed : LStar.StructuralOWF.Theorems.CNFFamily.WellFormed Φ)
     ... -- additional CNF family properties
@@ -565,7 +562,7 @@ theorem parity_owf_implies_fpnefnp
 5. Conclude: R witnesses FP ≠ FNP ∎
 
 **Dependencies**:
-- f_is_parity_owf_exponential_flat [9] (OWF security theorem)
+- f_is_structural_owf_exponential_flat [9] (OWF security theorem)
 - StructuralOWFInversionRelation definition (StructuralOWFBridge.lean)
 - InFP_parametric_bits, InFNP_parametric_bits (complexity class definitions)
 
@@ -613,12 +610,12 @@ theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical
 **Internal Machinery**: The helper theorem `fpnefnp_implies_not_peqnp` (ParametricBitstringBridge.lean) implements the standard FP≠FNP → P≠NP reduction via search-from-decision. It is not listed as a separate critical theorem because it's always invoked with [10]'s output.
 
 **Dependencies**:
-- parity_owf_implies_fpnefnp [10] (OWF → FP≠FNP bridge)
+- structural_owf_implies_fpnefnp [10] (OWF → FP≠FNP bridge)
 - fpnefnp_implies_not_peqnp (internal: FP≠FNP → P≠NP)
 - alignedCNFFamily (concrete satisfiable CNF family)
-- f_is_parity_owf_exponential_flat [9] (used internally by [10])
+- f_is_structural_owf_exponential_flat [9] (used internally by [10])
 
-**Axiomatic Content**: 2 (inherited from [9]: algspec_has_tm, collision_indistinguishability_under_incomplete_observation)
+**Axiomatic Content**: 2 (inherited from [9]: algspec_has_tm, tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
 
 **Paper Reference**: §10 "Main theorem", §10.3 Theorem 10.B "P ≠ NP (unconditional)"
 
@@ -782,23 +779,21 @@ These branches provide essential technical infrastructure for the critical theor
 
 ---
 
-### Branch H: Witness Extraction (supports [8] plant_extract_correct)
+### Branch H: Witness Extraction (supports [8] Randomness.assignment)
 
-**Objective**: Reconstruct CNF-SAT witness from inverter output.
+**Objective**: Recover CNF-SAT witness from inverter output.
 
-**Key Theorems** (5):
-1. `decode_correctness` (PlantCore.lean)
-   - Decode operation recovers original assignment
-2. `A4_closure_proven` (A4_Closure.lean)
-   - Seed recovery exhibits deterministic behavior
-3. `witness_satisfies` (Extractor.lean)
-   - Recovered witness satisfies CNF formula
-4. `inverter_output_valid` (Extractor.lean)
-   - Inverter output well-formedness (valid seed structure)
-5. `extract_assignment` (Extractor.lean)
-   - Assignment extraction correctness
+**Note**: Extraction is **trivial by design**—the `Randomness` structure directly contains the assignment. There is no separate `Extractor.lean` file.
 
-**Dependencies**: A4 closure property, decode operations, CNF satisfaction semantics
+**Key Components** (3):
+1. `Randomness.assignment` (RandomnessTypes.lean)
+   - Direct field access provides the satisfying assignment
+2. `WellFormedRandomness_flat` (PlantExponential.lean)
+   - Constraint ensures `φ.satisfies r.assignmentInf`
+3. `Randomness.assignmentInf` (RandomnessTypes.lean)
+   - Extends finite assignment to infinite for CNF evaluation
+
+**Dependencies**: Randomness structure, WellFormedRandomness_flat constraint
 
 **Axiomatic Content**: 0
 
@@ -889,41 +884,43 @@ private theorem fg_lossless_encoding
 
 ---
 
-### Axiom 2/2: Information-Theoretic Observation Impossibility (Exponential Profile)
+### Axiom 2/2: TM Correctness Implies Complete Exploration (Exponential Profile)
 
-**Name**: `collision_indistinguishability_under_incomplete_observation`
+**Name**: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`
 
 **Location**: `Layer4_Operational/TimeBridge/TMAdapterExponential.lean`
 
-**Statement**: For planted L* instances with FG wiring, if a TM is correct but some reachable encoding value is never visited, then False. Based on collision detection: incomplete observation allows two configs (cfg1 ≠ cfg2) to be indistinguishable.
+**Statement**: For planted L* instances with FG wiring, if a TM correctly solves the planted instance, then it must realize all 2^R emergent configuration values during execution. This bridges the abstract information-theoretic necessity (collision-based hardness) to concrete TM execution semantics.
 
 **Formal Signature**:
 ```lean
-axiom collision_indistinguishability_under_incomplete_observation
-    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars) (_h_wf : WellFormedRandomness_flat φ r)
+axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
+    {α : Type} [LStar.Complexity.Sized α]
+    (L : LStarInstanceFG)
+    (M : TuringMachine k states alphabet)
+    (enc : LStar.Complexity.TMInputEncodingBase α alphabet)
+    (x : α)
+    (haltTime : Nat)
+    (h_k_pos : 0 < k)
+    (h_blank : M.blank = enc.blank)
+    (extractWitness : TMConfig M → Witness L.n)
+    -- Surjectivity constraint: extractWitness can produce any assignment with support ≤ L.n
+    (h_extractWitness_surj : ∀ (σ : LStar.AssignmentInf),
+        (∀ i ≥ L.n, σ i = false) →
+        ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (v : {v // L.fg.gateReq v})
-    {numTapes : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
-    [Fintype alphabet] [DecidableEq alphabet]
-    (M : TuringMachine numTapes states alphabet) (init : TMConfig M) (haltTime : Nat)
-    (extractWitness : TMConfig M → Witness) (encodeConfig : TMConfig M → Nat)
-    -- UNIFORMITY REQUIREMENT: TM must come from uniform PPT (instance-independent bounds)
-    (C_uniform k_uniform : Nat)
-    (h_C_pos : C_uniform > 0) (h_k_pos : k_uniform > 0)
-    (h_uniform_bound : haltTime ≤ C_uniform * (L.n + 1) ^ k_uniform)
-    -- Standard axiom parameters
-    (val : Fin (2^(L.R v.val)))
-    (h_val_reachable : ∃ cfg : TMConfig M, encodeConfig cfg = val.val)
-    (h_missing : ∀ t < haltTime, encodeConfig ((TMConfig.step (M := M))^[t] init) ≠ val.val)
-    (h_correct : φ.satisfies (extractWitness ((TMConfig.step (M := M))^[haltTime] init)).assignment)
-    : False
+    (h_planted : PlantedHyp_flat L)
+    (h_halts : ...)  -- TM halts in accept state
+    (φ : CNF)
+    (h_φ_match : ∃ (n : Nat) (r : Randomness φ.nvars) ..., L = plant_flat n φ r ...)
+    (h_correct : φ.satisfies (TMAxioms.tmOutputWitnessEncoded M enc x haltTime ...).assignmentInf)
+    : realizesAllValuesFrom M L v (tmEmergentEncoder L M v extractWitness h_planted) haltTime
+        (LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank)
 ```
 
-**Nature**: Information-theoretic impossibility. The collision lower bound is PROVEN in `parity_requires_all_bits` and `incomplete_obs_has_collision` (0 axioms); this axiom applies that result to TM execution semantics. The key insight: incomplete observation → ∃ cfg1 ≠ cfg2 that are indistinguishable → via A2 injectivity, seeds differ → correctness impossible.
+**Nature**: Semantic bridge axiom. The collision lower bound is PROVEN in `parity_requires_all_bits` and `incomplete_obs_has_collision` (0 axioms); this axiom applies that result to TM execution semantics. The key insight: correctness requires distinguishing all 2^R emergent configurations → must visit all of them.
 
-**Uniformity Enforcement**: The axiom signature explicitly requires uniform polynomial bounds (`C_uniform`, `k_uniform`) that are instance-independent. This ensures the axiom only applies to TMs from uniform PPT adversaries—non-uniform "lucky TMs" hardcoded for specific instances are excluded by construction.
-
-**Exponential-Time Strategies Excluded**: A "parity pruning" strategy that reads the public digest to halve the search space still requires O(2^{n-1}) time. Such a strategy cannot satisfy `h_uniform_bound` with polynomial C, k: there is no fixed C, k such that 2^{n-1} ≤ C * n^k for all n. The uniform polynomial bound requirement ensures this axiom only applies to genuinely polynomial-time adversaries.
+**Surjectivity Requirement**: The `h_extractWitness_surj` parameter ensures `extractWitness` is a genuine tape decoder (not a constant function). Without this, an attacker could trivially satisfy `h_correct` while only visiting 1 configuration.
 
 **Used By**: [7] TM time bound, [9] OWF security
 
