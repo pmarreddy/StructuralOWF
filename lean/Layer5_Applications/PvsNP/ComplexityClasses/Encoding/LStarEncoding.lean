@@ -26,22 +26,28 @@ import Layer5_Applications.PvsNP.ComplexityClasses.RandAdv  -- For RandAdv, algs
 import Layer5_Applications.PvsNP.ComplexityClasses.ComplexityClasses  -- For InNP
 import Infrastructure.Witness.VerifiedWitness  -- For HasCorrectDigests
 
-/-! ## LStarEncoding: Explicit Binary Encoding for Complexity Theory
+/-! ## LStarEncoding: Explicit Binary Encoding for L*
 
-**Purpose**: Defines the concrete mapping from abstract L* structures to bit strings {0,1}*.
-This bridges the gap between the Leany formalization (abstract types) and standard complexity
-theory (Turing machines operate on strings).
+**Purpose**: Provides explicit bitstring encoding for L* instances and
+transfer theorems between structured types and `{0,1}*`.
+
+**Relationship to Main Theorem**:
+- The main `P_ne_NP` theorem (StructuralOWFBridge.lean) uses abstract input
+  types with bitstring witnesses, proving separation for some type α
+- For a fully textbook-style result (language L ⊆ {0,1}*), this file provides:
+  1. Explicit `LStarLanguageLang : Lang (List Bool)` — the hard language
+  2. Direct `LStarLanguageLang_in_NP` — membership in NP
+  3. Transfer theorems to obtain `¬InP` over bitstrings from structured hardness
+
+**Use Case**: To state "L* ⊆ {0,1}* is in NP \ P" rather than just
+"∃ α L, L is in NP \ P over α".
 
 **Approach**:
-1. Define `Encodable` typeclass.
-2. Define "Raw" versions of dependent structures (`RawLStarInstance`, etc.) which are simple data.
-3. Implement `Encodable` for Raw structures.
-4. Implement `validate` functions to convert Raw -> Strict structures (checking proofs).
-5. Instantiate `BitEncoding` and `TMInputEncoding` for `LStarInstanceFG`.
-
-**Gap Addressed**: "L is not defined as a set of strings".
-By instantiating encoding for `LStarInstanceFG`, we define:
-`L_string = { s | ∃ x ∈ LStarInstanceFG, encode x = s }`
+1. Define `Encodable` typeclass with prefix-free encoding property
+2. Define "Raw" versions of dependent structures (`RawLStarInstance`, etc.)
+3. Implement `Encodable` for Raw structures
+4. Prove injectivity and polynomial size bounds (`PolytimeEncoding`)
+5. Provide transfer theorems (`np_transfer`, `p_backward_transfer`, `hardness_transfer`)
 -/
 
 namespace LStar.Encoding
@@ -2322,9 +2328,7 @@ theorem LStarLanguageLang_in_NP : LStar.Complexity.InNP LStarLanguageLang := by
 /-! ## Generic Language Transfer: Structured Types ↔ Bitstrings
 
 **Purpose**: Prove that complexity class membership transfers between structured types
-and their bitstring encodings. This bridges the gap between:
-- Main proof: works over structured `LStarInstanceFG`
-- Complexity theory: languages are sets of bitstrings `{0,1}*`
+and their bitstring encodings.
 
 **Key Insight**: No decode function needed! The certificate carries the original
 structure, and we just verify it encodes to the claimed bitstring.
@@ -2333,9 +2337,11 @@ structure, and we just verify it encodes to the claimed bitstring.
 1. `np_transfer`: InNP L → InNP (encodedLang enc L)
 2. `p_backward_transfer`: InP (encodedLang enc L) → InP L
 3. `hardness_transfer`: ¬InP L → ¬InP (encodedLang enc L)
+4. `separation_transfer`: InNP L ∧ ¬InP L → InNP (encodedLang enc L) ∧ ¬InP (encodedLang enc L)
 
-**Application**: Combined with main P≠NP proof over structured types, yields
-P≠NP over bitstrings in the standard complexity-theoretic sense.
+**Note**: The main `P_ne_NP` theorem uses abstract input types (α : Type) with
+bitstring witnesses. To obtain a fully explicit bitstring language L ⊆ {0,1}*
+matching textbook definitions, use these transfer theorems with `LStarLanguageLang`.
 -/
 
 section LanguageTransfer

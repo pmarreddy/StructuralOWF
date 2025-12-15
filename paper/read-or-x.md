@@ -6015,6 +6015,8 @@ X\* := (G, Sel\_v, H\_v, Enc\_schema, F\_overlay, GREQ, PathOf, S(P), salts, Φ�
 
 **Definition 10.6.2 (Encoding Function).** Encode : X\* → {0,1}\* is the canonical binary encoding defined in Appendix D.5.
 
+**Convention (Size of structured instances).** We measure the size |x\*| of a structured instance x\* ∈ X\* by the length of its canonical bitstring representation: |x\*| := |Encode(x\*)|. This is the standard convention in complexity theory (objects are measured by the length of their chosen admissible encoding).
+
 **Definition 10.6.3 (Structured Language).** L\*\_struct ⊆ X\* is defined by:
 
 x\* ∈ L\*\_struct  :↔  ∃w, Verify(x\*, w) = 1
@@ -6031,7 +6033,7 @@ The following properties of Encode are established in Appendix D.5.
 
 **Lemma E1 (Unique Decodability).** There exists Decode : {0,1}\* ⇀ X\* such that for all x\* ∈ X\*: Decode(Encode(x\*)) = x\*.
 
-*Justification:* The format in D.5 is length-delimited with unambiguous field boundaries; Decode parses left-to-right recovering each field uniquely. ∎
+*Justification:* The format in D.5 is length-delimited with unambiguous field boundaries; Decode parses left-to-right recovering each field uniquely on the image of Encode. ∎
 
 **Corollary E1' (Injectivity).** Encode is injective: Encode(x\*) = Encode(y\*) → x\* = y\*.
 
@@ -6043,11 +6045,11 @@ The following properties of Encode are established in Appendix D.5.
 
 **Lemma E3 (Size Upper Bound).** |Encode(x\*)| ≤ poly(|x\*|).
 
-*Proof:* Length-delimited encoding adds O(log |field|) bits per field; total overhead is polynomial. ∎
+*Proof:* Immediate from the size convention |x\*| := |Encode(x\*)| (take poly(n) = n). ∎
 
 **Lemma E4 (Size Lower Bound / Non-Compression).** |x\*| ≤ poly(|Encode(x\*)|).
 
-*Proof:* By E1, Decode recovers x\* from Encode(x\*). Decode runs in poly-time (D.5), so |x\*| ≤ poly(|Encode(x\*)|). ∎
+*Proof:* Immediate from the size convention |x\*| := |Encode(x\*)| (take poly(n) = n). ∎
 
 ##### 10.6.3 Connection Theorem
 
@@ -6084,15 +6086,15 @@ where φ\_n and m(n), ℓ(n) are as in §9.
 
 Then {f\_n} is a one-way function family against PPT adversaries.
 
-*Proof:* Suppose PPT adversary A inverts f\_n: given bs = f\_n(r), A outputs witness w with non-negligible probability.
+*Proof:* Suppose PPT adversary A inverts f\_n in the sense of §9's Definition (One-Way Function Security): given bs = f\_n(r), A outputs r' such that f\_n(r') = bs with non-negligible probability.
 
 Construct a structured inverter A': given x\* = Plant(φ\_n, r):
 
 1. Compute bs := Encode(x\*)  — poly-time by Lemma E2
-2. Run A(bs) to obtain w
-3. Output w
+2. Run A(bs) to obtain r'
+3. Output r'
 
-A' runs in PPT and inverts Plant with the same probability as A. This contradicts the structured OWF theorem (§9, Theorem 9.4). ∎
+Correctness: since f\_n(r') = bs = Encode(x\*) = Encode(Plant(φ\_n, r)), by Corollary E1' (injectivity) we have Plant(φ\_n, r') = Plant(φ\_n, r) = x\*. Thus A' inverts the structured planting function with the same success probability as A, contradicting the structured OWF theorem (§9, Theorem 9.4). ∎
 
 **Corollary 10.6.8 (P ≠ NP).** P ≠ NP.
 
