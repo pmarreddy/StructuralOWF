@@ -507,7 +507,7 @@ Layer 5 currently implements P≠NP via one NP-complete language (L*_NP) with ov
 **Main Theorem**: `unconditional_pnenp_from_owf`
 ```lean
 theorem unconditional_pnenp_from_owf
-    : ∃ (α : Type) (_inst : Sized α) (L : Lang α), InNP_Alg L ∧ ¬InP L
+    : ∃ (α : Type) (_inst : Sized α) (L : Lang α), InNP L ∧ ¬InP L
 ```
 
 **Status**: Scaffold complete, 2 sorries for standard reductions

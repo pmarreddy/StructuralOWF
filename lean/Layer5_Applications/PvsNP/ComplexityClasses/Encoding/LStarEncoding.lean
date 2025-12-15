@@ -20,10 +20,10 @@ import Layer5_Applications.PvsNP.ComplexityClasses.Sized
 import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFSizedInstances
 import Layer5_Applications.PvsNP.ComplexityClasses.BitEncoding
 import Layer5_Applications.PvsNP.ComplexityClasses.TMEncoding
-import Layer5_Applications.PvsNP.ComplexityClasses.NPDefs  -- For Lang, InNP, VerifierCert
+import Layer5_Applications.PvsNP.ComplexityClasses.NPDefs  -- For Lang, InNP_Logical, VerifierCert
 import Layer5_Applications.PvsNP.ComplexityClasses.AlgSpec  -- For AlgSpec
 import Layer5_Applications.PvsNP.ComplexityClasses.RandAdv  -- For RandAdv, algspec_has_tm
-import Layer5_Applications.PvsNP.ComplexityClasses.ComplexityClasses  -- For InNP_Alg
+import Layer5_Applications.PvsNP.ComplexityClasses.ComplexityClasses  -- For InNP
 import Infrastructure.Witness.VerifiedWitness  -- For HasCorrectDigests
 
 /-! ## LStarEncoding: Explicit Binary Encoding for Complexity Theory
@@ -1741,13 +1741,14 @@ theorem LStarVerifier_correct (bs : List Bool) :
     simp only [LStarLanguageLang, LStarLanguage, Set.mem_setOf_eq, IsYesInstance]
     exact ⟨L, h_enc, W, h_digests⟩
 
-/-- L* (as a bitstring language) is in NP.
+/-- L* (as a bitstring language) is in NP (logical, no resource bounds).
 
     **Certificate**: `Σ L : LStarInstanceFG, Witness L.n` (structure + witness)
     **Verifier**: Check encoding match + digest correctness
 
-    This is the complexity-theoretic statement: "L* ⊆ {0,1}* is in NP". -/
-theorem LStarLanguageLang_in_NP : LStar.Complexity.InNP LStarLanguageLang := by
+    **Note**: This is the logical NP membership (InNP_Logical). For complexity-theoretic
+    NP with poly bounds, see `LStarLanguageLang_in_NP` below. -/
+theorem LStarLanguageLang_in_NP_Logical : LStar.Complexity.InNP_Logical LStarLanguageLang := by
   -- Construct VerifierCert
   refine ⟨⟨LStarCertificate, LStarVerifier, ?_⟩⟩
   -- Prove spec: ∀ bs, LStarLanguageLang bs ↔ ∃ cert, LStarVerifier bs cert
@@ -1757,9 +1758,9 @@ theorem LStarLanguageLang_in_NP : LStar.Complexity.InNP LStarLanguageLang := by
 #print axioms LStarCertificate
 #print axioms LStarVerifier
 #print axioms LStarVerifier_correct
-#print axioms LStarLanguageLang_in_NP
+#print axioms LStarLanguageLang_in_NP_Logical
 
-/-! ## L* in NP with Polynomial-Time Verifier (InNP_Alg)
+/-! ## L* in NP with Polynomial-Time Verifier (InNP)
 
 **Purpose**: Prove that L* (as bitstrings) is in NP with an explicit polynomial-time verifier.
 
@@ -1767,7 +1768,7 @@ theorem LStarLanguageLang_in_NP : LStar.Complexity.InNP LStarLanguageLang := by
 1. Define `Sized LStarCertificate` via existing `sizedSigma` instance
 2. Define `AlgSpec` for the verifier with polynomial bounds
 3. Use `algspec_has_tm` axiom to get `RandAdv` with TM implementation
-4. Prove `InNP_Alg LStarLanguageLang`
+4. Prove `InNP LStarLanguageLang`
 
 **Trust Boundary**: Uses `algspec_has_tm` axiom (Church-Turing bridge, already in trust boundary)
 
@@ -1893,7 +1894,7 @@ theorem verifyLStarMembership_correct (bs : List Bool) (cert : LStarCertificate)
     · -- gateProofs = [] → gateProofs.length = 0
       simp [h_gp]
 
--- Step 6: Prove InNP_Alg using algspec_has_tm
+-- Step 6: Prove InNP using algspec_has_tm
 
 /-- L* (as bitstrings) is in NP with polynomial-time verifier.
 
@@ -1906,7 +1907,7 @@ theorem verifyLStarMembership_correct (bs : List Bool) (cert : LStarCertificate)
     **Complexity**:
     - Verifier time: O(n³) where n = input size
     - Witness size: O(n³) (certificate carries structure + witness) -/
-theorem LStarLanguageLang_in_NP_Alg : LStar.Complexity.InNP_Alg LStarLanguageLang := by
+theorem LStarLanguageLang_in_NP : LStar.Complexity.InNP LStarLanguageLang := by
   -- Witness type is LStarCertificate
   use LStarCertificate
   use sizedLStarCertificate
@@ -2095,6 +2096,6 @@ theorem LStarLanguageLang_in_NP_Alg : LStar.Complexity.InNP_Alg LStarLanguageLan
 #print axioms verifyLStar_algspec
 #print axioms verifyLStar_algspec_deterministic
 #print axioms verifyLStarMembership_correct
-#print axioms LStarLanguageLang_in_NP_Alg
+#print axioms LStarLanguageLang_in_NP
 
 end LStar.Encoding

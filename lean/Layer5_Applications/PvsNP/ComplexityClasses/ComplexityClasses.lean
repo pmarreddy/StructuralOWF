@@ -9,9 +9,9 @@ import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFSizedInstances
 
 **Purpose**: Standard complexity class definitions for OWF → P≠NP bridge.
 
-**Definitions**: InP, InFP, InFNP, InNP_Alg (RandAdv-based).
+**Definitions**: InP, InFP, InFNP, InNP (RandAdv-based with poly bounds).
 
-**Theorems**: p_subset_np (P ⊆ NP).
+**Theorems**: p_subset_np_logical (P ⊆ NP_Logical).
 
 **Size Function**: All definitions use the Sized typeclass to make input size
 explicit and unambiguous. This eliminates the abstraction gap between "input x"
@@ -64,18 +64,17 @@ def InFNP {α β : Type} [Sized α] [Sized β] (R : α → β → Prop) : Prop :
     (∀ x y, R x y → size y ≤ C_wit * (size x + 1) ^ k_wit) ∧
     (∀ x y, R x y ↔ V.run ⟨0, V.coins_pos⟩ (x, y) = true)
 
-/-- **NP (Algorithmic Definition)**: Languages with polynomial-time verifiable witnesses.
-
-This is NP defined algorithmically using RandAdv verifiers, matching the
-abstraction level of InP, InFP, InFNP.
+/-- **NP (Standard Definition)**: Languages with polynomial-time verifiable witnesses.
 
 **Textbook Alignment**: Includes explicit polynomial bounds for both:
 - Witness size: size y ≤ C_wit * (size x + 1)^k_wit
 - Verifier time: time_bound (size (x,y)) ≤ C_time * (size (x,y) + 1)^k_time
 
 This matches standard NP definitions (Sipser §7.3, Arora-Barak §2.1).
+
+**Note**: For abstract reasoning without resource bounds, use `InNP_Logical` (NPDefs.lean).
 -/
-def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
+def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
   ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T)
     (C_wit k_wit C_time k_time : Nat),
     (∀ c₁ c₂ p, V.run c₁ p = V.run c₂ p) ∧
@@ -83,12 +82,15 @@ def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
     (∀ p : α × β, V.time_bound (size p) ≤ C_time * (size p + 1) ^ k_time) ∧
     (∀ x, L x ↔ ∃ y : β, V.run ⟨0, V.coins_pos⟩ (x, y) = true)
 
-/-- **P ⊆ NP**: Every polynomial-time decidable language is in NP.
+/-- **P ⊆ NP (Logical)**: Every polynomial-time decidable language is in NP_Logical.
 
 **Proof**: Use trivial witness (Unit). The P decider becomes the verifier
 that ignores the witness.
+
+**Note**: This proves P ⊆ InNP_Logical (logical NP without resource bounds).
+For P ⊆ InNP (with poly bounds), construct verifier RandAdv explicitly.
 -/
-theorem p_subset_np {α : Type} [Sized α] (L : Lang α) (h : InP L) : InNP L := by
+theorem p_subset_np_logical {α : Type} [Sized α] (L : Lang α) (h : InP L) : InNP_Logical L := by
   obtain ⟨T, A, h_det, h_correct⟩ := h
   refine ⟨⟨Unit, fun x _ => A.run ⟨0, A.coins_pos⟩ x = true, ?_⟩⟩
   intro x
@@ -111,13 +113,13 @@ polynomial-time decider (P).
 (see ParametricBitstringBridge.lean) which is mathematically equivalent.
 -/
 def PeqNP_classical : Prop :=
-  ∀ (α : Type) [Sized α] (L : Lang α), InNP_Alg L → InP L
+  ∀ (α : Type) [Sized α] (L : Lang α), InNP L → InP L
 
 #print axioms InP
 #print axioms InFP
 #print axioms InFNP
-#print axioms InNP_Alg
-#print axioms p_subset_np
+#print axioms InNP
+#print axioms p_subset_np_logical
 #print axioms PeqNP_classical
 
 end LStar.Complexity

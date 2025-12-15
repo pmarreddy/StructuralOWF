@@ -530,8 +530,8 @@ def prefixLang (n : Nat) : Lang (PrefixInput (α n) (wlen n)) :=
 - NOT any claim about generic NP languages
 
 **Contrast with LStarNP.lean:**
-- LStarNP.lean proves `LStar_in_NP : InNP LStarLang` (logical NP, no resource bounds)
-- This theorem proves `InNP_Alg`-style membership (with poly time/witness bounds)
+- LStarNP.lean proves `LStar_in_NP : InNP_Logical LStarLang` (logical NP, no resource bounds)
+- This theorem proves `InNP`-style membership (with poly time/witness bounds)
 - P≠NP bridge uses THIS theorem as a tool, instantiated with L*'s specific R
 
 **Construction**: Given FNP verifier V for R, construct NP verifier that checks:
@@ -1420,7 +1420,7 @@ def FPneFNP_parametric_bits : Prop :=
 
 /-- Strengthened P = NP: Parametric version that preserves uniformity.
 
-Instead of: `∀ α L, InNP_Alg L → InP L` (gives non-uniform machines)
+Instead of: `∀ α L, InNP L → InP L` (gives non-uniform machines)
 We assume: Parametric NP families → Parametric P families (preserves uniformity)
 
 Key difference:
