@@ -2553,14 +2553,12 @@ theorem tmEmergentEncoder_surjective_flat
   -- Step 7a: Show vertex is FG gate
   have h_is_fg : Foundations.is_fg_gate_flat φ numGates (1 + φ.nvars + gateIndex) = true := by
     unfold Foundations.is_fg_gate_flat
-    simp only [decide_eq_true_eq]
+    -- is_fg_gate_flat v = true ↔ (clause_start ≤ v) ∧ (v < fg_end)
+    simp [Bool.and_eq_true, decide_eq_true_eq]
     constructor
-    · -- 1 + φ.nvars ≤ 1 + φ.nvars + gateIndex
-      omega
-    · -- 1 + φ.nvars + gateIndex < min(1 + φ.nvars + numGates)(1 + φ.nvars + φ.clauses.length)
-      have h_lt := h_gate_valid  -- gateIndex < numGates
-      simp only [Nat.lt_min]
-      constructor <;> omega
+    · omega
+    · -- gateIndex < numGates and numGates ≤ φ.clauses.length, so it's below both bounds
+      exact Nat.lt_of_lt_of_le h_gate_valid h_numGates_valid
 
   -- Step 7b: R = φ.nvars at FG gates
   have h_R_eq_nvars : R = φ.nvars := Foundations.R_of_flat_at_fg_gate φ numGates (1 + φ.nvars + gateIndex) h_is_fg
@@ -2577,7 +2575,7 @@ theorem tmEmergentEncoder_surjective_flat
   have h_bounded_L_n : ∀ i ≥ L.n, σ_val i = false := by
     intro i hi
     apply h_bounded
-    rw [← h_R_eq_L_n]
+    rw [h_R_eq_L_n]
     exact hi
 
   -- Step 7: Use h_extractWitness_surj to get a TM config
