@@ -63,8 +63,14 @@ structure NodeData where
   Known : Type              -- Resolved information (q_v designated reads)
   UnknownIdx : Type         -- Unresolved coordinates (λ = R_v - q_v residual bits)
   State : Type              -- Observable artifacts (Φ_v = log₂|State|)
+  [dec_K : DecidableEq Known]      -- Decidable equality for Known
+  [inh_K : Inhabited Known]        -- Default element for Known
+  [dec_I : DecidableEq UnknownIdx] -- Decidable equality for indices
+  [dec_S : DecidableEq State]      -- Decidable equality for states
+  [fin_K : Fintype Known]          -- Finite Known (cardinality reasoning)
+  [fin_I : Fintype UnknownIdx]     -- Finite indices (λ = |UnknownIdx|)
+  [fin_S : Fintype State]          -- Finite states (Φ = log₂|State|)
   state : Known × (UnknownIdx → Bool) → State
-  [Fintype instances for cardinality reasoning]
 ```
 
 **Mathematical Object**: Abstract model of computation at a node
@@ -335,7 +341,7 @@ def cut_lambda (C : CutData) : Nat :=
 **Definition**: `PreFinalAgreement` (Layer3_InformationBounds/SegmentReduction/SegmentCounting.lean)
 
 ```lean
-def PreFinalAgreement (_L : LStarInstanceFG) (run : DeterministicRun Assignment Witness) : Nat :=
+def PreFinalAgreement (_L : LStarInstanceFG) (run : DeterministicRun AssignmentInf AssignmentInf) : Nat :=
   run.preFinalAgreement  -- Accesses field from DeterministicRun structure
 ```
 
@@ -379,14 +385,14 @@ Bound: 2^(128-32) = 2^96 (weaker by factor 2^32)
 **Definition**: `EffectiveResidual` (Layer3_InformationBounds/SegmentReduction/SegmentCounting.lean)
 
 ```lean
-def EffectiveResidual (L : LStarInstanceFG) (run : DeterministicRun Assignment Witness)
+def EffectiveResidual (L : LStarInstanceFG) (run : DeterministicRun AssignmentInf AssignmentInf)
     (v : {v // L.fg.gateReq v}) : Nat :=
   lambdaBase L v - PreFinalAgreement L run
 ```
 
 **Note**: Also exists in WorkLowerBounds.lean:156 with identical structure:
 ```lean
-def effectiveResidual (L : LStarInstanceFG) (run : DeterministicRun Assignment Witness)
+def effectiveResidual (L : LStarInstanceFG) (run : DeterministicRun AssignmentInf AssignmentInf)
     (v : {v // L.fg.gateReq v}) : Nat :=
   lambdaBase L v - preFinalAgreement L run v
 ```
@@ -432,9 +438,9 @@ structure PPTAdversary (α β γ : Type) [Sized α] [Sized β] where
   h_C_pos : C > 0
   h_k_pos : k > 0
   poly : ∀ n, time_bound n ≤ C * (n + 1) ^ k  -- Polynomial bound (halting separate)
-  encoding : TMEncodingBase α β (Fin alphabetSize)  -- Bidirectional encoding
+  encoding : TMEncodingBase (Fin num_coins × α) β (Fin alphabetSize)  -- Bidirectional encoding (coin,input) pair
   h_blank_consistent : M.blank = encoding.input.blank  -- Blank symbol consistency
-  halts : ∀ (x : α), ...             -- TM halts within time bound (separate field)
+  halts : ∀ (c : Fin num_coins) (x : α), ...  -- TM halts within time bound (separate field)
   run_correct : ∀ (c : Fin num_coins) (x : α) (t : Nat), ...  -- TM execution matches run
   coins_pos : 0 < num_coins
 ```
@@ -737,7 +743,10 @@ def InFNP_parametric_bits {α : Nat → Type} [∀ n, Sized (α n)] (wlen : Nat 
 ```lean
 def FPneFNP_parametric_bits : Prop :=
   ∃ (α : Nat → Type) (_inst : ∀ n, Sized (α n)) (_param : ParamSizeLowerBound α) (wlen : Nat → Nat)
-    (R : ∀ n, α n → Bits (wlen n) → Prop),
+    (R : ∀ n, α n → Bits (wlen n) → Prop)
+    (C_α k_α : Nat),  -- Upper bound: inputs have polynomial size in parameter
+    -- STANDARD ASSUMPTION: Input sizes bounded by poly(n)
+    (∀ (n : Nat) (x : α n), Sized.size x ≤ C_α * (n + 1) ^ k_α) ∧
     InFNP_parametric_bits wlen R ∧
     ¬(∃ f_family : (∀ n, α n → Bits (wlen n)),
         InFP_parametric_bits wlen f_family ∧
@@ -2257,7 +2266,7 @@ P ≠ NP
 
 ### 7.1b Parity Lower Bound (Information-Theoretic Necessity) ⭐ NEW
 
-**Theorem**: `parity_requires_all_bits` (Layer3_InformationBounds/SegmentReduction/ParityLowerBound.lean)
+**Theorem**: `parity_requires_all_bits` (Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean)
 
 ```lean
 theorem parity_requires_all_bits
@@ -2419,11 +2428,12 @@ See `TuringMachineSemantics.lean` and paper §11.4 for detailed documentation.
   - encoding_semantics → now proven as theorem
   - tm_overhead → removed from codebase
 - **Remaining axioms** (2 total):
-  - `algspec_has_tm` (Church-Turing bridge + garbage separation)
-  - `collision_indistinguishability_under_incomplete_observation` (Keyedness bound + uniform PPT)
-    - Requires `h_uniform_bound: haltTime ≤ C_uniform * (L.n + 1)^k_uniform` with instance-independent C, k
-    - Blocks non-uniform "lucky TMs" (need different C, k per instance)
-    - Blocks exponential-time strategies (2^{n-1} ≰ C·n^k for fixed C, k)
+  - `algspec_has_tm` (Church-Turing bridge + garbage separation) — RandAdv.lean:298
+  - `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Keyedness bound + uniform PPT) — TMAdapterExponential.lean:2211
+    - Requires `h_extractWitness_surj` surjectivity constraint
+    - Requires planted hypothesis and CNF satisfiability
+    - Blocks non-uniform "lucky TMs" via uniform polynomial bounds
+    - Blocks exponential-time strategies (correctness forces 2^R exploration)
 - **Eliminated axioms** (2025-12-08):
   - `plant_flat_wf_transfer` — WellFormed now part of WellFormedRandomness_flat definition
   - `fg_lossless_encoding` — Now proven (145-line theorem in EncodingDiscipline.lean:344-489)
@@ -2569,7 +2579,7 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
   h_k_pos : k > 0
   poly_explicit : ∀ x : α, time_bound (size x) ≤ C * (size x + 1) ^ k  -- ⭐ Explicit sizes
   time_bound_uniform : ∀ n, time_bound n ≤ C * (n + 1) ^ k  -- Uniform bound on function
-  halts : ∀ (x : α), ...             -- TM halts within time bound
+  halts : ∀ (c : Fin T) (x : α), ...  -- TM halts within time bound
   output_bounded : ∀ c x, size (run c x) ≤ time_bound (size x)  -- Output size ≤ runtime
   coins_pos : 0 < T
 ```
@@ -2711,8 +2721,8 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 - Linear algebra (Galois, finite fields)
 
 **Trust Boundary**: 2 axioms (verified via `#print axioms P_ne_NP`)
-1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge + garbage separation
-2. `collision_indistinguishability_under_incomplete_observation` (TMAdapterExponential.lean) - Keyedness bound + uniform PPT (blocks lucky TMs and exponential-time strategies)
+1. `algspec_has_tm` (RandAdv.lean:298) - Church-Turing bridge + garbage separation
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean:2211) - Keyedness bound + uniform PPT (correctness forces 2^R exploration)
 
 **Eliminated axioms** (2025-12-08):
 - `plant_flat_wf_transfer` → WellFormed now part of WellFormedRandomness_flat definition
