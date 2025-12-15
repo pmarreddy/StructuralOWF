@@ -54,10 +54,17 @@ open LStar.Complexity
 /-- A bit string is just a list of booleans. -/
 abbrev BitString := List Bool
 
-/-- Class for types that can be encoded to and decoded from bit strings. -/
+/-- Class for types that can be encoded to and decoded from bit strings.
+
+    **Key property**: `decode_encode_append` ensures the encoding is prefix-free,
+    meaning `decode (encode x ++ rest) = some (x, rest)`. This allows unambiguous
+    concatenation of encoded values. -/
 class Encodable (α : Type) where
   encode : α → BitString
   decode : BitString → Option (α × BitString) -- Returns value + remaining bits
+  /-- Prefix-free encoding property: decode inverts encode with remaining bits. -/
+  decode_encode_append : ∀ (x : α) (rest : BitString),
+    decode (encode x ++ rest) = some (x, rest)
 
 /-- Helper: Decode exact string (must exhaust input). -/
 def decodeFull {α : Type} [Encodable α] (bits : BitString) : Option α :=
@@ -65,58 +72,185 @@ def decodeFull {α : Type} [Encodable α] (bits : BitString) : Option α :=
   | some (val, []) => some val
   | _ => none
 
+/-- Encodable.encode is injective: different values produce different encodings. -/
+theorem Encodable.encode_injective {α : Type} [inst : Encodable α] :
+    Function.Injective (Encodable.encode (α := α)) := by
+  intro x y h_eq
+  have h1 := inst.decode_encode_append x []
+  have h2 := inst.decode_encode_append y []
+  simp only [List.append_nil] at h1 h2
+  rw [h_eq] at h1
+  rw [h1] at h2
+  have h3 : (x, []) = (y, []) := Option.some.injEq _ _ |>.mp h2
+  exact (Prod.mk.injEq x [] y []).mp h3 |>.1
+
 instance : Encodable Bool where
   encode b := [b]
   decode bits :=
     match bits with
     | b :: rest => some (b, rest)
     | [] => none
+  decode_encode_append := fun b rest => rfl
 
-/-- Encode Nat as self-delimiting unary-prefixed binary. -/
+/-- Read a unary-encoded length: count `true` bits until `false`, return (count, rest).
+    This is a standalone terminating function for reasoning. -/
+def readUnaryLen (bits : BitString) : Option (Nat × BitString) :=
+  match bits with
+  | [] => none
+  | false :: rest => some (0, rest)
+  | true :: rest =>
+    match readUnaryLen rest with
+    | some (n, rest') => some (n + 1, rest')
+    | none => none
+
+/-- Helper: readUnaryLen on (replicate n true ++ [false] ++ rest) returns (n, rest). -/
+lemma readUnaryLen_replicate (n : Nat) (rest : BitString) :
+    readUnaryLen (List.replicate n true ++ [false] ++ rest) = some (n, rest) := by
+  induction n with
+  | zero =>
+    simp only [List.replicate_zero, List.nil_append]
+    rfl
+  | succ k ih =>
+    simp only [List.replicate_succ, List.cons_append]
+    unfold readUnaryLen
+    rw [ih]
+
+/-- Encode Nat as self-delimiting unary-prefixed binary.
+    - n = 0 encodes as [false]
+    - n > 0 encodes as (n.bits.length true's) ++ [false] ++ n.bits -/
 def encodeNat (n : Nat) : BitString :=
   if n = 0 then [false] else
   let lsb_bits := n.bits -- LSB first
   let len := lsb_bits.length
   List.replicate len true ++ [false] ++ lsb_bits
 
-partial def decodeNat (bits : BitString) : Option (Nat × BitString) :=
-  let rec readLen (acc : Nat) (rem : BitString) : Option (Nat × BitString) :=
-    match rem with
-    | true :: rest => readLen (acc + 1) rest
-    | false :: rest => some (acc, rest)
-    | [] => none
-  match readLen 0 bits with
+/-- Decode a Nat from a bit string. -/
+def decodeNat (bits : BitString) : Option (Nat × BitString) :=
+  match readUnaryLen bits with
+  | some (0, rest) => some (0, rest)  -- Length 0 means n = 0
   | some (len, rest) =>
-    if rest.length < len then none else
+    if h : rest.length < len then none else
     let (n_bits, rest') := rest.splitAt len
     let n := n_bits.foldr (fun b acc => 2 * acc + (if b then 1 else 0)) 0
     some (n, rest')
   | none => none
 
+/-- Nat.bits is non-empty for n > 0 -/
+lemma Nat.bits_length_pos {n : Nat} (h : n > 0) : n.bits.length > 0 := by
+  have h_ne : n.bits ≠ [] := by
+    induction n using Nat.binaryRec' with
+    | zero => omega
+    | bit b m hm =>
+      rw [Nat.bits_append_bit _ _ hm]
+      exact List.cons_ne_nil _ _
+  exact List.length_pos_of_ne_nil h_ne
+
+/-- foldr reconstruction of n from n.bits -/
+lemma Nat.bits_foldr_eq (n : Nat) (h : n > 0) :
+    n.bits.foldr (fun b acc => 2 * acc + (if b then 1 else 0)) 0 = n := by
+  induction n using Nat.strongRecOn with
+  | _ n ih =>
+    have h_ne_zero : n ≠ 0 := Nat.ne_of_gt h
+    -- Use the binary representation: bits n = bodd :: div2.bits
+    have h_ne : n.bits ≠ [] := List.ne_nil_of_length_pos (Nat.bits_length_pos h)
+    have h_eq : n.bits = n.bodd :: n.div2.bits := by
+      rw [Nat.bodd_eq_bits_head, Nat.div2_bits_eq_tail]
+      exact (List.cons_head!_tail h_ne).symm
+    rw [h_eq, List.foldr_cons]
+    -- (if n.bodd then 1 else 0) + 2 * (div2.bits.foldr ...) = n
+    -- We know: bodd.toNat + 2 * div2 = n  (Nat.bodd_add_div2)
+    -- And: (if b then 1 else 0) = b.toNat for Bool
+    have h_bodd_val : (if n.bodd then 1 else 0) = n.bodd.toNat := by cases n.bodd <;> rfl
+    rw [h_bodd_val]
+    cases Nat.eq_zero_or_pos n.div2 with
+    | inl h0 =>
+      -- div2 = 0 means n ∈ {0, 1}. Since n > 0, we have n = 1
+      have h1 : n = 1 := by
+        have h_reconstruct := Nat.bodd_add_div2 n
+        simp [h0] at h_reconstruct
+        cases hb : n.bodd <;> simp [hb] at h_reconstruct <;> omega
+      subst h1
+      simp [Nat.bits]
+    | inr hpos =>
+      have h_lt : n.div2 < n := Nat.binaryRec_decreasing h_ne_zero
+      have ih_applied := ih n.div2 h_lt hpos
+      have h_reconstruct := Nat.bodd_add_div2 n
+      omega
+
+/-- decode_encode_append for Nat -/
+lemma Nat.decode_encode_append_lemma (n : Nat) (rest : BitString) :
+    decodeNat (encodeNat n ++ rest) = some (n, rest) := by
+  simp only [encodeNat, decodeNat]
+  split_ifs with h_zero
+  · -- n = 0
+    subst h_zero
+    simp only [List.cons_append, readUnaryLen, List.nil_append]
+  · -- n ≠ 0
+    have h_pos : n > 0 := Nat.pos_of_ne_zero h_zero
+    -- Rewrite to match readUnaryLen_replicate form
+    have h_assoc : (List.replicate n.bits.length true ++ [false] ++ n.bits) ++ rest =
+                   List.replicate n.bits.length true ++ [false] ++ (n.bits ++ rest) := by
+      simp only [List.append_assoc]
+    rw [h_assoc, readUnaryLen_replicate n.bits.length (n.bits ++ rest)]
+    have h_len_pos : n.bits.length > 0 := Nat.bits_length_pos h_pos
+    have h_len_ne_zero : n.bits.length ≠ 0 := Nat.ne_of_gt h_len_pos
+    simp only [h_len_ne_zero, ↓reduceDIte, not_false_eq_true]
+    have h_len_ok : ¬ (n.bits ++ rest).length < n.bits.length := by
+      simp only [List.length_append, not_lt]
+      omega
+    simp only [h_len_ok, ↓reduceDIte]
+    -- Now goal is: some (...splitAt n.bits.length...) = some (n, rest)
+    simp only [List.splitAt_eq, List.take_left, List.drop_left, Nat.bits_foldr_eq n h_pos]
+
 instance : Encodable Nat where
   encode := encodeNat
   decode := decodeNat
+  decode_encode_append := Nat.decode_encode_append_lemma
+
+/-- Read n elements from a bitstring, decoding each with Encodable.decode -/
+def readElems {α : Type} [Encodable α] (n : Nat) (rem : BitString) (acc : List α) :
+    Option (List α × BitString) :=
+  match n with
+  | 0 => some (acc.reverse, rem)
+  | k + 1 =>
+    match Encodable.decode rem with
+    | some (val, rest) => readElems k rest (val :: acc)
+    | none => none
+
+/-- Helper: readElems correctly decodes a list encoded with flatMap -/
+lemma readElems_flatMap {α : Type} [inst : Encodable α] (list : List α) (rest : BitString) (acc : List α) :
+    readElems list.length (list.flatMap Encodable.encode ++ rest) acc =
+    some (acc.reverse ++ list, rest) := by
+  induction list generalizing acc rest with
+  | nil =>
+    simp only [List.length_nil, List.flatMap_nil, List.nil_append, readElems, List.append_nil]
+  | cons x xs ih =>
+    simp only [List.length_cons, List.flatMap_cons, readElems]
+    have h_decode : Encodable.decode (Encodable.encode x ++ (xs.flatMap Encodable.encode ++ rest)) =
+                    some (x, xs.flatMap Encodable.encode ++ rest) :=
+      inst.decode_encode_append x (xs.flatMap Encodable.encode ++ rest)
+    rw [List.append_assoc, h_decode]
+    have ih_applied := ih rest (x :: acc)
+    simp only [ih_applied, List.reverse_cons, List.append_assoc, List.singleton_append]
 
 instance [Encodable α] : Encodable (List α) where
   encode list :=
     let len_prefix := List.replicate list.length true ++ [false]
     len_prefix ++ list.flatMap Encodable.encode
   decode bits :=
-    let rec readLen (acc : Nat) (rem : BitString) : Option (Nat × BitString) :=
-      match rem with
-      | true :: rest => readLen (acc + 1) rest
-      | false :: rest => some (acc, rest)
-      | [] => none
-    let rec readElems (n : Nat) (rem : BitString) (acc : List α) : Option (List α × BitString) :=
-      match n with
-      | 0 => some (acc.reverse, rem)
-      | k + 1 =>
-        match Encodable.decode rem with
-        | some (val, rest) => readElems k rest (val :: acc)
-        | none => none
-    match readLen 0 bits with
+    match readUnaryLen bits with
     | some (len, rest) => readElems len rest []
     | none => none
+  decode_encode_append := fun list rest => by
+    show (match readUnaryLen ((List.replicate list.length true ++ [false] ++ list.flatMap Encodable.encode) ++ rest) with
+         | some (len, r) => readElems len r []
+         | none => none)
+         = some (list, rest)
+    conv_lhs => rw [List.append_assoc]
+    rw [readUnaryLen_replicate list.length (list.flatMap Encodable.encode ++ rest)]
+    have h_elems := readElems_flatMap list rest []
+    simp only [List.reverse_nil, List.nil_append] at h_elems
+    exact h_elems
 
 instance [Encodable α] : Encodable (Option α) where
   encode opt :=
@@ -131,6 +265,15 @@ instance [Encodable α] : Encodable (Option α) where
       | some (val, rest') => some (some val, rest')
       | none => none
     | [] => none
+  decode_encode_append := fun opt rest => by
+    cases opt with
+    | none => rfl
+    | some x =>
+      show (match Encodable.decode (Encodable.encode x ++ rest) with
+           | some (val, rest') => some (some val, rest')
+           | none => none)
+           = some (some x, rest)
+      rw [Encodable.decode_encode_append x rest]
 
 /-! ### Raw Structures for Dependent Types -/
 
@@ -149,6 +292,15 @@ instance : Encodable RawDAG where
       | some (parents, rest') => some ({ n := n, parents := parents }, rest')
       | none => none
     | none => none
+  decode_encode_append := fun dag rest => by
+    show (match decodeNat (encodeNat dag.n ++ Encodable.encode dag.parents ++ rest) with
+         | some (n, r) => match Encodable.decode r with
+           | some (parents, rest') => some ({ n := n, parents := parents }, rest')
+           | none => none
+         | none => none)
+         = some (dag, rest)
+    simp only [List.append_assoc, Nat.decode_encode_append_lemma dag.n (Encodable.encode dag.parents ++ rest),
+               Encodable.decode_encode_append dag.parents rest]
 
 /-- Raw Emergence Matrix data (R, n, bits). -/
 structure RawEmergenceMatrix where
@@ -169,6 +321,19 @@ instance : Encodable RawEmergenceMatrix where
         | none => none
       | none => none
     | none => none
+  decode_encode_append := fun mat rest => by
+    show (match decodeNat (encodeNat mat.R ++ encodeNat mat.n ++ Encodable.encode mat.bits ++ rest) with
+         | some (R, r1) => match decodeNat r1 with
+           | some (n, r2) => match Encodable.decode r2 with
+             | some (bits, r3) => some ({ R := R, n := n, bits := bits }, r3)
+             | none => none
+           | none => none
+         | none => none)
+         = some (mat, rest)
+    simp only [List.append_assoc,
+               Nat.decode_encode_append_lemma mat.R (encodeNat mat.n ++ (Encodable.encode mat.bits ++ rest)),
+               Nat.decode_encode_append_lemma mat.n (Encodable.encode mat.bits ++ rest),
+               Encodable.decode_encode_append mat.bits rest]
 
 /-- Raw Pool Config (stride). -/
 structure RawPoolConfig where
@@ -181,6 +346,12 @@ instance : Encodable RawPoolConfig where
     match decodeNat bits with
     | some (s, rest) => some ({ stride := s }, rest)
     | none => none
+  decode_encode_append := fun p rest => by
+    show (match decodeNat (encodeNat p.stride ++ rest) with
+         | some (s, r) => some ({ stride := s }, r)
+         | none => none)
+         = some (p, rest)
+    rw [Nat.decode_encode_append_lemma p.stride rest]
 
 /-- Raw Full Instance. -/
 structure RawLStarInstanceFull where
@@ -220,6 +391,20 @@ instance : Encodable RawLStarInstanceFull where
         | none => none
       | none => none
     | none => none
+  decode_encode_append := fun r rest => by
+    simp only [List.append_assoc,
+      Nat.decode_encode_append_lemma r.n
+        (Encodable.encode r.dag ++ (Encodable.encode r.seedWidth ++
+          (Encodable.encode r.R ++ (Encodable.encode r.emergence ++ (Encodable.encode r.pools ++ rest))))),
+      Encodable.decode_encode_append r.dag
+        (Encodable.encode r.seedWidth ++ (Encodable.encode r.R ++
+          (Encodable.encode r.emergence ++ (Encodable.encode r.pools ++ rest)))),
+      Encodable.decode_encode_append r.seedWidth
+        (Encodable.encode r.R ++ (Encodable.encode r.emergence ++ (Encodable.encode r.pools ++ rest))),
+      Encodable.decode_encode_append r.R
+        (Encodable.encode r.emergence ++ (Encodable.encode r.pools ++ rest)),
+      Encodable.decode_encode_append r.emergence (Encodable.encode r.pools ++ rest),
+      Encodable.decode_encode_append r.pools rest]
 
 /-- Raw Gate Digest. -/
 structure RawGateDigest where
@@ -236,6 +421,9 @@ instance : Encodable RawGateDigest where
       | some (l, rest') => some ({ segmentBudget := b, bits := l }, rest')
       | none => none
     | none => none
+  decode_encode_append := fun g rest => by
+    simp only [List.append_assoc, Nat.decode_encode_append_lemma,
+               Encodable.decode_encode_append]
 
 /-- Raw Frontier Gate Config. -/
 structure RawFrontierGateConfig where
@@ -252,17 +440,22 @@ instance : Encodable RawFrontierGateConfig where
       | some (dig, rest') => some ({ gateReq := req, gateDigests := dig }, rest')
       | none => none
     | none => none
+  decode_encode_append := fun fg rest => by
+    simp only [List.append_assoc, Encodable.decode_encode_append]
 
 /-- Raw Encoded Literal/Clause/CNF (EncodedCNF is already Raw-like). -/
 instance : Encodable EncodedLiteral where
-  encode l := encodeNat l.maskedVar ++ Encodable.encode l.maskedPolarity 
-  decode bits := 
+  encode l := encodeNat l.maskedVar ++ Encodable.encode l.maskedPolarity
+  decode bits :=
     match decodeNat bits with
-    | some (v, rest) => 
+    | some (v, rest) =>
       match Encodable.decode rest with
       | some (b, rest') => some (⟨v, b⟩, rest')
       | none => none
     | none => none
+  decode_encode_append := fun l rest => by
+    simp only [List.append_assoc, Nat.decode_encode_append_lemma,
+               Encodable.decode_encode_append]
 
 instance : Encodable EncodedClause where
   encode c := Encodable.encode c.literals
@@ -270,6 +463,8 @@ instance : Encodable EncodedClause where
     match Encodable.decode bits with
     | some (l, rest) => some (⟨l⟩, rest)
     | none => none
+  decode_encode_append := fun c rest => by
+    rw [Encodable.decode_encode_append c.literals rest]
 
 instance : Encodable EncodedCNF where
   encode c := encodeNat c.nvars ++ Encodable.encode c.clauses
@@ -277,10 +472,13 @@ instance : Encodable EncodedCNF where
     match decodeNat bits with
     | some (n, rest) =>
       match Encodable.decode rest with
-      | some (c, rest') =>
-        if h : n > 0 then some (⟨n, h, c⟩, rest') else none
+      | some (cls, rest') =>
+        if h : n > 0 then some (⟨n, h, cls⟩, rest') else none
       | none => none
     | none => none
+  decode_encode_append := fun c rest => by
+    simp only [List.append_assoc, Nat.decode_encode_append_lemma,
+               Encodable.decode_encode_append, c.nvars_pos, ↓reduceDIte]
 
 /-- Raw FG Instance. -/
 structure RawLStarInstanceFG where
@@ -301,6 +499,8 @@ instance : Encodable RawLStarInstanceFG where
         | none => none
       | none => none
     | none => none
+  decode_encode_append := fun r rest => by
+    simp only [List.append_assoc, Encodable.decode_encode_append]
 
 /-! ### Validation & Conversion -/
 
@@ -399,16 +599,14 @@ noncomputable def toRawLStarInstanceFG (L : LStarInstanceFG) : RawLStarInstanceF
   , fg := toRawFrontierGateConfig L.fg
   }
 
-noncomputable instance : Encodable LStarInstanceFG where
-  encode L := Encodable.encode (toRawLStarInstanceFG L)
-  decode _bits :=
-    -- Inverse of toRaw.
-    -- We map bits -> Raw -> Option Instance.
-    -- Implementing the full dependent reconstruction is complex but feasible.
-    -- For complexity definition, knowing the mapping exists and is polynomial is sufficient to define
-    -- L* = { s | ∃ I : LStarInstanceFG, encode I = s }.
-    -- We can define the language via the range of `encode`.
-    none -- Return type is Option (LStarInstanceFG × BitString), can leave as none if not needed for execution.
+/-- Encode LStarInstanceFG to bitstring (via Raw representation).
+
+    Note: We don't use the Encodable typeclass here because implementing
+    the decoder for dependent types like LStarInstanceFG is extremely complex.
+    Instead we define encoding directly and prove injectivity through the
+    composition of toRawLStarInstanceFG and the Raw encoding. -/
+noncomputable def encodeLStarInstanceFG (L : LStarInstanceFG) : BitString :=
+  Encodable.encode (toRawLStarInstanceFG L)
 
 /-! ### Encoding Length Bounds -/
 
