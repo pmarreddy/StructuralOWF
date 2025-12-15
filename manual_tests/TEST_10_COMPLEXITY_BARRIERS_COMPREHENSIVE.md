@@ -3862,7 +3862,7 @@ using bit-level manipulation and extraction lemmas.
 
 ---
 
-#### VECTOR 10.19.4: Axiom 4 - collision_indistinguishability_under_incomplete_observation
+#### VECTOR 10.19.4: Axiom 4 - tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 
 **Goal**: Verify semantic bound axiom is barrier-safe
 
@@ -3870,7 +3870,7 @@ using bit-level manipulation and extraction lemmas.
 
 **Definition Summary**:
 ```lean
-axiom collision_indistinguishability_under_incomplete_observation
+axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
     (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars) (_h_wf : WellFormedRandomness_flat φ r)
     (v : {v // L.fg.gateReq v})
@@ -3909,7 +3909,7 @@ lake env lean -c 'import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBrid
 # Expected output (4 custom + Lean foundations):
 # propext, Quot.sound, Classical.choice
 # algspec_has_tm, plant_flat_wf_transfer, fg_lossless_encoding
-# collision_indistinguishability_under_incomplete_observation
+# tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 ```
 
 **Questions**:
@@ -4201,7 +4201,7 @@ All file paths in this test have been verified against the actual Lean codebase:
 | Axiom | File | Line | Barrier-Safe |
 |-------|------|------|--------------|
 | `algspec_has_tm` | RandAdv.lean | 297 | ✓ Church-Turing |
-| `collision_indistinguishability_under_incomplete_observation` | TMAdapterExponential.lean | 297 | ✓ Keyedness-based |
+| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | 297 | ✓ Keyedness-based |
 
 **Eliminated Axioms** (now proven/removed):
 - `plant_flat_wf_transfer` - Definitional fix

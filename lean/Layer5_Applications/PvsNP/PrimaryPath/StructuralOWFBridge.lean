@@ -1559,7 +1559,7 @@ theorem structural_owf_inversion_not_in_fp
   -- (by R = n_test in exponential profile). Correct inversion on all of them
   -- requires distinguishing all 2^n_test cases.
 
-  -- By A2 injectivity (collision_indistinguishability_under_incomplete_observation),
+  -- By A2 injectivity (tm_correctness_implies_realizesAllValuesFrom_flat_encoded),
   -- any algorithm with incomplete observation (< n bits) cannot distinguish all configs.
   -- Polynomial time gives at most poly(n) observations (state space).
   -- For n = n_test ≥ n₀_exp: poly(n_test) < 2^n_test (exponential dominance).
@@ -2197,7 +2197,7 @@ Main result: ¬PeqNP_parametric (P ≠ NP in the parametric formulation).
 
 **Trust Boundary**: 2 custom axioms
 1. `algspec_has_tm` (Church–Turing bridge: AlgSpec → RandAdv + encoding discipline)
-2. `collision_indistinguishability_under_incomplete_observation` (Information-theoretic)
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Information-theoretic)
 
 **Proven Theorems** (formerly axioms):
 - `a3_emergence_realizability` uses proven `fg_lossless_encoding` theorem

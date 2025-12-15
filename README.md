@@ -93,7 +93,7 @@ The proof relies on only **2 custom axioms**:
 | Axiom | Nature | Risk |
 |-------|--------|------|
 | `algspec_has_tm` | Church-Turing bridge | Very Low |
-| `collision_indistinguishability_under_incomplete_observation` | Semantic bound (A2 injectivity) | Low |
+| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | Semantic bound (correctness implies exhaustive exploration) | Low |
 
 ### Axiom Details
 
@@ -102,7 +102,7 @@ The proof relies on only **2 custom axioms**:
    - Preserves polynomial constants C and k
    - Universally accepted CS principle (Church 1936, Turing 1936)
 
-2. **`collision_indistinguishability_under_incomplete_observation`** (Semantic Bound)
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (Semantic Bound)
    - Correctness on planted instances requires visiting all 2^R configurations
    - Based on A2 injectivity: different configs → different seeds
    - Information-theoretic necessity (pigeonhole counting)

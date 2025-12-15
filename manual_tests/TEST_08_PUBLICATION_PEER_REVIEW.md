@@ -60,7 +60,7 @@ The most common failure mode for formalized proofs: the paper claims one thing, 
 → Expected output:
    - propext, Classical.choice, Quot.sound (standard Lean)
    - algspec_has_tm (Church-Turing bridge)
-   - collision_indistinguishability_under_incomplete_observation (semantic bound)
+   - tm_correctness_implies_realizesAllValuesFrom_flat_encoded (semantic bound)
 → Reference: docs/AXIOM_FINAL_COUNT.md for authoritative count
 
 **Note**: `fg_lossless_encoding` was previously an axiom but is now fully proven (145-line theorem).
@@ -193,7 +193,7 @@ def PeqNP_classical : Prop :=
 ```lean
 -- Paper claims 2 axioms (AXIOM_FINAL_COUNT.md):
 -- 1. algspec_has_tm (Church-Turing bridge)
--- 2. collision_indistinguishability_under_incomplete_observation (semantic bound)
+-- 2. tm_correctness_implies_realizesAllValuesFrom_flat_encoded (semantic bound)
 
 -- Verify via:
 #print axioms P_ne_NP
@@ -370,7 +370,7 @@ Each axiom is independently justifiable (see docs/AXIOM_FINAL_COUNT.md):
    - Every polynomial-time algorithmic specification has TM implementation
    - Risk: Very Low (definitional, universally accepted)
 
-2. **collision_indistinguishability_under_incomplete_observation**: Semantic bound
+2. **tm_correctness_implies_realizesAllValuesFrom_flat_encoded**: Semantic bound
    - From A2 injectivity: correctness on planted instances requires visiting
      all 2^R emergent configurations
    - Information-theoretic collision argument (different configs → different seeds)

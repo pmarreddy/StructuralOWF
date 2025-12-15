@@ -63,7 +63,7 @@ lake build LayerName    # Specific layer
 ## Trust Boundary (2 Axioms)
 
 1. **`algspec_has_tm`** — Church-Turing bridge (any AlgSpec has TM implementation)
-2. **`collision_indistinguishability_under_incomplete_observation`** — Semantic bound (A2 injectivity)
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** — Semantic bound (correctness implies exhaustive exploration)
 
 All standard CS/information-theory principles. See `docs/AXIOM_FINAL_COUNT.md`.
 

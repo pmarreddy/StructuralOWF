@@ -648,7 +648,7 @@ Excellent formalization:
 
 **Remaining axioms** (2 total):
 1. `algspec_has_tm` — Church-Turing bridge
-2. `collision_indistinguishability_under_incomplete_observation` — A2 keyedness
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` — exhaustive exploration
 
 ---
 
@@ -735,7 +735,7 @@ All 49 auxiliary definitions reviewed — standard implementations:
 
 **2 Axioms** — Minimal and reasonable:
 1. `algspec_has_tm` — Church-Turing thesis
-2. `collision_indistinguishability_under_incomplete_observation` — Core semantic insight
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` — Core semantic insight
 
 ---
 

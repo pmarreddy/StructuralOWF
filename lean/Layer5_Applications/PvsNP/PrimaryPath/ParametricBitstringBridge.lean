@@ -182,7 +182,7 @@ This is EXACTLY the P vs NP asymmetry:
 
 **Trust Boundary**: 2 axioms (foundation only, zero bridge axioms)
 - **algspec_has_tm** (RandAdv.lean) - Church-Turing: AlgSpec → TM implementation
-- **collision_indistinguishability_under_incomplete_observation** (TMAdapterExponential.lean) - Shannon's theorem
+- **tm_correctness_implies_realizesAllValuesFrom_flat_encoded** (TMAdapterExponential.lean) - Exhaustive exploration
 
 **Eliminated Axioms** (2025-12-08):
 - `fg_lossless_encoding` — Now proven (145-line theorem in EncodingDiscipline.lean)

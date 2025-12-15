@@ -125,7 +125,7 @@ See **§1** of the paper for the full development of this perspective.
 
 ### The 2 Custom Axioms (Trust Boundary)
 1. **`algspec_has_tm`** (Church-Turing Bridge): Any algorithmic specification has a Turing machine implementation
-2. **`collision_indistinguishability_under_incomplete_observation`** (Semantic Bound): Incomplete observation of colliding inputs creates indistinguishable configurations (pigeonhole principle)
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (Semantic Bound): Correctness on planted instances requires exhaustive exploration (pigeonhole principle)
 
 Note: `fg_lossless_encoding` was previously an axiom but is now fully proven (145-line theorem). See `docs/AXIOM_FINAL_COUNT.md` for details.
 
@@ -364,7 +364,7 @@ Standard academic citation norms apply. If you publish work substantially derive
 - Is the Structural OWF construction sound?
 - Are the 15 cryptographic primitives correctly derived from L* Structural OWF?
 
-**The 2 Custom Axioms** (`algspec_has_tm`, `collision_indistinguishability_under_incomplete_observation`)
+**The 2 Custom Axioms** (`algspec_has_tm`, `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`)
 - Are these truly standard principles?
 - Could any be encoding non-trivial assumptions?
 - Are they necessary, or could they be proven?

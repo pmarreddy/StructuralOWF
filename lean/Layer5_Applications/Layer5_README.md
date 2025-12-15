@@ -219,7 +219,7 @@ Zero-knowledge proofs:
 'P_ne_NP' depends on axioms:
   [propext, Classical.choice, Quot.sound,    ← Standard Lean
    algspec_has_tm,                           ← Church-Turing bridge
-   collision_indistinguishability_under_incomplete_observation]  ← Info-theoretic
+   tm_correctness_implies_realizesAllValuesFrom_flat_encoded]  ← Info-theoretic
 ```
 
 ### The 2 Axioms (Exponential Profile)
@@ -227,13 +227,13 @@ Zero-knowledge proofs:
 | # | Axiom | File | What It Says | Risk |
 |---|-------|------|--------------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean | Any AlgSpec has a TM implementation (Church-Turing thesis) | Very Low |
-| 2 | `collision_indistinguishability...` | TMAdapterExponential.lean | Incomplete observation → indistinguishable configs (keyedness) | Low |
+| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | Correctness implies exhaustive exploration (keyedness) | Low |
 
 ### Why Each is an Axiom
 
 1. **`algspec_has_tm`**: Church-Turing thesis — any algorithm can be implemented by a TM. Universally accepted.
 
-2. **`collision_indistinguishability...`**: Keyedness bound (pigeonhole) — incomplete observation creates indistinguishable configurations with different correct outputs.
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`**: Keyedness bound (pigeonhole) — correct output implies TM visited all 2^R emergent configurations.
    - **Paper vs. Lean**: The paper (§10.1.1 OAP Non-Inferability, Lemma 10.1.1-NI) proves this from first principles via a two-instance argument. The Lean formalization axiomatizes it due to mechanization challenges (dependent type indices, seed chain degrees of freedom). The core counting argument is proven in `ParityLowerBound.lean`. See `OAPLocalFlip.lean` for XOR local flip lemmas.
 
 ### Proven Theorem (Formerly Axiom)
@@ -246,7 +246,7 @@ and index arithmetic to prove `extractEmergentBits` recovers encoded emergent bi
 
 Layer 5 adds **ZERO new axioms**. All 2 axioms come from Layers 4-5 foundations:
 - `algspec_has_tm` (RandAdv.lean - Layer 5)
-- `collision_indistinguishability...` (TMAdapterExponential.lean - Layer 4)
+- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean - Layer 4)
 
 **Verification**: `lake build Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge` shows NO `sorryAx`
 

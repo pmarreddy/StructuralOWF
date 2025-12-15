@@ -399,7 +399,7 @@ theorem f_is_parity_owf_exponential_true : ...
 
 **Exponential Profile (2 axioms total)**:
 1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge (SHARED)
-2. `collision_indistinguishability_under_incomplete_observation` (TMAdapterExponential.lean) - Info-theoretic + uniform PPT bound (EXP ONLY)
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean) - Info-theoretic + uniform PPT bound (EXP ONLY)
    - Requires uniform polynomial bounds (blocks non-uniform "lucky TMs" and exponential-time strategies like "parity pruning")
    - **Paper vs. Lean**: The paper (§10.1.1 OAP Non-Inferability, Lemma 10.1.1-NI) proves this result from first principles using a two-instance argument. The Lean formalization axiomatizes it due to mechanization challenges. See `OAPLocalFlip.lean` for XOR local flip lemmas and `ParityLowerBound.lean` for the proven information-theoretic content.
 

@@ -34,7 +34,7 @@ The axiom audit is the single most important verification step. If ANY axiom is:
 | # | Axiom | File | Type | Risk |
 |---|-------|------|------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean:297 | Church-Turing bridge | Very Low |
-| 2 | `collision_indistinguishability_under_incomplete_observation` | TMAdapterExponential.lean:297 | Information-theoretic bound | Low |
+| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:297 | Information-theoretic bound | Low |
 
 **Note**: `fg_lossless_encoding` was previously an axiom but is now fully proven (145-line theorem). See `docs/AXIOM_FINAL_COUNT.md` for authoritative axiom documentation.
 
@@ -76,7 +76,7 @@ grep -rn "sorryAx" --include="*.lean" | grep -v ".lake"
  LStar.Complexity.algspec_has_tm,
  _private.Layer2_StructuralOWF.Plant.PlantExponential.0.LStar.StructuralOWF.plant_flat_wf_transfer,
  _private.Layer5_Applications.PvsNP.ComplexityClasses.EncodingDiscipline.0.LStar.Complexity.EncodingDiscipline.fg_lossless_encoding,
- LStar.StructuralOWF.Foundations.FlatProfile.collision_indistinguishability_under_incomplete_observation]
+ LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded]
 ```
 
 **Red Flags**:
@@ -164,10 +164,10 @@ private axiom fg_lossless_encoding
   - **Analysis**: Complex dependent type index manipulation (Fin.cast, Vector.get_append_right)
 - **VERDICT**: SAFE (encoding mechanics, mathematically trivial)
 
-#### Axiom 4: `collision_indistinguishability_under_incomplete_observation` (TMAdapterExponential.lean:297)
+#### Axiom 4: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean:297)
 
 ```lean
-axiom collision_indistinguishability_under_incomplete_observation
+axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
     (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
     (h_L_eq : L = plant_flat n φ r h_nvars) (_h_wf : WellFormedRandomness_flat φ r)
     (v : {v // L.fg.gateReq v})
@@ -259,7 +259,7 @@ theorem axioms_inconsistent : False := by
 ```lean
 -- For each axiom, verify it doesn't derive False alone
 #check @algspec_has_tm  -- Should not have False in its conclusion
-#check @collision_indistinguishability_under_incomplete_observation
+#check @tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 -- The collision axiom DOES conclude False, but only under specific preconditions
 ```
 
@@ -625,7 +625,7 @@ import Layer2_StructuralOWF.Plant.PlantExponential
 import Layer5_Applications.PvsNP.ComplexityClasses.EncodingDiscipline
 
 #print axioms LStar.Complexity.algspec_has_tm
-#print axioms LStar.StructuralOWF.Foundations.FlatProfile.collision_indistinguishability_under_incomplete_observation
+#print axioms LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 -- Private axioms are self-referential (they ARE axioms)
 EOF
 lake env lean /tmp/per_axiom.lean 2>&1
@@ -736,7 +736,7 @@ From previous audits:
   1. `algspec_has_tm`
   2. `plant_flat_wf_transfer` (private)
   3. `fg_lossless_encoding` (private)
-  4. `collision_indistinguishability_under_incomplete_observation`
+  4. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`
 - **Vestigial**: `planted_revealedBits_empty` (not in P_ne_NP chain)
 - **Not in chain**: `planted_pss_uniqueness_flat` (despite being in some docs)
 

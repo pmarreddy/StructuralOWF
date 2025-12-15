@@ -31,7 +31,7 @@ This is the most aggressive test: actively try to BREAK the proof.
 | 1 | `algspec_has_tm` | RandAdv.lean:297 | Church-Turing bridge | Very Low |
 | 2 | `plant_flat_wf_transfer` (private) | PlantExponential.lean:1067 | CNF well-formedness transfer | Very Low |
 | 3 | `fg_lossless_encoding` (private) | EncodingDiscipline.lean:346 | A3 emergence encoding roundtrip | Very Low |
-| 4 | `collision_indistinguishability_under_incomplete_observation` | TMAdapterExponential.lean:297 | Semantic bound (A2 injectivity) | Low |
+| 4 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:297 | Semantic bound (A2 injectivity) | Low |
 
 **Proof Chain**:
 ```
@@ -134,7 +134,7 @@ theorem attack_solver_poly :
 
 **Goal**: Exploit non-uniform computation to break the bound
 
-**Background**: The proof uses UNIFORM PPT adversaries. The axiom `collision_indistinguishability_under_incomplete_observation` has explicit uniformity requirement:
+**Background**: The proof uses UNIFORM PPT adversaries. The axiom `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` has explicit uniformity requirement:
 ```lean
 -- From TMAdapterExponential.lean:308-311
 (C_uniform k_uniform : Nat)
@@ -428,7 +428,7 @@ theorem attack_overflow :
 
 ---
 
-### ATTACK 5.10: Exploit Axiom 4 — `collision_indistinguishability_under_incomplete_observation`
+### ATTACK 5.10: Exploit Axiom 4 — `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`
 
 **Goal**: Find instantiation that makes axiom derive False incorrectly
 
@@ -439,7 +439,7 @@ theorem attack_overflow :
 import Layer4_Operational.TimeBridge.TMAdapterExponential
 
 -- Full axiom signature (from AXIOM_FINAL_COUNT.md):
--- axiom collision_indistinguishability_under_incomplete_observation
+-- axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 --     (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness)
 --     (h_nvars : φ.nvars ≥ 4)
 --     (h_L_eq : L = plant_flat n φ r h_nvars)
@@ -1301,7 +1301,7 @@ Run these to verify the trust boundary:
 --  LStar.Complexity.algspec_has_tm,
 --  _private...plant_flat_wf_transfer,
 --  _private...fg_lossless_encoding,
---  LStar.StructuralOWF.Foundations.FlatProfile.collision_indistinguishability_under_incomplete_observation]
+--  LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded]
 ```
 
 ---
@@ -1327,7 +1327,7 @@ Run these to verify the trust boundary:
 | `KeyednessProperty` | ConfigTypes.lean:107 |
 | `RandAdv` | RandAdv.lean:75 |
 | `algspec_has_tm` | RandAdv.lean:297 |
-| `collision_indistinguishability_under_incomplete_observation` | TMAdapterExponential.lean:297 |
+| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:297 |
 | `fg_lossless_encoding` (private) | EncodingDiscipline.lean:346 |
 | `plant_flat_wf_transfer` (private) | PlantExponential.lean:1067 |
 | `parity_requires_all_bits` | ParityLowerBound.lean |

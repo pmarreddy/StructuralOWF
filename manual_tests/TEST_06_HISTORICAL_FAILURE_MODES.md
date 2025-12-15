@@ -1049,7 +1049,7 @@ lake build Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
 3. `Quot.sound` (Lean foundation)
 4. `algspec_has_tm` (Church-Turing bridge)
 5. `fg_lossless_encoding` (A3 emergence encoding)
-6. `collision_indistinguishability_under_incomplete_observation` (Information-theoretic bound)
+6. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Information-theoretic bound)
 7. `planted_pss_uniqueness_flat` (OAP XOR roundtrip)
 
 **Custom Axioms**: 4 (items 4-7 above)
@@ -1080,7 +1080,7 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
 #### VECTOR 12.3: collision_indistinguishability Doesn't Assume P≠NP
 ```lean
 -- TMAdapterExponential.lean:297-317
-axiom collision_indistinguishability_under_incomplete_observation
+axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
     (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) ...
 ```
 
@@ -2231,7 +2231,7 @@ Each profile has different axiom sets and proof paths.
 **Exponential Profile** (plant_flat with R = n):
 1. `algspec_has_tm` (SHARED)
 2. `fg_lossless_encoding` (SHARED)
-3. `collision_indistinguishability_under_incomplete_observation` (EXP ONLY)
+3. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (EXP ONLY)
 4. `planted_pss_uniqueness_flat` (EXP ONLY)
 
 ---
@@ -2399,7 +2399,7 @@ This test covers **190+ attack vectors across 29 categories** of historical P≠
 
 **Trust Boundary (2 Axioms - Exponential Profile)**:
 1. `algspec_has_tm` - Church-Turing bridge
-2. `collision_indistinguishability_under_incomplete_observation` - Keyedness bound (pigeonhole)
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` - Keyedness bound (pigeonhole)
 
 **Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding` - Now 145-line theorem (EncodingDiscipline.lean)

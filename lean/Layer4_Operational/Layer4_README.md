@@ -749,7 +749,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 **Exponential Profile** (plant_flat with R=n) - **2 axioms total**:
 1. **`algspec_has_tm`** (RandAdv.lean) - Church-Turing bridge (SHARED)
-2. **`collision_indistinguishability_under_incomplete_observation`** (TMAdapterExponential.lean) - Semantic bound + uniform PPT (EXP ONLY)
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (TMAdapterExponential.lean) - Semantic bound + uniform PPT (EXP ONLY)
    - Requires uniform polynomial bounds (blocks non-uniform "lucky TMs" and exponential-time strategies)
    - **Semantic content**: Correctness on planted instances requires complete exploration of 2^R config space. From A2 injectivity: different configs → different seeds → missing a config means missing information required for correctness.
 
@@ -777,7 +777,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 **Axiomatized** (profile-specific):
 - QP: 1 shared (algspec_has_tm) + 1 profile-specific (executionPrefix_compatible_with_planted) = **2 total**
-- Exponential: 1 shared (algspec_has_tm) + 1 profile-specific (collision_indistinguishability) = **2 total**
+- Exponential: 1 shared (algspec_has_tm) + 1 profile-specific (tm_correctness_implies_realizesAllValuesFrom_flat_encoded) = **2 total**
 
 ### Axiom Elimination History
 

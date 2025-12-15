@@ -25,7 +25,7 @@ The P ≠ NP proof relies on L* simultaneously blocking all three operational ro
 | # | Axiom | Location | Barrier Impact | Risk |
 |---|-------|----------|----------------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean:297 | All (TM model) | Very Low |
-| 2 | `collision_indistinguishability_under_incomplete_observation` | TMAdapterExponential.lean:297 | Resolution (OAP non-inferability) | Low |
+| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:297 | Resolution (OAP non-inferability) | Low |
 
 **Previously Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding` - Now 145-line theorem (EncodingDiscipline.lean)
@@ -1345,15 +1345,15 @@ The Resolution barrier requires that R_v bits MUST be explicitly read from desig
 **Lean Files**:
 - `Layer1_Construction/Core/Pools.lean` — `address_hermetic` (line 168-177)
 - `Layer1_Construction/Core/OAPEncoding.lean` — OAP XOR encoding/decoding
-- `Layer4_Operational/TMAdapter/TMAdapterExponential.lean` — `collision_indistinguishability_under_incomplete_observation` axiom (line 297)
+- `Layer4_Operational/TMAdapter/TMAdapterExponential.lean` — `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom (line 297)
 
-**AXIOM ALERT**: This category relies on axiom #4 (`collision_indistinguishability_under_incomplete_observation`). This axiom formalizes OAP (Overlay Access Protocol) non-inferability: without observing ALL emergent configs, a TM cannot produce a correct satisfying assignment for planted instances.
+**AXIOM ALERT**: This category relies on axiom #4 (`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`). This axiom formalizes OAP (Overlay Access Protocol) non-inferability: without observing ALL emergent configs, a TM cannot produce a correct satisfying assignment for planted instances.
 
 **Axiom Statement** (simplified):
 ```lean
 -- If TM misses any emergent config value during execution,
 -- it CANNOT produce a correct satisfying assignment
-axiom collision_indistinguishability_under_incomplete_observation
+axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
     (L : LStarInstanceFG) ... (v : FG gate) (val : missing config)
     (h_missing : ∀ t < haltTime, encodeConfig (step^[t] init) ≠ val.val)
     (h_correct : φ.satisfies (extractWitness ...).assignment)
@@ -1401,7 +1401,7 @@ axiom collision_indistinguishability_under_incomplete_observation
 -- Counter: FG parity makes values look independent
 -- No useful correlations exist
 
--- This is exactly what collision_indistinguishability_under_incomplete_observation
+-- This is exactly what tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 -- axiom captures: without complete observation, can't distinguish configs
 
 -- The axiom has uniformity requirement (C_uniform, k_uniform) to block:
@@ -1409,12 +1409,12 @@ axiom collision_indistinguishability_under_incomplete_observation
 -- 2. Exponential-time strategies (no fixed C,k makes 2^{n-1} ≤ C·n^k work for all n)
 
 -- Check: Is independence formally proven via this axiom?
-#check LStar.StructuralOWF.Foundations.FlatProfile.collision_indistinguishability_under_incomplete_observation
+#check LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 ```
 
 **Questions**:
 - [ ] Are overlay values independent for planted instances?
-- [ ] Is this captured by `collision_indistinguishability_under_incomplete_observation`?
+- [ ] Is this captured by `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`?
 - [ ] Does the uniformity requirement (C_uniform, k_uniform) block non-uniform attacks?
 - [ ] Is the soundness guard (h_val_reachable) properly proven?
 

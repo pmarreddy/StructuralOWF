@@ -876,13 +876,13 @@ The final step converts state-space bounds to time bounds:
 
 ### Background
 
-The proof uses ONE information-theoretic axiom: `collision_indistinguishability_under_incomplete_observation`. This category verifies its soundness.
+The proof uses ONE information-theoretic axiom: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`. This category verifies its soundness.
 
 **Axiom Location**: TMAdapterExponential.lean:297-317
 
 **Axiom Statement** (simplified):
 ```lean
-axiom collision_indistinguishability_under_incomplete_observation
+axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
     (L : LStarInstanceFG) ... (M : TuringMachine ...)
     (val : Fin (2^(L.R v.val)))                    -- Missing config
     (h_val_reachable : ∃ cfg, encodeConfig cfg = val.val)  -- Reachability guard
@@ -1030,7 +1030,7 @@ axiom collision_indistinguishability_under_incomplete_observation
 --  LStar.Complexity.algspec_has_tm,                    -- Church-Turing bridge
 --  ...plant_flat_wf_transfer,                          -- CNF structure
 --  ...fg_lossless_encoding,                            -- Encoding mechanics
---  ...collision_indistinguishability_under_incomplete_observation]  -- THIS ONE
+--  ...tm_correctness_implies_realizesAllValuesFrom_flat_encoded]  -- THIS ONE
 
 -- Only collision_indistinguishability is information-theoretic
 -- Others are: Church-Turing (definitional), encoding (mechanics)
@@ -1097,7 +1097,7 @@ grep -rn "lambda.*:=\|def lambda" --include="*.lean" lean/Layer0*/
 ### Step 4: Verify Axiom
 ```bash
 # Find the axiom
-grep -rn "collision_indistinguishability_under_incomplete_observation" --include="*.lean" lean/
+grep -rn "tm_correctness_implies_realizesAllValuesFrom_flat_encoded" --include="*.lean" lean/
 
 # Check axiom usage
 grep -rn "collision_indistinguishability" --include="*.lean" lean/Layer*/
@@ -1195,7 +1195,7 @@ This test verifies the information-theoretic foundations:
 - `fg_correctness_requires_complete_observation`: Completeness requirement
 
 **The ONE Axiom**:
-- `collision_indistinguishability_under_incomplete_observation`
+- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`
 - Bridges TM execution to observation model
 - Justified by proven lemmas + planted instance structure
 - Includes soundness guard and uniformity requirement

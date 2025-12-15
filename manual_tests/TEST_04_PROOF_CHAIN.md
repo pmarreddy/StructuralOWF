@@ -24,7 +24,7 @@ grep -rn "sorry" --include="*.lean" | grep -v ".lake" | grep -v "-- sorry" | gre
 
 **Expected Axioms (2 total)**:
 1. `algspec_has_tm` - Church-Turing bridge
-2. `collision_indistinguishability_under_incomplete_observation` - Semantic bound
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` - Semantic bound
 
 **Note**: Former axioms `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proved lemmas; the dependency list has been reduced accordingly.
 
@@ -172,7 +172,7 @@ import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
 'LStar.Complexity.StructuralOWFBridge.P_ne_NP' depends on axioms:
   [propext, Classical.choice, Quot.sound,
    LStar.Complexity.algspec_has_tm,
-   LStar.StructuralOWF.Foundations.FlatProfile.collision_indistinguishability_under_incomplete_observation]
+   LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded]
 ```
 
 **Manual Trace**:
@@ -190,7 +190,7 @@ P_ne_NP (Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean)
 │   │   │   ├── fg_first_commit_time_lower_bound (Layer4)
 │   │   │   │   ├── visitedEncodings_card_ge_pow
 │   │   │   │   ├── correctness_implies_realizesAllValues
-│   │   │   │   ├── collision_indistinguishability_under_incomplete_observation [AXIOM]
+│   │   │   │   ├── tm_correctness_implies_realizesAllValuesFrom_flat_encoded [AXIOM]
 │   │   │   │   └── ...
 │   │   │   ├── extract_correct (Layer2)
 │   │   │   └── algspec_has_tm [AXIOM]
@@ -200,7 +200,7 @@ P_ne_NP (Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean)
 
 AXIOMS IN CHAIN (2 total):
 ├── [1] algspec_has_tm (RandAdv.lean) - Church-Turing bridge
-└── [2] collision_indistinguishability_under_incomplete_observation (TMAdapterExponential.lean)
+└── [2] tm_correctness_implies_realizesAllValuesFrom_flat_encoded (TMAdapterExponential.lean)
 ```
 
 ---
@@ -550,7 +550,7 @@ _card_ge_pow      _all_bits        (RanksExponential.lean)
          correctness_implies_realizesAllValues
                      │
                      ▼
-         collision_indistinguishability_under_incomplete_observation
+         tm_correctness_implies_realizesAllValuesFrom_flat_encoded
          [AXIOM] (TMAdapterExponential.lean:297)
 
                      SCL Foundation (Layer 0)
@@ -565,7 +565,7 @@ AXIOMS IN P_ne_NP CHAIN (2 total):
     Nature: Church-Turing bridge
     Risk: Very Low (universally accepted CS principle)
 
-[2] collision_indistinguishability_under_incomplete_observation
+[2] tm_correctness_implies_realizesAllValuesFrom_flat_encoded
     (TMAdapterExponential.lean:297)
     Nature: Information-theoretic semantic bound
     Risk: Low (math proven in parity_requires_all_bits)
