@@ -1918,6 +1918,9 @@ theorem LStarLanguageLang_in_NP_Alg : LStar.Complexity.InNP_Alg LStarLanguageLan
   -- Witness size constants (conservative: O(n³))
   use 4096  -- C_wit
   use 3     -- k_wit
+  -- Verifier time constants (from verifyLStar_algspec: C=4096, k=3)
+  use V.C   -- C_time
+  use V.k   -- k_time
   -- Helper: V.run equals verifyLStarMembership (via h_run_eq)
   have h_V_run : ∀ c x, V.run c x = verifyLStarMembership x := by
     intro c x
@@ -2062,6 +2065,11 @@ theorem LStarLanguageLang_in_NP_Alg : LStar.Complexity.InNP_Alg LStarLanguageLan
       _ ≤ 4 * (LStar.Complexity.Sized.size bs) ^ 3 := h_cube_ge
       _ ≤ 4 * (LStar.Complexity.Sized.size bs + 1) ^ 3 := h_cube_mono
       _ ≤ 4096 * (LStar.Complexity.Sized.size bs + 1) ^ 3 := h_const
+  constructor
+  · -- Verifier time bound: time_bound (size p) ≤ C_time * (size p + 1) ^ k_time
+    intro p
+    -- V inherits poly_explicit from verifyLStar_algspec via algspec_has_tm
+    exact V.poly_explicit p
   · -- Correctness: L bs ↔ ∃ cert, V.run 0 (bs, cert) = true
     intro bs
     constructor

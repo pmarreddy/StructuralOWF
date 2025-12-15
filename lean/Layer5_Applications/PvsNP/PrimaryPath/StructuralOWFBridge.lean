@@ -2217,13 +2217,39 @@ theorem structural_owf_inversion_not_in_fp
             rw [h_first_arg_unused]
             symm
             conv => lhs; arg 3; rw [show (h_nvars_eq n_test.val h_n_ge_128) = h_nvars_eq_n from rfl]
-            -- Type transport roundtrip proof:
-            -- The double transport h_nvars_eq_n.symm ▸ ... (h_nvars_eq_n ▸ r) cancels out
-            -- Use the parametric plant_equiv lemma
+            -- The roundtrip bitsToRandomness_exp(randomnessToBits_exp r_n) preserves plant_flat
+            -- Use the existing randomness_encoding_plant_equiv lemma
+            -- Since r.dgLen = φ.nvars = n, the parametric lemma applies
             have h_equiv := randomness_encoding_plant_equiv n_test.val (Φ n_test.val) r
               h_nvars_ge4 (h_aligned n_test.val h_n_ge_128) h_nvars_eq_n
-            simp only [r_n, h_rn_dgLen] at h_equiv
-            exact h_equiv.symm
+            -- h_equiv : plant_flat n φ (h_nvars_eq_n.symm ▸ bitsToRandomness n r_n.dgLen ...) = plant_flat n φ r ...
+            -- We need to connect bitsToRandomness_exp to bitsToRandomness
+            -- Since r_n.dgLen = n and expDgLen n = n, the encoding functions are equivalent
+            -- The witness types: randomnessToBits n r_n : Bits (n + r_n.dgLen + 64) = Bits (2n + 64)
+            --                    randomnessToBits_exp n r_n h_rn_dgLen : Bits (expWLen n) = Bits (2n + 64)
+            -- Show the goal by showing the plant_flat calls are equal
+            -- The key is that both use the same underlying data, just encoded differently
+            conv_rhs => rw [h_equiv]
+            -- Now LHS: plant_flat n φ (h_nvars_eq_n.symm ▸ bitsToRandomness_exp n h_n_pos (randomnessToBits_exp n r_n h_rn_dgLen))
+            -- Now RHS: plant_flat n φ (h_nvars_eq_n.symm ▸ bitsToRandomness n r_n.dgLen r_n.h_dgLen_pos (randomnessToBits n r_n))
+            -- The _exp versions are definitionally related to non-exp when dgLen = n
+            -- Show these are equal using plant_flat congruence
+            congr 1
+            -- Goal: h_nvars_eq_n.symm ▸ bitsToRandomness_exp n ... = h_nvars_eq_n.symm ▸ bitsToRandomness n r_n.dgLen ...
+            -- Both bitsToRandomness_exp and bitsToRandomness produce the same Randomness
+            -- when the inputs encode the same data
+            apply congr_arg (fun x => h_nvars_eq_n.symm ▸ x)
+            -- Goal: bitsToRandomness_exp n h_n_pos (randomnessToBits_exp n r_n h_rn_dgLen) =
+            --       bitsToRandomness n r_n.dgLen r_n.h_dgLen_pos (randomnessToBits n r_n)
+            -- The _exp versions use dgLen = n, so r_n.dgLen = n means these should be equal
+            -- Use definitional expansion and roundtrip lemmas
+            simp only [bitsToRandomness_exp, randomnessToBits_exp, h_rn_dgLen]
+            -- After expansion, both are bitsToRandomness n n h_n_pos (extractBitsFlat ...)
+            -- The witness type Bits (n + n + 64) = Bits (expWLen n) definitionally
+            -- Show the extractBitsFlat and underlying randomnessToBits produce equal results
+            simp only [expWLen, expDgLen]
+            -- randomnessToBits has dgLen = r_n.dgLen = n, so Bits (n + n + 64) matches
+            rfl
           -- Second part: φ.satisfies ...
           -- This follows from the assignment roundtrip preserving satisfiability.
           -- The key fact is that the roundtrip preserves the assignment values,
@@ -2231,28 +2257,51 @@ theorem structural_owf_inversion_not_in_fp
           have h_sat_part : (Φ n_test.val).satisfies
               ((h_nvars_eq n_test.val h_n_ge_128).symm ▸ bitsToRandomness_exp n_test.val
                 h_n_pos (randomnessToBits_exp n_test.val r_n h_rn_dgLen)).assignmentInf := by
-            -- Use the same approach as h_plant_part: the transport cancels out
-            -- and the roundtrip preserves satisfaction
+            -- Use assignment roundtrip to show satisfaction is preserved
             -- h_sat : (Φ n_test.val).satisfies r.assignmentInf
-            -- We need: (Φ n_test.val).satisfies (transport ▸ roundtrip r).assignmentInf
-            -- The roundtrip encoding preserves satisfaction:
-            -- - assignment values are preserved (assignment_roundtrip)
-            -- - CNF.satisfies only depends on assignment values
+            -- Strategy: Show the roundtrip assignment equals r's assignment using the roundtrip lemma
+            -- Then use CNF.satisfies_of_agree_on_vars_wf
+            -- First, note that the transport only affects the Randomness type parameter,
+            -- not the actual assignment values (since h_nvars_eq_n is definitional equality)
             have h_assign_agree : ∀ i < (Φ n_test.val).nvars,
                 ((h_nvars_eq n_test.val h_n_ge_128).symm ▸ bitsToRandomness_exp n_test.val
                   h_n_pos (randomnessToBits_exp n_test.val r_n h_rn_dgLen)).assignmentInf i =
                 r.assignmentInf i := by
               intro i hi
-              -- Use assignment_roundtrip to show the roundtrip preserves values
-              simp only [Randomness.assignmentInf, h_nvars_eq_n] at hi ⊢
-              simp only [eq_mpr_eq_cast, Assignment.extend]
-              split_ifs with h_i_lt
-              · -- i < nvars: use roundtrip preservation
-                have h_rt := assignment_roundtrip (Φ n_test.val).nvars r ⟨i, h_i_lt⟩
-                simp only [bitsToRandomness, extractBitsFlat] at h_rt
-                exact h_rt.symm
-              · -- i ≥ nvars: this case is a contradiction with hi
-                exact absurd hi h_i_lt
+              -- The assignmentInf is computed via Assignment.extend from the finite assignment
+              -- For the transported randomness, we need to trace through:
+              -- 1. bitsToRandomness_exp gives Randomness n_test.val
+              -- 2. Transport via h_nvars_eq_n.symm gives Randomness (Φ n_test.val).nvars
+              -- 3. assignmentInf extends to infinite assignment
+              -- The roundtrip preserves assignment values for i < nvars
+              simp only [Randomness.assignmentInf, Assignment.extend]
+              -- hi : i < (Φ n_test.val).nvars, and h_nvars_eq_n : (Φ n_test.val).nvars = n_test.val
+              have h_i_lt_n : i < n_test.val := by rw [← h_nvars_eq_n]; exact hi
+              simp only [h_i_lt_n, ↓reduceDIte]
+              -- Now both sides are finite assignment values
+              -- LHS: (transport ▸ bitsToRandomness_exp ...).assignment ⟨i, ...⟩
+              -- RHS: r.assignment ⟨i, ...⟩
+              -- The transport doesn't change the assignment function values
+              -- Use assignment_roundtrip_exp to show roundtrip preserves assignment
+              have h_rt := assignment_roundtrip_exp n_test.val h_n_pos (Φ n_test.val) h_nvars_eq_n r_n h_rn_dgLen ⟨i, h_i_lt_n⟩
+              -- h_rt : (bitsToRandomness_exp n h_n_pos (randomnessToBits_exp n r_n h_rn_dgLen)).assignment ⟨i, h_i_lt_n⟩ = r_n.assignment ⟨i, h_i_lt_n⟩
+              -- r_n = h_nvars_eq_n ▸ r, so r_n.assignment ⟨i, h_i_lt_n⟩ corresponds to r.assignment ⟨i, ...⟩
+              -- The transport on Randomness preserves assignment values
+              conv_lhs => simp only [eq_mpr_eq_cast]
+              -- Show the cast preserves assignment indexing
+              have h_cast_assign : ∀ (r' : Randomness n_test.val) (j : Nat) (hj : j < (Φ n_test.val).nvars),
+                  (h_nvars_eq_n.symm ▸ r' : Randomness (Φ n_test.val).nvars).assignment ⟨j, hj⟩ =
+                  r'.assignment ⟨j, h_nvars_eq_n ▸ hj⟩ := by
+                intro r' j hj
+                simp only [eq_mpr_eq_cast]
+                rfl
+              rw [h_cast_assign]
+              -- Now: (bitsToRandomness_exp ...).assignment ⟨i, ...⟩ = r.assignment ⟨i, hi⟩
+              simp only [h_rt]
+              -- r_n.assignment ⟨i, ...⟩ = r.assignment ⟨i, hi⟩
+              -- Since r_n = h_nvars_eq_n ▸ r
+              simp only [r_n, eq_mpr_eq_cast]
+              rfl
             exact CNF.satisfies_of_agree_on_vars_wf (Φ n_test.val) r.assignmentInf _
               h_assign_agree h_sat (h_wf_literals n_test.val)
           exact ⟨h_plant_part, h_sat_part⟩
@@ -2316,20 +2365,34 @@ theorem structural_owf_inversion_not_in_fp
         -- The connection requires type-level bridging between these equivalent forms.
         constructor
         · -- plant_flat 1 (Φ n_test.val) r' h_nvars_ge4 (h_aligned ...) = x
-          -- By h_A_computes and h_r'_eq: r' = bitsToRandomness_exp (f_family x)
-          -- By h_plant_eq: x = plant_flat (h_nvars_eq_n.symm ▸ bitsToRandomness_exp(f_family x))
-          -- Since nvars = n, the transport is identity
-          simp only [r', h_A_computes, h_sigma_eq]
-          -- Now goal: plant_flat ... (bitsToRandomness_exp ...) = x
-          -- By h_plant_eq: x = plant_flat ... (h_nvars_eq_n.symm ▸ bitsToRandomness_exp ...)
-          -- The two bitsToRandomness_exp terms are equal after nvars=n transport
-          rw [← h_plant_eq]
-          -- Goal: plant_flat 1 ... = plant_flat n_test.val ...
-          -- These are equal since plant_flat ignores first arg
-          rfl
+          -- r' = (A n_test.val).base.run c x = bitsToRandomness_exp(f_family x) by h_A_computes, h_sigma_eq
+          -- Unfold r' to get the computation
+          simp only [r']
+          rw [h_A_computes, h_sigma_eq]
+          -- Now goal: plant_flat 1 ... (bitsToRandomness_exp (Φ n).nvars ...) = x
+          -- Use h_plant_eq: x = plant_flat n ... (h_nvars_eq_n.symm ▸ bitsToRandomness_exp n ...)
+          rw [h_plant_eq]
+          -- Goal: plant_flat 1 ... (bitsToRandomness_exp (Φ n).nvars ...) =
+          --       plant_flat n ... (h_nvars_eq_n.symm ▸ bitsToRandomness_exp n ...)
+          -- Since (Φ n).nvars = n by h_nvars_eq_n, the transport is trivial
+          -- plant_flat's first arg is unused (flat R-profile), so 1 = n there
+          -- Show the randomness arguments are equal
+          congr 1
+          -- Goal: bitsToRandomness_exp (Φ n).nvars h ... (f_family (Φ n).nvars x) =
+          --       h_nvars_eq_n.symm ▸ bitsToRandomness_exp n h' (f_family n x)
+          -- Since (Φ n).nvars = n, these are definitionally equal after transport
+          simp only [eq_mpr_eq_cast, h_nvars_eq_n]
         · -- (Φ n_test.val).satisfies r'.assignmentInf
-          -- By h_f_sat: (Φ n).satisfies (h_nvars_eq_n.symm ▸ ...).assignmentInf
-          simp only [r', h_A_computes, h_sigma_eq]
+          simp only [r']
+          rw [h_A_computes, h_sigma_eq]
+          -- Goal: (Φ n).satisfies (bitsToRandomness_exp (Φ n).nvars ...).assignmentInf
+          -- h_f_sat : (Φ n).satisfies (h_nvars_eq_n.symm ▸ bitsToRandomness_exp n ...).assignmentInf
+          -- Show these are equal using h_nvars_eq_n
+          have h_eq : bitsToRandomness_exp (Φ n_test.val).nvars (by rw [h_nvars_eq_n]; exact h_n_pos)
+                (f_family (Φ n_test.val).nvars x) =
+              (h_nvars_eq_n.symm ▸ bitsToRandomness_exp n_test.val h_n_pos (f_family n_test.val x)) := by
+            simp only [eq_mpr_eq_cast, h_nvars_eq_n]
+          rw [h_eq]
           exact h_f_sat
 
       -- Now use h_all_succeed to show success_prob = 1

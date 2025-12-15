@@ -69,13 +69,18 @@ def InFNP {α β : Type} [Sized α] [Sized β] (R : α → β → Prop) : Prop :
 This is NP defined algorithmically using RandAdv verifiers, matching the
 abstraction level of InP, InFP, InFNP.
 
-**Textbook Alignment**: Includes explicit polynomial witness-size bounds,
-matching standard NP definitions (Sipser §7.3, Arora-Barak §2.1).
+**Textbook Alignment**: Includes explicit polynomial bounds for both:
+- Witness size: size y ≤ C_wit * (size x + 1)^k_wit
+- Verifier time: time_bound (size (x,y)) ≤ C_time * (size (x,y) + 1)^k_time
+
+This matches standard NP definitions (Sipser §7.3, Arora-Barak §2.1).
 -/
 def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
-  ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T) (C_wit k_wit : Nat),
+  ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T)
+    (C_wit k_wit C_time k_time : Nat),
     (∀ c₁ c₂ p, V.run c₁ p = V.run c₂ p) ∧
     (∀ x y, V.run ⟨0, V.coins_pos⟩ (x, y) = true → size y ≤ C_wit * (size x + 1) ^ k_wit) ∧
+    (∀ p : α × β, V.time_bound (size p) ≤ C_time * (size p + 1) ^ k_time) ∧
     (∀ x, L x ↔ ∃ y : β, V.run ⟨0, V.coins_pos⟩ (x, y) = true)
 
 /-- **P ⊆ NP**: Every polynomial-time decidable language is in NP.
