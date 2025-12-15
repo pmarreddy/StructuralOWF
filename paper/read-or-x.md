@@ -10,7 +10,7 @@ We prove P ≠ NP for uniform probabilistic polynomial‑time Turing machines by
 
 **Key Innovation: The Semantic Conservation Law.** The incompressibility derives from a structural correctness constraint q + Φ ≥ R, where Φ measures simultaneously distinguishable computational artifacts (log₂ of state count), while R and q denote required and resolved information. This constraint yields exactly three operational routes: (1) Storage—maintain 2^(R−q) distinguishable states in parallel; (2) Resolution—learn correct values through sequential reads; (3) Elimination—prune wrong values through testing. L\*'s structural properties (Keyedness; Emergence + Bandwidth; Per‑Node Antagonism) block all three routes simultaneously, forcing exponential cost. Maintaining fewer than 2^(R-q) artifacts causes collisions between inequivalent seeds, leading to incorrect designated addresses and verification failure—a correctness requirement, not a performance heuristic.
 
-**Construction and One-Wayness.** We define L\* ⊆ {0,1}\* as an NP-complete bitstring language (Definition 10.6.4) whose instances encode dependency DAG structures with seed-locked problem access: distinct computational histories induce distinct content-addressed seeds selecting designated memory locations. The one-way function f\_n: {0,1}^{m(n)} → {0,1}^{ℓ(n)} (Corollary 10.6.7) maps random string r to encoded planted instance Encode(Plant(φ\_n, r)). Every output admits a per-instance, deterministic witness-finding lower bound: on any fixed run, producing the canonical witness requires time ≥ n^(Ω(log n)) or ≥ 2^(Ω(n)) (Theorem 8.A).
+**Construction and One-Wayness.** We define L\* ⊆ {0,1}\* as an NP-complete bitstring language (Definition 10.6.4) whose instances encode dependency DAG structures with seed-locked problem access: distinct computational histories induce distinct content-addressed seeds selecting designated memory locations. The one-way function family {f\_n : D(φ\_n) → {0,1}^{ℓ(n)}} with D(φ\_n) ⊆ {0,1}^{m(n)} (Corollary 10.6.7) maps r←D\_n to the encoded planted instance Encode(Plant(φ\_n, r)). Every output admits a per-instance, deterministic witness-finding lower bound: on any fixed run, producing the canonical witness requires time ≥ n^(Ω(log n)) or ≥ 2^(Ω(n)) (Theorem 8.A).
 
 Any uniform PPT inverter 𝓘 succeeding with non‑negligible probability can be coin-fixed (Yao's principle) to deterministic algorithm 𝓘_{c̄} succeeding on some instance x*. Composing with polynomial-time extractor Ext yields witness W in polynomial time, contradicting the per-instance lower bound. Hence f is one-way against uniform PPT.
 
@@ -5283,7 +5283,7 @@ This places us in Cryptomania — both private-key (Minicrypt) and public-key cr
 - **§9.3**: Extractor and Reduction  -  poly-time extraction from any valid preimage
 - **§9.4**: Security Proof  -  coin-fixing argument showing f is one-way against classical PPT
 
-**The Construction Architecture**: We define a total length-regular function f: D(φ) → L\*_yes by sampling r = (assignment, gateDigests, structuralSalt) uniformly from the domain D(φ) and outputting x* := f(r), a planted instance with FG wiring and identity-based digests (non-leaking). Key properties ensure one-wayness:
+**The Construction Architecture**: We define a length-regular function family {f\_n} over bitstrings r = (assignment, gateDigests, structuralSalt) with a domain constraint D(φ) ⊆ {0,1}^{m(n)}. Inputs are sampled r ← D\_n where D\_n is the uniform distribution on D(φ\_n) (Lemma 9.LR), and the output is x* := f\_n(r), a planted instance with FG wiring and identity-based digests (non-leaking). Key properties ensure one-wayness:
 - **Every output** x* = f(r) is an FG-wired L\* instance with per-instance deterministic lower bound (Theorem 8.A); no assignment bits are exposed in x*
 - **Extractor**: Given any r′ ∈ D(φ) where f(r′) = x*, algorithm Ext produces witness W containing r′.assignment in poly-time (§9.3); by domain constraint, r′.assignment satisfies φ
 - **Security**: Coin-fixing converts any successful randomized PPT inverter to a deterministic run outputting r′ ∈ D(φ); by Lemma 9.DOM, r′.assignment satisfies φ; Ext produces witness in poly-time, contradicting the per-instance bound (§9.4)
@@ -5292,13 +5292,13 @@ This places us in Cryptomania — both private-key (Minicrypt) and public-key cr
 
 **Universality architecture (constructed, not assumed).** BuildOverlay embeds Frontier‑Gate (FG) wiring during instance construction, and Plant realizes it in x*. Hence every output x* inherits FG wiring deterministically. The per‑instance lower bound of Theorem 8.A is therefore an instance‑side property (∀x*), not a hypothesis about solvers.
 
-**Definition (One-Way Function Security). For input size n (where n := n_core = core CNF size; §4 Notation), let m(n) denote the preimage length and D_n the uniform distribution on {0,1}^(m(n)). A function family {f_n: {0,1}^(m(n)) → {0,1}^(poly(n))} is one-way** if:
+**Definition (One-Way Function Security).** For input size n (where n := n\_core = core CNF size; §4 Notation), let m(n) denote the preimage length and let D\_n be the uniform distribution on the valid domain D(φ\_n) ⊆ {0,1}^{m(n)} (Lemma 9.LR). A function family {f\_n : D(φ\_n) → {0,1}^{poly(n)}} is one-way if:
 Notation: We sometimes write f for f_n when the input length n is clear from context.
 
 1. f_n is computable in polynomial time
 2. For every uniform PPT inverter 𝓘:
 
-   Pr_{r←D_n, coins}[ f_n(𝓘(f_n(r))) = f_n(r) ] ≤ negl(n)
+   Pr_{r←D_n, coins}[ 𝓘(f_n(r)) ∈ D(φ_n) ∧ f_n(𝓘(f_n(r))) = f_n(r) ] ≤ negl(n)
 
    where the probability is over r sampled from D_n and 𝓘's internal randomness, and negl(n) denotes a negligible function (for all constants c, negl(n) < 1/n^c for sufficiently large n).
 
@@ -5338,18 +5338,20 @@ Both checks are polynomial-time, ensuring the inversion relation is in FNP (§9.
 
 #### 9.2 Sampler 𝒮 and Total Function f
 
-Sampler 𝒮(1^n). Sample r ← D(φ) uniformly from the valid domain and output x* := f(r). In practice, sample assignment w uniformly, compute the required gateDigests as the R-bit emergent configurations under w, and form r = (w, gateDigests, structuralSalt).
+Fix a satisfiable 3-CNF formula φ of core size n\_core (later, take the explicit family {φ\_n} indexed by n). The sampler 𝒮 and planting function f are defined relative to this φ.
+
+Sampler 𝒮(1^n). Sample r ← D(φ) uniformly from the valid domain and output x* := f(r). Concretely, sample a satisfying assignment w for φ (under the chosen sampling distribution), compute the required gateDigests as the R-bit emergent configurations under w, and form r = (w, gateDigests, structuralSalt).
 
 **Definition (f).** On input r = (assignment, gateDigests, structuralSalt) where r ∈ D(φ):
 1) Compute metadata := BuildOverlay(n_core).
 2) Use r.gateDigests directly as the digest values for GREQ=1 nodes. By WellFormedRandomness (§9.1), these already encode the correct R-bit emergent configurations induced by r.assignment.
 3) Compute seeds in topological order using Enc: GateDigest_v := r.gateDigests[v] when GREQ_v=1; ε otherwise.
-4) Set pool payloads using r.structuralSalt for collision avoidance (salted addressing). The decode mask encodes a CNF φ such that φ(r.assignment) = 1.
+4) Set pool payloads using r.structuralSalt for collision avoidance (salted addressing). The decode mask encodes this fixed CNF φ; since r ∈ D(φ), we have φ(r.assignment) = 1.
 5) Emit all published fields as in §6. The instance x* contains only identity-based digests—**no assignment bits are written to x\***.
 
 Output x* = (metadata, salts/layout, identity digests) as in §10.
 
-**Properties.** f is total, polytime, and length-regular (fixed m(n)); 𝒮 is efficiently sampleable.
+**Properties.** f is total (on its domain D(φ)), polytime, and length-regular (fixed m(n)); 𝒮 specifies the input distribution D_n (see Lemma 9.LR; Appendix O for the packaging sampler).
 
 **Non-leaking verification.** The public instance x* contains:
 - Overlay metadata (DAG structure, addressing functions, FG gate configuration)
@@ -5884,7 +5886,7 @@ P ≠ NP for classical computation.
 
 **Therefore P ≠ NP.** ∎
 
-**Bitstring formulation:** For L\* as a language over {0,1}\*, see Corollary 10.6.8, which derives P ≠ NP from the structured results above via the encoding bridge (§10.6). The bitstring OWF f\_n : {0,1}^{m(n)} → {0,1}^{ℓ(n)} is defined in Corollary 10.6.7.
+**Bitstring formulation:** For L\* as a language over {0,1}\*, see Corollary 10.6.8, which derives P ≠ NP from the structured results above via the encoding bridge (§10.6). The bitstring OWF family {f\_n : D(φ\_n) → {0,1}^{ℓ(n)}} with D(φ\_n) ⊆ {0,1}^{m(n)} is defined in Corollary 10.6.7.
 
 **Machine-verified proof:** Complete formalization in `ParametricBitstringBridge.lean`:
 - **Main theorem**: `fpnefnp_implies_not_peqnp`
@@ -6095,7 +6097,7 @@ No parsing of bs is required; the certificate carries the structure. This is sta
 
 Hence L\* ∈ NP. ∎
 
-**Corollary 10.6.7 (OWF over Bitstrings).** For each security parameter n, define f\_n : {0,1}^{m(n)} → {0,1}^{ℓ(n)} by:
+**Corollary 10.6.7 (OWF over Bitstrings).** For each security parameter n, define f\_n : D(φ\_n) → {0,1}^{ℓ(n)} (with D(φ\_n) ⊆ {0,1}^{m(n)}) by:
 
 f\_n(r) := Encode(Plant(φ\_n, r))
 
@@ -6103,9 +6105,9 @@ where φ\_n and m(n), ℓ(n) are as in §9.
 
 Then {f\_n} is a one-way function family against PPT adversaries.
 
-*Proof:* Suppose PPT adversary A inverts f\_n in the sense of §9's Definition (One-Way Function Security): given bs = f\_n(r), A outputs r' such that f\_n(r') = bs with non-negligible probability.
+*Proof:* Suppose PPT adversary A inverts f\_n in the sense of §9's Definition (One-Way Function Security): given bs = f\_n(r) for r←D\_n, A outputs r' ∈ D(φ\_n) such that f\_n(r') = bs with non-negligible probability.
 
-Construct a structured inverter A': given x\* = Plant(φ\_n, r):
+Construct a structured inverter A': given x\* = Plant(φ\_n, r) for some r ∈ D(φ\_n):
 
 1. Compute bs := Encode(x\*)  — poly-time by Lemma E2
 2. Run A(bs) to obtain r'
