@@ -587,6 +587,29 @@ noncomputable def toRawLStarInstanceFull (L : LStarInstanceFull) : RawLStarInsta
 def toRawGateDigest (g : GateDigest) : RawGateDigest :=
   { segmentBudget := g.segmentBudget, bits := g.bits.toList }
 
+/-- GateDigest equality from raw field equalities.
+    Given segmentBudget equality and bits.toList equality, the GateDigests are equal.
+    Note: This uses List.Vector's property that toList is injective.
+    TODO: Complete this mechanical proof using Vector.ext. -/
+theorem GateDigest_eq_of_raw_eq {g₁ g₂ : GateDigest}
+    (h_sb : g₁.segmentBudget = g₂.segmentBudget)
+    (h_bits : g₁.bits.toList = g₂.bits.toList) : g₁ = g₂ := by
+  cases g₁ with
+  | mk sb₁ bits₁ =>
+    cases g₂ with
+    | mk sb₂ bits₂ =>
+      cases h_sb
+      have h_vec : bits₁ = bits₂ := by
+        -- Vector equality from toList equality
+        refine Vector.ext ?_
+        intro i hi
+        have :
+            bits₁.toList[i]'(by simp; exact hi) = bits₂.toList[i]'(by simp; exact hi) := by
+          simpa [h_bits]
+        simpa using this
+      cases h_vec
+      rfl
+
 noncomputable def toRawFrontierGateConfig {L} (fg : FrontierGateConfig L) : RawFrontierGateConfig :=
   { gateReq := (List.finRange L.dag.n).map fg.gateReq
   , gateDigests := (List.finRange L.dag.n).map (fun i => 
@@ -2378,52 +2401,184 @@ theorem np_transfer (enc : α → List Bool) (L : Lang α)
   use (α × β)
   use sizedProd
   use T
-  -- Build verifier: check enc x = bs AND original verifier accepts
-  let V' : RandAdv (List Bool × (α × β)) Bool T := by
-    -- Use algspec_has_tm to get RandAdv from AlgSpec
-    let A : AlgSpec (List Bool × (α × β)) Bool T := {
-      run := fun c (bs, (x, w)) =>
-        if enc x = bs then V.run c (x, w) else false
-      time_bound := fun n => V.time_bound n + n + 1
-      C := V.C + 1
-      k := max V.k 1
-      h_C_pos := Nat.add_pos_left V.h_C_pos 1
-      h_k_pos := Nat.le_max_right V.k 1
-      poly_explicit := fun (bs, (x, w)) => by
-        -- V.time_bound n + n + 1 ≤ (V.C + 1) * (n + 1)^(max V.k 1)
-        -- This follows from: V.time_bound n ≤ V.C * (n+1)^V.k and n+1 ≤ (n+1)^(max V.k 1)
-        sorry  -- Polynomial bound (tedious but straightforward)
-      time_bound_uniform := fun n => by
-        sorry  -- Similar polynomial bound
-      output_bounded := fun c (bs, (x, w)) => by
-        simp only
-        split_ifs with h_enc
-        · -- enc x = bs case: output is Bool, size = 1
-          have h_bool : Sized.size (V.run c (x, w)) = 1 := rfl
+  -- Define AlgSpec for the verifier (accessible for proofs below)
+  let A : AlgSpec (List Bool × (α × β)) Bool T := {
+    run := fun c (bs, (x, w)) =>
+      if enc x = bs then V.run c (x, w) else false
+    time_bound := fun n => V.time_bound n + n + 1
+    C := V.C + 1
+    k := max V.k 1
+    h_C_pos := Nat.add_pos_left V.h_C_pos 1
+    h_k_pos := Nat.le_max_right V.k 1
+    poly_explicit := fun (bs, (x, w)) => by
+      -- V.time_bound n + n + 1 ≤ (V.C + 1) * (n + 1)^(max V.k 1)
+      have h_V := V.poly_explicit (x, w)
+      have h_size : Sized.size (bs, (x, w)) = Sized.size bs + Sized.size (x, w) := rfl
+      -- V.time_bound (size (x,w)) ≤ V.C * (size (x,w) + 1)^V.k
+      -- size (bs, (x, w)) ≥ size (x, w), so time_bound (size (bs, (x, w))) ≥ time_bound (size (x, w))
+      -- We need: V.time_bound n + n + 1 ≤ (V.C + 1) * (n + 1)^(max V.k 1) where n = size (bs, (x, w))
+      have h_n_pos : 0 < Sized.size (bs, (x, w)) + 1 := Nat.succ_pos _
+      have h_exp_ge_1 : (Sized.size (bs, (x, w)) + 1) ^ max V.k 1 ≥ Sized.size (bs, (x, w)) + 1 := by
+        have h1 : max V.k 1 ≠ 0 := by
+          have : max V.k 1 ≥ 1 := Nat.le_max_right V.k 1
           omega
-        · -- enc x ≠ bs case: output is false, size = 1
-          have h_bool : Sized.size false = 1 := rfl
+        exact Nat.le_self_pow h1 (Sized.size (bs, (x, w)) + 1)
+      -- Simplify: need V.time_bound n + n + 1 ≤ (V.C + 1) * (n + 1)^(max V.k 1)
+      -- Use: V.time_bound n ≤ V.C * (n+1)^V.k ≤ V.C * (n+1)^(max V.k 1)
+      -- And: n + 1 ≤ (n+1)^(max V.k 1)
+      have h_V_bound := V.time_bound_uniform (Sized.size (bs, (x, w)))
+      have h_exp_mono : (Sized.size (bs, (x, w)) + 1) ^ V.k ≤ (Sized.size (bs, (x, w)) + 1) ^ max V.k 1 := by
+        apply Nat.pow_le_pow_right h_n_pos
+        exact Nat.le_max_left V.k 1
+      calc V.time_bound (Sized.size (bs, (x, w))) + Sized.size (bs, (x, w)) + 1
+          ≤ V.C * (Sized.size (bs, (x, w)) + 1) ^ V.k + (Sized.size (bs, (x, w)) + 1) := by
+            omega
+        _ ≤ V.C * (Sized.size (bs, (x, w)) + 1) ^ max V.k 1 + (Sized.size (bs, (x, w)) + 1) ^ max V.k 1 := by
+            have h1 : V.C * (Sized.size (bs, (x, w)) + 1) ^ V.k ≤ V.C * (Sized.size (bs, (x, w)) + 1) ^ max V.k 1 :=
+              Nat.mul_le_mul_left V.C h_exp_mono
+            omega
+        _ = (V.C + 1) * (Sized.size (bs, (x, w)) + 1) ^ max V.k 1 := by ring
+    time_bound_uniform := fun n => by
+      have h_V := V.time_bound_uniform n
+      have h_n_pos : 0 < n + 1 := Nat.succ_pos n
+      have h_exp_ge_1 : (n + 1) ^ max V.k 1 ≥ n + 1 := by
+        have h1 : max V.k 1 ≠ 0 := by
+          have : max V.k 1 ≥ 1 := Nat.le_max_right V.k 1
           omega
-      coins_pos := V.coins_pos
-    }
-    exact (algspec_has_tm A).choose
+        exact Nat.le_self_pow h1 (n + 1)
+      have h_exp_mono : (n + 1) ^ V.k ≤ (n + 1) ^ max V.k 1 := by
+        apply Nat.pow_le_pow_right h_n_pos
+        exact Nat.le_max_left V.k 1
+      calc V.time_bound n + n + 1
+          ≤ V.C * (n + 1) ^ V.k + (n + 1) := by omega
+        _ ≤ V.C * (n + 1) ^ max V.k 1 + (n + 1) ^ max V.k 1 := by
+            have h1 : V.C * (n + 1) ^ V.k ≤ V.C * (n + 1) ^ max V.k 1 :=
+              Nat.mul_le_mul_left V.C h_exp_mono
+            omega
+        _ = (V.C + 1) * (n + 1) ^ max V.k 1 := by ring
+    output_bounded := fun c (bs, (x, w)) => by
+      simp only
+      split_ifs with h_enc
+      · -- enc x = bs case: output is Bool, size = 1
+        have h_bool : Sized.size (V.run c (x, w)) = 1 := rfl
+        omega
+      · -- enc x ≠ bs case: output is false, size = 1
+        have h_bool : Sized.size false = 1 := rfl
+        omega
+    coins_pos := V.coins_pos
+  }
+  -- Get RandAdv V' with proof that V'.run = A.run
+  obtain ⟨V', h_V'_run, _, _, _, _, _⟩ := algspec_has_tm A
   use V'
   -- Witness size constants (using encoding bounds)
-  use h_enc.C_lo * (C_wit + 1) + h_enc.C_lo  -- Combined constant for (x, w)
+  -- Derived bound: C_lo + C_wit * (C_lo + 1)^k_wit for size (x, w)
+  use h_enc.C_lo + C_wit * (h_enc.C_lo + 1) ^ k_wit
   use max h_enc.k_lo (k_wit * h_enc.k_lo)
   -- Verifier time constants
   use V'.C
   use V'.k
+  -- Helper: V'.run equals A.run
+  have h_V'_eq : ∀ c p, V'.run c p = A.run c p := by
+    intro c p
+    have h1 : V'.toAlgSpec.run = A.run := h_V'_run
+    simp only [RandAdv.toAlgSpec] at h1
+    exact congrFun (congrFun h1 c) p
   constructor
-  · -- Determinism: follows from V' construction and h_det
+  · -- Determinism: V' is deterministic because V is deterministic
     intro c₁ c₂ (bs, (x, w))
-    sorry  -- Determinism (follows from V' definition using h_det)
+    simp only [h_V'_eq]
+    -- A.run c (bs, (x, w)) = if enc x = bs then V.run c (x, w) else false
+    simp only [A]
+    split_ifs with h_enc_eq
+    · -- enc x = bs: result is V.run c (x, w), deterministic by h_det
+      exact h_det c₁ c₂ (x, w)
+    · -- enc x ≠ bs: result is false (constant)
+      rfl
   constructor
   · -- Witness size bound: size (x, w) ≤ poly(size bs)
     -- Key: enc x = bs (from acceptance), so size x ≤ C_lo * (|bs|+1)^k_lo
     -- And size w ≤ C_wit * (size x + 1)^k_wit (from original NP bound)
     intro bs (x, w) h_accept
-    sorry  -- Witness size bound (polynomial composition of bounds)
+    -- Extract from h_accept: enc x = bs and V accepts (x, w)
+    simp only [h_V'_eq, A] at h_accept
+    by_cases h_enc_eq : enc x = bs
+    · -- enc x = bs case
+      simp only [h_enc_eq, ↓reduceIte] at h_accept
+      -- h_accept : V.run ⟨0, V.coins_pos⟩ (x, w) = true
+      -- Get size bounds
+      have h_size_x : Sized.size x ≤ h_enc.C_lo * ((enc x).length + 1) ^ h_enc.k_lo :=
+        h_enc.size_lower x
+      -- Since enc x = bs, (enc x).length = bs.length
+      rw [h_enc_eq] at h_size_x
+      -- For List Bool, Sized.size bs = bs.length + 1
+      have h_bs_size : Sized.size bs = bs.length + 1 := rfl
+      -- So h_size_x : size x ≤ C_lo * (size bs)^k_lo
+      have h_size_x' : Sized.size x ≤ h_enc.C_lo * (Sized.size bs) ^ h_enc.k_lo := by
+        simp only [Sized.size, sizedBitstring] at h_size_x ⊢
+        exact h_size_x
+      -- Get witness bound from original NP
+      have h_size_w : Sized.size w ≤ C_wit * (Sized.size x + 1) ^ k_wit :=
+        h_wit_bound x w h_accept
+      -- size (x, w) = size x + size w (for pairs)
+      have h_pair_size : Sized.size (x, w) = Sized.size x + Sized.size w := rfl
+      -- Now combine: size x ≤ C_lo * (size bs)^k_lo ≤ C_lo * (size bs + 1)^k_lo
+      have h_bs_pos : Sized.size bs ≥ 1 := Sized.size_pos bs
+      have h_pow_mono : (Sized.size bs) ^ h_enc.k_lo ≤ (Sized.size bs + 1) ^ h_enc.k_lo := by
+        apply Nat.pow_le_pow_left
+        omega
+      have h_size_x'' : Sized.size x ≤ h_enc.C_lo * (Sized.size bs + 1) ^ h_enc.k_lo := by
+        calc Sized.size x ≤ h_enc.C_lo * (Sized.size bs) ^ h_enc.k_lo := h_size_x'
+          _ ≤ h_enc.C_lo * (Sized.size bs + 1) ^ h_enc.k_lo := Nat.mul_le_mul_left h_enc.C_lo h_pow_mono
+      -- For size w: size w ≤ C_wit * (size x + 1)^k_wit
+      -- size x + 1 ≤ C_lo * (size bs + 1)^k_lo + 1 ≤ (C_lo + 1) * (size bs + 1)^k_lo
+      have h_bs_pos' : (Sized.size bs + 1) ^ h_enc.k_lo ≥ 1 := Nat.one_le_pow h_enc.k_lo (Sized.size bs + 1) (by omega)
+      have h_size_x_plus : Sized.size x + 1 ≤ (h_enc.C_lo + 1) * (Sized.size bs + 1) ^ h_enc.k_lo := by
+        calc Sized.size x + 1 ≤ h_enc.C_lo * (Sized.size bs + 1) ^ h_enc.k_lo + 1 := by omega
+          _ ≤ h_enc.C_lo * (Sized.size bs + 1) ^ h_enc.k_lo + (Sized.size bs + 1) ^ h_enc.k_lo := by omega
+          _ = (h_enc.C_lo + 1) * (Sized.size bs + 1) ^ h_enc.k_lo := by ring
+      -- (size x + 1)^k_wit ≤ ((C_lo + 1) * (size bs + 1)^k_lo)^k_wit
+      have h_pow_bound : (Sized.size x + 1) ^ k_wit ≤ ((h_enc.C_lo + 1) * (Sized.size bs + 1) ^ h_enc.k_lo) ^ k_wit :=
+        Nat.pow_le_pow_left h_size_x_plus k_wit
+      -- ((C_lo + 1) * (size bs + 1)^k_lo)^k_wit = (C_lo + 1)^k_wit * (size bs + 1)^(k_lo * k_wit)
+      have h_expand : ((h_enc.C_lo + 1) * (Sized.size bs + 1) ^ h_enc.k_lo) ^ k_wit =
+                      (h_enc.C_lo + 1) ^ k_wit * (Sized.size bs + 1) ^ (h_enc.k_lo * k_wit) := by
+        rw [Nat.mul_pow, Nat.pow_mul]
+      rw [h_expand] at h_pow_bound
+      -- size w ≤ C_wit * (C_lo + 1)^k_wit * (size bs + 1)^(k_lo * k_wit)
+      have h_size_w' : Sized.size w ≤ C_wit * (h_enc.C_lo + 1) ^ k_wit * (Sized.size bs + 1) ^ (h_enc.k_lo * k_wit) := by
+        calc Sized.size w ≤ C_wit * (Sized.size x + 1) ^ k_wit := h_size_w
+          _ ≤ C_wit * ((h_enc.C_lo + 1) ^ k_wit * (Sized.size bs + 1) ^ (h_enc.k_lo * k_wit)) := Nat.mul_le_mul_left C_wit h_pow_bound
+          _ = C_wit * (h_enc.C_lo + 1) ^ k_wit * (Sized.size bs + 1) ^ (h_enc.k_lo * k_wit) := by ring
+      -- Now combine for size (x, w)
+      -- k = max k_lo (k_wit * k_lo), so k ≥ k_lo and k ≥ k_wit * k_lo = k_lo * k_wit
+      have h_k_ge_klo : max h_enc.k_lo (k_wit * h_enc.k_lo) ≥ h_enc.k_lo := Nat.le_max_left _ _
+      have h_k_ge_kwklo : max h_enc.k_lo (k_wit * h_enc.k_lo) ≥ k_wit * h_enc.k_lo := Nat.le_max_right _ _
+      have h_k_ge_klokw : max h_enc.k_lo (k_wit * h_enc.k_lo) ≥ h_enc.k_lo * k_wit := by
+        rw [Nat.mul_comm h_enc.k_lo k_wit]
+        exact h_k_ge_kwklo
+      -- Power monotonicity
+      have h_pow_mono_x : (Sized.size bs + 1) ^ h_enc.k_lo ≤ (Sized.size bs + 1) ^ max h_enc.k_lo (k_wit * h_enc.k_lo) :=
+        Nat.pow_le_pow_right (by omega) h_k_ge_klo
+      have h_pow_mono_w : (Sized.size bs + 1) ^ (h_enc.k_lo * k_wit) ≤ (Sized.size bs + 1) ^ max h_enc.k_lo (k_wit * h_enc.k_lo) :=
+        Nat.pow_le_pow_right (by omega) h_k_ge_klokw
+      -- Final bound
+      calc Sized.size (x, w) = Sized.size x + Sized.size w := h_pair_size
+        _ ≤ h_enc.C_lo * (Sized.size bs + 1) ^ h_enc.k_lo +
+            C_wit * (h_enc.C_lo + 1) ^ k_wit * (Sized.size bs + 1) ^ (h_enc.k_lo * k_wit) := by omega
+        _ ≤ h_enc.C_lo * (Sized.size bs + 1) ^ max h_enc.k_lo (k_wit * h_enc.k_lo) +
+            C_wit * (h_enc.C_lo + 1) ^ k_wit * (Sized.size bs + 1) ^ max h_enc.k_lo (k_wit * h_enc.k_lo) := by
+          have h1 : h_enc.C_lo * (Sized.size bs + 1) ^ h_enc.k_lo ≤
+                    h_enc.C_lo * (Sized.size bs + 1) ^ max h_enc.k_lo (k_wit * h_enc.k_lo) :=
+            Nat.mul_le_mul_left h_enc.C_lo h_pow_mono_x
+          have h2 : C_wit * (h_enc.C_lo + 1) ^ k_wit * (Sized.size bs + 1) ^ (h_enc.k_lo * k_wit) ≤
+                    C_wit * (h_enc.C_lo + 1) ^ k_wit * (Sized.size bs + 1) ^ max h_enc.k_lo (k_wit * h_enc.k_lo) := by
+            apply Nat.mul_le_mul_left
+            exact h_pow_mono_w
+          omega
+        _ = (h_enc.C_lo + C_wit * (h_enc.C_lo + 1) ^ k_wit) * (Sized.size bs + 1) ^ max h_enc.k_lo (k_wit * h_enc.k_lo) := by ring
+    · -- enc x ≠ bs: contradiction from h_accept
+      simp only [h_enc_eq, ↓reduceIte] at h_accept
+      exact absurd h_accept Bool.false_ne_true
   constructor
   · -- Verifier time bound (inherited from V')
     intro (bs, (x, w))
@@ -2436,11 +2591,23 @@ theorem np_transfer (enc : α → List Bool) (L : Lang α)
       have h_Lx_wit := (h_spec x).mp h_Lx
       obtain ⟨w, h_V_accept⟩ := h_Lx_wit
       use (x, w)
-      sorry  -- V' accepts (x, w) because enc x = bs and V accepts
+      -- V' accepts (x, w) because enc x = bs and V accepts
+      simp only [h_V'_eq, A]
+      simp only [h_enc_eq, ↓reduceIte]
+      exact h_V_accept
     · -- Backward: ∃ witness accepted → bs ∈ encodedLang
       intro ⟨(x, w), h_accept⟩
-      use x
-      sorry  -- enc x = bs and L x (from V' acceptance structure)
+      -- V'.run accepts means A.run accepts
+      simp only [h_V'_eq, A] at h_accept
+      -- A.run c (bs, (x, w)) = if enc x = bs then V.run c (x, w) else false
+      by_cases h_enc_eq : enc x = bs
+      · -- enc x = bs and V accepts (x, w)
+        use x
+        simp only [h_enc_eq, ↓reduceIte] at h_accept
+        exact ⟨h_enc_eq, (h_spec x).mpr ⟨w, h_accept⟩⟩
+      · -- enc x ≠ bs: h_accept says false = true, contradiction
+        simp only [h_enc_eq, ↓reduceIte] at h_accept
+        exact absurd h_accept Bool.false_ne_true
 
 /-- **P Backward Transfer**: If encoded language is in P, so is the original.
 
@@ -2457,38 +2624,147 @@ theorem p_backward_transfer (enc : α → List Bool) (L : Lang α)
   obtain ⟨T, A, h_det, h_correct⟩ := h_p
   use T
   -- Build decider for L: compute enc x, then run A
-  let A' : RandAdv α Bool T := by
-    let spec : AlgSpec α Bool T := {
-      run := fun c x => A.run c (enc x)
-      time_bound := fun n => A.time_bound (h_enc.C_up * (n + 1) ^ h_enc.k_up + 1) + h_enc.C_up * (n + 1) ^ h_enc.k_up
-      C := A.C * h_enc.C_up + A.C + h_enc.C_up
-      k := A.k * h_enc.k_up
-      h_C_pos := by
-        have := A.h_C_pos
-        have := h_enc.h_C_up_pos
-        omega
-      h_k_pos := Nat.mul_pos A.h_k_pos h_enc.h_k_up_pos
-      poly_explicit := fun x => by
-        -- |enc x| ≤ C_up * (size x + 1)^k_up
-        have h_enc_bound := h_enc.size_upper x
-        -- size (enc x) = |enc x| + 1
-        have h_size_enc : Sized.size (enc x) = (enc x).length + 1 := rfl
-        -- A.time_bound (size (enc x)) ≤ A.C * (size (enc x) + 1)^A.k
-        have h_A_bound := A.time_bound_uniform (Sized.size (enc x))
-        sorry  -- Polynomial composition (tedious arithmetic)
-      time_bound_uniform := fun n => by
-        sorry  -- Similar arithmetic
-      output_bounded := fun c x => by
-        -- Output is Bool (size 1), time_bound is clearly ≥ 1
-        sorry  -- Output size bound (trivial: Bool has size 1, time_bound ≥ 1)
-      coins_pos := A.coins_pos
-    }
-    exact (algspec_has_tm spec).choose
+  -- Define AlgSpec outside tactic to access in proofs below
+  let spec : AlgSpec α Bool T := {
+    run := fun c x => A.run c (enc x)
+    time_bound := fun n => A.time_bound (h_enc.C_up * (n + 1) ^ h_enc.k_up + 1) + h_enc.C_up * (n + 1) ^ h_enc.k_up
+    -- Correct constant for polynomial composition
+    -- Use (2 * C_up + 1) to handle the n=0 case where time_bound 0 ≤ A.C * 3^A.k + 1
+    C := A.C * (2 * h_enc.C_up + 1) ^ A.k + h_enc.C_up
+    k := A.k * h_enc.k_up
+    h_C_pos := by
+      have h_A_C := A.h_C_pos
+      have h_C_up := h_enc.h_C_up_pos
+      have h_pow_pos : (2 * h_enc.C_up + 1) ^ A.k ≥ 1 := Nat.one_le_pow A.k (2 * h_enc.C_up + 1) (by omega)
+      omega
+    h_k_pos := Nat.mul_pos A.h_k_pos h_enc.h_k_up_pos
+    poly_explicit := fun x => by
+      -- Goal: time_bound (size x) ≤ C * (size x + 1)^k
+      -- where time_bound n = A.time_bound (C_up * (n+1)^k_up + 1) + C_up * (n+1)^k_up
+      -- and C = A.C * (2*C_up+1)^A.k + C_up, k = A.k * k_up
+      -- Let m = C_up * (size x + 1)^k_up + 1
+      set m := h_enc.C_up * (Sized.size x + 1) ^ h_enc.k_up + 1 with h_m_def
+      set p := (Sized.size x + 1) ^ h_enc.k_up with h_p_def
+      -- Step 1: A.time_bound m ≤ A.C * (m + 1)^A.k
+      have h_A_bound : A.time_bound m ≤ A.C * (m + 1) ^ A.k := A.time_bound_uniform m
+      -- Step 2: m + 1 = C_up * p + 2 ≤ (C_up + 2) * p ≤ (2*C_up + 1) * p (since p ≥ 1)
+      have h_p_pos : p ≥ 1 := Nat.one_le_pow h_enc.k_up (Sized.size x + 1) (by omega)
+      have h_m_plus_1 : m + 1 = h_enc.C_up * p + 2 := by omega
+      have h_bound_intermediate : h_enc.C_up * p + 2 ≤ (2 * h_enc.C_up + 1) * p := by
+        have h_C_up_pos : h_enc.C_up ≥ 1 := h_enc.h_C_up_pos
+        -- C_up * p + 2 ≤ C_up * p + 2 * p = (C_up + 2) * p ≤ (2*C_up + 1) * p
+        have h_2_le_2p : 2 ≤ 2 * p := by omega
+        calc h_enc.C_up * p + 2
+            ≤ h_enc.C_up * p + 2 * p := by omega
+          _ = (h_enc.C_up + 2) * p := by ring
+          _ ≤ (2 * h_enc.C_up + 1) * p := by nlinarith
+      have h_m_bound : m + 1 ≤ (2 * h_enc.C_up + 1) * p := by omega
+      -- Step 3: (m + 1)^A.k ≤ ((2*C_up + 1) * p)^A.k = (2*C_up + 1)^A.k * p^A.k
+      have h_pow_bound : (m + 1) ^ A.k ≤ ((2 * h_enc.C_up + 1) * p) ^ A.k :=
+        Nat.pow_le_pow_left h_m_bound A.k
+      have h_pow_expand : ((2 * h_enc.C_up + 1) * p) ^ A.k =
+          (2 * h_enc.C_up + 1) ^ A.k * p ^ A.k := Nat.mul_pow _ _ _
+      -- Step 4: p^A.k = ((size x + 1)^k_up)^A.k = (size x + 1)^(k_up * A.k)
+      have h_pow_assoc : p ^ A.k = (Sized.size x + 1) ^ (h_enc.k_up * A.k) := by
+        simp only [h_p_def]
+        rw [← Nat.pow_mul]
+      -- Step 5: Combine for A.time_bound m bound
+      have h_A_final : A.time_bound m ≤ A.C * (2 * h_enc.C_up + 1) ^ A.k * (Sized.size x + 1) ^ (h_enc.k_up * A.k) := by
+        calc A.time_bound m
+            ≤ A.C * (m + 1) ^ A.k := h_A_bound
+          _ ≤ A.C * ((2 * h_enc.C_up + 1) * p) ^ A.k := by
+              apply Nat.mul_le_mul_left; exact h_pow_bound
+          _ = A.C * ((2 * h_enc.C_up + 1) ^ A.k * p ^ A.k) := by rw [h_pow_expand]
+          _ = A.C * (2 * h_enc.C_up + 1) ^ A.k * p ^ A.k := by ring
+          _ = A.C * (2 * h_enc.C_up + 1) ^ A.k * (Sized.size x + 1) ^ (h_enc.k_up * A.k) := by rw [h_pow_assoc]
+      -- Step 6: C_up * p ≤ C_up * (size x + 1)^(k_up * A.k) since A.k ≥ 1
+      have h_A_k_pos : A.k ≥ 1 := A.h_k_pos
+      have h_exp_growth : p ≤ (Sized.size x + 1) ^ (h_enc.k_up * A.k) := by
+        simp only [h_p_def]
+        have h_base_pos : Sized.size x + 1 ≥ 1 := by omega
+        have h_exp_le : h_enc.k_up ≤ h_enc.k_up * A.k := Nat.le_mul_of_pos_right h_enc.k_up h_A_k_pos
+        exact Nat.pow_le_pow_right h_base_pos h_exp_le
+      have h_second_term : h_enc.C_up * p ≤ h_enc.C_up * (Sized.size x + 1) ^ (h_enc.k_up * A.k) :=
+        Nat.mul_le_mul_left h_enc.C_up h_exp_growth
+      -- Step 7: Combine both terms
+      have h_k_comm : h_enc.k_up * A.k = A.k * h_enc.k_up := Nat.mul_comm _ _
+      calc A.time_bound m + h_enc.C_up * p
+          ≤ A.C * (2 * h_enc.C_up + 1) ^ A.k * (Sized.size x + 1) ^ (h_enc.k_up * A.k) +
+            h_enc.C_up * (Sized.size x + 1) ^ (h_enc.k_up * A.k) := by omega
+        _ = (A.C * (2 * h_enc.C_up + 1) ^ A.k + h_enc.C_up) * (Sized.size x + 1) ^ (h_enc.k_up * A.k) := by ring
+        _ = (A.C * (2 * h_enc.C_up + 1) ^ A.k + h_enc.C_up) * (Sized.size x + 1) ^ (A.k * h_enc.k_up) := by rw [h_k_comm]
+    time_bound_uniform := fun n => by
+      -- Goal: time_bound n ≤ C * (n + 1)^k (same as poly_explicit but for arbitrary n)
+      set m := h_enc.C_up * (n + 1) ^ h_enc.k_up + 1 with h_m_def
+      set p := (n + 1) ^ h_enc.k_up with h_p_def
+      have h_A_bound : A.time_bound m ≤ A.C * (m + 1) ^ A.k := A.time_bound_uniform m
+      have h_p_pos : p ≥ 1 := Nat.one_le_pow h_enc.k_up (n + 1) (by omega)
+      have h_m_plus_1 : m + 1 = h_enc.C_up * p + 2 := by omega
+      have h_bound_intermediate : h_enc.C_up * p + 2 ≤ (2 * h_enc.C_up + 1) * p := by
+        have h_C_up_pos : h_enc.C_up ≥ 1 := h_enc.h_C_up_pos
+        have h_2_le_2p : 2 ≤ 2 * p := by omega
+        calc h_enc.C_up * p + 2
+            ≤ h_enc.C_up * p + 2 * p := by omega
+          _ = (h_enc.C_up + 2) * p := by ring
+          _ ≤ (2 * h_enc.C_up + 1) * p := by nlinarith
+      have h_m_bound : m + 1 ≤ (2 * h_enc.C_up + 1) * p := by omega
+      have h_pow_bound : (m + 1) ^ A.k ≤ ((2 * h_enc.C_up + 1) * p) ^ A.k :=
+        Nat.pow_le_pow_left h_m_bound A.k
+      have h_pow_expand : ((2 * h_enc.C_up + 1) * p) ^ A.k =
+          (2 * h_enc.C_up + 1) ^ A.k * p ^ A.k := Nat.mul_pow _ _ _
+      have h_pow_assoc : p ^ A.k = (n + 1) ^ (h_enc.k_up * A.k) := by
+        simp only [h_p_def]
+        rw [← Nat.pow_mul]
+      have h_A_final : A.time_bound m ≤ A.C * (2 * h_enc.C_up + 1) ^ A.k * (n + 1) ^ (h_enc.k_up * A.k) := by
+        calc A.time_bound m
+            ≤ A.C * (m + 1) ^ A.k := h_A_bound
+          _ ≤ A.C * ((2 * h_enc.C_up + 1) * p) ^ A.k := by
+              apply Nat.mul_le_mul_left; exact h_pow_bound
+          _ = A.C * ((2 * h_enc.C_up + 1) ^ A.k * p ^ A.k) := by rw [h_pow_expand]
+          _ = A.C * (2 * h_enc.C_up + 1) ^ A.k * p ^ A.k := by ring
+          _ = A.C * (2 * h_enc.C_up + 1) ^ A.k * (n + 1) ^ (h_enc.k_up * A.k) := by rw [h_pow_assoc]
+      have h_A_k_pos : A.k ≥ 1 := A.h_k_pos
+      have h_exp_growth : p ≤ (n + 1) ^ (h_enc.k_up * A.k) := by
+        simp only [h_p_def]
+        have h_base_pos : n + 1 ≥ 1 := by omega
+        have h_exp_le : h_enc.k_up ≤ h_enc.k_up * A.k := Nat.le_mul_of_pos_right h_enc.k_up h_A_k_pos
+        exact Nat.pow_le_pow_right h_base_pos h_exp_le
+      have h_second_term : h_enc.C_up * p ≤ h_enc.C_up * (n + 1) ^ (h_enc.k_up * A.k) :=
+        Nat.mul_le_mul_left h_enc.C_up h_exp_growth
+      have h_k_comm : h_enc.k_up * A.k = A.k * h_enc.k_up := Nat.mul_comm _ _
+      calc A.time_bound m + h_enc.C_up * p
+          ≤ A.C * (2 * h_enc.C_up + 1) ^ A.k * (n + 1) ^ (h_enc.k_up * A.k) +
+            h_enc.C_up * (n + 1) ^ (h_enc.k_up * A.k) := by omega
+        _ = (A.C * (2 * h_enc.C_up + 1) ^ A.k + h_enc.C_up) * (n + 1) ^ (h_enc.k_up * A.k) := by ring
+        _ = (A.C * (2 * h_enc.C_up + 1) ^ A.k + h_enc.C_up) * (n + 1) ^ (A.k * h_enc.k_up) := by rw [h_k_comm]
+    output_bounded := fun c x => by
+      -- Output is Bool (size 1), time_bound is clearly ≥ 1
+      have h_bool_size : Sized.size (A.run c (enc x)) = 1 := rfl
+      rw [h_bool_size]
+      -- time_bound n = A.time_bound (...) + C_up * (n+1)^k_up ≥ 1
+      have h_A_pos : A.time_bound (h_enc.C_up * (Sized.size x + 1) ^ h_enc.k_up + 1) ≥ 0 := Nat.zero_le _
+      have h_enc_pos : h_enc.C_up * (Sized.size x + 1) ^ h_enc.k_up ≥ 1 := by
+        have h1 : h_enc.C_up ≥ 1 := h_enc.h_C_up_pos
+        have h2 : (Sized.size x + 1) ^ h_enc.k_up ≥ 1 := Nat.one_le_pow h_enc.k_up (Sized.size x + 1) (by omega)
+        have h3 : 1 * 1 ≤ h_enc.C_up * (Sized.size x + 1) ^ h_enc.k_up := Nat.mul_le_mul h1 h2
+        simp at h3; exact h3
+      omega
+    coins_pos := A.coins_pos
+  }
+  -- Get RandAdv A' with proof that A'.run = spec.run
+  obtain ⟨A', h_A'_run, _, _, _, _, _⟩ := algspec_has_tm spec
   use A'
+  -- Helper: A'.run equals spec.run
+  have h_A'_eq : ∀ c x, A'.run c x = A.run c (enc x) := by
+    intro c x
+    have h1 : A'.toAlgSpec.run = spec.run := h_A'_run
+    simp only [RandAdv.toAlgSpec] at h1
+    exact congrFun (congrFun h1 c) x
   constructor
   · -- Determinism: A' computes A(enc x), and A is deterministic
     intro c₁ c₂ x
-    sorry  -- Follows from h_det and A' definition
+    simp only [h_A'_eq]
+    exact h_det c₁ c₂ (enc x)
   · -- Correctness: A' x = true ↔ L x
     -- A correctly decides encodedLang, and enc is injective
     -- So: encodedLang enc L (enc x) ↔ L x
@@ -2500,7 +2776,11 @@ theorem p_backward_transfer (enc : α → List Bool) (L : Lang α)
         rw [h_xy]; exact h_Ly
       · intro h_Lx
         exact ⟨x, rfl, h_Lx⟩
-    sorry  -- A' x = A (enc x), and A decides encodedLang, so result follows
+    -- A' x = A (enc x), and A decides encodedLang
+    rw [h_A'_eq]
+    -- h_encoded_iff.symm : L x ↔ encodedLang enc L (enc x)
+    -- h_correct (enc x) : encodedLang enc L (enc x) ↔ A.run ⟨0, A.coins_pos⟩ (enc x) = true
+    exact h_encoded_iff.symm.trans (h_correct (enc x))
 
 /-- **Hardness Transfer Corollary**: If L is not in P, neither is its encoding.
 
@@ -2563,6 +2843,57 @@ lemma finRange_map_eq_implies_fun_eq {n : Nat} {α : Type*} {f g : Fin n → α}
   rw [← hf_get, ← hg_get]
   simp only [h]
 
+/-- Get a specific `(r,c)` entry from the row-major `finRange`/`flatMap` construction.
+
+This is the common pattern used by `toRawEmergenceMatrix`, where entries are stored in
+row-major order as:
+`finRange R >>= (fun r => (finRange n).map (fun c => f r c))`.
+-/
+lemma finRange_flatMap_finRange_map_get {R n : Nat} {α : Type*}
+    (f : Fin R → Fin n → α) (r : Fin R) (c : Fin n) :
+    (((List.finRange R).flatMap (fun r' => (List.finRange n).map (fun c' => f r' c')))[r.val * n + c.val]'(by
+            -- index is within `R*n` elements
+            have hlen :
+                ((List.finRange R).flatMap
+                      (fun r' => (List.finRange n).map (fun c' => f r' c'))).length =
+                  R * n := by
+              simp [List.length_flatMap, List.length_finRange]
+            -- `r.val*n + c.val < R*n` since `r.val < R` and `c.val < n`
+            simpa [hlen] using (by
+              have hr : r.val < R := r.isLt
+              have hc : c.val < n := c.isLt
+              have hlt₁ : r.val * n + c.val < r.val * n + n := Nat.add_lt_add_left hc _
+              have hle₂ : r.val * n + n ≤ R * n := by
+                have hsucc : r.val + 1 ≤ R := Nat.succ_le_of_lt hr
+                have := Nat.mul_le_mul_right n hsucc
+                simpa [Nat.succ_mul, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using this
+              exact lt_of_lt_of_le hlt₁ hle₂))) = f r c := by
+  induction R with
+  | zero =>
+      cases r with
+      | mk rv hr =>
+        cases hr
+  | succ R ih =>
+      refine Fin.cases ?base ?step r
+      · -- r = 0: element lies in the first row
+        have hlt : c.val < ((List.finRange n).map (fun c' => f 0 c')).length := by
+          simpa using c.isLt
+        -- `finRange (R+1)` splits into `0 :: (finRange R).map Fin.succ`
+        -- and `flatMap` becomes firstRow ++ rest.
+        -- Then `getElem_append_left` selects from the first row.
+        simp [List.finRange_succ, List.flatMap_cons, List.flatMap_map, hlt, Nat.zero_mul, Nat.zero_add]
+      · -- r = Fin.succ r0: element lies in the tail after dropping the first row (length n)
+        intro r0
+        have hge :
+            ((List.finRange n).map (fun c' => f 0 c')).length ≤ (Fin.succ r0).val * n + c.val := by
+          -- left length is n, and (succ r0).val * n + c.val ≥ n
+          simpa [Nat.succ_mul, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using
+            (Nat.le_add_right n (r0.val * n + c.val))
+        -- Rewrite into append form, drop the first row, and apply IH on shifted rows.
+        -- `simp` also normalizes `(Fin.succ r0).val` and the arithmetic `idx - n`.
+        simpa [List.finRange_succ, List.flatMap_cons, List.flatMap_map, List.getElem_append_right hge,
+          Nat.succ_mul, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using
+          (ih (f := fun r' c' => f (Fin.succ r') c') r0)
 /-- Membership in a Finset is equivalent to the nat value appearing in the mapped toList. -/
 lemma finset_mem_iff_val_in_map {n : Nat} (s : Finset (Fin n)) (p : Fin n) :
     p ∈ s ↔ p.val ∈ s.toList.map (·.val) := by
@@ -2624,6 +2955,131 @@ theorem toRawDAG_injective : Function.Injective toRawDAG := by
   cases h_parents
   rfl
 
+/-- In ZMod 2, beq with 1 determines the value: if (x == 1) = (y == 1) then x = y. -/
+lemma zmod2_beq_one_determines {x y : ZMod 2} (h : (x == 1) = (y == 1)) : x = y := by
+  -- ZMod 2 has only two elements: 0 and 1
+  fin_cases x <;> fin_cases y <;> simp_all
+
+/-- `toRawEmergenceMatrix` is injective: different matrices produce different raw forms.
+
+    **Proof**: EmergenceMatrix has a matrix over ZMod 2 (0/1 entries) and a rank proof (Prop).
+    The raw form stores (R, n, bits) where bits encodes whether each entry is 1.
+    Since ZMod 2 only has values 0 and 1, the bits exactly determine the matrix.
+    The rank proof is a Prop (Subsingleton), so it doesn't affect equality. -/
+theorem toRawEmergenceMatrix_injective {R n : Nat} :
+    Function.Injective (toRawEmergenceMatrix (R := R) (n := n)) := by
+  intro E₁ E₂ h_raw_eq
+  -- Extract field equalities from raw equality
+  have h_bits : (toRawEmergenceMatrix E₁).bits = (toRawEmergenceMatrix E₂).bits :=
+    congrArg RawEmergenceMatrix.bits h_raw_eq
+  simp only [toRawEmergenceMatrix] at h_bits
+  -- The bits list determines the matrix entries
+  -- Both bits lists are built identically from their respective matrices using List.finRange/flatMap/map
+  -- If the lists are equal, the matrices must produce the same bits at each position
+  -- Since ZMod 2 is determined by (== 1), the matrices are equal
+  have h_matrix : E₁.matrix = E₂.matrix := by
+    ext r c
+    -- The bits list is: finRange R >>= (λ r' => finRange n >>= (λ c' => [E.matrix r' c' == 1]))
+    -- For the (r, c) entry, it appears at a fixed position in the list
+    -- Equal lists means equal elements at each position
+    -- Use List.ext_getElem to work with list equality
+    have h_list_eq := h_bits
+    -- The entry (E.matrix r c == 1) appears in the list at some position
+    -- Since the lists are built the same way, equal lists → equal entries at each (r,c)
+    -- We prove this by showing that if the flatMap results are equal,
+    -- the inner map results must be equal for each r', hence each entry must match
+    -- This is a consequence of the deterministic construction
+    apply zmod2_beq_one_determines
+    -- Need: (E₁.matrix r c == 1) = (E₂.matrix r c == 1)
+    -- The bits list at row r is: (finRange n).map (fun c' => E.matrix r c' == 1)
+    -- From h_list_eq, both lists are equal, so the sublists for each row must match
+    -- For a fixed r, the bits at columns 0..n-1 form a contiguous segment
+    -- Since the full lists are equal, these segments are equal, hence each bit matches
+    -- The bits list is: flatMap over rows r' of (map over cols c' of (E.matrix r' c' == 1))
+    -- Row r's bits occupy positions [r.val * n, r.val * n + n) in the flattened list
+    -- If the full lists are equal, row segments must be equal, hence individual bits match
+    -- This is mechanical list manipulation that requires showing:
+    -- 1. Both lists have the same structure (flatMap preserves row boundaries)
+    -- 2. Equal total lists → equal sublists at each row
+    -- 3. Equal row lists → equal elements at each column
+    -- LOW-RISK: purely extractive, deterministic list construction
+    have h₁ :=
+      finRange_flatMap_finRange_map_get
+        (f := fun r' c' => (E₁.matrix r' c' == 1)) r c
+    -- Rewrite the selected bit using the raw-bits equality.
+    have h₁' := (by simpa [h_bits] using h₁)
+    have h₂ :=
+      finRange_flatMap_finRange_map_get
+        (f := fun r' c' => (E₂.matrix r' c' == 1)) r c
+    exact h₁'.symm.trans h₂
+  -- With matrix equality, use EmergenceMatrix extensionality
+  cases E₁; cases E₂
+  simp only [EmergenceMatrix.mk.injEq]
+  exact h_matrix
+
+/-- `toRawLStarInstanceFull` is injective: different instances produce different raw forms.
+
+    **Proof Strategy** (following LStarInstanceFull.ext pattern):
+    1. `cases A; cases B` to destructure immediately
+    2. Extract field equalities from raw equality
+    3. Case split on n, dag to unify dependent types
+    4. Derive function equalities for seedWidth, R, emergence
+    5. Conclude by reflexivity -/
+theorem toRawLStarInstanceFull_injective :
+    Function.Injective toRawLStarInstanceFull := by
+  intro A B h_raw_eq
+  -- Step 1: Destructure FIRST (critical for dependent type handling)
+  cases A with | mk n₁ n_pos₁ dag₁ dagAcyclic₁ seedWidth₁ R₁ emergence₁ pools₁ seedWidth_ok₁ =>
+  cases B with | mk n₂ n_pos₂ dag₂ dagAcyclic₂ seedWidth₂ R₂ emergence₂ pools₂ seedWidth_ok₂ =>
+  -- Step 2: Now h_raw_eq is between mk constructors, extract field equalities
+  simp only [toRawLStarInstanceFull] at h_raw_eq
+  -- h_raw_eq : { n := n₁, dag := toRawDAG dag₁, ... } = { n := n₂, dag := toRawDAG dag₂, ... }
+  have h_n : n₁ = n₂ := congrArg RawLStarInstanceFull.n h_raw_eq
+  have h_dag_raw : toRawDAG dag₁ = toRawDAG dag₂ := congrArg RawLStarInstanceFull.dag h_raw_eq
+  have h_dag : dag₁ = dag₂ := toRawDAG_injective h_dag_raw
+  have h_sw_raw : (List.finRange dag₁.n).map seedWidth₁ = (List.finRange dag₂.n).map seedWidth₂ :=
+    congrArg RawLStarInstanceFull.seedWidth h_raw_eq
+  have h_R_raw : (List.finRange dag₁.n).map R₁ = (List.finRange dag₂.n).map R₂ :=
+    congrArg RawLStarInstanceFull.R h_raw_eq
+  have h_em_raw : (List.finRange dag₁.n).map (fun i => toRawEmergenceMatrix (emergence₁ i)) =
+                  (List.finRange dag₂.n).map (fun i => toRawEmergenceMatrix (emergence₂ i)) :=
+    congrArg RawLStarInstanceFull.emergence h_raw_eq
+  have h_stride : pools₁.stride = pools₂.stride :=
+    congrArg (fun r => r.pools.stride) h_raw_eq
+  -- Step 3: Case split on n and dag to unify Fin types
+  cases h_n
+  cases h_dag
+  -- Now dag₁ = dag₂, so Fin dag₁.n = Fin dag₂.n (definitionally equal)
+  -- Step 4: Derive function equalities from list equalities
+  have h_sw : seedWidth₁ = seedWidth₂ := finRange_map_eq_implies_fun_eq h_sw_raw
+  have h_R : R₁ = R₂ := finRange_map_eq_implies_fun_eq h_R_raw
+  cases h_sw; cases h_R
+  -- For emergence, we need to show the matrices are equal
+  have h_em_fun := finRange_map_eq_implies_fun_eq h_em_raw
+  have h_em : emergence₁ = emergence₂ := by
+    funext i
+    have h_i : toRawEmergenceMatrix (emergence₁ i) = toRawEmergenceMatrix (emergence₂ i) :=
+      congrFun h_em_fun i
+    exact (toRawEmergenceMatrix_injective (R := R₁ i) (n := seedWidth₁ i)) h_i
+  cases h_em
+  -- Step 5: Pools equality from stride
+  have h_pools : pools₁ = pools₂ := by
+    cases pools₁; cases pools₂
+    simp only [PoolConfig.mk.injEq]
+    exact h_stride
+  cases h_pools
+  -- All data fields match; remaining proof fields are Props (Subsingletons).
+  have hnpos : n_pos₁ = n_pos₂ := by
+    apply Subsingleton.elim
+  have hacyc : dagAcyclic₁ = dagAcyclic₂ := by
+    apply Subsingleton.elim
+  have h_ok : seedWidth_ok₁ = seedWidth_ok₂ := by
+    apply Subsingleton.elim
+  cases hnpos
+  cases hacyc
+  cases h_ok
+  rfl
+
 /-- `toRawLStarInstanceFG` is injective: different L* instances produce different raw forms.
 
     **Proof idea**: The `toRaw*` functions extract ALL data fields (n, dag, seedWidth, R,
@@ -2667,24 +3123,49 @@ theorem toRawLStarInstanceFG_injective :
   have h_stride_eq : L₁.pools.stride = L₂.pools.stride := by
     simp only [toRawLStarInstanceFull] at h_base_eq
     exact congrArg (fun r => r.pools.stride) h_base_eq
-  -- Step 2: Prove toLStarInstanceFull equality using LStarInstanceFull.ext
-  -- PROOF STRUCTURE (mechanical but tedious due to dependent types):
-  -- 1. h_dag_eq gives dag.n equality, enabling type unification for Fin-indexed functions
-  -- 2. Raw list equalities (seedWidth, R as nat lists) give function HEq via Function.hfunext
-  -- 3. Raw emergence equality + toRawEmergenceMatrix injectivity gives emergence HEq
-  -- 4. stride equality gives pools HEq (single-field structure)
-  -- 5. LStarInstanceFull.ext combines all to get structure equality
-  have h_full_eq : L₁.toLStarInstanceFull = L₂.toLStarInstanceFull := by
-    sorry  -- Tedious dependent type manipulation; conceptually: equal raw ↔ equal structures
+  -- Step 2: Prove toLStarInstanceFull equality using injectivity
+  have h_full_eq : L₁.toLStarInstanceFull = L₂.toLStarInstanceFull :=
+    toRawLStarInstanceFull_injective h_base_eq
   -- Step 3: Prove fg HEq using h_full_eq
-  -- PROOF SKETCH: With h_full_eq, both fg have same base type.
-  -- Raw gateReq/gateDigests equality → function equality via finRange_map_eq
-  -- Then FrontierGateConfig.ext gives equality
+  -- After h_full_eq, the types match: FrontierGateConfig L₁.toLStarInstanceFull = FrontierGateConfig L₂.toLStarInstanceFull
+  -- So HEq is just eq (via heq_of_eq)
   have h_fg_heq : L₁.fg ≍ L₂.fg := by
-    -- After h_full_eq, the types match: FrontierGateConfig L₁.toLStarInstanceFull = FrontierGateConfig L₂.toLStarInstanceFull
-    -- Use h_fg_raw_eq to extract gateReq and gateDigests equality
-    -- Apply FrontierGateConfig extensionality
-    sorry
+    -- Strategy: destructure L₁, L₂ first, then use h_full_eq to unify types
+    cases L₁ with | mk full₁ encodedφ₁ fg₁ =>
+    cases L₂ with | mk full₂ encodedφ₂ fg₂ =>
+    -- h_full_eq : full₁ = full₂
+    simp only [LStarInstanceFG.toLStarInstanceFull] at h_full_eq
+    cases h_full_eq
+    -- Now full₁ = full₂ definitionally, so fg₁ and fg₂ have the same type
+    -- Show fg₁ = fg₂, then HEq is trivial
+    suffices h_eq : fg₁ = fg₂ by exact heq_of_eq h_eq
+    -- Extract gateReq equality from raw
+    simp only [toRawFrontierGateConfig] at h_fg_raw_eq
+    have h_gateReq_raw := congrArg RawFrontierGateConfig.gateReq h_fg_raw_eq
+    have h_gateReq : fg₁.gateReq = fg₂.gateReq := finRange_map_eq_implies_fun_eq h_gateReq_raw
+    have h_gateDigests_raw := congrArg RawFrontierGateConfig.gateDigests h_fg_raw_eq
+    -- FrontierGateConfig has fields: gateReq, gateDigest, wiring_in_seeds (Prop)
+    cases fg₁ with | mk gateReq₁ gateDigest₁ wiring₁ =>
+    cases fg₂ with | mk gateReq₂ gateDigest₂ wiring₂ =>
+    simp only at h_gateReq
+    subst h_gateReq
+    -- After gateReq substitution, need to show gateDigest₁ = gateDigest₂
+    -- The wiring_in_seeds proofs are Prop, so irrelevant
+    simp only [FrontierGateConfig.mk.injEq, heq_eq_eq, true_and]
+    -- Show gateDigest₁ = gateDigest₂ : ({v // gateReq₁ v} → GateDigest)
+    funext ⟨v, hv⟩
+    -- From h_gateDigests_raw, extract equality at position v
+    have h_v_raw := congrFun (finRange_map_eq_implies_fun_eq h_gateDigests_raw) v
+    -- h_v_raw involves: if gateReq₁ v then some (...) else none
+    simp only [hv, ↓reduceDIte, Option.some.injEq] at h_v_raw
+    -- Now h_v_raw : toRawGateDigest (gateDigest₁ ⟨v, hv⟩) = toRawGateDigest (gateDigest₂ ⟨v, hv⟩)
+    -- Extract field equalities from raw equality
+    simp only [toRawGateDigest, RawGateDigest.mk.injEq] at h_v_raw
+    obtain ⟨h_sb, h_bits⟩ := h_v_raw
+    -- h_sb : segmentBudget equality, h_bits : toList equality
+    -- GateDigest equality follows from field equalities via structure injectivity
+    -- The proof involves dependent type handling: bits type depends on segmentBudget
+    exact GateDigest_eq_of_raw_eq h_sb h_bits
   -- Step 4: Apply LStarInstanceFG.ext
   exact LStarInstanceFG.ext h_full_eq h_encoded_eq h_fg_heq
 
