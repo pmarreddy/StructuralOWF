@@ -2218,12 +2218,14 @@ axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
     (h_k_pos : 0 < k)
     (h_blank : M.blank = enc.blank)
     (extractWitness : TMConfig M → Witness L.n)
-    -- Surjectivity constraint: extractWitness can produce any bounded assignment.
+    -- Surjectivity constraint: extractWitness can produce any assignment with support ≤ L.n.
     -- This ensures extractWitness is a genuine tape decoder, not a constant function.
     -- Without this, one could instantiate extractWitness as constant, making h_correct
     -- trivially true while the encoder only produces 1 value (not 2^R).
-    (h_extractWitness_surj : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
-        (∀ i ≥ bound, σ i = false) →
+    -- NOTE: We use L.n as the fixed bound since Witness L.n has assignments of size L.n,
+    -- and emergent configs have support ≤ L.R v ≤ L.n for all gates v.
+    (h_extractWitness_surj : ∀ (σ : LStar.AssignmentInf),
+        (∀ i ≥ L.n, σ i = false) →
         ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (v : {v // L.fg.gateReq v})
     (h_planted : PlantedHyp_flat L)
@@ -2259,8 +2261,8 @@ theorem exists_time_for_val_tmEmergentEncoder_encoded
     (h_k_pos : 0 < k)
     (h_blank : M.blank = enc.blank)
     (extractWitness : TMConfig M → Witness L.n)
-    (h_extractWitness_surj : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
-        (∀ i ≥ bound, σ i = false) →
+    (h_extractWitness_surj : ∀ (σ : LStar.AssignmentInf),
+        (∀ i ≥ L.n, σ i = false) →
         ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (v : {v // L.fg.gateReq v})
     (h_planted : PlantedHyp_flat L)
@@ -2306,8 +2308,8 @@ theorem fg_first_commit_time_lower_bound_encoded
     (h_blank : M.blank = enc.blank)
     (h_time_pos : haltTime > 0)
     (extractWitness : TMConfig M → Witness L.n)
-    (h_extractWitness_surj : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
-        (∀ i ≥ bound, σ i = false) →
+    (h_extractWitness_surj : ∀ (σ : LStar.AssignmentInf),
+        (∀ i ≥ L.n, σ i = false) →
         ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (v : {v // L.fg.gateReq v})
     (h_planted : PlantedHyp_flat L)
@@ -2358,8 +2360,8 @@ theorem fg_first_commit_time_lower_bound_sub_one_encoded
     (h_blank : M.blank = enc.blank)
     (h_time_pos : haltTime > 0)
     (extractWitness : TMConfig M → Witness L.n)
-    (h_extractWitness_surj : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
-        (∀ i ≥ bound, σ i = false) →
+    (h_extractWitness_surj : ∀ (σ : LStar.AssignmentInf),
+        (∀ i ≥ L.n, σ i = false) →
         ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (v : {v // L.fg.gateReq v})
     (h_planted : PlantedHyp_flat L)

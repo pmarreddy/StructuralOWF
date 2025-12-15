@@ -157,25 +157,27 @@ structure StructuralOWFAdversary (nvars : Nat) where
       base.encoding.input base.h_tape_pos base.h_blank_consistent
 
   /-- **EXTRACTWITNESS COVERS BOUNDED ASSIGNMENTS**: extractWitness can produce any
-      assignment with bounded support.
+      assignment with support ≤ nvars.
 
-      **Statement**: For any bound and any infinite assignment σ with support ≤ bound
-      (i.e., σ i = false for all i ≥ bound), there exists a TM configuration cfg
+      **Statement**: For any infinite assignment σ with support ≤ nvars
+      (i.e., σ i = false for all i ≥ nvars), there exists a TM configuration cfg
       such that (extractWitness cfg).assignmentInf = σ.
 
       **Purpose**: Structural requirement enabling encoder completeness proofs.
       Combined with A3 emergence (full-rank matrices), this proves that the emergent
-      config encoder can produce all values in [0, 2^R).
+      config encoder can produce all values in [0, 2^R) where R ≤ nvars.
 
-      **Why bounded**: Tape encodings are finite, so we can only represent assignments
-      with finitely many true bits. The bound parameter makes this explicit.
+      **Why nvars**: Witness nvars has assignment : Fin nvars → Bool, so assignmentInf
+      is always false for i ≥ nvars. We use nvars as the fixed bound since:
+      1. Emergence rank R ≤ nvars for all gates in planted instances
+      2. This matches the Witness type's natural representational capacity
 
-      **Usage**: Security proofs call this with bound = R (emergence rank), where
-      σ_target encodes val : Fin (2^R) and thus has support ≤ R bits.
+      **Usage**: Security proofs use this to show all emergent configurations
+      (which have support ≤ R ≤ nvars bits) can be produced.
 
       **Trust Boundary**: 0 axioms (structural requirement, not assumption) -/
-  extractWitness_covers_bounded_assignments : ∀ (bound : Nat) (σ : LStar.AssignmentInf),
-      (∀ i ≥ bound, σ i = false) →
+  extractWitness_covers_bounded_assignments : ∀ (σ : LStar.AssignmentInf),
+      (∀ i ≥ nvars, σ i = false) →
       ∃ cfg : TMConfig base.M, (base.extractWitness cfg).assignmentInf = σ
 
 /-- Extract the TM from an OWF adversary. -/
