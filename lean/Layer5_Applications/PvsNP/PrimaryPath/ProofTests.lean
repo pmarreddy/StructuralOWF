@@ -21,7 +21,7 @@ open LStar LStar.StructuralOWF.Foundations
 /-- **Test Goal**: Show that extendAssign preserves equality at specific indices.
 
 Given:
-- `a_sat : Assignment` (i.e., `Nat → Bool`)
+- `a_sat : AssignmentInf` (i.e., `Nat → Bool`)
 - `nvars : Nat`
 - `i : Nat` with `i < nvars`
 
@@ -31,7 +31,7 @@ Show:
 This is the core issue in Literal.eval extension proof.
 -/
 theorem extendAssign_preserves_at_index
-    (a_sat : Assignment)
+    (a_sat : AssignmentInf)
     (nvars : Nat)
     (i : Nat)
     (h_i_bound : i < nvars) :
@@ -47,7 +47,7 @@ theorem extendAssign_preserves_at_index
 
 Given:
 - `literal : Literal`
-- `a_sat : Assignment`
+- `a_sat : AssignmentInf`
 - `r_assignment := extendAssign nvars (fun j => a_sat j.val)`
 - `literal.var < nvars`
 
@@ -56,7 +56,7 @@ Show:
 -/
 theorem literal_eval_with_extended_assignment
     (literal : Literal)
-    (a_sat : Assignment)
+    (a_sat : AssignmentInf)
     (nvars : Nat)
     (h_lit_bound : literal.var < nvars) :
     let r_assignment := RandomnessN.extendAssign nvars (fun j : Fin nvars => a_sat j.val)

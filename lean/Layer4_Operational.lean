@@ -1,8 +1,3 @@
-/-! # Layer 4: Operational Semantics
-
-Exports all Layer 4 modules: Turing machine execution and time bound bridges.
--/
-
 -- TuringMachine foundations
 import Layer4_Operational.TuringMachine.TMAxioms
 import Layer4_Operational.TuringMachine.TuringMachineSemantics
@@ -13,3 +8,8 @@ import Layer4_Operational.TimeBridge.TMAdapterExponential  -- Exponential profil
 
 -- Execution semantics
 import Layer4_Operational.ExecutionSemantics.ExecutionSemantics
+
+/-! # Layer 4: Operational Semantics
+
+Exports all Layer 4 modules: Turing machine execution and time bound bridges.
+-/

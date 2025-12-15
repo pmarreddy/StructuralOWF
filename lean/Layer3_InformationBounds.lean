@@ -1,8 +1,3 @@
-/-! # Layer 3: Information Bounds
-
-Exports all Layer 3 modules: Exponential lower bounds via Semantic Conservation Law.
--/
-
 -- Constraint System (world semantics)
 import Layer3_InformationBounds.ConstraintSystem.ConstraintSystem
 import Layer3_InformationBounds.ConstraintSystem.ConstraintExtraction
@@ -66,3 +61,8 @@ import Layer3_InformationBounds.Theorems.Quantitative
 
 -- Decision (L* in NP)
 import Layer3_InformationBounds.Decision.LStarNP
+
+/-! # Layer 3: Information Bounds
+
+Exports all Layer 3 modules: Exponential lower bounds via Semantic Conservation Law.
+-/

@@ -22,7 +22,7 @@ open LStar.Complexity
 namespace FPtoPPT
 
 -- Check what Assignment type is
-#check Assignment  -- Nat → Bool
+#check LStar.AssignmentInf  -- Nat → Bool
 
 -- The core issue: success_prob_n_coin uses A.run, which for a deterministic FP algorithm
 -- gives the same result for all coins. So if A_det succeeds on all inputs, avg = 1.

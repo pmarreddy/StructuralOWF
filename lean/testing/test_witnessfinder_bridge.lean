@@ -142,7 +142,7 @@ example (L : LStarInstanceFG) (W : WitnessFinder L) :
 
 -- Test 20: WitnessFinder fields are well-typed (totality)
 example (L : LStarInstanceFG) (W : WitnessFinder L) :
-  ∃ (t : Nat) (s : Nat) (trace : Fin W.time → AlgorithmState) (w : Witness),
+  ∃ (t : Nat) (s : Nat) (trace : Fin W.time → AlgorithmState) (w : Witness L.n),
     t = W.time ∧ s = W.states_visited ∧ trace = W.stateTrace ∧ w = W.output := by
   exact ⟨W.time, W.states_visited, W.stateTrace, W.output, rfl, rfl, rfl, rfl⟩
 

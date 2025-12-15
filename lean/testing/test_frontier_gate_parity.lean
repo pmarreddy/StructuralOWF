@@ -26,7 +26,7 @@ open LStar
 /-! ## BASIC STRUCTURAL TESTS -/
 
 -- Build test randomness (with single FG gate)
-noncomputable def buildTestRandomness : Randomness where
+noncomputable def buildTestRandomness (nvars : Nat) : Randomness nvars where
   dgLen := 64
   h_dgLen_pos := by norm_num
   assignment := fun _ => true
@@ -44,11 +44,11 @@ example {n : Nat} (cfg : Fin (2^n)) :
   computeDigest cfg = computeDigest cfg := rfl
 
 -- Test 3: Randomness has gateDigests field
-example (r : Randomness) :
+example {nvars : Nat} (r : Randomness nvars) :
   r.gateDigests = r.gateDigests := rfl
 
 -- Test 4: Single-gate constraint (gateDigests.length = 1)
-example (r : Randomness) :
+example {nvars : Nat} (r : Randomness nvars) :
   r.gateDigests.length = 1 :=
   r.h_single_gate
 
@@ -64,8 +64,8 @@ example {n : Nat} (cfg : Fin (2^n)) :
 
 -- Test 7: Concrete test with buildTestRandomness
 example :
-  buildTestRandomness.gateDigests.length = 1 :=
-  buildTestRandomness.h_single_gate
+  (buildTestRandomness 4).gateDigests.length = 1 :=
+  (buildTestRandomness 4).h_single_gate
 
 -- Test 8: fgDigestBit returns Bool
 example {n : Nat} (cfg : Fin (2^n)) :
@@ -73,14 +73,14 @@ example {n : Nat} (cfg : Fin (2^n)) :
   cases fgDigestBit cfg <;> simp
 
 -- Test 9: Randomness structure has required fields
-example (r : Randomness) :
+example {nvars : Nat} (r : Randomness nvars) :
   r.assignment = r.assignment ∧
   r.gateDigests = r.gateDigests ∧
   r.structuralBits = r.structuralBits :=
   ⟨rfl, rfl, rfl⟩
 
 -- Test 10: h_sufficient_salts constraint exists
-example (r : Randomness) :
+example {nvars : Nat} (r : Randomness nvars) :
   r.structuralBits.length ≥ 64 :=
   r.h_sufficient_salts
 
@@ -98,7 +98,7 @@ example {n : Nat} (cfg : Fin (2^n)) :
   use fgDigestBit cfg
 
 -- Test 13: Randomness constraints are consistent
-example (r : Randomness) :
+example {nvars : Nat} (r : Randomness nvars) :
   r.gateDigests.length = 1 ∧ r.structuralBits.length ≥ 64 := by
   exact ⟨r.h_single_gate, r.h_sufficient_salts⟩
 
@@ -116,9 +116,9 @@ example {n : Nat} (h : n > 0) :
 
 -- Test 16: buildTestRandomness satisfies constraints
 example :
-  buildTestRandomness.gateDigests.length = 1 ∧
-  buildTestRandomness.structuralBits.length ≥ 64 := by
-  exact ⟨buildTestRandomness.h_single_gate, buildTestRandomness.h_sufficient_salts⟩
+  (buildTestRandomness 4).gateDigests.length = 1 ∧
+  (buildTestRandomness 4).structuralBits.length ≥ 64 := by
+  exact ⟨(buildTestRandomness 4).h_single_gate, (buildTestRandomness 4).h_sufficient_salts⟩
 
 -- Test 17: computeDigest produces deterministic output
 example {n : Nat} (cfg1 cfg2 : Fin (2^n)) (h : cfg1 = cfg2) :
@@ -131,7 +131,7 @@ example {n : Nat} (cfg1 cfg2 : Fin (2^n)) (h : cfg1 = cfg2) :
   rw [h]
 
 -- Test 19: Randomness with different assignments are distinct
-example (r1 r2 : Randomness) (h : r1.assignment ≠ r2.assignment) :
+example {nvars : Nat} (r1 r2 : Randomness nvars) (h : r1.assignment ≠ r2.assignment) :
   r1 ≠ r2 := by
   intro h_eq
   have : r1.assignment = r2.assignment := by rw [h_eq]

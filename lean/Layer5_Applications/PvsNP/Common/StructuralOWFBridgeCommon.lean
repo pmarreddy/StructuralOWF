@@ -188,12 +188,12 @@ Each profile defines its own adapterOutputDecoding using this template.
 def mkAdapterOutputDecoding
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (n + 128)) T)
-    (decodeWitness : (n : Nat) → Bits (n + 128) → Randomness)
-    : TMOutputDecoding Randomness (Fin M.alphabetSize) where
+    (decodeWitness : (n : Nat) → Bits (n + 128) → Randomness n)
+    : TMOutputDecoding (Σ n : Nat, Randomness n) (Fin M.alphabetSize) where
   blank := M.encoding.output.blank
   decode := fun tape =>
     let sigma_result := M.encoding.output.decode tape
-    decodeWitness sigma_result.1 sigma_result.2
+    ⟨sigma_result.1, decodeWitness sigma_result.1 sigma_result.2⟩
   reads_finite := by
     obtain ⟨N, h_M_finite⟩ := M.encoding.output.reads_finite
     exact ⟨N, fun tape1 tape2 h_agree => by
@@ -207,8 +207,8 @@ def mkAdapterOutputDecoding
 def mkAdapterTMEncoding
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (n + 128)) T)
-    (decodeWitness : (n : Nat) → Bits (n + 128) → Randomness)
-    : TMEncodingBase (Fin T × LStarInstanceFG) Randomness (Fin M.alphabetSize) where
+    (decodeWitness : (n : Nat) → Bits (n + 128) → Randomness n)
+    : TMEncodingBase (Fin T × LStarInstanceFG) (Σ n : Nat, Randomness n) (Fin M.alphabetSize) where
   input := adapterInputEncoding M
   output := mkAdapterOutputDecoding M decodeWitness
   blank_consistent := M.encoding.blank_consistent
@@ -256,7 +256,7 @@ theorem adapter_configs_eq
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (n + 128)) T)
     (c : Fin T) (x : LStarInstanceFG)
-    (decodeWitness : (n : Nat) → Bits (n + 128) → Randomness) :
+    (decodeWitness : (n : Nat) → Bits (n + 128) → Randomness n) :
     initWithEncodingBase M.M (mkAdapterTMEncoding M decodeWitness).input (c, x) M.h_tape_pos M.h_blank_consistent =
     initWithEncodingBase M.M M.encoding.input (c, ⟨x.encodedφ.nvars, x⟩) M.h_tape_pos M.h_blank_consistent := by
   -- Both use the same encoding function: M.encoding.input.encode ⟨x.encodedφ.nvars, x⟩
@@ -327,12 +327,12 @@ def adapterInputEncoding_exp
 def mkAdapterOutputDecoding_exp
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (EncodingDiscipline.expWLen n)) T)
-    (decodeWitness : (n : Nat) → Bits (EncodingDiscipline.expWLen n) → Randomness)
-    : TMOutputDecoding Randomness (Fin M.alphabetSize) where
+    (decodeWitness : (n : Nat) → Bits (EncodingDiscipline.expWLen n) → Randomness n)
+    : TMOutputDecoding (Σ n : Nat, Randomness n) (Fin M.alphabetSize) where
   blank := M.encoding.output.blank
   decode := fun tape =>
     let sigma_result := M.encoding.output.decode tape
-    decodeWitness sigma_result.1 sigma_result.2
+    ⟨sigma_result.1, decodeWitness sigma_result.1 sigma_result.2⟩
   reads_finite := by
     obtain ⟨N, h_M_finite⟩ := M.encoding.output.reads_finite
     exact ⟨N, fun tape1 tape2 h_agree => by
@@ -343,8 +343,8 @@ def mkAdapterOutputDecoding_exp
 def mkAdapterTMEncoding_exp
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (EncodingDiscipline.expWLen n)) T)
-    (decodeWitness : (n : Nat) → Bits (EncodingDiscipline.expWLen n) → Randomness)
-    : TMEncodingBase (Fin T × LStarInstanceFG) Randomness (Fin M.alphabetSize) where
+    (decodeWitness : (n : Nat) → Bits (EncodingDiscipline.expWLen n) → Randomness n)
+    : TMEncodingBase (Fin T × LStarInstanceFG) (Σ n : Nat, Randomness n) (Fin M.alphabetSize) where
   input := adapterInputEncoding_exp M
   output := mkAdapterOutputDecoding_exp M decodeWitness
   blank_consistent := M.encoding.blank_consistent
@@ -379,7 +379,7 @@ theorem adapter_configs_eq_exp
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (EncodingDiscipline.expWLen n)) T)
     (c : Fin T) (x : LStarInstanceFG)
-    (decodeWitness : (n : Nat) → Bits (EncodingDiscipline.expWLen n) → Randomness) :
+    (decodeWitness : (n : Nat) → Bits (EncodingDiscipline.expWLen n) → Randomness n) :
     initWithEncodingBase M.M (mkAdapterTMEncoding_exp M decodeWitness).input (c, x) M.h_tape_pos M.h_blank_consistent =
     initWithEncodingBase M.M M.encoding.input (c, ⟨x.encodedφ.nvars, x⟩) M.h_tape_pos M.h_blank_consistent := by
   have h_encode_eq : (mkAdapterTMEncoding_exp M decodeWitness).input.encode (c, x) =
