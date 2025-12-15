@@ -10,7 +10,7 @@ We prove P ≠ NP for uniform probabilistic polynomial‑time Turing machines by
 
 **Key Innovation: The Semantic Conservation Law.** The incompressibility derives from a structural correctness constraint q + Φ ≥ R, where Φ measures simultaneously distinguishable computational artifacts (log₂ of state count), while R and q denote required and resolved information. This constraint yields exactly three operational routes: (1) Storage—maintain 2^(R−q) distinguishable states in parallel; (2) Resolution—learn correct values through sequential reads; (3) Elimination—prune wrong values through testing. L\*'s structural properties (Keyedness; Emergence + Bandwidth; Per‑Node Antagonism) block all three routes simultaneously, forcing exponential cost. Maintaining fewer than 2^(R-q) artifacts causes collisions between inequivalent seeds, leading to incorrect designated addresses and verification failure—a correctness requirement, not a performance heuristic.
 
-**Construction and One-Wayness.** We define L\* as a dependency DAG with seed-locked problem access: distinct computational histories induce distinct content-addressed seeds selecting designated memory locations. The one-way function f: {0,1}^m → L\*_{yes} maps random string r to planted instance x* = Plant(φ, r). Every output admits a per-instance, deterministic witness-finding lower bound: on any fixed run, producing the canonical witness requires time ≥ n^(Ω(log n)) or ≥ 2^(Ω(n)) (Theorem 8.A).
+**Construction and One-Wayness.** We define L\* ⊆ {0,1}\* as an NP-complete bitstring language (Definition 10.6.4) whose instances encode dependency DAG structures with seed-locked problem access: distinct computational histories induce distinct content-addressed seeds selecting designated memory locations. The one-way function f\_n: {0,1}^{m(n)} → {0,1}^{ℓ(n)} (Corollary 10.6.7) maps random string r to encoded planted instance Encode(Plant(φ\_n, r)). Every output admits a per-instance, deterministic witness-finding lower bound: on any fixed run, producing the canonical witness requires time ≥ n^(Ω(log n)) or ≥ 2^(Ω(n)) (Theorem 8.A).
 
 Any uniform PPT inverter 𝓘 succeeding with non‑negligible probability can be coin-fixed (Yao's principle) to deterministic algorithm 𝓘_{c̄} succeeding on some instance x*. Composing with polynomial-time extractor Ext yields witness W in polynomial time, contradicting the per-instance lower bound. Hence f is one-way against uniform PPT.
 
@@ -167,11 +167,12 @@ Each layer builds on previous layers. Verify compilation: `lake build` at each l
      - Formalization provides positive proof only
 
 2. **Is L\* actually NP-complete? Proof details?**
-   - **CHECK**: §10.1 (L\*∈NP via verifier V), §10.2 (NP-hardness via 3-SAT reduction), §10.3 (combines both)
+   - **CHECK**: §10.1-10.5 (structured proofs), §10.6 (bitstring formulation: L\* ⊆ {0,1}\* with encoding lemmas E1-E4)
    - **CRITICAL\**: If membership or hardness fails, classical bridge breaks
    - **LEAN**: Formalization uses OWF-based path (bypasses NP-completeness)
      - See `ParametricBitstringBridge.lean` for direct OWF → FP≠FNP → P≠NP proof
      - Paper's 3-SAT reduction path not formalized (both approaches valid)
+     - Bitstring transfer: `LStarEncoding.lean` (np\_transfer, p\_backward\_transfer theorems)
 
 3. **Quantifier structure: ∀x∀A or ∃x∀A? Why can't non-uniform circuits hardcode solutions?**
    - **CHECK**: Abstract (per-instance deterministic claim), §4.3 (uniform restriction), Theorem 8.A
@@ -188,7 +189,17 @@ Each layer builds on previous layers. Verify compilation: `lake build` at each l
    - **LEAN**: `Extractor.lean` - witness extraction from preimage (polynomial-time parsing)
      - Used in `StructuralOWFExponential.lean` theorem `f_is_structural_owf_exponential_flat` for contradiction
 
-5. **What is Frontier-Gate (FG) and how does it provide per-instance deterministic bounds?**
+5. **Is f a family? What are all inputs to Plant? Is each f_φ one-way?**
+   - **CHECK**: §9.1 (domain D(φ)), §3.0 Construction (explicit structure), §9.2 (sampler)
+   - **ANSWER**: YES, it's a function family {f_n} indexed by security parameter n:
+     - Each f_n uses a **fixed** 3-SAT formula φ_n of size n
+     - **Full input**: r = (α, gateDigests, salt) where α is a satisfying assignment for φ_n
+     - **Domain**: D(φ_n) = {r | r.α satisfies φ_n} — the assignment is part of the input!
+     - **All inputs to Plant**: (φ_n, α, gateDigests, salt) — formula + witness + auxiliary data
+     - **Each f_n is one-way**: Per-instance bounds (Theorem 8.A) apply to every x* = f_n(r)
+   - **LEAN**: `StructuralOWFExponential.lean` - domain constraint enforced via `WellFormedRandomness`
+
+6. **What is Frontier-Gate (FG) and how does it provide per-instance deterministic bounds?**
    - **CHECK**: §8.1 (FG overview), Theorem 8.A, Appendix C.1.1 (digest cost), Appendix C.2 (segment count)
    - **CRITICAL\**: Per-instance deterministic bounds enable OWF via coin-fixing
      - Distributional bounds insufficient
@@ -231,7 +242,7 @@ Each layer builds on previous layers. Verify compilation: `lake build` at each l
 
 2. **What is planting function Plant(φ,r) and why does every output have a witness?**
    - **PATH**: §9.1 (f: r ↦ Plant(φ,r) definition), §9.2 (planting algorithm), Appendix O (full details)
-   - **ANSWER**: r = (assignment, gateDigests, structuralSalt) ∈ D(φ) → Plant constructs x* with identity-based digests (non-leaking); seed computation is assignment‑independent; any valid domain element r' ∈ D(φ) with plant(r')=x* contains a satisfying assignment (Lemma 9.DOM)
+   - **ANSWER**: It's a function *family* {f_n} indexed by n. Each f_n uses fixed formula φ_n. Full input: r = (α, gateDigests, structuralSalt) where α satisfies φ_n. Domain D(φ_n) = {r | r.α satisfies φ_n}. Plant(φ_n, r) constructs x* with identity-based digests (non-leaking: α not exposed); any valid domain element r' ∈ D(φ) with plant(r')=x* contains a satisfying assignment (Lemma 9.DOM)
    - **LEAN**: `PlantExponential.lean` - planting algorithm formalization. Witness extraction via `Extractor.lean`. FG wiring via `FrontierGate.lean` (FG gates). All outputs have canonical witness by construction (structural property, not separate theorem).
 
 3. **Three routes (Storage/Resolution/Elimination): How does L\* block all simultaneously?**
@@ -385,7 +396,7 @@ Group 4 (barriers) → Group 1.8 (representation-invariance) → Group 1.2 (quan
 - **§1.6**: Technical foundations—SCL vs. Shannon
 - **§1.7**: Scope
 
-**Relation to rigorous proofs:** The formal results appear in §§6-10: L\*'s construction with properties A1-A5 (§6); proof that A1-A5 mathematically imply SCL (§7); per-instance deterministic bounds (§8); Structural OWF construction (§9); NP-completeness and classical bridge (§10). Section 1 provides intuition; subsequent sections provide proof.
+**Relation to rigorous proofs:** The formal results appear in §§6-10: L\*'s construction with properties A1-A5 (§6); proof that A1-A5 mathematically imply SCL (§7); per-instance deterministic bounds (§8); Structural OWF construction (§9); NP-completeness and classical bridge (§10.1-10.5); bitstring formulation with L\* ⊆ {0,1}\* (§10.6). Section 1 provides intuition; subsequent sections provide proof.
 
 **Key Terms Used in Section 1:**
 - **R_v (Required bits):** Information that must emerge at node v (determined by problem structure via Emergence axiom A3)
@@ -602,7 +613,7 @@ Designing L\* to expose information-theoretic incompressibility (via A1-A5 prope
 
 **First, per‑instance deterministic bounds (Theorem 8.A):** Every FG‑wired (Frontier‑Gate) instance requires super‑polynomial witness‑finding time on any fixed run. These bounds hold per instance and per fixed run; coin‑fixing extends them to randomized settings without distributional assumptions.
 
-**Second, unconditional Structural OWF (§9):** Define f: r ↦ Plant(φ, r) so every output satisfies the bound. Any uniform PPT inverter with non‑negligible success can be coin‑fixed to a deterministic run on some x* = f(r*); composing with the extractor Ext produces a polynomial‑time witness, contradicting the per‑instance bound on that (instance, run) pair. Therefore f is one‑way.
+**Second, unconditional Structural OWF (§9):** Define a function family {f_n} where f_n(r) = Plant(φ_n, r) with r = (α, gateDigests, salt) and domain D(φ_n) = {r | α satisfies φ_n}. Every output satisfies the bound. Any uniform PPT inverter with non‑negligible success can be coin‑fixed to a deterministic run on some x* = f(r*); composing with the extractor Ext produces a polynomial‑time witness, contradicting the per‑instance bound on that (instance, run) pair. Therefore f is one‑way.
 
 Since L\* is NP‑complete (§10), the classical bridge (OWF ⇒ FP ≠ FNP ⇒ P ≠ NP) completes the complexity separation.
 
@@ -982,7 +993,7 @@ Section 1 established the intuitive foundation: algorithms solving L\* must sati
 - §2.4: How dependencies create multiplicative growth and bottleneck residuals
 - §2.5: Concrete 3‑node DAG example demonstrating the framework
 
-**Relation to rigorous proofs:** The formal results appear in §§6-10: L\*'s construction and properties **A1-A5** (§6); proof that A1-A5 mathematically imply SCL (§7.2.1); **per-instance deterministic bounds** (§8.A) with FG details (Appendix C); Structural OWF construction (§9); NP-completeness (§10). Section 2 provides the conceptual bridge between §1's intuition and these technical results.
+**Relation to rigorous proofs:** The formal results appear in §§6-10: L\*'s construction and properties **A1-A5** (§6); proof that A1-A5 mathematically imply SCL (§7.2.1); **per-instance deterministic bounds** (§8.A) with FG details (Appendix C); Structural OWF construction (§9); NP-completeness (§10); and bitstring formulation L\* ⊆ {0,1}\* with transfer theorems (§10.6). Section 2 provides the conceptual bridge between §1's intuition and these technical results.
 
 
 #### 2.1 The Semantic Conservation Law: Formal Statement and Structure
@@ -2167,7 +2178,7 @@ Sections 1 and 2 established the conceptual foundation: algorithms solving L\* m
 - **§3.5**: OWF Packaging via Deterministic FG (direct construction)
 - **§3.6**: Falsifiability: The Compression Barrier
 
-**Relation to the proof:** The theorems stated here are proven across §§6-10: L\*'s construction (§6), SCL derivation (§7), **per-instance deterministic bounds** (§8.A) with FG details (Appendix C), Structural OWF construction (§9), and NP-completeness (§10). Section 3 tells you *what* we'll prove; the remaining sections show *how*.
+**Relation to the proof:** The theorems stated here are proven across §§6-10: L\*'s construction (§6), SCL derivation (§7), **per-instance deterministic bounds** (§8.A) with FG details (Appendix C), Structural OWF construction (§9), NP-completeness (§10), and bitstring formulation L\* ⊆ {0,1}\* (§10.6). Section 3 tells you *what* we'll prove; the remaining sections show *how*.
 
 #### 3.0 Results at a Glance¹
 
@@ -2176,9 +2187,15 @@ Convention: In this section, n := n_core (see §1.7).
 ¹ *Polynomials are measured in |x*|; notation and sizing in §4 (Notation). Unless stated otherwise, §§1-8 use n := n_core; §12 restates bounds with n := |x*|.*
 
 **Main Separation (OWF Construction).**
-**Theorem (P ≠ NP via OWF).** We construct an unconditional one-way function f from NP-complete language L\*, proving **P ≠ NP** via the classical bridge OWF ⇒ FP ≠ FNP ⇒ P ≠ NP.
+**Theorem (P ≠ NP via OWF).** We construct an unconditional one-way function f from NP-complete language L\* ⊆ {0,1}\* (Definition 10.6.4), proving **P ≠ NP** via the classical bridge OWF ⇒ FP ≠ FNP ⇒ P ≠ NP (Corollary 10.6.8).
 
-**Construction**: f: r ↦ Plant(φ, r) with FG wiring. Every output x*=f(r) has **per-instance deterministic bound (Theorem 8.A): witness-finding requires time ≥ n^(Ω(log n)) (QP-sharp) or ≥ 2^(Ω(n)) (flat) on any fixed computational run**.
+**Construction**: A function family {f_n} indexed by security parameter n. Each f_n uses a fixed 3-SAT formula φ_n of size n:
+- **Domain**: D(φ_n) = {r = (α, gateDigests, salt) | α satisfies φ_n}
+- **Function**: f_n(r) = Plant(φ_n, r) with FG wiring
+- **All inputs to Plant**: (φ_n, α, gateDigests, salt) — the formula and a satisfying assignment α are both required
+- **Output**: x* ∈ L\* containing overlay structure (α is NOT exposed in x*)
+
+Every output x*=f(r) has **per-instance deterministic bound (Theorem 8.A): witness-finding requires time ≥ n^(Ω(log n)) (QP-sharp) or ≥ 2^(Ω(n)) (flat) on any fixed computational run**. Full details in §9.
 
 **Key Innovation (Per-Instance Deterministic vs Distributional):**
 - **Traditional OWFs** (e.g., factoring): Assume *average-case* hardness—most instances hard over a distribution
@@ -6033,7 +6050,7 @@ The following properties of Encode are established in Appendix D.5.
 
 **Lemma E1 (Unique Decodability).** There exists Decode : {0,1}\* ⇀ X\* such that for all x\* ∈ X\*: Decode(Encode(x\*)) = x\*.
 
-*Justification:* The format in D.5 is length-delimited with unambiguous field boundaries; Decode parses left-to-right recovering each field uniquely on the image of Encode. ∎
+*Justification:* The format in D.5 is length-delimited with unambiguous field boundaries; Decode parses left-to-right recovering each field uniquely (and is only required to succeed on the image of Encode). ∎
 
 **Corollary E1' (Injectivity).** Encode is injective: Encode(x\*) = Encode(y\*) → x\* = y\*.
 
@@ -6094,7 +6111,9 @@ Construct a structured inverter A': given x\* = Plant(φ\_n, r):
 2. Run A(bs) to obtain r'
 3. Output r'
 
-Correctness: since f\_n(r') = bs = Encode(x\*) = Encode(Plant(φ\_n, r)), by Corollary E1' (injectivity) we have Plant(φ\_n, r') = Plant(φ\_n, r) = x\*. Thus A' inverts the structured planting function with the same success probability as A, contradicting the structured OWF theorem (§9, Theorem 9.4). ∎
+Correctness: since f\_n(r') = bs = Encode(x\*) = Encode(Plant(φ\_n, r)), by Corollary E1' (injectivity) we have Plant(φ\_n, r') = Plant(φ\_n, r) = x\*. Thus A' inverts the structured planting function with the same success probability as A, contradicting the structured OWF theorem (§9, Theorem 9.4).
+
+*(Optional intuition, used in §9.3–§9.4):* From any such preimage r' one may extract a satisfying assignment (Lemma 9.DOM) and then a canonical witness via Ext (Lemma 9.Ext), showing inversion implies SAT-solving. ∎
 
 **Corollary 10.6.8 (P ≠ NP).** P ≠ NP.
 
@@ -6362,7 +6381,7 @@ The Lean formalization proves this bridge via `observation_semantics_all_configs
 
 ### 12. Discussion and Implications
 
-The main proof is complete. Sections 1-10 established **P ≠ NP** unconditionally for classical uniform PPT via the Structural OWF construction. We constructed L\* with structural properties (A1-A5) forcing the Semantic Conservation Law (§7), applied FG-wiring to create per-instance deterministic lower bounds (§8), built an OWF where every output inherits hardness (§9), and connected to P ≠ NP via the classical bridge (§10). Section 11 positioned this work within the literature.
+The main proof is complete. Sections 1-10 established **P ≠ NP** unconditionally for classical uniform PPT via the Structural OWF construction. We constructed L\* with structural properties (A1-A5) forcing the Semantic Conservation Law (§7), applied FG-wiring to create per-instance deterministic lower bounds (§8), built an OWF where every output inherits hardness (§9), connected to P ≠ NP via the classical bridge (§10.1-10.5), and formalized L\* ⊆ {0,1}\* as a bitstring language with transfer theorems (§10.6). Section 11 positioned this work within the literature.
 
 **Purpose of Section 12:** We now explore the implications, design space, scope boundaries, and future directions. This section addresses key questions: What complexity regimes does the framework support? What exactly was proven and what wasn't? How does this approach avoid traditional barriers? Why does the semantic layer matter? How does this relate to natural NP problems? What future work does this enable?
 
