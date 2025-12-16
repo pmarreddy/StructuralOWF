@@ -5371,9 +5371,9 @@ Sections 1-8 established the foundation: the Semantic Conservation Law (§7) and
 
 The **Structural OWF** derives hardness from A2 injectivity on R-bit emergent configurations, with 1-bit parity as discriminator. This makes the one-wayness information-theoretic rather than computational (no factoring/discrete-log assumptions).
 
-**Basic Structural OWF (for P≠NP):**
+**Core Construction: Plant(φ, r)**
 
-Given a fixed 3-SAT formula φ, define f: D(φ) → L\* where D(φ) contains valid preimages:
+Given any satisfiable 3-SAT formula φ, define f: D(φ) → L\* where D(φ) contains valid preimages:
 
 - **Input**: r = (α, gateDigests, salt) where α satisfies φ
 - **Process**: Plant(φ, r) — build DAG overlay, compute seed chain with variable seeds from α, apply FrontierGate (capture all R emergence bits), wire digest into downstream seeds
@@ -5386,23 +5386,26 @@ Given a fixed 3-SAT formula φ, define f: D(φ) → L\* where D(φ) contains val
 - **Hardness source**: The 2^R lower bound comes from A2 injectivity: different R-bit configurations → different seeds → different addresses. Parity witnesses the difference; A2 enforces the cost.
 - **Key insight**: If parity alone were the hardness source, there would be only 2 possibilities (parity 0 vs 1). The 2^R hardness comes from needing to identify which of 2^R distinct configurations is correct.
 
-**Trapdoor Structural OWF (enables Cryptomania):**
+**Two Applications of the Same Construction:**
 
-The trapdoor variant starts from the answer and generates the puzzle:
+The Plant construction yields different cryptographic primitives depending on how φ is chosen:
 
-- **Input**: α (Alice's secret assignment)
-- **Generate φ from α**: For each variable i, add unit clause (xᵢ) if α(i)=1, else (¬xᵢ)
-- **Result**: φ where α is the unique satisfying assignment (proven, not assumed)
+**Application 1: One-Way Function (for P≠NP)**
+
+Fix an explicit satisfiable family {φₙ} with known satisfying assignments {αₙ}. The sampler draws r ← D(φₙ) (which includes αₙ as a component) and outputs x* = Plant(φₙ, r). Security: inversion is hard for *everyone* — no secret exists. This establishes P ≠ NP.
+
+**Application 2: Trapdoor Function (enables Cryptomania)**
+
+Generate φ from a secret α: for each variable i, add unit clause (xᵢ) if α(i)=1, else (¬xᵢ). Result: φ where α is the unique satisfying assignment (uniqueness follows from unit-clause CNF structure, not a general L\* property).
+
 - **Public key**: pk = x* = Plant(φ, r) — the OAP-encoded instance (φ is seed-locked, not plaintext; §10.1.1)
 - **Private key**: sk = α
-- **Operation**: Anyone can verify witness validity against x*; pk defines the OWF challenge
-
-With trapdoor (knows α): O(poly(n)) — can invert x* to recover r (α enables seed computation)
-Without trapdoor: Ω(2^n) — must break OAP to find α (circular: decode φ → need seeds → need α → solve φ)
+- **With trapdoor** (knows α): O(poly(n)) — can invert x* to recover r
+- **Without trapdoor**: Ω(2^n) — must break OAP to find α
 
 **OAP Security**: The unit-clause structure is irrelevant to security because OAP (§10.1.1) seed-locks all formula data. An attacker sees only `literal_i = enc(actual_literal_i) ⊕ R_mask_i` where masks reside at seed-dependent addresses. Decoding requires computing seeds, which requires knowing α—creating the circular dependency that forces exponential search.
 
-This places us in Cryptomania — both private-key (Minicrypt) and public-key cryptography are possible from L\*.
+This trapdoor application places us in Cryptomania — both private-key (Minicrypt) and public-key cryptography are possible from L\*.
 
 **Roadmap:**
 - **§9.1**: Parameters and Canonical Decode Order  -  sizing and output structure
@@ -5467,7 +5470,7 @@ Both checks are polynomial-time, ensuring the inversion relation is in FNP (§9.
 
 Fix a satisfiable 3-CNF formula φ of core size n\_core (later, take the explicit family {φ\_n} indexed by n). The sampler 𝒮 and planting function f are defined relative to this φ.
 
-Sampler 𝒮(1^n). Sample r ← D(φ) uniformly from the valid domain and output x* := f(r). Concretely, sample a satisfying assignment w for φ (under the chosen sampling distribution), compute the required gateDigests as the R-bit emergent configurations under w, and form r = (w, gateDigests, structuralSalt).
+**Sampler 𝒮(1^n).** Sample r ← D(φ) uniformly from the valid domain and output x* := f(r). Since D(φ) = {r = (w, gateDigests, structuralSalt) : w ⊨ φ}, the sampler draws from a distribution over preimages that already contain satisfying assignments. For the explicit family {φₙ}, a known αₙ ⊨ φₙ exists by construction (e.g., unit-clause generation from αₙ, or any other method producing a satisfiable family). Compute gateDigests as the R-bit emergent configurations under w, and form r = (w, gateDigests, structuralSalt).
 
 **Definition (f).** On input r = (assignment, gateDigests, structuralSalt) where r ∈ D(φ):
 1) Compute metadata := BuildOverlay(n_core).
