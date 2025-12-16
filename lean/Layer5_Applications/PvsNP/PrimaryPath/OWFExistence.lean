@@ -13,12 +13,16 @@ A function f is one-way if:
 2. ∀ PPT adversary A: Pr[A inverts f] ≤ negl(n)
 
 **Our Formalization**:
-- "Efficiently computable" is captured by the adversary model (PPT adversaries)
-- "Negligible inversion" is `negligible_parametric` over `avg_success_prob_n_exp`
-- The experiment uses the flat profile from StructuralOWFExponential.lean
+- "Efficiently computable" → `forward_polytime` field (output size ≤ C·n^k)
+- "Negligible inversion" → `SecurityProperty` using `avg_success_prob_n_exp`
+- Success experiment: average inversion probability over uniform randomness
 
-**Trust Boundary**: Same 2 axioms as P ≠ NP (no additional axioms).
-This repackages `f_is_structural_owf_exponential_true` into textbook form.
+**Witness**: `alignedCNFFamily` — a CNF family where each Φ(n) has n variables
+and n unit clauses (one positive literal per variable). Simple structure,
+but sufficient to instantiate the OWF construction.
+
+**Trust Boundary**: 1 custom axiom (`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`).
+This is a strict subset of P≠NP's 2 axioms — OWF doesn't need the AlgSpec→TM bridge.
 -/
 
 namespace LStar.StructuralOWF.OWFExistence
@@ -58,7 +62,11 @@ structure CNFPreconditions (Φ : CNFFamily) : Prop where
 /-- **Security Property**: For all uniform PPT adversaries, success is negligible.
 
     Given preconditions on Φ, this states the textbook OWF security:
-    "∀ PPT A, Pr[A inverts] ≤ negl(n)" -/
+    "∀ PPT A, Pr[A inverts] ≤ negl(n)"
+
+    **Experiment** (`avg_success_prob_n_exp`): Sample random assignment r,
+    compute y = plant_flat(Φ(n), r), give y to adversary A, check if A
+    outputs r' such that plant_flat(Φ(n), r') = y. Average over coins. -/
 def SecurityProperty (Φ : CNFFamily) (prec : CNFPreconditions Φ) : Prop :=
   ∀ (A : (n : Nat) → StructuralOWFAdversary (Φ n).nvars),
     (∀ n, (A n).base.C ≤ (A 128).base.C ∧ (A n).base.k ≤ (A 128).base.k) →
@@ -71,16 +79,13 @@ def SecurityProperty (Φ : CNFFamily) (prec : CNFPreconditions Φ) : Prop :=
 /-- **One-Way Function Predicate**: Standard cryptographic OWF definition.
 
     A CNF family Φ has one-way `plant_flat` if:
-    1. **Preconditions**: Well-formedness, structure constraints (CNFPreconditions)
+    1. **Preconditions**: Well-formedness, structure constraints, poly-time forward
     2. **Security**: For all uniform PPT adversary families,
        average success probability is negligible
 
-    **Textbook correspondence**: This matches the standard OWF definition
-    "∀ PPT A, Pr[A inverts] ≤ negl(n)" from Goldreich/Katz-Lindell.
-
-    **Note on "poly-time computable"**: The forward function `plant_flat` is
-    implicitly poly-time (simple planting operation). The PPT constraint
-    is on the *adversary*, matching the standard definition. -/
+    **Textbook correspondence** (Goldreich/Katz-Lindell):
+    - Part 1 (efficient forward): `forward_polytime` in CNFPreconditions
+    - Part 2 (hard to invert): `SecurityProperty` -/
 def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
   ∃ (prec : CNFPreconditions Φ), SecurityProperty Φ prec
 
@@ -142,12 +147,12 @@ theorem alignedCNFFamily_security : SecurityProperty alignedCNFFamily alignedCNF
 
     **Statement**: ∃ Φ : CNFFamily, IsOneWayPlantFlat Φ
 
-    **Witness**: `alignedCNFFamily` (λ-aligned CNF family with unique solutions)
+    **Witness**: `alignedCNFFamily` (n variables, n unit clauses per Φ(n))
 
     **Proof**: Direct application of `f_is_structural_owf_exponential_true`
-    with the concrete `alignedCNFFamily` and its verified side-conditions.
+    with `alignedCNFFamily` and its verified side-conditions.
 
-    **Trust Boundary**: Same 2 axioms as P ≠ NP (no additional axioms). -/
+    **Trust Boundary**: 1 custom axiom (subset of P≠NP's 2 axioms). -/
 theorem OWF_exists : ∃ Φ : CNFFamily, IsOneWayPlantFlat Φ :=
   ⟨alignedCNFFamily, alignedCNFFamily_preconditions, alignedCNFFamily_security⟩
 
