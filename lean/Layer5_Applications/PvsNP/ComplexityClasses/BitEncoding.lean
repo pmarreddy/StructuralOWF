@@ -30,28 +30,6 @@ namespace LStar.Complexity
 
 open Sized
 
-/-- Helper: head? of cons. -/
-private lemma List.head?_cons' {α : Type} (a : α) (l : List α) :
-    (a :: l).head? = some a := rfl
-
-/-- Helper: getLast? of append with singleton. -/
-private lemma List.getLast?_append_singleton {α : Type} (l : List α) (a : α) :
-    (l ++ [a]).getLast? = some a := by
-  rw [List.getLast?_eq_getLast]
-  · rw [List.getLast_append_singleton]
-  · simp
-
-/-- Helper: take of append when k < length of first list. -/
-private lemma List.take_append_of_le_left {α : Type} (l1 l2 : List α) (k : Nat)
-    (h : k ≤ l1.length) : (l1 ++ l2).take k = l1.take k := by
-  rw [List.take_append_of_le_length h]
-
-/-- Helper: Proper prefix has different length than full list. -/
-private lemma List.length_take_of_lt {α : Type} (l : List α) (k : Nat) (h : k < l.length) :
-    (l.take k).length ≠ l.length := by
-  simp [List.length_take, Nat.min_eq_left (Nat.le_of_lt h)]
-  omega
-
 /-- Helper: If filterMap produces at least one element, head? of append equals head?. -/
 private lemma filterMap_head?_append_ne_nil {β : Type} (l1 l2 : List β)
     (h : l1 ≠ []) : (l1 ++ l2).head? = l1.head? := by

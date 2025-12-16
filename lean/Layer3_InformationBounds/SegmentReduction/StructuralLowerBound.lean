@@ -299,11 +299,6 @@ private lemma fold_add_distributes {n : Nat} (cfg : Fin (2^n)) (xs : List Nat) (
     xs.foldl (fun (acc : ZMod 2) a => acc + (getBit cfg.val a : ZMod 2)) acc + c :=
   fold_add_distributes_gen (fun a => (getBit cfg.val a : ZMod 2)) acc c
 
-/-- Helper: changing bit from b to (1-b) adds 1 in ZMod 2. -/
-private lemma bit_flip_diff_eq_one (b : Nat) (hb : b ≤ 1) :
-    ((1 - b : Nat) : ZMod 2) + (b : ZMod 2) = 1 := by
-  interval_cases b <;> norm_num
-
 /-! ### Finset-Based Parity Proof -/
 
 /-- Finset-based parity definition using Fintype.sum.

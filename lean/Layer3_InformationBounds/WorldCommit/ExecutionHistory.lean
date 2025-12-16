@@ -67,7 +67,7 @@ variable {L : LStarInstanceFG}
 
 /-! ## List.IsPrefix Infrastructure
 
-These lemmas should be in Mathlib but are missing. We prove them here.
+This lemma should be in Mathlib but is missing. We prove it here.
 -/
 
 namespace List
@@ -78,16 +78,6 @@ theorem IsPrefix.subset {α : Type*} {l₁ l₂ : List α} (h : l₁ <+: l₂) :
   obtain ⟨t, rfl⟩ := h
   apply List.mem_append_left
   exact hx
-
-/-- **filterMap preserves prefix subset**: If l₁ <+: l₂, then filterMap f l₁ outputs are in filterMap f l₂. -/
-theorem filterMap_prefix_subset {α β : Type*} (f : α → Option β) {l₁ l₂ : List α}
-    (h : l₁ <+: l₂) : ∀ y ∈ l₁.filterMap f, y ∈ l₂.filterMap f := by
-  intro y hy
-  -- y ∈ filterMap f l₁ means ∃ x ∈ l₁, f x = some y
-  obtain ⟨x, hx, hfx⟩ := List.mem_filterMap.mp hy
-  -- x ∈ l₁ and l₁ <+: l₂ implies x ∈ l₂
-  have hx₂ := IsPrefix.subset h x hx
-  exact List.mem_filterMap.mpr ⟨x, hx₂, hfx⟩
 
 end List
 
@@ -429,14 +419,14 @@ theorem totalEliminations_monotone
     | inl h_bit =>
         left
         -- c from bit constraints, use filterMap_prefix_subset
-        exact List.filterMap_prefix_subset _ h_bits_prefix c h_bit
+        exact filterMap_prefix_subset _ h_bits_prefix c h_bit
     | inr h_rest =>
         right
         cases h_rest with
         | inl h_config =>
             left
             -- c from config constraints, use filterMap_prefix_subset
-            exact List.filterMap_prefix_subset _ h_configs_prefix c h_config
+            exact filterMap_prefix_subset _ h_configs_prefix c h_config
         | inr h_synth =>
             right
             -- c from synthetic constraints

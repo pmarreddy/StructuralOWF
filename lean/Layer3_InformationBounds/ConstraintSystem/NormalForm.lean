@@ -685,17 +685,6 @@ lemma satisfies_implies_wellFormed {L : LStarInstanceFG} {C : Finset (Fin L.dag.
       unfold CutConstraint.Satisfies at h
       exact h.symm
 
--- No redundancy filtering, so this theorem is trivial.
--- Since dig2 = dig1 (no filtering), both sides are definitionally equal.
-private theorem filter_redundant_digests_preserves_all {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
-    (bitsList : List (CutConstraint L C))
-    (digestsList : List (CutConstraint L C))
-    (ω : CutWorld L C)
-    (_h_wf : ListWellFormed digestsList ω) :
-    (bitsList.all (fun c => decide (c.Satisfies ω)) && digestsList.all (fun c => decide (c.Satisfies ω))) =
-    (bitsList.all (fun c => decide (c.Satisfies ω)) && digestsList.all (fun c => decide (c.Satisfies ω))) :=
-  rfl  -- Trivial: both sides are identical!
-
 /-- **Well-formedness scoped to feasible worlds**.
 
 Constraints are well-formed if digest constraints are coherent **on worlds that satisfy them**.

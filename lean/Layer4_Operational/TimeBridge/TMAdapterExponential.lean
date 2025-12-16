@@ -757,61 +757,6 @@ theorem executionPrefix_compatible_with_planted_flat :
 #print axioms ValidExecutionPrefix_flat
 #print axioms executionPrefix_compatible_with_planted_flat
 
--- ══════════════════════════════════════════════════════════════════════════
--- Helper Lemmas for Dependent Type Transport (Fin.cast)
--- (Needed for time_bound_from_coverage proof)
--- ══════════════════════════════════════════════════════════════════════════
-
-/-- Helper: Fin.cast preserves .val -/
-private lemma fin_cast_val' {n m : Nat} (h : n = m) (v : Fin n) : (Fin.cast h v).val = v.val := by
-  cases h; rfl
-
-/-- Helper: dag.n equality from LStarInstanceFG equality -/
-private lemma dag_n_eq_of_LStarInstanceFG_eq' (L L' : LStarInstanceFG) (h : L = L') :
-    L.toLStarInstanceFull.dag.n = L'.toLStarInstanceFull.dag.n := by
-  cases h; rfl
-
-/-- Transport gateReq across LStarInstanceFG equality using Fin.cast -/
-private lemma gateReq_cast_LStarInstanceFG' {L L' : LStarInstanceFG} (h : L = L') (v : Fin L.toLStarInstanceFull.dag.n) :
-    L.fg.gateReq v = L'.fg.gateReq (Fin.cast (dag_n_eq_of_LStarInstanceFG_eq' L L' h) v) := by
-  cases h; rfl
-
-/-- Transport R across LStarInstanceFG equality using Fin.cast -/
-private lemma R_cast_LStarInstanceFG' {L L' : LStarInstanceFG} (h : L = L') (v : Fin L.toLStarInstanceFull.dag.n) :
-    L.R v = L'.R (Fin.cast (dag_n_eq_of_LStarInstanceFG_eq' L L' h) v) := by
-  cases h; rfl
-
-/-- Missing encoder value implies incomplete observation.
-    If encoder misses a value in [0, 2^R), the observation must be incomplete. -/
-private theorem missing_value_implies_incomplete'
-    {L : LStarInstanceFG}
-    (v : {v // L.fg.gateReq v})
-    (h_R_pos : 0 < L.R v.val)
-    (visited : Finset Nat)
-    (cfg : Fin (2^(L.R v.val)))
-    (h_missing : cfg.val ∉ visited)
-    (h_visited_bounded : ∀ x ∈ visited, x < 2^(L.R v.val))
-    : ∃ (obs : Observation L.toLStarInstanceFull v.val), obs.isIncomplete := by
-  -- Strategy: Construct observation missing at least one bit position
-  cases h_R_eq : L.R v.val with
-  | zero => omega  -- Contradicts h_R_pos
-  | succ R' =>
-    -- R ≥ 1: Construct observation with only first R' positions (missing last)
-    let positions : Finset (Fin (L.R v.val)) :=
-      (Finset.range R').attach.image (fun ⟨i, h_i⟩ =>
-        ⟨i, by rw [h_R_eq]; exact Nat.lt_succ_of_lt (Finset.mem_range.mp h_i)⟩)
-    let obs : Observation L.toLStarInstanceFull v.val := { read_positions := positions }
-    use obs
-    unfold Observation.isIncomplete
-    have h_card_le : positions.card ≤ R' := by
-      calc positions.card
-          ≤ (Finset.range R').attach.card := Finset.card_image_le
-        _ = (Finset.range R').card := Finset.card_attach
-        _ = R' := Finset.card_range R'
-    calc positions.card ≤ R' := h_card_le
-      _ < R'.succ := Nat.lt_succ_self R'
-      _ = L.R v.val := h_R_eq.symm
-
 /-!
 ## TM Core Imported from TuringMachineSemantics
 
@@ -887,26 +832,6 @@ noncomputable def tmExtractAssignment
     (alphabetToBool : alphabet → Bool)
     (h_k_pos : k > 0) : Fin n → Bool :=
   fun i => alphabetToBool ((cfg.tapes ⟨0, h_k_pos⟩) i.val)
-
-/-- Extract witness from final TM configuration.
-
-    Key insight: This is INSTANCE-SPECIFIC, not model-specific!
-
-    Different L* instances may have different tape layouts. Rather than
-    hardcode a specific layout, we make this a PARAMETER of the adapter.
-
-    The caller must provide:
-    1. An extraction function (TMConfig → Witness)
-    2. Proof that extraction is correct (extracted witness satisfies φ)
-
-    This is the honest approach: we separate universal TM semantics
-    (which we prove) from instance-specific encoding (which is given). -/
-noncomputable def tmOutputWitness' {nvars : Nat}
-    (M : TuringMachine k states alphabet)
-    (haltTime : Nat)
-    (extractWitness : TMConfig M → Witness nvars) : Witness nvars :=
-  let finalCfg := TMConfig.run M haltTime
-  extractWitness finalCfg
 
 /-- Extract verified witness from final TM configuration.
 

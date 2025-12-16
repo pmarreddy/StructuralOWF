@@ -1933,21 +1933,6 @@ theorem correct_digests_length_eq_totalRBits_planted_flat
     : W.digestBits.length = Foundations.totalRBits (plant_flat n φ r h_nvars h_aligned) := by
   exact Foundations.correct_digests_implies_correct_length (plant_flat n φ r h_nvars h_aligned) W h_correct
 
-/-- **Lemma**: planted_gateReq for flat profile matches interval formula.
-
-    This is identical to the QP-sharp version because plant_flat uses the SAME
-    gateReq interval formula (standard construction). -/
-private lemma planted_gateReq_true_iff_interval_flat
-    {n φ r h_nvars h_aligned L}
-    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
-    (v : Fin L.dag.n)
-    (clause_start numGates : Nat)
-    (h_clause_start : clause_start = 1 + φ.nvars)
-    (h_numGates : numGates = r.gateDigests.length)
-    : L.fg.gateReq v = true ↔ (clause_start ≤ v.val ∧ v.val < clause_start + numGates) := by
-  subst h_L_eq h_clause_start h_numGates
-  simp [plant_flat]
-
 /-- **Flat mode R values equal nvars at FG gates**. -/
 theorem plant_flat_R_eq_nvars (n : Nat) (φ : CNF) (r : Randomness φ.nvars)
     (h_nvars_min : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ)

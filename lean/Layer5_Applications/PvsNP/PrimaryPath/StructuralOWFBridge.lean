@@ -307,25 +307,6 @@ theorem assignment_roundtrip_exp (n : Nat) (h_n_pos : n > 0) (φ : CNF) (h_nvars
 -- Sized instance for LStarInstanceFG is imported from OWFSizedInstances: size L = L.dag.n
 -- LStarInstanceFG.ext is imported from OWFBridgeCommon
 
-/-- Helper: List element equality from list equality (proof-irrelevant indices).
-    When two lists are equal, getting elements at the same index gives equal results,
-    regardless of which bound proof is used. -/
-private lemma list_get_eq_of_list_eq {α : Type*} {l1 l2 : List α} (h_eq : l1 = l2)
-    (i : Nat) (h1 : i < l1.length) (h2 : i < l2.length) :
-    l1.get ⟨i, h1⟩ = l2.get ⟨i, h2⟩ := by
-  subst h_eq
-  rfl  -- Proof irrelevance: h1 and h2 are equal for Props
-
-/-- Helper: HEq for list elements across transport.
-    When a list is transported to a different element type via equality proof h,
-    getting elements gives HEq results. -/
-private lemma list_get_heq_of_transport {α : Nat → Type*} {n m : Nat}
-    (l : List (α n)) (h : n = m)
-    (i : Nat) (hi_m : i < (h ▸ l : List (α m)).length) (hi_n : i < l.length) :
-    HEq ((h ▸ l : List (α m)).get ⟨i, hi_m⟩) (l.get ⟨i, hi_n⟩) := by
-  subst h
-  exact heq_of_eq rfl  -- After subst, types are equal
-
 /-- **Encoding preserves plant_flat instances** (parametric dgLen version).
 
     The encoding/decoding round-trip preserves what matters for plant_flat equality.

@@ -1805,33 +1805,6 @@ def composeTraces (t1 t2 : ExecutionTrace) : ExecutionTrace :=
   { totalTime := t1.totalTime + t2.totalTime
     operationCount := t1.operationCount + t2.operationCount }
 
-/-- Helper lemma: polynomial execution time is at least 1.
-
-    For any non-trivial adversary with C_A + C_Ext ≥ 1 (at least one coefficient nonzero),
-    the total execution time C_A * n^k_A + C_Ext * n^k_Ext ≥ 1.
-
-    **Key insight**: Requiring C_A + C_Ext ≥ 1 eliminates the degenerate case at the type level.
-    This is reasonable: adversaries must have non-zero runtime. -/
-private lemma poly_time_ge_one (C_A k_A C_Ext k_Ext n : Nat)
-    (h_nonzero : C_A + C_Ext ≥ 1)
-    (h_n_pos : 1 ≤ n) :
-    1 ≤ C_A * n ^ k_A + C_Ext * n ^ k_Ext := by
-  by_cases h_CA : C_A = 0
-  · -- If C_A = 0, then C_Ext ≥ 1 (from h_nonzero: 0 + C_Ext ≥ 1)
-    simp [h_CA] at h_nonzero ⊢
-    have h_CExt_pos : C_Ext ≥ 1 := h_nonzero
-    calc C_Ext * n ^ k_Ext
-        ≥ C_Ext * 1 := Nat.mul_le_mul_left _ (Nat.one_le_pow _ _ h_n_pos)
-      _ ≥ 1 * 1 := Nat.mul_le_mul h_CExt_pos (Nat.le_refl 1)
-      _ = 1 := by norm_num
-  · -- C_A ≥ 1 (since C_A ≠ 0 means C_A ≥ 1 for natural numbers)
-    have h_CA_pos : C_A ≥ 1 := Nat.one_le_iff_ne_zero.mpr h_CA
-    calc C_A * n ^ k_A + C_Ext * n ^ k_Ext
-        ≥ C_A * n ^ k_A := Nat.le_add_right _ _
-      _ ≥ C_A * 1 := Nat.mul_le_mul_left _ (Nat.one_le_pow _ _ h_n_pos)
-      _ ≥ 1 * 1 := Nat.mul_le_mul h_CA_pos (Nat.le_refl 1)
-      _ = 1 := by norm_num
-
 /-- Build DeterministicRun from composed execution.
 
     Given traces from A_inv and Ext, construct the run structure required
