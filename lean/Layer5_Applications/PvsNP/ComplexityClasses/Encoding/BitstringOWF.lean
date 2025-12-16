@@ -1870,8 +1870,8 @@ theorem Corollary_10_6_8_P_ne_NP : ∃ (L : Lang (List Bool)), InNP L ∧ ¬InP 
 /-- **Main Theorem (Both Formulations)**: P ≠ NP holds in both abstract and bitstring forms.
 
     This corollary connects the two proof paths:
-    1. `P_ne_NP` (StructuralOWFBridge.lean): ¬PeqNP_classical (abstract types)
-    2. `exists_language_in_NP_not_in_P_clean`: ∃ L ⊆ {0,1}*, InNP L ∧ ¬InP L (explicit bitstring)
+    1. `P_ne_NP` (StructuralOWFBridge.lean): ¬PeqNP_classical (general type-theoretic)
+    2. `exists_language_in_NP_not_in_P_clean`: ∃ L ⊆ {0,1}*, InNP L ∧ ¬InP L (standard complexity theory)
 
     Both derive from the same OWF construction and share the same axiom dependencies. -/
 theorem P_ne_NP_both_forms :

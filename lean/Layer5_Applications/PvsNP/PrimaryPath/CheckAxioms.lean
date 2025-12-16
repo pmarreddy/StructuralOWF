@@ -7,8 +7,8 @@ This file prints the axiom dependencies of key theorems for trust boundary verif
 **Main Entry Point**: `MainTheorems.lean` collects all results.
 
 **Two proof paths to P ≠ NP:**
-1. `P_ne_NP` (StructuralOWFBridge.lean): Abstract type formulation
-2. `exists_language_in_NP_not_in_P_clean` (BitstringOWF.lean): Explicit L ⊆ {0,1}*
+1. `P_ne_NP` (StructuralOWFBridge.lean): General type-theoretic formulation
+2. `exists_language_in_NP_not_in_P_clean` (BitstringOWF.lean): Matches standard complexity theory (L ⊆ {0,1}*)
 
 Both paths share the same axiom dependencies.
 -/

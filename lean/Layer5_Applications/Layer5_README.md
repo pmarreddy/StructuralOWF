@@ -114,22 +114,33 @@ The key difference: not "eventually fails somewhere" but "fails at this computab
 
 ## Proof Architecture
 
-Layer 5 completes the proof chain by connecting Structural OWF security (Layer 2) to the classical complexity separation P≠NP.
+Layer 5 completes the proof chain by connecting Structural OWF security (Layer 2) to P≠NP.
 
-### Primary Path: Parametric Bitstring Bridge
+### Two Proof Paths
+
+Both paths derive P≠NP from OWF existence. They share identical axiom dependencies.
+
+| Path | File | Theorem | Statement |
+|------|------|---------|-----------|
+| **Abstract** | StructuralOWFBridge.lean | `P_ne_NP` | `¬PeqNP_classical` |
+| **Bitstring** | BitstringOWF.lean | `exists_language_in_NP_not_in_P_clean` | `∃ L ⊆ {0,1}*, InNP L ∧ ¬InP L` |
+
+**Why two paths?**
+- **Abstract**: General type-theoretic formulation (works over any decidable type)
+- **Bitstring**: Matches standard complexity theory (L ⊆ {0,1}*, aligns with paper §10.6)
+
+### Proof Flow
 
 ```
-OWF (Layer 2) → FP≠FNP (parametric, bitstrings) → P≠NP
-      ↓                      ↓                         ↓
-StructuralOWFQP.lean  ParametricBitstringBridge.lean    (implicit)
-   (Layer 2)            (Layer 5)                  (via PeqNP)
+OWF (Layer 2) → FP≠FNP → P≠NP
+      ↓             ↓         ↓
+StructuralOWFQP  Bridge    Both paths
 ```
 
 **Key Features**:
-- Zero axioms in bridge layer (bitstrings eliminate type-theoretic assumptions)
-- Explicit bit-by-bit witness recovery (fully constructive, manifest uniformity)
-- Self-contained (complete proof in ParametricBitstringBridge.lean)
-- Natural for cryptography (parametric families match Structural OWF security parameter)
+- Zero bridge axioms (bitstrings eliminate type-theoretic assumptions)
+- Explicit bit-by-bit witness recovery (fully constructive)
+- Natural for cryptography (parametric families match OWF security parameter)
 
 ---
 

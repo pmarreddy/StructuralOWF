@@ -27,11 +27,11 @@ Transfer all results to L* ⊆ {0,1}* via:
 
 **Path 1 (Abstract)**: `P_ne_NP` from StructuralOWFBridge.lean
 - Statement: ¬PeqNP_classical
-- Uses abstract types for L* instances (Stage 1 result)
+- General type-theoretic formulation (works over any decidable type)
 
 **Path 2 (Bitstring)**: `exists_language_in_NP_not_in_P_clean` from BitstringOWF.lean
 - Statement: ∃ L ⊆ {0,1}*, InNP L ∧ ¬InP L
-- Explicit bitstring language over {0,1}* (Stage 2 result)
+- Matches standard complexity theory (L ⊆ {0,1}*, aligns with paper §10.6)
 
 Both paths share the same axiom dependencies (2 custom axioms).
 
