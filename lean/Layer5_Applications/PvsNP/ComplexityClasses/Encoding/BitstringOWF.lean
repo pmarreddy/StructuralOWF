@@ -1835,6 +1835,52 @@ theorem exists_language_in_NP_not_in_P_clean :
     ∃ (L : Lang (List Bool)), InNP L ∧ ¬InP L :=
   ⟨PrefixLangBits, PrefixLangBits_in_NP_not_in_P⟩
 
+/-! ## §10.6 Bitstring Interface Corollaries (Paper Equivalent)
+
+This section provides the Lean equivalent of paper §10.6 "Bitstring Interface for L*".
+The paper transfers structured results to L* ⊆ {0,1}* via encoding lemmas E1-E4.
+Lean achieves the same via `encodedLang` + `np_transfer`/`hardness_transfer`.
+
+**Correspondence**:
+- Definition 10.6.4 (Bitstring Language) ↔ `PrefixLangBits := encodedLang encPrefixSigma PrefixLangSigma`
+- Corollary 10.6.6 (NP Membership) ↔ `Corollary_10_6_6_NP_Membership`
+- Corollary 10.6.7 (OWF/Hardness) ↔ `Corollary_10_6_7_Hardness`
+- Corollary 10.6.8 (P ≠ NP) ↔ `Corollary_10_6_8_P_ne_NP`
+-/
+
+/-- **Corollary 10.6.6 (NP Membership)**: L* ⊆ {0,1}* is in NP.
+
+    Paper: "L* ∈ NP" via certificate (x*, w) where Encode(x*) = bs and Verify(x*, w) = 1.
+    Lean: `PrefixLangBits ∈ NP` via `np_transfer` from `PrefixLangSigma_in_NP`. -/
+theorem Corollary_10_6_6_NP_Membership : InNP PrefixLangBits := PrefixLangBits_in_NP
+
+/-- **Corollary 10.6.7 (Hardness via OWF)**: L* ⊆ {0,1}* is not in P.
+
+    Paper: OWF security + coin-fixing shows no PPT inverter, hence hardness.
+    Lean: `PrefixLangBits ∉ P` via `hardness_transfer` from `PrefixLangSigma_not_in_P`. -/
+theorem Corollary_10_6_7_Hardness : ¬InP PrefixLangBits := PrefixLangBits_not_in_P
+
+/-- **Corollary 10.6.8 (P ≠ NP)**: There exists an explicit language in NP \ P.
+
+    Paper: "P ≠ NP" via OWF ⇒ FP ≠ FNP ⇒ P ≠ NP classical bridge.
+    Lean: Explicit witness `PrefixLangBits` with `InNP ∧ ¬InP`. -/
+theorem Corollary_10_6_8_P_ne_NP : ∃ (L : Lang (List Bool)), InNP L ∧ ¬InP L :=
+  exists_language_in_NP_not_in_P_clean
+
+/-- **Main Theorem (Both Formulations)**: P ≠ NP holds in both abstract and bitstring forms.
+
+    This corollary connects the two proof paths:
+    1. `P_ne_NP` (StructuralOWFBridge.lean): ¬PeqNP_classical (abstract types)
+    2. `exists_language_in_NP_not_in_P_clean`: ∃ L ⊆ {0,1}*, InNP L ∧ ¬InP L (explicit bitstring)
+
+    Both derive from the same OWF construction and share the same axiom dependencies. -/
+theorem P_ne_NP_both_forms :
+    ¬LStar.Complexity.PeqNP_classical ∧
+    (∃ (L : Lang (List Bool)), InNP L ∧ ¬InP L) :=
+  ⟨LStar.Complexity.StructuralOWFBridge.P_ne_NP, exists_language_in_NP_not_in_P_clean⟩
+
+/-! ## Axiom Verification -/
+
 #print axioms owf_bits
 #print axioms OWFInversionRelation_bits
 #print axioms OWFInversionLang_bits
@@ -1843,5 +1889,11 @@ theorem exists_language_in_NP_not_in_P_clean :
 #print axioms encPrefixSigma_polytime
 #print axioms PrefixLangBits_in_NP_not_in_P
 #print axioms exists_language_in_NP_not_in_P_clean
+
+-- §10.6 Corollaries
+#print axioms Corollary_10_6_6_NP_Membership
+#print axioms Corollary_10_6_7_Hardness
+#print axioms Corollary_10_6_8_P_ne_NP
+#print axioms P_ne_NP_both_forms
 
 end LStar.Encoding.BitstringOWF
