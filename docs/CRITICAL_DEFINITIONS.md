@@ -840,22 +840,22 @@ noncomputable def encodeBits (x : LStarInstanceFG) : List Bool :=
 theorem encodeBits_injective : Function.Injective encodeBits
 ```
 
-**Mathematical Object**: Injective L* → {0,1}* encoding
+**Mathematical Object**: Injective structured-instance → {0,1}* encoding
 - **encodeBits**: LStarInstanceFG → List Bool (via raw structure encoding)
 - **Injectivity**: Different instances produce different bitstrings (proven)
-- **Decoding**: Via `Encodable` class with `decode_encode_append` property (prefix-free)
+- **Decoding**: Via the project-local `Encodable` class with `decode_encode_append` (self-delimiting / prefix-free)
 
 **Why Critical**:
 - **Complexity bridge**: Converts abstract instances to bitstrings for complexity theory
 - **Injectivity proven**: No information loss (encodeBits_injective theorem)
 - **Paper §10.6**: Enables textbook {0,1}* formulation
-- **Polynomial bounds**: `encodeBits_polytime` provides O(n³) length bound
+- **Polynomial bounds**: `encodeBits_polytime.size_upper` gives an explicit polynomial length bound (cubic dominant term in `Sized.size x`)
 
 **Theory**: Prefix-free encoding (standard complexity theory representation)
 
 ---
 
-### 2.7 L* Language (Structured Form)
+### 2.7 Prefix-Extension Witness (Structured Form)
 
 **Definition**: `PrefixLangSigma` (Layer5_Applications/PvsNP/ComplexityClasses/Encoding/BitstringOWF.lean)
 
@@ -866,22 +866,22 @@ def PrefixLangSigma : Lang PrefixSigma := fun ⟨n, inp⟩ =>
   BitstringBridge.prefixLang expWLen R_lifted n inp
 ```
 
-**Mathematical Object**: L* prefix-extension language (structured type)
+**Mathematical Object**: Prefix-extension language for the OWF inversion relation (structured type)
 - **Input type**: `PrefixSigma = Σ n, PrefixInput (PlantedInstance n) (expWLen n)`
 - **Membership**: ∃ w : Bits (expWLen n), (pref ++ [bit]) <+: w.toList ∧ R_lifted n L w
 - **NP membership**: `PrefixLangSigma_in_NP`
 - **Not in P**: `PrefixLangSigma_not_in_P`
 
 **Why Critical**:
-- **Core L* language**: THE language that separates P from NP
-- **Prefix structure**: Enables search-to-decision reduction via prefix oracle
+- **Search-to-decision hook**: This is the exact `prefixLang` needed by `uniform_search_from_prefix_oracle`
+- **Separation witness**: `PrefixLangSigma_not_in_P` is proven by “if it were in P then inversion would be in FP”, contradicting `structural_owf_inversion_not_in_fp`
 - **Base for encoding**: `PrefixLangBits = encodedLang encPrefixSigma PrefixLangSigma`
 
 **Theory**: Prefix languages (Levin 1973) - search-to-decision reductions
 
 ---
 
-### 2.8 L* Language (Bitstring Form)
+### 2.8 Prefix-Extension Witness (Bitstring Form)
 
 **Definition**: `PrefixLangBits` (Layer5_Applications/PvsNP/ComplexityClasses/Encoding/BitstringOWF.lean)
 
@@ -890,14 +890,14 @@ noncomputable def PrefixLangBits : Lang (List Bool) :=
   encodedLang encPrefixSigma PrefixLangSigma
 ```
 
-**Mathematical Object**: L* language over {0,1}*
-- **Definition**: `PrefixLangSigma` encoded as bitstrings
+**Mathematical Object**: Explicit NP \ P witness language over {0,1}*
+- **Definition**: `PrefixLangSigma` encoded as bitstrings via `encodedLang encPrefixSigma`
 - **NP membership**: `PrefixLangBits_in_NP` (via np_transfer)
 - **Not in P**: `PrefixLangBits_not_in_P` (via hardness_transfer)
 
 **Why Critical**:
 - **Main theorem witness**: THE explicit language proving P ≠ NP
-- **Paper §10.6**: Definition 10.6.4 equivalent
+- **Paper §10.6**: This is the Lean-side “bitstring interface” instance of the general encoding-transfer pattern
 - **Textbook format**: Language over {0,1}* (standard complexity theory)
 
 **Theory**: Bitstring languages (standard complexity representation)
@@ -993,7 +993,7 @@ noncomputable def owf_bits (n : Nat) (h_n : n ≥ 128) (w : Bits (expWLen n)) : 
 **Why Critical**:
 - **Paper §10.6**: Provides explicit {0,1}* interface for textbook compatibility
 - **Bridge**: Connects abstract `plant_flat` to concrete bitstring complexity
-- **Main theorem input**: Used by `exists_language_in_NP_not_in_P_clean`
+- **Interface only**: Useful for stating OWF-style corollaries, but not required for the `PrefixLangBits` NP\P witness (which is built from the prefix-extension language)
 
 **Theory**: Bitstring OWF (standard cryptographic formulation)
 
@@ -2799,10 +2799,10 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 27. **PeqNP_parametric** - Parametric P=NP definition (contrapositive → P≠NP)
 
 **Bitstring Interface** (4 definitions - paper §10.6):
-28. **encodeBits** - L* → {0,1}* encoding (proven injective)
-29. **PrefixLangSigma** - L* language (structured form, core separation witness)
-30. **PrefixLangBits** - L* language over {0,1}* (main theorem witness)
-31. **owf_bits** - Bitstring OWF: w ↦ encodeBits(plant_flat(bitsToRandomness_exp(w)))
+28. **encodeBits** - Structured instance → {0,1}* encoding (proven injective)
+29. **PrefixLangSigma** - Prefix-extension witness (structured form)
+30. **PrefixLangBits** - Prefix-extension witness over {0,1}* (main theorem witness)
+31. **owf_bits** - Bitstring OWF interface: w ↦ encodeBits(plant_flat(bitsToRandomness_exp(w)))
 
 **Crypto & Information Bottleneck** (8 definitions):
 32. **PPTAdversary** - Uniform polynomial-time model (TM + polynomial bounds)
