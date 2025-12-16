@@ -324,4 +324,26 @@ theorem gl_hardcore_for_lstar_aligned (n : Nat) (h_n : n ≥ 128) :
   · exact h_ε_nonneg
   · exact h_adv
 
+/-! ### CNF-Based OWF Interface
+
+These definitions provide the CNF-parameterized interface used by crypto constructions.
+They wrap the aligned family interface for compatibility. -/
+
+/-- L* OWF parameterized by CNF formula.
+
+    For a CNF φ with nvars ≥ 4, creates a one-way function based on the L* construction.
+    Uses nvars + 128 as the effective security parameter to ensure n ≥ 128. -/
+noncomputable def lstarOWF (φ : CNF) (_h_nvars : φ.nvars ≥ 4) : OneWayFunction :=
+  -- Use nvars + 124 to ensure total ≥ 128 (since 4 + 124 = 128)
+  lstarOWF_aligned (φ.nvars + 124) (by omega)
+
+/-- Security theorem for CNF-parameterized L* OWF.
+
+    Any inverter for `lstarOWF φ` has negligible success probability. -/
+theorem lstar_owf_security (φ : CNF) (h_nvars : φ.nvars ≥ 4) :
+    ∀ Inv : OWFInverter (lstarOWF φ h_nvars), ∀ δ : Nat → Real,
+      HasInversionProbability (lstarOWF φ h_nvars) Inv δ → negligible δ := by
+  intro Inv δ h_inv
+  exact abstract_to_concrete_security_bridge (φ.nvars + 124) (by omega) Inv δ h_inv
+
 end LStar.Crypto.PRG
