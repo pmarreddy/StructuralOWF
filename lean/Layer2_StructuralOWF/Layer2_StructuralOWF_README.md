@@ -223,21 +223,17 @@ digest_fg depends on ALL variable seeds (full R-bit identity digest)
 
 ### File Organization
 
-**10 files across 4 directories**:
+**8 files across 3 directories**:
 
-**Plant/** (4 files):
-- **PlantCore.lean**: Core Plant function shared by both profiles
-- **PlantExponential.lean**: Exponential profile (R_v = n, bound 2^n)
-- **PlantUniqueness.lean**: Determinism proof (Plant is function, not relation)
-- **TrapdoorStructuralOWF.lean**: Structural OWF construction (CNF generation with known solution)
+**Plant/** (3 files):
+- **PlantCore.lean**: Core Plant function shared infrastructure
+- **PlantExponential.lean**: Exponential profile (R_v = n, bound 2^n) - main plant_flat
+- **TrapdoorStructuralOWF.lean**: Trapdoor application (CNF generation from known assignment)
 
 **FrontierGate/** (3 files):
 - **RandomnessTypes.lean**: Type definitions, FG digest types, single-gate constraint
 - **VectorHelpers.lean**: Vector operations, parity computation (GF(2)), bit utilities
 - **FrontierGate.lean**: Main FG implementation, digest wiring, emergence bound
-
-**Extractor/** (1 file):
-- **Extractor.lean**: Witness reconstruction from OWF preimage (poly-time extraction)
 
 **Security/** (2 files):
 - **StructuralOWFQP.lean**: OWF security proof for QP profile (2 axioms)
@@ -258,19 +254,22 @@ The L* OWF security proof requires only that φ is **satisfiable**—it does not
 3. **Alice keeps** x (private key / trapdoor)
 4. **Security**: OAP encoding ensures φ is never exposed in plaintext; inverting Plant(φ, ·) remains hard
 
-### Construction (TrapdoorOWF.lean)
+### Construction (TrapdoorStructuralOWF.lean)
 
 ```lean
-/-- Generate CNF from known satisfying assignment. -/
-def generateCNF (n : Nat) (x : Assignment) (h_n : n ≥ 4) : CNF
+/-- Generate CNF from known satisfying assignment α. -/
+def generateCNF (n : Nat) (α : AssignmentInf) (h_n : n ≥ 4) : CNF
 
 /-- Satisfiability is PROVEN, not assumed. -/
-theorem generateCNF_satisfied : (generateCNF n x h_n).satisfies x
+theorem generateCNF_satisfied : (generateCNF n α h_n).satisfies α
+
+/-- Generated CNF satisfies AlignedCNFConstraints for plant_flat. -/
+theorem generateCNF_aligned : AlignedCNFConstraints (generateCNF n α h_n)
 ```
 
-**CNF Structure**: For each variable i < n, add unit clause encoding x(i):
-- If x(i) = true: add clause (xᵢ)
-- If x(i) = false: add clause (¬xᵢ)
+**CNF Structure**: For each variable i < n, add unit clause encoding α(i):
+- If α(i) = true: add clause (xᵢ)
+- If α(i) = false: add clause (¬xᵢ)
 
 This ensures exactly one satisfying assignment (uniqueness follows from unit-clause CNF structure, not a general L* property).
 
@@ -287,18 +286,18 @@ This ensures exactly one satisfying assignment (uniqueness follows from unit-cla
 
 ### Integration with Security Proofs
 
-The trapdoor construction integrates with existing security proofs via `trapdoorCNFFamily` (AlignedFamily.lean):
+The P≠NP proof uses `alignedCNFFamily` (AlignedFamily.lean), which is a unit-clause construction:
 
 ```lean
-/-- CNF family with proven satisfiability (no assumption needed). -/
-def trapdoorCNFFamily (x_family : Nat → Assignment) : CNFFamily
+/-- CNF family: x₀ ∧ x₁ ∧ ... ∧ x_{n-1} (n unit clauses, unique solution: all true) -/
+def alignedCNFFamily : CNFFamily
 
-/-- Satisfiability is a THEOREM, not an assumption. -/
-theorem trapdoorCNFFamily_satisfiable :
-  ∀ n ≥ 128, ∃ a, (trapdoorCNFFamily x_family n).satisfies a
+/-- The unique satisfying assignment is "all variables true". -/
+theorem alignedCNFFamily_unique_solution :
+  ∀ a, (alignedCNFFamily n).satisfies a → ∀ i < n, a i = true
 ```
 
-This replaces the `h_satisfiable` parameter in OWFBridgeQP with a proven theorem.
+The trapdoor application uses `generateCNF` for arbitrary assignments (TrapdoorStructuralOWF.lean).
 
 ---
 
