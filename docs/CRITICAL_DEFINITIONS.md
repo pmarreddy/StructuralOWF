@@ -2409,7 +2409,7 @@ P ≠ NP
 ### 7.1 Information Theory
 - **NodeData**: Matches Hartley entropy framework (Rényi-0, zero-error)
 - **lambda**: Standard information dimension measure (Hartley 1928, Rényi-0)
-- **keyed**: Data processing inequality application (no compression without loss)
+- **keyed**: Injectivity property ensuring no state compression (pigeonhole principle; conceptually related to data processing inequality)
 
 ### 7.1b Parity Lower Bound (Information-Theoretic Necessity)
 **Theorem**: `parity_requires_all_bits` (Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean)
@@ -2525,7 +2525,7 @@ See `TuringMachineSemantics.lean` and paper §11.4 for detailed documentation.
 
 ### 7.3 Cryptography
 - **plant_flat**: Standard OWF definition (Diffie-Hellman 1976, Yao 1982)
-- **FrontierGate**: Information-theoretic commitment (Shannon 1949)
+- **FrontierGate**: Information-theoretic world isolation — R bits create 2^R distinguishable configurations (Shannon counting principle 1948)
 - **Extractor**: Reduction technique (Karp 1972, Levin 1973)
 
 ### 7.4 Operational Semantics

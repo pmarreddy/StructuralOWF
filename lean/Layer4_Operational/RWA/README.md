@@ -226,7 +226,7 @@ def run (M : TuringMachine k states alphabet) (n : Nat) : TMConfig M :=
 - Axioms implicitly rely on determinism
 - **Verification**: This directory proves the implicit assumption
 
-**File**: `Layer4_Operational/TimeBridge/TMAdapterQP.lean` (and TMAdapterExponential.lean)
+**File**: `Layer4_Operational/TimeBridge/TMAdapterExponential.lean`
 ```lean
 -- Uses church_turing_with_poly_simulation axiom
 -- Implicitly assumes TM execution is deterministic
@@ -346,8 +346,7 @@ axiom schedule_dependent_qv_exists : ...
 **Related Code**:
 - `../TuringMachine/TuringMachineSemantics.lean` - Deterministic TM execution
 - `../TuringMachine/TMAxioms.lean` - Trust boundary axioms
-- `../TimeBridge/TMAdapterQP.lean` - QP profile TM adapter
-- `../TimeBridge/TMAdapterExponential.lean` - Exponential profile TM adapter
+- `../TimeBridge/TMAdapterExponential.lean` - TM adapter
 - `../../Layer3_InformationBounds/ConstraintSystem/ConstraintSystem.lean` - BitDetermination constraints
 
 **Paper**:

@@ -22,20 +22,13 @@ import Layer5_Applications.PvsNP.ComplexityClasses.RandAdv  -- For algspec_has_t
 This file defines the trust boundary for connecting Turing Machine execution to the
 abstract complexity-theoretic framework.
 
-### Profile-Specific Axioms (Layer 4 only, excludes shared axioms)
+### Trust Boundary (2 axioms total)
 
-**Shared Axioms** (2 axioms used by both profiles):
-- `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge
-- `fg_lossless_encoding` (EncodingDiscipline.lean) - A3 emergence encoding
-
-**Exponential Profile** (1 profile-specific axiom, 3 total):
-- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean)
-  Execution-semantic bridge: correct output on a planted instance forces exhaustive
-  realization of all `2^R` FG emergent values during the run.
-
-**QP Profile** (1 profile-specific axiom, 3 total):
-- `executionPrefix_compatible_with_planted` (PlantedBoundaryDiversity.lean)
-  Semantic bridge connecting ExecutionPrefix model to planted instance structure.
+**Axioms**:
+1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean)
+   Execution-semantic bridge: correct output on a planted instance forces exhaustive
+   realization of all `2^R` FG emergent values during the run.
 
 **Proven Theorem** (eliminated from axiom count):
 - `qp_dominates_poly` (Infrastructure/Witness/PerInstanceBound.lean)

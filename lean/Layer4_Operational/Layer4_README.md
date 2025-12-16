@@ -4,7 +4,7 @@
 
 **Location**: `lean/Layer4_Operational/`
 
-**Architecture**: Dual-path proof system with 2 axioms per profile (Church-Turing + semantic bridge).
+**Architecture**: Proof system with 2 axioms (Church-Turing + semantic bridge).
 
 **Key achievement**: Exponential time lower bound `haltTime ≥ 2^ρ` from TM execution, with explicit model-specific proofs.
 
@@ -133,25 +133,19 @@ axiom church_turing_with_poly_simulation :
 
 **Status**: 1 axiom (shared across both profiles).
 
-#### Axiom 2: Profile-Specific Semantic Bridges
+#### Axiom 2: Semantic Bridge
 
-**QP Profile** (TMAxioms.lean:297):
+**Exponential Profile** (TMAdapterExponential.lean):
 ```lean
-axiom parity_distinguishability_required_for_planted_correctness :
-  -- Correct FG parity → Complete observation of all R_v bits
-```
-
-**Exponential Profile** (TMAxioms.lean:345):
-```lean
-axiom parity_distinguishability_required_for_planted_correctness_exponential :
-  -- Same principle, exponential parameters
+axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded :
+  -- Correct output → Complete observation of all R_v bits
 ```
 
 **Nature**: Semantic→operational bridge (irreducible gap between abstract correctness and concrete execution).
 
-**Scope**: ~10 lines each, well-documented, represents minimal trust extension.
+**Scope**: ~10 lines, well-documented, represents minimal trust extension.
 
-**Status**: 1 axiom per profile (profile-specific).
+**Status**: 1 axiom.
 
 #### Theorems 3-5: Proven Properties
 
@@ -168,7 +162,7 @@ axiom parity_distinguishability_required_for_planted_correctness_exponential :
 - Deterministic TM visits different configs at different times
 - **Proven** via execution trace and injectivity
 
-**Trust boundary**: 2 axioms per profile (Church-Turing + semantic bridge).
+**Trust boundary**: 2 axioms (Church-Turing + semantic bridge).
 
 #### Axiom Audits
 
@@ -297,22 +291,9 @@ axiom parity_distinguishability_required_for_planted_correctness_exponential :
 
 ## TimeBridge Folder
 
-### ARCHITECTURAL DIVERGENCE: Bottom-Up vs Top-Down Proof Strategies
+### Proof Strategy: Top-Down Derivation
 
-**Critical Insight**: The QP and Exponential profiles use **fundamentally different proof directions** to establish the time lower bound, despite sharing 95% of mathematical infrastructure.
-
-**QP Profile (Bottom-Up Construction)**:
-```
-TM execution steps (primitive)
-    ↓ CONSTRUCT
-ExecutionPrefixReal π (structured object)
-    ↓ ANALYZE STRUCTURE
-Eliminations from π.computedConfigs
-    ↓ COUNT
-time ≥ eliminations ≥ 2^ρ
-```
-
-**Exponential Profile (Top-Down Derivation)**:
+**Exponential Profile** uses a **top-down semantic derivation**:
 ```
 Correctness property (semantic)
     ↓ DERIVE
@@ -323,9 +304,7 @@ visitedEncodings.card ≥ 2^R
 time ≥ 2^R
 ```
 
-**Why Both Are Valid**: Same mathematical content (time ≥ 2^λ), different proof philosophies. QP builds and analyzes objects; Exponential derives from properties. Both achieve identical trust boundaries (2 axioms each).
-
-**See**: TMToExecutionPrefix.lean (bottom-up), TMAdapterExponential.lean (top-down) for detailed implementations.
+**See**: TMAdapterExponential.lean for detailed implementation.
 
 ---
 
@@ -428,7 +407,7 @@ haltTime ≥ 2^ρ
 
 **Status**: 0 sorries in active chain (6 sorries in unused private lemmas).
 
-**Trust boundary**: 2 axioms per profile (Church-Turing + realizability).
+**Trust boundary**: 2 axioms (Church-Turing + semantic bridge).
 
 **Axiom audits** (16 statements):
 ```lean
@@ -450,74 +429,6 @@ haltTime ≥ 2^ρ
 #print axioms prefix_time_bound_preserved
 ```
 
-### TMAdapterQP.lean (2617 lines, 10 axiom audits)
-
-**Purpose**: QP PROFILE ADAPTER for plant_flat (R=(log₂ n)² quasi-polynomial bounds).
-
-**Architecture**: Implements ExecutionSemanticsAdapter for Turing Machines using **bottom-up construction**.
-
-**Proof Direction**: Operational/Constructive
-- Constructs ExecutionPrefixReal from TM execution
-- Analyzes structure to extract eliminations
-- Maps eliminations to time bound
-
-```lean
-instance tmAdapterQP : ExecutionSemanticsAdapter (TuringMachine 3 states alphabet) L := {
-  toWitnessFinder := tmToWitnessFinder
-  provesKeyedVisitation := tm_proves_keyed_visitation
-}
-```
-
-**Key insight**: TMs have **physical execution traces** (tape contents) that make the semantic connection PROVABLE:
-- Correct output is ON TAPE (physical bits)
-- Tape is part of TMConfig (physical state)
-- TMConfig was visited during execution (run trace)
-- TMConfig encodes to AlgorithmState (canonical encoding)
-- Therefore: keyed states ⊆ visited states ✓
-
-**One model-specific hypothesis**:
-
-**h_tm_exhaustive_search** (Behavioral):
-- All 2^R_v emergent configs appeared during execution
-- Justification: TM performs exhaustive search over config space
-- **NOT an axiom**: Caller's responsibility—prove for your specific TM construction!
-
-**Main theorem**:
-```lean
-theorem tm_proves_keyed_visitation
-    (M : TuringMachine 3 states alphabet)
-    (v : {v // L.fg.gateReq v})
-    (obs : Observation L.toLStarInstanceFull v.val)
-    (h_complete : obs.isComplete)
-    (h_correct : L.φ.satisfies (tmToWitnessFinder M).output.assignment)
-    (h_planted : ∃ n φ r h_nvars h_aligned, L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness φ r)
-    (keyedness : KeyednessProperty L {v.val} (tmToWitnessFinder M).time)
-    (keyedStates : Finset Nat)
-    (h_keyed_def : keyedStates = Finset.image (λ cfg => (keyedness.configToState cfg).val) Fintype.elems)
-    (h_tm_exhaustive : All 2^R_v configs appeared during execution) :
-    keyedStates ⊆ (tmToWitnessFinder M).visitedStates
-```
-
-**Proof technique**: Tape analysis + canonical encoding + visitation counting.
-
-**Status**: Fully proven modulo h_tm_exhaustive_search hypothesis.
-
-**Trust boundary**: 0 axioms in adapter (hypothesis required from caller).
-
-**Axiom audits** (10 statements):
-```lean
-#print axioms tmToWitnessFinder
-#print axioms tmEmergentEncoder
-#print axioms tmEmergentEncoder_injective
-#print axioms tmEmergentEncoder_correct
-#print axioms tmEmergentEncoder_bounded
-#print axioms tm_proves_keyed_visitation
-#print axioms tmAdapterQP
-#print axioms encoder_realizes_all_values
-#print axioms visited_encodings_from_trace
-#print axioms visitation_bound_from_exhaustive
-```
-
 ### TMAdapterExponential.lean (3516 lines, 10 axiom audits)
 
 **Purpose**: EXPONENTIAL PROFILE ADAPTER for plant_flat (R=n full exponential bounds).
@@ -526,12 +437,6 @@ theorem tm_proves_keyed_visitation
 - Starts from correctness property (h_correct: L.φ.satisfies ...)
 - Derives realizesAllValues via `correctness_implies_realizesAllValues`
 - Counts encodings directly via cardinality
-- NO ExecutionPrefixReal construction needed!
-
-**Key Divergence from QP**:
-- QP (Bottom-Up): TM execution → build ExecutionPrefix → analyze structure → count eliminations → time
-- Exponential (Top-Down): Correctness → derive realizability → count encodings → time
-- Both achieve same bound (time ≥ 2^λ) with different axiom counts (QP: 4, Exponential: 3)
 
 **Architecture**: Implements ExecutionSemanticsAdapter using top-down semantic derivation.
 
@@ -542,13 +447,13 @@ instance tmAdapterExponential : ExecutionSemanticsAdapter (TuringMachine 3 state
 }
 ```
 
-**Main theorem**: Same structure as QP, different parameters.
+**Main theorem**: Proves keyed visitation for exponential profile parameters.
 
 **Status**: Fully proven modulo h_tm_exhaustive_search hypothesis.
 
 **Trust boundary**: 0 axioms in adapter (hypothesis required from caller).
 
-**Axiom audits** (10 statements): Same structure as TMAdapterQP.
+**Axiom audits** (10 statements).
 
 ---
 
@@ -707,7 +612,7 @@ structure TrackedRun (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) extends
 
 **Teaching**: Alternative presentations help understanding.
 
-**Trust boundary**: Both paths have same trust profile (2 axioms per profile).
+**Trust boundary**: Both paths have same trust profile (2 axioms).
 
 ### Path Comparison
 
@@ -743,13 +648,9 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 ### Axiom Summary (Full Chain)
 
-**QP Profile** (plant_flat with R=(log₂ n)²) - **2 axioms total**:
-1. **`algspec_has_tm`** (RandAdv.lean) - Church-Turing bridge (SHARED)
-2. **`executionPrefix_compatible_with_planted`** (PlantedBoundaryDiversity.lean) - Execution model bridge (QP ONLY)
-
-**Exponential Profile** (plant_flat with R=n) - **2 axioms total**:
-1. **`algspec_has_tm`** (RandAdv.lean) - Church-Turing bridge (SHARED)
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (TMAdapterExponential.lean) - Semantic bound + uniform PPT (EXP ONLY)
+**2 axioms total**:
+1. **`algspec_has_tm`** (RandAdv.lean) - Church-Turing bridge
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (TMAdapterExponential.lean) - Semantic bound + uniform PPT
    - Requires uniform polynomial bounds (blocks non-uniform "lucky TMs" and exponential-time strategies)
    - **Semantic content**: Correctness on planted instances requires complete exploration of 2^R config space. From A2 injectivity: different configs → different seeds → missing a config means missing information required for correctness.
 
@@ -775,9 +676,8 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 - TM adapter keyedness → visitation (tm_proves_keyed_visitation)
 - Hypothesis is caller's responsibility (not global axiom)
 
-**Axiomatized** (profile-specific):
-- QP: 1 shared (algspec_has_tm) + 1 profile-specific (executionPrefix_compatible_with_planted) = **2 total**
-- Exponential: 1 shared (algspec_has_tm) + 1 profile-specific (tm_correctness_implies_realizesAllValuesFrom_flat_encoded) = **2 total**
+**Axiomatized**:
+- 1 foundational (algspec_has_tm) + 1 semantic bridge (tm_correctness_implies_realizesAllValuesFrom_flat_encoded) = **2 total**
 
 ### Axiom Elimination History
 
@@ -791,9 +691,9 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 - fg_lossless_encoding (now PROVEN in EncodingDiscipline.lean:344-489, 145 LOC)
 - Many TM-specific axioms (now proven)
 
-**After refactoring**: 2 axioms per profile
-- algspec_has_tm (shared, 1 axiom)
-- Profile-specific semantic bridge (1 per profile)
+**After refactoring**: 2 axioms total
+- algspec_has_tm (Church-Turing bridge)
+- tm_correctness_implies_realizesAllValuesFrom_flat_encoded (semantic bridge)
 
 **Reduction**: 85%+ axiom elimination.
 
@@ -805,9 +705,9 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 1. **TMAxioms.lean**
    - Church-Turing thesis + polynomial simulation
-   - Profile-specific semantic bridges (QP + Exponential)
+   - Semantic bridge axiom
    - Proven TM properties (keyedness, observation, determinism)
-   - Trust boundary: 2 axioms per profile
+   - Trust boundary: 2 axioms
 
 2. **TMConfigCompleteness.lean**
    - TM configuration completeness properties
@@ -828,7 +728,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
    - LocalEncoder abstraction (visitedEncodings_card_ge_pow)
    - Trust boundary: 0 axioms
 
-### TimeBridge/ (3 files, 36 axiom audits total)
+### TimeBridge/ (2 files, 26 axiom audits total)
 
 1. **TMToExecutionPrefix.lean** (5401 lines, 16 audits)
    - **Dual-path architecture** (both paths in ONE file!)
@@ -836,18 +736,11 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
    - Path 2: exponential_time_lower_bound_via_Realizability
    - ExecutionTrace, tmExecutionToPrefix
    - Status: 0 sorries in active chains
-   - Trust boundary: 2 axioms per profile (Church-Turing + semantic bridge)
+   - Trust boundary: 2 axioms (Church-Turing + semantic bridge)
 
-2. **TMAdapterQP.lean** (2617 lines, 10 audits)
-   - QP profile adapter (R=(log₂ n)²)
-   - tmToWitnessFinder implementation
-   - tm_proves_keyed_visitation (keyedStates ⊆ visitedStates)
-   - Requires h_tm_exhaustive_search hypothesis (caller's responsibility)
-   - Trust boundary: 0 axioms in adapter
-
-3. **TMAdapterExponential.lean** (3516 lines, 10 audits)
+2. **TMAdapterExponential.lean** (3516 lines, 10 audits)
    - Exponential profile adapter (R=n)
-   - Same architecture as QP, different parameters
+   - tmToWitnessFinder implementation
    - tm_proves_keyed_visitation_exponential
    - Requires h_tm_exhaustive_search hypothesis
    - Trust boundary: 0 axioms in adapter
@@ -868,11 +761,11 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 ### Summary
 
-**Total files**: 11 (5 TuringMachine + 3 TimeBridge + 2 ExecutionSemantics + 1 RWA)
-**Total lines**: ~15,000 lines (largest layer by far!)
-**Total axiom audits**: 86 statements
-**Trust boundary**: 2 axioms per profile (Church-Turing + semantic bridge)
-**Status**: All 11 files compile successfully
+**Total files**: 10 (5 TuringMachine + 2 TimeBridge + 2 ExecutionSemantics + 1 RWA)
+**Total lines**: ~12,000 lines (largest layer by far!)
+**Total axiom audits**: 76 statements
+**Trust boundary**: 2 axioms (Church-Turing + semantic bridge)
+**Status**: All 10 files compile successfully
 
 ---
 
@@ -880,7 +773,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 ### Axiom Elimination
 
-**15 → 2 axioms per profile** (87% reduction):
+**15 → 2 axioms** (87% reduction):
 - keyedness_at_fg_gate: ✅ Eliminated (KeyednessFromA2.lean)
 - witness_finder_soundness: ✅ Eliminated (execution semantics)
 - states_per_segment_upper_bound: ✅ Eliminated (projection analysis)
@@ -895,13 +788,13 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 **Innovation**: Two complete proofs in ONE file (TMToExecutionPrefix.lean):
 - Path 1 (WC-1): Information-theoretic → operational
 - Path 2 (Realizability): Semantic → operational
-- Same trust boundary (2 axioms per profile)
+- Same trust boundary (2 axioms)
 - Different intuitions, same result
 
 ### Model-Specific Proofs
 
 **Adapter pattern**: Each computational model proves semantic connection:
-- TMs: Physical tape traces (TMAdapterQP, TMAdapterExponential)
+- TMs: Physical tape traces (TMAdapterExponential)
 - Circuits: Gate evaluations (future work)
 - Proofs: Proof tree nodes (future work)
 

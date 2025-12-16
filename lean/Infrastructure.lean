@@ -4,7 +4,7 @@ Exports cross-cutting infrastructure modules: Witness algorithms and time bound 
 
 **Witness algorithm models**:
 - WitnessAlgorithm: Abstract algorithm interface (general model)
-- Active chain: TMAdapterExponential/QP use direct TM → WitnessFinder construction
+- Active chain: TMAdapterExponential uses direct TM → WitnessFinder construction
 - Alternative: WitnessFinderConcrete (two-layer architecture, not in active chain)
 -/
 

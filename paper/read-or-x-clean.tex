@@ -13837,7 +13837,7 @@ theorem \texttt{refutation\_count\_exponential\_bound}), TM execution
 semantics
 (\texttt{Layer4\_Operational/TimeBridge/TMToExecutionPrefix.lean},
 function \texttt{buildRunFromTMTrace}), and profile-specific time bounds
-(\texttt{TMAdapterQP.lean} and \texttt{TMAdapterExponential.lean},
+(\texttt{TMAdapterExponential.lean},
 theorem \texttt{fg\_first\_commit\_time\_lower\_bound}). Complete proof
 chain verified with zero \texttt{sorry} statements.
 
@@ -16987,13 +16987,9 @@ SCL) is future work (§12.12/F5b).
   \texttt{TMToExecutionPrefix.lean::buildRunFromTMTrace} --- Builds
   abstract run for SCL analysis
 \item
-  \textbf{Time bound (QP)}:
-  \texttt{TMAdapterQP.lean::fg\_first\_commit\_time\_lower\_bound} ---
-  Derives n\^{}\(\Omega\)(log n) bound
-\item
-  \textbf{Time bound (Exp)}:
+  \textbf{Time bound}:
   \texttt{TMAdapterExponential.lean::fg\_first\_commit\_time\_lower\_bound}
-  --- Derives 2\^{}\(\Omega\)(n) bound
+  --- Derives exponential time bound
 \end{itemize}
 
 \textbf{Why This Works for TM Lower Bounds:}

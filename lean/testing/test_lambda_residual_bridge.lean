@@ -34,7 +34,7 @@ def buildSmallCNF : CNF where
     { literals := [{ var := 1, polarity := true }, { var := 2, polarity := false }, { var := 3, polarity := true }] }
   ]
 
--- Test 1: R_of formula (QP profile) - FG gate gets (log₂ n)²
+-- Test 1: R_of formula - FG gate gets (log₂ n)²
 -- clause_start = 1 + 128 = 129, so first FG gate at position 129
 example : R_of buildSmallCNF 1 129 = (Nat.log 2 128) ^ 2 := by
   unfold R_of buildSmallCNF
@@ -55,7 +55,7 @@ example : R_of_flat buildSmallCNF 1 0 = 0 := by
   unfold R_of_flat buildSmallCNF
   simp
 
--- Test 5: R_of_flat ≥ R_of (exponential dominates QP with preconditions)
+-- Test 5: R_of_flat ≥ R_of (exponential dominates base formula with preconditions)
 example (φ : CNF) (numGates v : Nat)
     (h_nvars : φ.nvars ≥ 128)
     (h_is_fg : is_fg_gate_flat φ numGates v = true) :
@@ -149,7 +149,7 @@ example (φ : CNF) (numGates v : Nat) :
 /-! ## Test Summary
 
 **Phase 1: 10 Basic Tests** ✅
-- Test 1: R_of formula (QP: (log₂ n)²) (1 test)
+- Test 1: R_of formula ((log₂ n)²) (1 test)
 - Test 2: R_of at non-FG = 0 (1 test)
 - Test 3: R_of_flat formula (Exponential: n) (1 test)
 - Test 4: R_of_flat at non-FG = 0 (1 test)
@@ -177,15 +177,15 @@ example (φ : CNF) (numGates v : Nat) :
 **Total**: 20 executable tests, all passing! ✅
 
 **What We Validated**:
-- ✅ R_of (QP) formula correct: (log₂ n)² at FG gates
+- ✅ R_of formula correct: (log₂ n)² at FG gates
 - ✅ R_of_flat (Exponential) formula correct: n at FG gates
-- ✅ Exponential profile dominates QP (R_flat ≥ R)
+- ✅ R_of_flat dominates R_of (R_flat ≥ R)
 - ✅ FG gate detection works correctly
 - ✅ Rank functions are deterministic
 - ✅ Lambda residual = R_v (since q_v = 0 for emergent bits)
 - ✅ **Edge cases**: Minimal instances (n=1), non-FG nodes
 - ✅ **Monotonicity**: Larger CNF → larger R
-- ✅ **Consistency**: QP and Exp profiles agree on structure
+- ✅ **Consistency**: R_of and R_of_flat formulas agree on structure
 - ✅ **Totality**: R formulas always defined
 
 **Confidence Impact**: 91% → 93% (+2% from Phase 2/3 validation)
@@ -197,4 +197,4 @@ Lambda residual formulas and edge cases fully validated.
 end Testing.LambdaResidualBridge
 
 -- Axiom audit: Test namespace contains only examples (no named definitions to audit)
--- All tests apply existing definitions from RanksQP.lean and RanksExponential.lean
+-- All tests apply existing definitions from RanksCore.lean and RanksExponential.lean

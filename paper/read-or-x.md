@@ -5290,7 +5290,7 @@ Here n := n_core. The machine model is a deterministic k-tape TM; randomized TMs
 
 *Proof.* By Lemma C.2 (Segment Counting), the number of non-accepting rollback segments that progress the final chain obeys m_seg ≥ 2^(ρ-s). By Corollary C.1.1 (FG per-segment baseline), each such segment incurs Ω(n/W_min) TM steps regardless of pre-scanning or caching. Multiplying yields the claimed bound. The s bound is deterministic from the published GREQ map (§6.2.9), independent of salt values or coins. The bound applies to any fixed computational trace because SCL (§7) is information-theoretic and schedule-independent. ∎
 
-**Machine-verified proof chain:** Lean formalization across multiple layers: segment counting (`Layer3_InformationBounds/SegmentReduction/SegmentReduction.lean`, theorem `refutation_count_exponential_bound`), TM execution semantics (`Layer4_Operational/TimeBridge/TMToExecutionPrefix.lean`, function `buildRunFromTMTrace`), and profile-specific time bounds (`TMAdapterQP.lean` and `TMAdapterExponential.lean`, theorem `fg_first_commit_time_lower_bound`). Complete proof chain verified with zero `sorry` statements.
+**Machine-verified proof chain:** Lean formalization across multiple layers: segment counting (`Layer3_InformationBounds/SegmentReduction/SegmentReduction.lean`, theorem `refutation_count_exponential_bound`), TM execution semantics (`Layer4_Operational/TimeBridge/TMToExecutionPrefix.lean`, function `buildRunFromTMTrace`), and time bounds (`TMAdapterExponential.lean`, theorem `fg_first_commit_time_lower_bound`). Complete proof chain verified with zero `sorry` statements.
 
 **Key Insight:** This **per-instance deterministic bound** is the foundation for Structural OWF security. Every instance x* = f(r) sampled in §9 has FG wiring, so Theorem 8.A applies. Coin-fixing (§9.4) extends this to randomized PPT adversaries: any successful randomized inverter yields a successful deterministic run, contradicting the bound.
 
@@ -6025,7 +6025,7 @@ P ≠ NP for classical computation.
 - **Trust boundary**: Two operational axioms (all standard)
 - **Supporting files**:
   - `ParametricBitstringBridge.lean` - FP≠FNP → P≠NP bridge
-  - `OWFQP.lean`, `StructuralOWFExponential.lean` - Structural OWF security proofs
+  - `StructuralOWFExponential.lean` - Structural OWF security proof
 
 **Scope & Properties:**
 - **Model**: Classical uniform PPT (probabilistic Turing machines; constant tapes/alphabet). Quantum adversaries out of scope.
@@ -6604,8 +6604,7 @@ The TM observation paradigm is **fully formalized** in Lean (`lean/Layer4_Operat
 - **2^Φ (configs)**: `ExecutionPrefixReal.computedConfigs` — Configurations visited during execution
 - **Observation extraction**: `TMToExecutionPrefix.lean::tmExecutionToPrefix` — Converts TM trace → observations
 - **Run construction**: `TMToExecutionPrefix.lean::buildRunFromTMTrace` — Builds abstract run for SCL analysis
-- **Time bound (QP)**: `TMAdapterQP.lean::fg_first_commit_time_lower_bound` — Derives n^Ω(log n) bound
-- **Time bound (Exp)**: `TMAdapterExponential.lean::fg_first_commit_time_lower_bound` — Derives 2^Ω(n) bound
+- **Time bound**: `TMAdapterExponential.lean::fg_first_commit_time_lower_bound` — Derives exponential time bound
 
 **Why This Works for TM Lower Bounds:**
 

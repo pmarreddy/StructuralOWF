@@ -315,7 +315,7 @@ principles. The mathematical content is complete; only the mechanization gap rem
 /-! ## ExecutionPrefix-based Validity Guards
 
 The following definitions provide structural validity guards for execution prefixes.
-They follow the same architecture as the QP profile's `executionPrefix_compatible_with_planted`.
+These provide structural validity for execution prefixes on planted instances.
 
 **Key Property**: `ValidExecutionPrefix_flat` ties π.computedConfigs to r.assignment,
 ensuring the execution prefix reflects actual planted instance behavior.
