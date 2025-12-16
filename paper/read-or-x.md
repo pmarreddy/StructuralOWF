@@ -4107,16 +4107,19 @@ None of these arguments reference bit patterns, parsing, or string manipulation.
 Our canonical Encode (Appendix D.5) satisfies all three:
 - Injectivity: Lemma E1' (via unique decodability)
 - Poly-time: Lemma E2
-- Size bounds: |Encode(x\*)| = Θ(n\_core · poly(log n\_core)) by construction (see Lemma E5 below)
+- Size bounds: n\_core ≤ |Encode(x\*)| ≤ poly(n\_core) (see Lemma E5 below)
 
-**Lemma E5 (Parameter-to-Size Bound).** For any x\* ∈ X\* with security parameter n\_core:
-  n\_core ≤ |Encode(x\*)| ≤ O(n\_core² · log n\_core)
+**Lemma E5 (Parameter-to-Size Bound).** For any x\* ∈ X\* with security parameter n\_core, there exists a fixed constant c > 0 such that:
 
-*Proof sketch:* The instance contains Θ(n\_core) variables, O(n\_core) clauses (by §10.1's polynomial clause bound), DAG with O(n\_core log n\_core) nodes, and per-node data of size O(log n\_core). Total: O(n\_core² log n\_core). Lower bound: at minimum, the n\_core variable assignments require n\_core bits. ∎
+n\_core ≤ |Encode(x\*)| ≤ n\_core^c
+
+*Proof sketch:* Lower bound: the instance must encode n\_core variable identities. Upper bound: By §10.1's polynomial clause bound, |clauses| ≤ poly(n\_core). The DAG has poly(n\_core) nodes (§6.6), each storing poly(log n\_core) bits of metadata. All components are polynomial in n\_core, so |Encode(x\*)| ≤ n\_core^c for some fixed c depending on the construction parameters. ∎
+
+**Remark (Constant c).** The exact value of c depends on the clause-bound exponent k from §10.1 and the DAG depth/width parameters from §6.6. For transfer purposes, only the existence of such c matters—not its precise value.
 
 **Transfer via admissibility:** Given these properties:
 - If a poly-time algorithm decides L\* ⊆ {0,1}\*, composing with Encode (poly-time) decides L\*\_struct
-- The hardness bounds (time ≥ n\_core^(Ω(log n\_core)) or 2^(Ω(n\_core))) translate via E5 to |bs|^(Ω(log |bs|)) or 2^(Ω(√|bs|))
+- The hardness bounds translate via E5: time ≥ n\_core^(Ω(log n\_core)) becomes |bs|^(Ω(log |bs|)); time ≥ 2^(Ω(n\_core)) becomes 2^(Ω(|bs|^{1/c}))
 - Polynomial in |bs| remains sub-exponential in n\_core, preserving the contradiction
 
 The encoding is a transparent wrapper: it cannot introduce shortcuts (injectivity prevents collapsing distinct instances) or blow up complexity (poly-time, polynomial size).
@@ -6198,19 +6201,21 @@ The following properties of Encode are established in Appendix D.5.
 
 **Remark (E3/E4 are tautological).** Under our convention |x\*| := |Encode(x\*)|, E3 and E4 hold trivially. What matters for transfer is the relationship between the *hardness parameter* n\_core (security parameter of the instance) and the *bitstring length* |Encode(x\*)|. This is captured by E5:
 
-**Lemma E5 (Parameter-to-Size Bound).** For any x\* ∈ X\* constructed from φ with n\_core variables:
+**Lemma E5 (Parameter-to-Size Bound).** For any x\* ∈ X\* constructed from φ with n\_core variables, there exists a fixed constant c > 0 (depending only on the construction parameters) such that:
 
-n\_core ≤ |Encode(x\*)| ≤ O(n\_core² · log n\_core)
+n\_core ≤ |Encode(x\*)| ≤ n\_core^c
 
 *Proof:*
 - *Lower bound:* The instance must encode at least the n\_core variable identities.
-- *Upper bound:* By §10.1 (polynomial clause bound), |clauses| ≤ O(n\_core^k) for some fixed k. The DAG has O(n\_core log n\_core) nodes (§6.6). Each node stores O(log n\_core) bits of metadata. Total: O(n\_core² log n\_core). ∎
+- *Upper bound:* By §10.1 (polynomial clause bound), |clauses| ≤ poly(n\_core). The DAG has poly(n\_core) nodes (§6.6). Each node stores poly(log n\_core) bits of metadata. All components are polynomial in n\_core, yielding |Encode(x\*)| ≤ n\_core^c for some fixed c. ∎
 
-**Corollary (Hardness Bound Translation).** The per-instance bounds translate as follows:
-- QP-sharp (time ≥ n\_core^(Ω(log n\_core))): becomes |bs|^(Ω(log |bs|)) in bitstring length
-- Exponential (time ≥ 2^(Ω(n\_core))): becomes 2^(Ω(√|bs|)) in bitstring length
+**Remark (Constant c).** The exact value of c depends on §10.1's clause-bound exponent and §6.6's DAG parameters. For transfer purposes, only the existence of polynomial bounds matters—not the precise exponent. See §6.9.7 for discussion.
 
-In both cases, polynomial time in |bs| contradicts the structured lower bound.
+**Corollary (Hardness Bound Translation).** Let c be the constant from E5. The per-instance bounds translate as follows:
+- QP-sharp (time ≥ n\_core^(Ω(log n\_core))): becomes |bs|^(Ω(log |bs|)) in bitstring length (robust under any polynomial distortion)
+- Exponential (time ≥ 2^(Ω(n\_core))): becomes 2^(Ω(|bs|^{1/c})) in bitstring length
+
+In both cases, polynomial time in |bs| contradicts the structured lower bound, since poly(|bs|) = poly(n\_core^c) = n\_core^{O(c)} is sub-exponential in n\_core.
 
 ##### 10.6.3 Connection Theorem
 
