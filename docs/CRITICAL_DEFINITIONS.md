@@ -517,21 +517,26 @@ def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
 **Definition**: `InNP_Logical` (Layer5_Applications/PvsNP/ComplexityClasses/NPDefs.lean)
 
 ```lean
-def InNP_Logical {α : Type} (L : Lang α) : Prop :=
-  ∃ (cert : VerifierCert α), ∀ x, L x ↔ ∃ w : cert.WitnessType, cert.verify x w
+structure VerifierCert {α : Type} (L : Lang α) where
+  β : Type                           -- Witness type
+  V : α → β → Prop                   -- Verifier relation
+  spec : ∀ x, L x ↔ ∃ w : β, V x w   -- Correctness
+
+def InNP_Logical {α : Type} (L : Lang α) : Prop := Nonempty (VerifierCert L)
 ```
 
 **Mathematical Object**: NP (logical/extensional, no resource bounds)
-- **Witness existence**: ∃ witness type + verifier relation
+- **Witness existence**: ∃ witness type β + verifier relation V
 - **No time bounds**: Abstract verification (no polynomial constraint)
 - **No witness size bounds**: No polynomial bound on witness size
+- **Nonempty wrapper**: Equivalent to ∃ cert, uses Nonempty for universe polymorphism
 
 **Why Exists**:
 - **Abstract reasoning**: Used for logical NP membership proofs (e.g., `LStar_in_NP`)
 - **vs InNP**: InNP has explicit poly bounds (complexity-theoretic), InNP_Logical is extensional only
 - **Bridge**: Complexity proofs use InNP; structural proofs use InNP_Logical
 
-**Theory**: Logical characterization of NP (witness-based definition)
+**Theory**: Logical characterization of NP (witness-based definition, Sipser §7.3)
 
 ---
 
@@ -829,22 +834,24 @@ def PeqNP_parametric : Prop :=
 **Definition**: `encodeBits` (Layer5_Applications/PvsNP/ComplexityClasses/Encoding/LStarEncoding.lean)
 
 ```lean
-def encodeBits (L : LStarInstanceFG) : List Bool := ...
-def decodeBits (bs : List Bool) : Option LStarInstanceFG := ...
+noncomputable def encodeBits (x : LStarInstanceFG) : List Bool :=
+  Encodable.encode (toRawLStarInstanceFG x)
+
 theorem encodeBits_injective : Function.Injective encodeBits
 ```
 
-**Mathematical Object**: Lossless L* ↔ {0,1}* encoding
-- **encodeBits**: LStarInstanceFG → List Bool (injective)
-- **decodeBits**: List Bool → Option LStarInstanceFG (partial inverse)
-- **Lossless**: `decodeBits (encodeBits L) = some L`
+**Mathematical Object**: Injective L* → {0,1}* encoding
+- **encodeBits**: LStarInstanceFG → List Bool (via raw structure encoding)
+- **Injectivity**: Different instances produce different bitstrings (proven)
+- **Decoding**: Via `Encodable` class with `decode_encode_append` property (prefix-free)
 
 **Why Critical**:
 - **Complexity bridge**: Converts abstract instances to bitstrings for complexity theory
-- **Injectivity proven**: No information loss (fg_lossless_encoding theorem)
+- **Injectivity proven**: No information loss (encodeBits_injective theorem)
 - **Paper §10.6**: Enables textbook {0,1}* formulation
+- **Polynomial bounds**: `encodeBits_polytime` provides O(n³) length bound
 
-**Theory**: Finite encoding (standard complexity theory representation)
+**Theory**: Prefix-free encoding (standard complexity theory representation)
 
 ---
 
@@ -853,20 +860,22 @@ theorem encodeBits_injective : Function.Injective encodeBits
 **Definition**: `PrefixLangSigma` (Layer5_Applications/PvsNP/ComplexityClasses/Encoding/BitstringOWF.lean)
 
 ```lean
+abbrev PrefixSigma := Sigma fun n : Nat => PrefixInput (PlantedInstance n) (expWLen n)
+
 def PrefixLangSigma : Lang PrefixSigma := fun ⟨n, inp⟩ =>
   BitstringBridge.prefixLang expWLen R_lifted n inp
 ```
 
 **Mathematical Object**: L* prefix-extension language (structured type)
-- **Input type**: `PrefixSigma = Σ n, PrefixInput LStarInstanceFG (expWLen n)`
-- **Membership**: ∃ w : Bits (expWLen n), (prefix ++ [bit]) <+: w ∧ R n L w
+- **Input type**: `PrefixSigma = Σ n, PrefixInput (PlantedInstance n) (expWLen n)`
+- **Membership**: ∃ w : Bits (expWLen n), (pref ++ [bit]) <+: w.toList ∧ R_lifted n L w
 - **NP membership**: `PrefixLangSigma_in_NP`
 - **Not in P**: `PrefixLangSigma_not_in_P`
 
 **Why Critical**:
 - **Core L* language**: THE language that separates P from NP
 - **Prefix structure**: Enables search-to-decision reduction via prefix oracle
-- **Base for encoding**: `PrefixLangBits = encodedLang enc PrefixLangSigma`
+- **Base for encoding**: `PrefixLangBits = encodedLang encPrefixSigma PrefixLangSigma`
 
 **Theory**: Prefix languages (Levin 1973) - search-to-decision reductions
 
@@ -977,9 +986,9 @@ noncomputable def owf_bits (n : Nat) (h_n : n ≥ 128) (w : Bits (expWLen n)) : 
 ```
 
 **Mathematical Object**: Bitstring OWF over {0,1}*
-- **Input**: Bitstring witness w ∈ {0,1}^(2n+64)
+- **Input**: Bitstring witness w ∈ {0,1}^(expWLen n) where expWLen n = 2n + 64
 - **Output**: Encoded L* instance as `List Bool`
-- **Composition**: `w ↦ decode(w) ↦ plant_flat ↦ encode`
+- **Composition**: `w ↦ bitsToRandomness_exp(w) ↦ plant_flat ↦ encodeBits`
 
 **Why Critical**:
 - **Paper §10.6**: Provides explicit {0,1}* interface for textbook compatibility
@@ -2793,7 +2802,7 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 28. **encodeBits** - L* → {0,1}* encoding (proven injective)
 29. **PrefixLangSigma** - L* language (structured form, core separation witness)
 30. **PrefixLangBits** - L* language over {0,1}* (main theorem witness)
-31. **owf_bits** - Bitstring OWF: w ↦ encode(plant_flat(decode(w)))
+31. **owf_bits** - Bitstring OWF: w ↦ encodeBits(plant_flat(bitsToRandomness_exp(w)))
 
 **Crypto & Information Bottleneck** (8 definitions):
 32. **PPTAdversary** - Uniform polynomial-time model (TM + polynomial bounds)
