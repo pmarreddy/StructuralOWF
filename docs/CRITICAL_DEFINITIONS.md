@@ -486,29 +486,52 @@ def InP {α : Type} [Sized α] (L : Lang α) : Prop :=
 
 ---
 
-**Definition**: `InNP_Alg` (Layer5_Applications/PvsNP/ComplexityClasses/ComplexityClasses.lean)
+**Definition**: `InNP` (Layer5_Applications/PvsNP/ComplexityClasses/ComplexityClasses.lean)
 
 ```lean
-def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
-  ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T) (C_wit k_wit : Nat),
+def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
+  ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T)
+    (C_wit k_wit C_time k_time : Nat),
     (∀ c₁ c₂ p, V.run c₁ p = V.run c₂ p) ∧
     (∀ x y, V.run ⟨0, V.coins_pos⟩ (x, y) = true → size y ≤ C_wit * (size x + 1) ^ k_wit) ∧
+    (∀ p : α × β, V.time_bound (size p) ≤ C_time * (size p + 1) ^ k_time) ∧
     (∀ x, L x ↔ ∃ y : β, V.run ⟨0, V.coins_pos⟩ (x, y) = true)
 ```
 
-**Mathematical Object**: NP (algorithmic, complexity-theoretic)
+**Mathematical Object**: NP (standard complexity-theoretic definition)
 - **Witness type**: Existential β (witness space)
-- **Polynomial verification**: Via RandAdv.poly field
+- **Polynomial verification**: Via RandAdv.poly field with explicit C_time, k_time bounds
 - **Polynomial witness bounds**: Explicit C_wit, k_wit constants (textbook requirement)
 - **Correctness**: x ∈ L iff ∃ witness y verifiable in poly-time
 
 **Why Critical**:
-- **OWF security**: Extractor verification requires InNP_Alg (witness extraction)
+- **OWF security**: Extractor verification requires InNP (witness extraction)
 - **Primary NP**: Used by ParametricBitstringBridge for P≠NP goal
-- **vs NPDefs.InNP**: This has TIME + WITNESS SIZE bounds (complexity), NPDefs.InNP is logical only
-- **Textbook alignment**: Now matches standard NP definitions (Sipser §7.3, Arora-Barak §2.3)
+- **vs InNP_Logical**: This has TIME + WITNESS SIZE bounds (complexity), InNP_Logical is logical only
+- **Textbook alignment**: Matches standard NP definitions (Sipser §7.3, Arora-Barak §2.3)
 
 **Theory**: NP (Cook 1971) - nondeterministic polynomial time
+
+---
+
+**Definition**: `InNP_Logical` (Layer5_Applications/PvsNP/ComplexityClasses/NPDefs.lean)
+
+```lean
+def InNP_Logical {α : Type} (L : Lang α) : Prop :=
+  ∃ (cert : VerifierCert α), ∀ x, L x ↔ ∃ w : cert.WitnessType, cert.verify x w
+```
+
+**Mathematical Object**: NP (logical/extensional, no resource bounds)
+- **Witness existence**: ∃ witness type + verifier relation
+- **No time bounds**: Abstract verification (no polynomial constraint)
+- **No witness size bounds**: No polynomial bound on witness size
+
+**Why Exists**:
+- **Abstract reasoning**: Used for logical NP membership proofs (e.g., `LStar_in_NP`)
+- **vs InNP**: InNP has explicit poly bounds (complexity-theoretic), InNP_Logical is extensional only
+- **Bridge**: Complexity proofs use InNP; structural proofs use InNP_Logical
+
+**Theory**: Logical characterization of NP (witness-based definition)
 
 ---
 
@@ -516,7 +539,7 @@ def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
 ```lean
 def PeqNP_classical : Prop :=
   ∀ (α : Type) [Sized α] (L : Lang α),
-    InNP_Alg L → InP L
+    InNP L → InP L
 ```
 
 **Mathematical Object**: Classical P=NP statement (textbook formulation)
@@ -801,6 +824,77 @@ def PeqNP_parametric : Prop :=
 
 ---
 
+### 2.6 Bitstring Encoding
+
+**Definition**: `encodeBits` (Layer5_Applications/PvsNP/ComplexityClasses/Encoding/LStarEncoding.lean)
+
+```lean
+def encodeBits (L : LStarInstanceFG) : List Bool := ...
+def decodeBits (bs : List Bool) : Option LStarInstanceFG := ...
+theorem encodeBits_injective : Function.Injective encodeBits
+```
+
+**Mathematical Object**: Lossless L* ↔ {0,1}* encoding
+- **encodeBits**: LStarInstanceFG → List Bool (injective)
+- **decodeBits**: List Bool → Option LStarInstanceFG (partial inverse)
+- **Lossless**: `decodeBits (encodeBits L) = some L`
+
+**Why Critical**:
+- **Complexity bridge**: Converts abstract instances to bitstrings for complexity theory
+- **Injectivity proven**: No information loss (fg_lossless_encoding theorem)
+- **Paper §10.6**: Enables textbook {0,1}* formulation
+
+**Theory**: Finite encoding (standard complexity theory representation)
+
+---
+
+### 2.7 L* Language (Structured Form)
+
+**Definition**: `PrefixLangSigma` (Layer5_Applications/PvsNP/ComplexityClasses/Encoding/BitstringOWF.lean)
+
+```lean
+def PrefixLangSigma : Lang PrefixSigma := fun ⟨n, inp⟩ =>
+  BitstringBridge.prefixLang expWLen R_lifted n inp
+```
+
+**Mathematical Object**: L* prefix-extension language (structured type)
+- **Input type**: `PrefixSigma = Σ n, PrefixInput LStarInstanceFG (expWLen n)`
+- **Membership**: ∃ w : Bits (expWLen n), (prefix ++ [bit]) <+: w ∧ R n L w
+- **NP membership**: `PrefixLangSigma_in_NP`
+- **Not in P**: `PrefixLangSigma_not_in_P`
+
+**Why Critical**:
+- **Core L* language**: THE language that separates P from NP
+- **Prefix structure**: Enables search-to-decision reduction via prefix oracle
+- **Base for encoding**: `PrefixLangBits = encodedLang enc PrefixLangSigma`
+
+**Theory**: Prefix languages (Levin 1973) - search-to-decision reductions
+
+---
+
+### 2.8 L* Language (Bitstring Form)
+
+**Definition**: `PrefixLangBits` (Layer5_Applications/PvsNP/ComplexityClasses/Encoding/BitstringOWF.lean)
+
+```lean
+noncomputable def PrefixLangBits : Lang (List Bool) :=
+  encodedLang encPrefixSigma PrefixLangSigma
+```
+
+**Mathematical Object**: L* language over {0,1}*
+- **Definition**: `PrefixLangSigma` encoded as bitstrings
+- **NP membership**: `PrefixLangBits_in_NP` (via np_transfer)
+- **Not in P**: `PrefixLangBits_not_in_P` (via hardness_transfer)
+
+**Why Critical**:
+- **Main theorem witness**: THE explicit language proving P ≠ NP
+- **Paper §10.6**: Definition 10.6.4 equivalent
+- **Textbook format**: Language over {0,1}* (standard complexity theory)
+
+**Theory**: Bitstring languages (standard complexity representation)
+
+---
+
 ## § 3. Cryptographic Foundations
 
 **Theory Connection**: One-way functions (Diffie-Hellman 1976), cryptographic hardness
@@ -868,6 +962,31 @@ structure bundles clause count and 3-SAT constraints to guarantee proper CNF wel
 **vs Standard OWF**:
 - Standard: verify f(x') = y, hardness assumed
 - This: verify f(x') = y ∧ valid(x'), hardness proven (Theorem 8.A)
+
+---
+
+### 3.1b Bitstring One-Way Function
+
+**Definition**: `owf_bits` (Layer5_Applications/PvsNP/ComplexityClasses/Encoding/BitstringOWF.lean)
+
+```lean
+noncomputable def owf_bits (n : Nat) (h_n : n ≥ 128) (w : Bits (expWLen n)) : List Bool :=
+  let r := bitsToRandomness_exp n w
+  let r_φ : Randomness (Φ n).nvars := ...
+  encodeBits (plant_flat n (Φ n) r_φ h_nvars h_aligned)
+```
+
+**Mathematical Object**: Bitstring OWF over {0,1}*
+- **Input**: Bitstring witness w ∈ {0,1}^(2n+64)
+- **Output**: Encoded L* instance as `List Bool`
+- **Composition**: `w ↦ decode(w) ↦ plant_flat ↦ encode`
+
+**Why Critical**:
+- **Paper §10.6**: Provides explicit {0,1}* interface for textbook compatibility
+- **Bridge**: Connects abstract `plant_flat` to concrete bitstring complexity
+- **Main theorem input**: Used by `exists_language_in_NP_not_in_P_clean`
+
+**Theory**: Bitstring OWF (standard cryptographic formulation)
 
 ---
 
@@ -996,9 +1115,7 @@ def Randomness.assignmentInf {nvars : Nat} (r : Randomness nvars) : AssignmentIn
 - **Non-leaking**: Public fields encode R-bit digest/salt only, not assignment bits
 - **Single-gate invariant**: Type-level constraint ensures FG architecture consistency
 
-**Note**:Previously `assignment : Nat → Bool` (infinite). Now `assignment : Assignment nvars`
-(finite, `Fin nvars → Bool`). This is required for proper complexity-theoretic formalization where
-witnesses must be finite bit strings in {0,1}^poly(n).
+**Design Note**: `assignment : Assignment nvars` is finite (`Fin nvars → Bool`), required for proper complexity-theoretic formalization where witnesses must be finite bit strings in {0,1}^poly(n).
 
 **Theory**: Randomized construction (cryptography) - structured randomness for OWF
 
@@ -1146,9 +1263,7 @@ def Witness.assignmentInf {nvars : Nat} (w : Witness nvars) : AssignmentInf :=
 - **Inversion reduction**: OWF inverter → witness extractor → contradiction
 - **FG-specific**: Includes gate verification data (not just SAT assignment)
 
-**Note**:Previously `assignment : Nat → Bool` (infinite). Now `assignment : Assignment nvars`
-(finite, `Fin nvars → Bool`). This is required for proper complexity-theoretic formalization where
-witnesses must be finite bit strings in {0,1}^poly(n).
+**Design Note**: `assignment : Assignment nvars` is finite (`Fin nvars → Bool`), required for proper complexity-theoretic formalization where witnesses must be finite bit strings in {0,1}^poly(n).
 
 **Design Note**: This is MORE specific than a universal SAT witness - includes FG-specific verification data that enables polynomial-time verification of the L* instance.
 
@@ -2633,9 +2748,9 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 
 ## § 11. Definition Summary
 
-**Minimal Core** (46 definitions - make or break):
+**Minimal Core** (51 definitions - make or break):
 
-**Information Theory** (8 definitions - 2 NEW):
+**Information Theory** (8 definitions):
 1. **NodeData** - Information accounting framework (q + Φ ≥ R)
 2. **lambda** - Residual complexity measure (single node)
 3. **keyed** - Injectivity (forces exponential states)
@@ -2656,64 +2771,71 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 14. **satisfies_A3** - A3 property verification (emergence certification)
 15. **build3SATReductionDAG** - DAG construction (3-SAT → L*)
 
-**Standard Complexity Classes** (4 definitions):
+**Standard Complexity Classes** (5 definitions):
 16. **InP** - P membership (polynomial-time decision)
-17. **InNP_Alg** - NP membership (CRITICAL for OWF witness verification!)
-18. **InFP** - FP membership (polynomial-time functions)
-19. **InFNP** - FNP membership (polynomial-time verifiable relations)
+17. **InNP** - NP membership (CRITICAL for OWF witness verification!)
+18. **InNP_Logical** - NP membership (logical/extensional, no resource bounds)
+19. **InFP** - FP membership (polynomial-time functions)
+20. **InFNP** - FNP membership (polynomial-time verifiable relations)
 
 **Parametric Complexity Classes** (3 definitions):
-20. **InFP_parametric** - Parametric FP families (uniform polynomial-time)
-21. **InFNP_parametric** - Parametric FNP families (uniform verifiable relations)
-22. **FPneFNP_parametric** - Parametric FP≠FNP separation (OWF bridge)
+21. **InFP_parametric** - Parametric FP families (uniform polynomial-time)
+22. **InFNP_parametric** - Parametric FNP families (uniform verifiable relations)
+23. **FPneFNP_parametric** - Parametric FP≠FNP separation (OWF bridge)
 
 **Bitstring Parametric Classes** (4 definitions - PRIMARY PATH):
-23. **InFP_parametric_bits** - Bitstring FP (zero-axiom bridge)
-24. **InFNP_parametric_bits** - Bitstring FNP (explicit witness construction)
-25. **FPneFNP_parametric_bits** - Bitstring FP≠FNP (main theorem input)
-26. **PeqNP_parametric** - Parametric P=NP definition (contrapositive → P≠NP)
+24. **InFP_parametric_bits** - Bitstring FP (zero-axiom bridge)
+25. **InFNP_parametric_bits** - Bitstring FNP (explicit witness construction)
+26. **FPneFNP_parametric_bits** - Bitstring FP≠FNP (main theorem input)
+27. **PeqNP_parametric** - Parametric P=NP definition (contrapositive → P≠NP)
 
-**Crypto & Information Bottleneck** (8 definitions - 3 NEW):
-27. **PPTAdversary** - Uniform polynomial-time model (TM + polynomial bounds)
-28. **localParity** - XOR fold (GF(2) arithmetic creating bottleneck)
-29. **fgDigestBit** - Digest bit wrapper (parity → Bool)
-30. **WellFormedRandomness** - Circularity breaking (non-circular OWF verification)
-31. **plant_flat** - One-way function construction (exponential profile)
-32. **HasWitnessUniqueness** -Planted instance singleton witness property
-33. **plant_flat_lambdaBase_eq_nvars** -Exponential profile λ ≥ n bound
-34. **plant_flat_R_eq_nvars** -FG gate R = nvars (parametric bound formula)
+**Bitstring Interface** (4 definitions - paper §10.6):
+28. **encodeBits** - L* → {0,1}* encoding (proven injective)
+29. **PrefixLangSigma** - L* language (structured form, core separation witness)
+30. **PrefixLangBits** - L* language over {0,1}* (main theorem witness)
+31. **owf_bits** - Bitstring OWF: w ↦ encode(plant_flat(decode(w)))
 
-**Operational Foundation** (9 definitions - 5 NEW):
-35. **FrontierGateConfig** - FG gate configuration (information bottleneck wiring)
-36. **LStarInstanceFG** - FG-equipped instance (extends LStarInstanceFull + FG config)
-37. **NodeDataFull** - L* → NodeData bridge (enables SCL application)
-38. **ExecutionPrefix** - Observation-based execution model (info theory bridge)
-39. **refutationCount** - Segment reduction result (exponential time bound!)
-40. **Observation** NEW - Partial/complete observation model (info-theoretic foundation)
-41. **AlgorithmState** NEW - Abstract computational state (model-agnostic)
-42. **WitnessFinder** NEW - THE MOST CRITICAL: Abstract witness-finding algorithm (Theorem 8.A foundation!)
-43. **TMExecutionTrace** NEW - TM trace with observations (Layer 4 bridge)
-44. **RevealedBit** NEW - Single bit revelation (ExecutionPrefixReal component)
-45. **tmExecutionToPrefix** -TM → ExecutionPrefix bridge function
-46. **observations_le_time** -Time bound theorem (observations ≤ time)
+**Crypto & Information Bottleneck** (8 definitions):
+32. **PPTAdversary** - Uniform polynomial-time model (TM + polynomial bounds)
+33. **localParity** - XOR fold (GF(2) arithmetic creating bottleneck)
+34. **fgDigestBit** - Digest bit wrapper (parity → Bool)
+35. **WellFormedRandomness** - Circularity breaking (non-circular OWF verification)
+36. **plant_flat** - One-way function construction (exponential profile)
+37. **HasWitnessUniqueness** - Planted instance singleton witness property
+38. **plant_flat_lambdaBase_eq_nvars** - Exponential profile λ ≥ n bound
+39. **plant_flat_R_eq_nvars** - FG gate R = nvars (parametric bound formula)
+
+**Operational Foundation** (12 definitions):
+40. **FrontierGateConfig** - FG gate configuration (information bottleneck wiring)
+41. **LStarInstanceFG** - FG-equipped instance (extends LStarInstanceFull + FG config)
+42. **NodeDataFull** - L* → NodeData bridge (enables SCL application)
+43. **ExecutionPrefix** - Observation-based execution model (info theory bridge)
+44. **refutationCount** - Segment reduction result (exponential time bound!)
+45. **Observation** - Partial/complete observation model (info-theoretic foundation)
+46. **AlgorithmState** - Abstract computational state (model-agnostic)
+47. **WitnessFinder** - Abstract witness-finding algorithm (Theorem 8.A foundation)
+48. **TMExecutionTrace** - TM trace with observations (Layer 4 bridge)
+49. **RevealedBit** - Single bit revelation (ExecutionPrefixReal component)
+50. **tmExecutionToPrefix** - TM → ExecutionPrefix bridge function
+51. **observations_le_time** - Time bound theorem (observations ≤ time)
 
 **Supporting Infrastructure** (13 additional definitions - proof fails without):
 
-47. **CNF** - 3-SAT problem definition (NP-complete core)
-48. **WellFormed** - Witness extraction enabler (security-critical)
-49. **Seed** - Finite encoding type (SCL cardinality)
-50. **DAG** - Computation dependency graph (A5 property)
-51. **CutWorld** - World semantics (WC-1 theorem)
-52. **ConfigSpace** - Configuration type (info-theoretic bounds)
-53. **TuringMachine** - Machine specification (Church-Turing)
-54. **TMConfig** - Configuration state (operational semantics)
-55. **RandAdv** - Abstract PPT (complexity classes infrastructure)
-56. **negligible_parametric** - Cryptographic negligibility
-57. **Witness** - SAT witness + FG verification data (extraction target)
-58. **extract** - Direct witness extraction from randomness
-59. **LStarInstanceFull** - Base instance (supports critical LStarInstanceFG)
+52. **CNF** - 3-SAT problem definition (NP-complete core)
+53. **WellFormed** - Witness extraction enabler (security-critical)
+54. **Seed** - Finite encoding type (SCL cardinality)
+55. **DAG** - Computation dependency graph (A5 property)
+56. **CutWorld** - World semantics (WC-1 theorem)
+57. **ConfigSpace** - Configuration type (info-theoretic bounds)
+58. **TuringMachine** - Machine specification (Church-Turing)
+59. **TMConfig** - Configuration state (operational semantics)
+60. **RandAdv** - Abstract PPT (complexity classes infrastructure)
+61. **negligible_parametric** - Cryptographic negligibility
+62. **Witness** - SAT witness + FG verification data (extraction target)
+63. **extract** - Direct witness extraction from randomness
+64. **LStarInstanceFull** - Base instance (supports critical LStarInstanceFG)
 
-**Grand Total**: 60 critical definitions form the complete logical foundation (46 core + 14 supporting)
+**Grand Total**: 64 critical definitions (51 core + 13 supporting)
 
 **Theoretical Foundations**:
 - Information theory (Hartley, Shannon)
@@ -2738,14 +2860,14 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 
 **Critical Insights**:
 
-1. **Why InNP_Alg is Core** (answer to deep question):
+1. **Why InNP is Core** (answer to deep question):
    - **NOT needed for NP-completeness** (proof doesn't use 3-SAT reduction)
    - **IS needed for OWF security**:
      * OWF inverter → Extractor extracts witness
      * Witness must be poly-time verifiable ← **THIS requires L* ∈ NP!**
      * FNP definition requires poly-time verifier (which IS the NP verifier)
-     * Primary theorem: `∃ L, InNP_Alg L ∧ ¬InP L` (uses NP directly in goal!)
-   - **Without InNP_Alg**: Extractor can't verify extracted witnesses → OWF → FP≠FNP fails!
+     * Primary theorem: `∃ L, InNP L ∧ ¬InP L` (uses NP directly in goal!)
+   - **Without InNP**: Extractor can't verify extracted witnesses → OWF → FP≠FNP fails!
 
 2. **Why fgDigestBit is Core** (proof discriminator for lower bounds):
    - **Role**: Parity function used as DISCRIMINATOR in proofs (NOT the hardness source)
@@ -3618,11 +3740,11 @@ def RunSearchComplete {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
 
 ---
 
-**Last Updated**: 2025-12-09
+**Last Updated**: 2025-12-16
 
 **Verification**: Complete definition-by-definition audit (49 critical+supporting definitions verified against source + theoretical coherence + spot-check of moderate definitions)
 
-**Latest Changes (2025-11-17 Cleanup + Additions)**:
+**Changes (2025-11-17 Cleanup + Additions)**:
 - ✅ **§5.3c decodeSeed**: Added critical witness extraction function (encodeSeed inverse, A4 enabler)
 - ✅ **§5.3d satisfies_A2**: Added A2 property verification (keyedness enabler)
 - ✅ **§5.3e satisfies_A3**: Added A3 property verification (emergence certification)

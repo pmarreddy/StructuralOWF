@@ -252,13 +252,14 @@ def InP {α : Type} [Sized α] (L : Lang α) : Prop :=
 
 ---
 
-### Definition: InNP_Alg
+### Definition: InNP
 **VERDICT: ✅ COHERENT**
 
 ```lean
-def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
-  ∃ (β : Type) ... (C_wit k_wit : Nat),
-    ... ∧ (∀ x y, V.run ... = true → size y ≤ C_wit * (size x + 1) ^ k_wit) ∧ ...
+def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
+  ∃ (β : Type) ... (C_wit k_wit C_time k_time : Nat),
+    ... ∧ (∀ x y, V.run ... = true → size y ≤ C_wit * (size x + 1) ^ k_wit) ∧
+    (∀ p : α × β, V.time_bound (size p) ≤ C_time * (size p + 1) ^ k_time) ∧ ...
 ```
 
 **Standard Theory**: Sipser §7.3, Arora-Barak §2.3
@@ -284,7 +285,7 @@ All match standard definitions:
 
 ```lean
 def PeqNP_classical : Prop :=
-  ∀ (α : Type) [Sized α] (L : Lang α), InNP_Alg L → InP L
+  ∀ (α : Type) [Sized α] (L : Lang α), InNP L → InP L
 ```
 
 **Standard Theory**: Exact textbook formulation of P = NP.
@@ -676,7 +677,7 @@ Excellent formalization:
 Catalog: 46 core + 13 supporting + 49 auxiliary = 98 total
 
 Critical insights verified:
-1. **Why InNP_Alg is Core**: Needed for OWF security (witness extraction verification) ✓
+1. **Why InNP is Core**: Needed for OWF security (witness extraction verification) ✓
 2. **Why fgDigestBit is Core**: Proof discriminator for lower bounds (witnesses config differences; hardness from R-bit identity + A2) ✓
 3. **Why WellFormedRandomness is Core**: Breaks circularity ✓
 
