@@ -7,17 +7,16 @@ import Layer2_StructuralOWF.FrontierGate.FrontierGate
 
 /-! ## OWFBridgeCommon: Shared Infrastructure for OWF Bridge Proofs
 
-This module contains infrastructure shared between the exponential (flat) and
-quasi-polynomial (QP) profiles for the OWF-based P≠NP proof.
+This module contains infrastructure for the OWF-based P≠NP proof.
 
-**Shared Components**:
+**Components**:
 - `LStarInstanceFG.ext`: Extensionality lemma for L* instances
 - `adapterInputEncoding`: Input encoding adapter for PPT adversary construction
 - `formatSeparated_from_early_decode`: Format separation derivation from early_decode
 - `encoding_semantics_abstract`: Abstract encoding semantics parameterized over decoding
 
-**Profile-Specific** (in OWFBridge.lean / OWFBridgeQP.lean):
-- `OWFInversionRelation`: The specific relation (uses different plant functions)
+**Main Proof** (in StructuralOWFBridge.lean):
+- `OWFInversionRelation`: The specific relation
 - `owf_inversion_not_in_fp`: Main FP non-membership proof
 - `P_ne_NP`: Final theorem
 

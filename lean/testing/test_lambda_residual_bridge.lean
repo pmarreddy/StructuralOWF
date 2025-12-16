@@ -9,9 +9,9 @@ import Mathlib.Tactic
 **Purpose**: Test Lambda residual bridge (λ = R_v - q_v).
 
 **What We Test**:
-1. R_of (QP) and R_of_flat (Exponential) formulas correct
+1. R_of and R_of_flat formulas correct
 2. Lambda (residual) = R_v at FG gates (since q_v = 0 for emergent bits)
-3. R_of_flat dominates R_of (exponential ≥ QP)
+3. R_of_flat provides exponential bound
 4. Edge cases (R=0, R=1, large R)
 5. Rank computation determinism and consistency
 

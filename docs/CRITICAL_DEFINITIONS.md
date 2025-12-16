@@ -385,7 +385,7 @@ def EffectiveResidual (L : LStarInstanceFG) (run : DeterministicRun AssignmentIn
   lambdaBase L v - PreFinalAgreement L run
 ```
 
-**Note**: Also exists in WorkLowerBounds.lean:156 with identical structure:
+**Note**: Also exists in WorkLowerBounds.lean with identical structure:
 ```lean
 def effectiveResidual (L : LStarInstanceFG) (run : DeterministicRun AssignmentInf AssignmentInf)
     (v : {v // L.fg.gateReq v}) : Nat :=
@@ -1674,12 +1674,12 @@ structure WitnessFinder (L : LStarInstanceFG) where
   h_trace_card : (Finset.image stateTrace Finset.univ).card = states_visited  -- Cardinality invariant
   h_visit_bound : states_visited ≤ time                    --CRITICAL: Can't visit more states than time
   h_states_pos : states_visited ≥ 1                        --CRITICAL: Non-triviality
-  output : Witness
-  h_correct : ∃ (φ : CNF), φ.satisfies output.assignment    -- Output satisfies some formula
+  output : Witness L.n                                      -- Parametric witness type
+  h_correct : ∃ (φ : CNF), φ.satisfies output.assignmentInf -- Output satisfies some formula (infinite extension)
   configsExploredAtCut : (C : Finset (Fin L.dag.n)) → Finset (ConfigSpace L C)  -- Cut-indexed exploration
   h_complete_obs_forces_full_exploration :                 --CRITICAL: Complete obs → full exploration
     ∀ (v : Fin L.dag.n) (obs : Observation L.toLStarInstanceFull v),
-      obs.isComplete → L.φ.satisfies output.assignment →
+      obs.isComplete → (∃ φ : CNF, φ.satisfies output.assignmentInf) →
       (∃ (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
           (h_dgLen : r.dgLen = (Nat.log 2 φ.nvars) ^ 2),
         L = plant_n n φ r h_nvars h_dgLen ∧ WellFormedRandomness φ r) →
@@ -1694,8 +1694,8 @@ structure WitnessFinder (L : LStarInstanceFG) where
 - **h_trace_card**: Trace cardinality equals states_visited
 - **h_visit_bound**:Cannot visit more states than time steps
 - **h_states_pos**:Non-triviality (witness finding requires computation)
-- **output**: Witness produced (assignment + gate proofs)
-- **h_correct**: Existential proof that output satisfies some CNF formula (∃ φ, φ.satisfies output.assignment)
+- **output**: Parametric witness `Witness L.n` (assignment + gate proofs)
+- **h_correct**: Existential proof that output satisfies some CNF formula (∃ φ, φ.satisfies output.assignmentInf)
 - **configsExploredAtCut**: Cut-indexed configuration exploration tracking
 - **h_complete_obs_forces_full_exploration**:Complete observation implies full config exploration
 
@@ -2146,6 +2146,13 @@ structure LStarInstanceFG extends LStarInstanceFull where
           R v.val ≤ c_upper * (n / W_min)
   dag_size_ge_n : dag.n ≥ n                            --DAG size lower bound
   h_n_eq_nvars : n = encodedφ.nvars                    --Parameter consistency
+  -- Encoding Size Bounds (required for O(n³) encoding proof):
+  R_upper : ∀ v, R v ≤ n                               -- R values bounded by n
+  seedWidth_upper : ∀ v, seedWidth v ≤ 2 * n * n       -- seedWidth bounded by 2n²
+  R_times_seedWidth_upper : ∀ v, R v * seedWidth v ≤ n * n  -- Product bound
+  clauses_upper : encodedφ.clauses.length ≤ n         -- Clause count bounded by n
+  lits_upper : encodedφ.clauses.foldl (fun acc c => acc + c.literals.length) 0 ≤ 3 * n  -- 3-SAT structure
+  maskedVar_upper : ∀ c ∈ encodedφ.clauses, ∀ lit ∈ c.literals, lit.maskedVar ≤ encodedφ.nvars  -- CNF well-formedness
 ```
 
 **Mathematical Object**: FG-equipped L* instance (THE instance type used in proofs)
@@ -2156,6 +2163,7 @@ structure LStarInstanceFG extends LStarInstanceFull where
   - fg_emergence_sizing: Quantitative profile sizing (QP vs Exponential)
   - dag_size_ge_n: DAG has at least n nodes (for complexity proofs)
   - h_n_eq_nvars: n equals CNF variable count (parameter consistency)
+  - Encoding bounds: R_upper, seedWidth_upper, R_times_seedWidth_upper, clauses_upper, lits_upper, maskedVar_upper (for O(n³) encoding)
 
 **Why Critical**:
 - **THE type** used throughout proof (not LStarInstanceFull alone!)
@@ -2566,15 +2574,15 @@ See `TuringMachineSemantics.lean` and paper §11.4 for detailed documentation.
   - encoding_semantics → now proven as theorem
   - tm_overhead → removed from codebase
 - **Remaining axioms** (2 total):
-  - `algspec_has_tm` (Church-Turing bridge + garbage separation) — RandAdv.lean:298
-  - `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Keyedness bound + uniform PPT) — TMAdapterExponential.lean:2211
+  - `algspec_has_tm` (Church-Turing bridge + garbage separation) — RandAdv.lean
+  - `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Keyedness bound + uniform PPT) — TMAdapterExponential.lean
     - Requires `h_extractWitness_surj` surjectivity constraint
     - Requires planted hypothesis and CNF satisfiability
     - Blocks non-uniform "lucky TMs" via uniform polynomial bounds
     - Blocks exponential-time strategies (correctness forces 2^R exploration)
 - **Eliminated axioms** (2025-12-08):
   - `plant_flat_wf_transfer` — WellFormed now part of WellFormedRandomness_flat definition
-  - `fg_lossless_encoding` — Now proven (145-line theorem in EncodingDiscipline.lean:344-489)
+  - `fg_lossless_encoding` — Now proven (theorem in EncodingDiscipline.lean)
 - **Rationale**: Minimize trust surface
 
 ---
@@ -2854,12 +2862,12 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 - Linear algebra (Galois, finite fields)
 
 **Trust Boundary**: 2 axioms (verified via `#print axioms P_ne_NP`)
-1. `algspec_has_tm` (RandAdv.lean:298) - Church-Turing bridge + garbage separation
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean:2211) - Keyedness bound + uniform PPT (correctness forces 2^R exploration)
+1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge + garbage separation
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean) - Keyedness bound + uniform PPT (correctness forces 2^R exploration)
 
 **Eliminated axioms** (2025-12-08):
 - `plant_flat_wf_transfer` → WellFormed now part of WellFormedRandomness_flat definition
-- `fg_lossless_encoding` → Now proven (145-line theorem in EncodingDiscipline.lean:344-489)
+- `fg_lossless_encoding` → Now proven (theorem in EncodingDiscipline.lean)
 - `encoding_semantics` → Now proven as `encoding_semantics_derived` theorem
 - `tm_overhead` → Removed from codebase entirely
 
@@ -3230,30 +3238,9 @@ def digestPositions (L : LStarInstanceFull) (v : Fin L.dag.n)
 
 ---
 
-### 12.8 Plant Functions (Layer 2)
+### 12.8 Security Infrastructure (Layer 2)
 
-**Definition**: `plant_n` (Layer2_StructuralOWF/Plant/PlantCore.lean)
-
-```lean
-def plant_n (_n : Nat) (φ : CNF) (r : Randomness) (h_nvars_min : φ.nvars ≥ 4) : LStarInstanceFG :=
-  -- QP profile: R_v = (log₂ n)²
-```
-
-**Mathematical Object**: Quasi-polynomial profile Plant function
-- **Emergence**: R_v = (log₂ n)² → λ_v = Θ((log n)²)
-- **Bound**: n^(log n) lower bound (quasi-polynomial)
-- **vs Exponential**: Weaker bound but still super-polynomial
-- **Constraint `φ.nvars ≥ 4`**: Required to avoid degenerate log₂ values and ensure non-trivial FG emergence budget (documented in PlantQP.lean)
-
-**Why Moderate**: Alternative profile, plant_flat (exponential) is stronger
-
-**Theory**: Quasi-polynomial complexity (Lipton-Viglas 1999)
-
----
-
-### 12.9 Security Infrastructure (Layer 2)
-
-**Definition**: `negligible` (Layer2_StructuralOWF/Security/StructuralOWFQP.lean)
+**Definition**: `negligible` (Layer5_Applications/Crypto/PRG/GoldreichLevin.lean)
 
 ```lean
 def negligible (ε : ℕ → ℝ) : Prop :=
@@ -3272,7 +3259,7 @@ def negligible (ε : ℕ → ℝ) : Prop :=
 
 ---
 
-### 12.10 Segment Reduction (Layer 3)
+### 12.9 Segment Reduction (Layer 3)
 
 **Definition**: `effectiveResidual` (Layer3_InformationBounds/SegmentReduction/WorkLowerBounds.lean)
 
@@ -3722,9 +3709,9 @@ def RunSearchComplete {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
 
 ### **Benign Modeling Choices (Documented):**
 
-6. **`negligible` (OWFQP.lean)** - Type `ℕ → ℝ` allows values outside [0,1], but all usages instantiate with probabilities (pragmatically sound)
+6. **`negligible` (GoldreichLevin.lean)** - Type `ℕ → ℝ` allows values outside [0,1], but all usages instantiate with probabilities (pragmatically sound)
 
-7. **`plant_n` constraint** (PlantQP.lean) - Requirement `φ.nvars ≥ 4` now documented as preventing degenerate log₂ values
+7. **`plant_flat` constraint** (PlantExponential.lean) - Requirement `φ.nvars ≥ 4` documented as preventing degenerate values
 
 8. **`computeAddress` (Pools.lean)** - Redundant modulo operation is harmless performance nit (mathematically correct)
 

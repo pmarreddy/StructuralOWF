@@ -207,7 +207,7 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 
 ### Randomness/ (3 files)
 - **RandomnessSpace.lean**: Randomness domain definitions
-- **RanksQP.lean**: R formulas for QP profile (R = (log n)²)
+- **RanksCore.lean**: Core R formula infrastructure
 - **RanksExponential.lean**: R formulas for Exponential profile (R = n)
 
 ### ConstraintSystem/ (5 files)
@@ -271,11 +271,8 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 - ✅ **keyedness_at_fg_gate**: Eliminated in KeyednessFromA2.lean (proven from A2!)
 
 **Remaining Axioms** (Semantic → Operational bridges, Layer 4):
-- **church_turing_with_poly_simulation**: Standard CT thesis (all profiles)
-- **parity_distinguishability_required_for_planted_correctness**: Semantic bridge (QP + Exponential)
-- **executionPrefix_compatible_with_planted**: Execution model bridge (QP only)
-
-**Exponential profile advantage**: Avoids executionPrefix axiom via direct computational approach (2 axioms total).
+- **algspec_has_tm**: Church-Turing bridge
+- **tm_correctness_implies_realizesAllValuesFrom_flat_encoded**: Semantic bridge
 
 **All core information-theoretic theorems are proven** (no axioms in Layer 3 itself).
 
@@ -367,12 +364,11 @@ totalEliminations ≥ 2^(ρ-s) - 1
 
 All three ways require exponential resources simultaneously.
 
-### Q: Why are there two profiles (QP vs. Exponential)?
+### Q: What determines the hardness bound?
 
 **A**:
-- **QP (R = (log n)²)**: Minimal sufficient hardness for P≠NP (quasi-polynomial bound n^{log n})
-- **Exponential (R = n)**: Maximum hardness (full exponential bound 2^n)
-- Both profiles demonstrate the **same framework** works for different R formulas (R-parametric system).
+- **R = n**: Full exponential bound 2^n (maximum hardness)
+- The framework is R-parametric, meaning different R formulas yield different bounds.
 
 ### Q: What's the computational gap at the Layer 3 → Layer 4 boundary?
 

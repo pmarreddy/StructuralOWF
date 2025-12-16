@@ -4,14 +4,11 @@
 
 **This document describes the EXPONENTIAL profile proof chain.**
 
-The codebase supports two profiles—this document covers the stronger one:
-
 | Profile | R_v Formula | Bound | Key Files |
 |---------|-------------|-------|-----------|
-| **Exponential (this doc)** | n | 2^n | RanksExponential, StructuralOWFExponential, TMAdapterExponential |
-| QP-Sharp | (log₂ n)² | n^{log n} | RanksQP, OWFSecurity, TMAdapter |
+| **Exponential** | n | 2^n | RanksExponential, StructuralOWFExponential, TMAdapterExponential |
 
-Both prove P≠NP. Exponential uses 2 axioms with stronger bounds. QP uses 2 axioms with smaller trust basis.
+The exponential profile proves P≠NP with 2 axioms and strong 2^n bounds.
 
 ---
 
@@ -19,16 +16,16 @@ Both prove P≠NP. Exponential uses 2 axioms with stronger bounds. QP uses 2 axi
 
 **Objective**: Establish P≠NP constructively with explicit bounds and minimal axiomatic overhead.
 
-**Profile**: **Exponential** — R_v = n at FG gates, yielding 2^n lower bound (vs QP's n^{log n}).
+**Profile**: **Exponential** — R_v = n at FG gates, yielding 2^n lower bound.
 
 **Proof Architecture**: Information Conservation Law
 1. **Establish information barrier**: Construct L* instance requiring resolution of ≥2^n distinguishable possibilities (information-theoretic necessity)
 2. **Derive computational lower bound**: Prove that resolving k possibilities requires ≥k computational steps (operational semantics)
 3. **Obtain contradiction**: Any polynomial-time inverter violates information conservation (impossibility)
 
-**Result**: P≠NP with 2 axioms (Exponential profile). QP profile uses 2 axioms.
+**Result**: P≠NP with 2 axioms.
 
-**Status**: ✅ **FULLY PROVEN** - 0 sorries in active proof chain, both profiles publication-ready.
+**Status**: ✅ **FULLY PROVEN** - 0 sorries in active proof chain.
 
 ---
 
@@ -36,7 +33,7 @@ Both prove P≠NP. Exponential uses 2 axioms with stronger bounds. QP uses 2 axi
 
 This section presents **only** the essential theorems constituting the proof backbone for the **top-down exponential approach**. Note: R_of_flat ([5]) is a definition rather than a theorem, but serves as a critical architectural component.
 
-**Important**: The exponential profile uses a **top-down semantic derivation**, which is simpler than the QP profile's bottom-up segment reduction. This document reflects the actual proof path in `TMAdapterExponential.lean`.
+**Important**: The proof uses a **top-down semantic derivation**. This document reflects the actual proof path in `TMAdapterExponential.lean`.
 
 ```
 ═══════════════════════════════════════════════════════════════════
@@ -107,7 +104,7 @@ This section presents **only** the essential theorems constituting the proof bac
 
 ═══════════════════════════════════════════════════════════════════
 
-TOP-DOWN PROOF PATH (used by exponential profile):
+TOP-DOWN PROOF PATH:
   Correctness hypothesis
        ↓
   correctness_implies_realizesAllValues [5b]
@@ -118,18 +115,14 @@ TOP-DOWN PROOF PATH (used by exponential profile):
        ↓
   Result: haltTime ≥ 2^R  [7]
 
-BOTTOM-UP PROOF PATH (used by QP profile, NOT used here):
-  TM execution → ExecutionPrefix → SegmentReduction → WC-1 → time
-  (See TMToExecutionPrefix.lean for QP profile)
-
 ═══════════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## Theorem Dependency Matrix (Top-Down Exponential Profile)
+## Theorem Dependency Matrix
 
-This matrix shows the direct dependencies between critical theorems **for the top-down exponential profile**. A checkmark (✓) indicates that the theorem in the row directly uses the result from the theorem in the column.
+This matrix shows the direct dependencies between critical theorems. A checkmark (✓) indicates that the theorem in the row directly uses the result from the theorem in the column.
 
 | Uses ↓ \ Provides → | [1] | [2] | [3] | [4] | [5] | [6] | [7] | [8] | [9] | [10] | [11] |
 |---------------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|------|------|
@@ -148,8 +141,6 @@ This matrix shows the direct dependencies between critical theorems **for the to
 **Reading guide**: Each row shows what a theorem depends on. For example:
 - [7] TM time bound uses [4] R_of_flat, [5] parity information theory, and [6] visited encodings counting
 - [11] pnenp uses [10] (which provides FP≠FNP) and internally applies search-from-decision to get P≠NP
-
-**Note**: The QP profile uses a different dependency chain via segment reduction and WC-1 (see TMToExecutionPrefix.lean). The top-down exponential profile bypasses segment reduction entirely.
 
 ---
 
@@ -297,17 +288,17 @@ theorem L_satisfies_A3 (L : LStarInstanceFull) : satisfies_A3 L
 ```lean
 def R_of_flat (φ : CNF) (numGates : Nat) (v : Nat) : Nat :=
   if (fg_start ≤ v) ∧ (v < fg_end)
-  then φ.nvars  -- Exponential profile: R = n (contrast: (log n)² in QP-sharp)
+  then φ.nvars  -- R = n (exponential hardness)
   else 0        -- Non-FG nodes contribute zero emergence
 ```
 
 **Definition Content**: Frontier Gate wiring establishes emergence rank R_v = n at FG gates, yielding exponential configuration space 2^n.
 
-**Significance**: **Determines barrier strength**. The choice of R_v formula controls whether the resulting bound is quasi-polynomial (R = (log n)²) or exponential (R = n). This parameter directly determines proof strength.
+**Significance**: **Determines barrier strength**. The R_v = n formula yields exponential hardness (2^n bound).
 
 **Key Properties**:
 - FG gates: R_v = n → lower bound 2^n (exponential hardness)
-- Non-FG nodes: R_v = 0 (matches QP profile baseline)
+- Non-FG nodes: R_v = 0 (no emergence contribution)
 - Combined with A3_emergence [4]: guarantees n fresh information-theoretic bits at FG gate location
 
 **Dependencies**:
@@ -323,7 +314,7 @@ def R_of_flat (φ : CNF) (numGates : Nat) (v : Nat) : Nat :=
 
 ### Layer 3: Information Bounds (Top-Down Counting)
 
-**Note**: The exponential profile uses **top-down semantic derivation**, NOT the bottom-up segment reduction used by the QP profile. The key theorems below establish the counting-based time bound.
+**Note**: The proof uses **top-down semantic derivation**. The key theorems below establish the counting-based time bound.
 
 ---
 
@@ -425,16 +416,13 @@ theorem fg_first_commit_time_lower_bound
 
 **Significance**: **Operational semantics bridge**. Connects information-theoretic necessity (must observe all configurations) to concrete time complexity. This is the critical theorem enabling the OWF security proof.
 
-**Proof Technique**: Top-down semantic derivation (exponential profile)
+**Proof Technique**: Top-down semantic derivation
 1. `correctness_implies_realizesAllValues`: Correctness hypothesis → must visit all 2^R configurations
 2. `visitedEncodings_card_ge_pow` [6]: realizes all values → |visitedEncodings| ≥ 2^R
 3. `visitedEncodings_card_le_time`: |visitedEncodings| ≤ haltTime (trivial image bound)
 4. Transitivity: haltTime ≥ 2^R ∎
 
-**Key Insight**: The top-down approach reasons directly from correctness to time bound, WITHOUT using:
-- Segment reduction (QP-only)
-- WC-1 refutation counting (QP-only)
-- ExecutionPrefix construction (QP-only)
+**Key Insight**: The top-down approach reasons directly from correctness to time bound.
 
 **Dependencies**:
 - R_of_flat [4] (emergence rank definition: R = n)
@@ -735,17 +723,7 @@ These branches provide essential technical infrastructure for the critical theor
 
 ---
 
-### Branch F: World Commitment (QP Profile Only)
-
-**Objective**: Formalize constraint satisfaction semantics and world counting (used by QP profile's bottom-up approach, not the exponential top-down approach).
-
-**Key Theorems**: `world_commit_counting`, `WC1_property`, `CDT_main_lemma`, `bits_only_subset`, segment reduction machinery (12 theorems total in WorldCommit.lean, SegmentReduction.lean)
-
-**Axiomatic Content**: 0
-
----
-
-### Branch G: Execution Semantics (supports [7] TM Time Bound)
+### Branch F: Execution Semantics (supports [7] TM Time Bound)
 
 **Objective**: Formalize Turing Machine execution model and observation semantics.
 
@@ -779,7 +757,7 @@ These branches provide essential technical infrastructure for the critical theor
 
 ---
 
-### Branch H: Witness Extraction (supports [8] Randomness.assignment)
+### Branch G: Witness Extraction (supports [8] Randomness.assignment)
 
 **Objective**: Recover CNF-SAT witness from inverter output.
 
@@ -799,7 +777,7 @@ These branches provide essential technical infrastructure for the critical theor
 
 ---
 
-### Branch I: Complexity Equivalence (supports [11] pnenp)
+### Branch H: Complexity Equivalence (supports [11] pnenp)
 
 **Objective**: Establish FP≠FNP → P≠NP bridge.
 
@@ -819,7 +797,7 @@ These branches provide essential technical infrastructure for the critical theor
 
 ## Axiom Summary
 
-**Total Axiomatic Content**: Exponential profile uses **2 axioms**, QP profile uses **2 axioms** (all standard CS/math principles)
+**Total Axiomatic Content**: **2 axioms** (all standard CS/math principles)
 
 See `docs/AXIOM_FINAL_COUNT.md` for comprehensive axiom documentation and verification commands.
 
@@ -884,7 +862,7 @@ private theorem fg_lossless_encoding
 
 ---
 
-### Axiom 2/2: TM Correctness Implies Complete Exploration (Exponential Profile)
+### Axiom 2/2: TM Correctness Implies Complete Exploration
 
 **Name**: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`
 
@@ -924,8 +902,6 @@ axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 
 **Used By**: [7] TM time bound, [9] OWF security
 
-**Note**: QP Profile uses `executionPrefix_compatible_with_planted` instead.
-
 ---
 
 ### Eliminated: CNF Well-Formedness Transfer (Formerly Axiom)
@@ -951,8 +927,6 @@ def WellFormedRandomness_flat (φ : CNF) (r : Randomness) : Prop :=
 
 **Why this works**: Well-formedness is a property of the CNF family (Φ n), not of individual randomness values. The theorem hypotheses already provide `h_wf_literals : ∀ n, CNF.WellFormed (Φ n)`. By including WellFormed in the randomness filter predicate, any planted instance automatically has well-formed CNF.
 
-**Note**: QP Profile was not affected (used different axioms).
-
 ---
 
 ## Verification Checklist
@@ -973,13 +947,12 @@ To verify proof soundness, auditors should check:
 
 ---
 
-**Verification Status**: ✅ **FULLY PROVEN** — 0 sorries, both profiles publication-ready
-- Exponential: 2 axioms (stronger 2^n bound)
-- QP: 2 axioms (n^{log n} bound)
+**Verification Status**: ✅ **FULLY PROVEN** — 0 sorries, 2 axioms
 
 **Authoritative Axiom Source**:
-- Exponential: `#print axioms LStar.Complexity.StructuralOWFBridge.P_ne_NP` (2 axioms)
-- QP: `#print axioms LStar.Complexity.StructuralOWFBridgeQP.P_ne_NP` (2 axioms)
+```bash
+#print axioms LStar.Complexity.StructuralOWFBridge.P_ne_NP
+```
 
 See `docs/AXIOM_FINAL_COUNT.md` for comprehensive axiom documentation.
 

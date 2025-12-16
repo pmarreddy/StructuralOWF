@@ -45,8 +45,7 @@ This repository contains a full mathematical proof that P≠NP, formalized in th
 │   ├── CONTRIBUTIONS.md            # Reviewer guidelines (start here)
 │   ├── TRAPDOOR_OWF_MECHANISM.md   # Quick intuition (5-minute read)
 │   ├── PROOF_CONTROL_FLOW.md       # 11 critical theorems, proof spine
-│   ├── CRITICAL_DEFINITIONS.md     # 108 definitions cataloged
-│   └── DUAL_PROOF_ARCHITECTURES.md # QP vs Exponential profiles
+│   └── CRITICAL_DEFINITIONS.md     # 108 definitions cataloged
 │
 ├── CLAUDE.md                       # AI assistant guidelines
 └── README.md                       # This file
@@ -112,17 +111,6 @@ The proof relies on only **2 custom axioms**:
 The following were axioms in earlier versions but are now **fully proven**:
 - `fg_lossless_encoding` → 145-line theorem (EncodingDiscipline.lean)
 - `encoding_semantics` → Now `encoding_semantics_derived` (proven)
-
-## Dual Profile Architecture
-
-The codebase supports two independent proof profiles:
-
-| Profile | R Formula | Lower Bound | Key Files |
-|---------|-----------|-------------|-----------|
-| **Exponential** | R = n | 2^n | TMAdapterExponential, StructuralOWFExponential |
-| **QP-Sharp** | R = (log n)² | n^{log n} | TMAdapterQP, StructuralOWFQP |
-
-Both profiles prove P≠NP independently. The Exponential profile provides stronger bounds (2^n vs n^{log n}); the QP profile uses a more conservative R formula with a smaller base.
 
 ## Building
 
@@ -190,7 +178,6 @@ See [`docs/CONTRIBUTIONS.md`](docs/CONTRIBUTIONS.md) for full guidelines and con
 | [`TRAPDOOR_OWF_MECHANISM.md`](docs/TRAPDOOR_OWF_MECHANISM.md) | Quick intuition (5-minute read) |
 | [`PROOF_CONTROL_FLOW.md`](docs/PROOF_CONTROL_FLOW.md) | 11 critical theorems, proof spine |
 | [`CRITICAL_DEFINITIONS.md`](docs/CRITICAL_DEFINITIONS.md) | 108 definitions cataloged |
-| [`DUAL_PROOF_ARCHITECTURES.md`](docs/DUAL_PROOF_ARCHITECTURES.md) | QP vs Exponential profiles |
 | [`AI_REVIEW_GUIDE.md`](docs/AI_REVIEW_GUIDE.md) | AI-assisted review methodology |
 
 ## Citation

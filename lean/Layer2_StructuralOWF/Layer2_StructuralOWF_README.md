@@ -1,12 +1,12 @@
 # Layer 2: Parity One-Way Function Construction
 
-**Purpose**: Construct candidate one-way function f(r) = Plant(φ, r) with FrontierGate (FG) wiring that forces exponential/quasi-polynomial time for inversion.
+**Purpose**: Construct candidate one-way function f(r) = Plant(φ, r) with FrontierGate (FG) wiring that forces exponential time for inversion.
 
 **Location**: `lean/Layer2_StructuralOWF/`
 
 **Main Result**: For 3-SAT formula φ, Plant function f: {0,1}^R → {0,1}^* is:
 - **Computable in poly-time**: Forward evaluation via seed chain propagation
-- **Hard to invert**: Requires super-polynomial time (exponential or quasi-poly, depending on profile)
+- **Hard to invert**: Requires exponential time (2^n lower bound)
 
 **Files**: 10 files across 4 directories (Plant, FrontierGate, Extractor, Security)
 
@@ -34,7 +34,7 @@ Process: Plant(φ, r)
 Output:  x* ∈ L* (encodes φ, hides α)
 
 Forward:  O(poly(n))              — seed chain propagation
-Backward: Ω(2^n) or Ω(n^{log n}) — must resolve all emergence bits
+Backward: Ω(2^n)                  — must resolve all emergence bits
 ```
 
 **The Identity Digest Barrier**: FrontierGate requires ALL R emergence bits to match (full identity digest, not 1-bit parity). The domain constraint `WellFormedRandomness` checks that every bit of `r.gateDigests` equals the corresponding bit of the emergent configuration. This creates the 2^R bottleneck: an algorithm must distinguish among all 2^R configurations (not 2^{R-1}), which requires resolving all R emergence bits.
@@ -70,7 +70,7 @@ This trapdoor application places us in **Cryptomania** — both private-key (Min
 
 ---
 
-## 1. Plant Function (Dual Profile Architecture)
+## 1. Plant Function
 
 **Purpose**: Deterministic function mapping randomness r to planted L* instance output x*.
 
@@ -88,28 +88,7 @@ For 3-SAT formula φ with n variables and m clauses:
 
 **Output**: x* ∈ {0,1}^* (planted instance output)
 
-### Dual Profile Support
-
-The formalization supports **TWO PROVEN PROFILES** with different complexity bounds:
-
-#### Profile 1: QP-Sharp (PlantCore.lean, StructuralOWFQP.lean)
-
-**Plant Function**: `plant_flat` defined in `PlantExponential.lean`
-
-**Emergence Formula**: R_v = (log₂ seedWidth_v)² at each vertex v
-
-**Residual Complexity**: λ_total = Σ_{v∈DAG} (R_v - q_v) = O((n + m log m) · log² n)
-
-**Time Bound**: n^{O(log n)} (quasi-polynomial)
-
-**Why QP-Sharp Matters**:
-- Minimal sufficient hardness for P≠NP (polynomial < quasi-poly < exponential)
-- Demonstrates that L* construction achieves tightest possible bound
-- λ = Θ(log² n) is "just enough" to force super-polynomial time
-
-**Security Proof**: `StructuralOWFQP.lean`
-
-#### Profile 2: Exponential (PlantExponential.lean, StructuralOWFExponential.lean)
+### Exponential Profile (PlantExponential.lean, StructuralOWFExponential.lean)
 
 **Plant Function**: `plant_flat` defined in `PlantExponential.lean`
 
@@ -215,9 +194,7 @@ digest_fg depends on ALL variable seeds (full R-bit identity digest)
 
 **Effect of FG**: Creates 2^(R_fg) possible digest values.
 
-**QP Profile**: R_fg = (log n)² → 2^{(log n)²} = n^{log n} worlds
-
-**Exponential Profile**: R_fg = n → 2^n worlds
+**Exponential Hardness**: R_fg = n → 2^n worlds
 
 **Consequence**: Algorithm must distinguish between exponentially many "computational histories" (worlds), each requiring separate tracking until digest is determined.
 
@@ -235,9 +212,8 @@ digest_fg depends on ALL variable seeds (full R-bit identity digest)
 - **VectorHelpers.lean**: Vector operations, parity computation (GF(2)), bit utilities
 - **FrontierGate.lean**: Main FG implementation, digest wiring, emergence bound
 
-**Security/** (2 files):
-- **StructuralOWFQP.lean**: OWF security proof for QP profile (2 axioms)
-- **StructuralOWFExponential.lean**: OWF security proof for Exponential profile (2 axioms)
+**Security/** (1 file):
+- **StructuralOWFExponential.lean**: OWF security proof (2 axioms)
 
 ---
 
@@ -348,27 +324,7 @@ Assume P = NP (for contradiction)
 
 ## 5. OWF Security Proofs
 
-### StructuralOWFQP.lean (Quasi-Polynomial Profile)
-
-**Main Theorems**:
-```lean
-theorem parity_owf_security_fintype_instantiation : ...
-theorem f_is_one_way_from_fg_rand_family_axiom_free : ...
-```
-
-**Proof Strategy**:
-1. **Information Bound** (Layer 3): Resolving planted instance requires distinguishing 2^{Ω((log n)²)} states
-2. **Time Bound** (Layer 4): TM execution requires ≥ 2^{Ω((log n)²)} steps = n^{Ω(log n)} time
-3. **Polynomial Time Insufficient**: poly(n) << n^{Ω(log n)} → cannot invert
-4. **Therefore**: Plant is one-way against uniform PPT adversaries
-
-**Key Dependencies**:
-- FG emergence bound (fg_emergence_bound)
-- SCL bounds (Layer 0)
-- Keyedness from A2 (Layer 1 Bridge)
-- TM time bound (Layer 4)
-
-### StructuralOWFExponential.lean (Exponential Profile)
+### StructuralOWFExponential.lean
 
 **Main Theorems**:
 ```lean
@@ -382,24 +338,18 @@ theorem f_is_parity_owf_exponential_true : ...
 3. **Polynomial Time Insufficient**: poly(n) << 2^{Ω(n)} → cannot invert
 4. **Therefore**: PlantExponential is one-way with exponential security
 
-**Key Differences from QP Profile**:
-- Does NOT use SecurityParam type (works for all n ∈ ℕ)
-- Simpler computational gap (direct exponential, no complexity subtleties)
-- Stronger security guarantee (2^{-n} vs. n^{-ω(1)} negligible probability)
+**Key Properties**:
+- Works for all n ∈ ℕ (no special type constraints)
+- Direct exponential gap (2^n >> poly(n))
+- Strong security guarantee (2^{-n} negligible probability)
 
 ---
 
 ## Trust Boundary
 
-### Axiom Summary (Full Chain)
-
-**QP Profile (2 axioms total)**:
-1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge (SHARED)
-2. `executionPrefix_compatible_with_planted` (PlantedBoundaryDiversity.lean) - Execution model bridge (QP ONLY)
-
-**Exponential Profile (2 axioms total)**:
-1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge (SHARED)
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean) - Info-theoretic + uniform PPT bound (EXP ONLY)
+### Axiom Summary (2 axioms total)
+1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean) - Info-theoretic + uniform PPT bound
    - Requires uniform polynomial bounds (blocks non-uniform "lucky TMs" and exponential-time strategies like "parity pruning")
    - **Paper vs. Lean**: The paper (§10.1.1 OAP Non-Inferability, Lemma 10.1.1-NI) proves this result from first principles using a two-instance argument. The Lean formalization axiomatizes it due to mechanization challenges. See `OAPLocalFlip.lean` for XOR local flip lemmas and `ParityLowerBound.lean` for the proven information-theoretic content.
 
@@ -478,15 +428,8 @@ noncomputable def plant_flat (_n : Nat) (φ : CNF) (r : Randomness)
 ```
 Uses full exponential emergence: R_v = n
 
-### OWF Security (Both Profiles)
+### OWF Security (StructuralOWFExponential.lean)
 
-**QP Security** (StructuralOWFQP.lean):
-```lean
-theorem f_is_one_way_from_fg_rand_family_axiom_free : ...
-theorem parity_owf_security_fintype_instantiation : ...
-```
-
-**Exponential Security** (StructuralOWFExponential.lean):
 ```lean
 theorem f_is_parity_owf_exponential_flat : ...
 theorem f_is_parity_owf_exponential_true : ...
@@ -498,14 +441,10 @@ theorem f_is_parity_owf_exponential_true : ...
 
 ### Why Dual Profiles?
 
-**Demonstrates formalization flexibility**:
-- **Same SCL framework** (Layer 0) applies to BOTH profiles
-- **Same L* construction** (Layer 1) with different emergence formulas
-- **Same proof structure** (Layers 2-5) with profile-specific bounds
-
-**Different use cases**:
-- **QP-Sharp**: Minimal bound for P≠NP (theoretical significance)
-- **Exponential**: Full exponential lower bound (maximum strength)
+**Formalization Design**:
+- **SCL framework** (Layer 0) provides the foundation
+- **L* construction** (Layer 1) with exponential emergence formula
+- **Uniform proof structure** (Layers 2-5) with exponential bounds
 
 ### Why Single FrontierGate?
 
@@ -566,19 +505,11 @@ This makes the P≠NP proof **unconditional** (no crypto assumptions needed).
 
 Extending requires substantial refactoring (~1500-2600 lines). Current single-gate version is sufficient for P≠NP proof.
 
-### Q4: Why two profiles (QP vs. Exponential)?
-
-**A**: Demonstrates formalization flexibility and covers different theoretical goals:
-- **QP-Sharp**: Minimal sufficient bound for P≠NP (poly < quasi-poly < exp)
-- **Exponential**: Full exponential information-theoretic bound (2^n lower bound)
-
-Both use SAME framework (SCL + L* + FG), just different emergence rank formulas (R_v = (log n)² vs. R_v = n).
-
-### Q5: What's the difference between Plant and OWF theorems?
+### Q4: What's the difference between Plant and OWF theorems?
 
 **A**: Layered proof structure:
-- **Plant theorems** (PlantQP.lean, PlantExponential.lean): Forward computation is poly-time
-- **OWF theorems** (OWFQP.lean, OWFExponential.lean): Inversion requires super-poly time
+- **Plant theorems** (PlantExponential.lean): Forward computation is poly-time
+- **OWF theorems** (StructuralOWFExponential.lean): Inversion requires exponential time
 
 OWF security combines:
 1. Plant forward computation (this layer)
@@ -586,7 +517,7 @@ OWF security combines:
 3. Time bounds (Layer 4)
 4. Security reduction (Layer 5)
 
-### Q6: How does Extractor relate to the OWF construction?
+### Q5: How does Extractor relate to the OWF construction?
 
 **A**: Extractor is the **inverse direction** of the OWF → P≠NP reduction:
 
@@ -607,11 +538,9 @@ Extractor provides the **witness extraction guarantee** needed for the reduction
 
 - **§3 "L* → OWF Construction"**: Plant function definition and forward computation
 - **§4 "FrontierGate Mechanism"**: Identity digest wiring and world splitting
-- **§5 "Security Analysis"**: OWF security proofs for both profiles
-- **§6 "Dual Profile Architecture"**: QP-sharp vs. Exponential comparison
+- **§5 "Security Analysis"**: OWF security proofs
 - **§8 "Extractor Correctness"**: Witness reconstruction from preimages
-- **Theorem 5.A**: OWF security for QP profile
-- **Theorem 5.B**: OWF security for Exponential profile
+- **Theorem 5.B**: OWF security (exponential bound)
 
 ---
 
@@ -631,16 +560,14 @@ Extractor provides the **witness extraction guarantee** needed for the reduction
 
 ## Build Status
 
-✅ **Both profiles compile successfully**:
-- **QP Profile**: 3185 jobs, 0 sorries
-- **Exponential Profile**: 3182 jobs, 0 sorries
+✅ **Compiles successfully**: 0 sorries
 
 ✅ **Trust boundary minimal**:
-- 2 axioms per profile (Church-Turing + semantic bridge)
+- 2 axioms (Church-Turing + semantic bridge)
 - All construction theorems proven without custom axioms
 - Former axioms `fg_lossless_encoding` and `plant_flat_wf_transfer` now proven/eliminated
 
-✅ **Publication ready**: Zero sorries in active proof chain for both profiles.
+✅ **Publication ready**: Zero sorries in active proof chain.
 
 ---
 

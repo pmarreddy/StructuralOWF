@@ -43,7 +43,7 @@ Impagliazzo (1995) proposed five possible computational worlds based on the exis
 ## Overview
 
 - **Files**: 44 total (22 in PvsNP/, 22 in Crypto/)
-- **Folders**: PvsNP/ (Common, ComplexityClasses, PrimaryPath, QP) and Crypto/ (with PRG, Cryptomania, ZeroKnowledge subdirectories)
+- **Folders**: PvsNP/ (Common, ComplexityClasses, PrimaryPath) and Crypto/ (with PRG, Cryptomania, ZeroKnowledge subdirectories)
 - **Sorries**: 0 in core P≠NP path (complete formalization)
 - **Main Theorem**: `fpnefnp_implies_not_peqnp` (ParametricBitstringBridge.lean)
 
@@ -134,7 +134,7 @@ Both paths derive P≠NP from OWF existence. They share identical axiom dependen
 ```
 OWF (Layer 2) → FP≠FNP → P≠NP
       ↓             ↓         ↓
-StructuralOWFQP  Bridge    Both paths
+StructuralOWF   Bridge    Both paths
 ```
 
 **Key Features**:
@@ -178,9 +178,6 @@ Primary OWF → P≠NP path:
 - **StructuralOWFBridge.lean**: OWF to FP≠FNP bridge
 - **StructuralOWFBridgeHelpers.lean**: Bridge helper lemmas
 - **ProofTests.lean**: Proof verification tests
-
-#### PvsNP/QP/ (1 file)
-- **StructuralOWFBridgeQP.lean**: QP profile bridge
 
 ### Crypto/ (22 files)
 

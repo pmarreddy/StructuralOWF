@@ -52,9 +52,9 @@ Operational (Layer 4)
 - TMSemanticProperties.lean: TM semantic properties
 - TuringMachineSemantics.lean: Deterministic k-tape TM semantics (axiom-free)
 
-**TimeBridge/** (3 files):
-- Dual-path exponential time lower bound
-- Profile-specific TM adapters (QP + Exponential)
+**TimeBridge/** (2 files):
+- Exponential time lower bound
+- TM adapter (TMAdapterExponential.lean)
 - ExecutionPrefix construction
 
 **ExecutionSemantics/** (2 files):
@@ -68,7 +68,7 @@ Operational (Layer 4)
 
 **Model-specific proofs eliminate axioms**: Instead of axiomatizing "keyedness → visitation" globally, each computational model (TM, circuit, proof system) *proves* it via adapter instance.
 
-**Result**: Only 2 axioms per profile remain (Church-Turing + semantic bridge), down from 15+ in earlier iterations.
+**Result**: Only 2 axioms remain (Church-Turing + semantic bridge), down from 15+ in earlier iterations.
 
 ---
 

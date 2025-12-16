@@ -173,11 +173,10 @@ This document builds the trapdoor mechanism progressively. Use this map to find 
   - φ hidden inside encodedφ
 - **R_v (emergence rank)**: Number of independent bits at node v
   - R_v = 0 for source, variable, and non-FG clause nodes
-  - R_v > 0 **only at FG gates**: (log n)² for QP profile, n for exponential profile
+  - R_v = n **at FG gates** (exponential hardness)
   - A3 guarantees these bits are linearly independent
 - **FrontierGate digest**: dgLen-bit value stored in r.gateDigests
-  - QP profile: dgLen = (log n)² bits
-  - Exponential profile: dgLen ≥ 64 bits (R = n for emergence rank)
+  - dgLen ≥ 64 bits (R = n for emergence rank)
   - WellFormedRandomness requires: ALL R bits match emergentConfig
   - Stored in x* as `gateDigests` (from randomness r)
 
@@ -206,7 +205,7 @@ masks (via hashSeed) ──────────────→   ??? (needs 
 φ ⊕ masks = encodedφ ──────────────→   encodedφ ⊕ ??? = garbage
 
 Alice: O(n) to decode                   Inverter: 2^R work required
-                                        (R = (log n)² for QP, R = n for exponential)
+                                        (R = n → exponential 2^n work)
 ```
 
 **The trapdoor**: α unlocks the seed chain. Without α, you're stuck at step 2.
@@ -470,8 +469,7 @@ Putting it together:
 
 **Result**: Any algorithm must perform Ω(2^R) work (each guess eliminates exactly 1 candidate).
 
-For QP profile: R = (log n)² → 2^R = n^(log n) (quasi-polynomial)
-For exponential profile: R = n → 2^R = 2^n (exponential)
+With R = n: 2^R = 2^n (exponential hardness)
 
 ---
 
@@ -939,10 +937,9 @@ For FG gate at vertex v:
 All dgLen bits from r.gateDigests[0] become FG entropy.
 WellFormedRandomness REQUIRES: ALL R bits match emergentConfig.
 
-QP profile: R = (log n)²
-Exponential profile: R = n
+R = n (exponential hardness)
 
-(Lean: PlantCore.lean, EmergentConfig.lean)
+(Lean: PlantExponential.lean, EmergentConfig.lean)
 ```
 
 **Step 5: Clause Seeds**
@@ -1020,14 +1017,14 @@ structure LStarInstanceFG extends LStarInstanceFull where
   fg : FrontierGateConfig toLStarInstanceFull
 ```
 
-### Profile Comparison
+### Hardness Parameters
 
-| Property | QP Profile | Exponential Profile |
-|----------|------------|---------------------|
-| R formula | (log n)² | n |
-| Config space | 2^((log n)²) | 2^n |
-| Hardness bound | n^(log n) | 2^n |
-| Mechanism | Same: FG bottleneck with R-bit emergence |
+| Property | Value |
+|----------|-------|
+| R formula | n |
+| Config space | 2^n |
+| Hardness bound | 2^n (exponential) |
+| Mechanism | FG bottleneck with R-bit emergence |
 
 ### Paper vs Implementation: PRF vs Random Memory
 
@@ -1082,7 +1079,7 @@ The digest consistency constraint is the **2^R bottleneck** — ALL R bits are c
 - `OAPEncoding.lean`: Mask computation, encode/decode
 - `FrontierGate.lean`: LStarInstanceFG structure
 - `EmergentConfig.lean`: WellFormedRandomness constraints
-- `StructuralOWFQP.lean`, `StructuralOWFExponential.lean`: Security proofs
+- `StructuralOWFExponential.lean`: Security proofs
 - `ParityLowerBound.lean`: Information-theoretic lower bounds
 
 ---
