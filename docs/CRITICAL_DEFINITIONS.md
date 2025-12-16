@@ -672,13 +672,13 @@ def PeqNP_classical : Prop :=
 - **Implication**: If L ∈ NP then L ∈ P
 - **Contrapositive**: ¬PeqNP_classical ↔ P≠NP (classical version)
 
-**Why Standard**: Generic `α` subsumes Sipser's `{0,1}*` — both forms proven equivalent:
+**Why Standard**: Generic `α` subsumes Sipser's `{0,1}*`. The main theorem proves both:
 ```lean
 -- BitstringOWF.lean
 theorem P_ne_NP_both_forms :
     ¬PeqNP_classical ∧ (∃ (L : Lang (List Bool)), InNP L ∧ ¬InP L)
 ```
-The bitstring form `Lang (List Bool)` is exactly Sipser's formulation over `{0,1}*`.
+This is a paired corollary (not an equivalence): P≠NP holds in both the generic and bitstring forms. The bitstring witness `Lang (List Bool)` is Sipser's `{0,1}*` domain.
 
 **Relationship to Parametric Version**:
 ```
@@ -1147,7 +1147,7 @@ def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
 - **Part 1 (efficient forward)**: `forward_polytime` — output size ≤ C·n^k
 - **Part 2 (hard to invert)**: `SecurityProperty` — ∀ PPT A, Pr[invert] ≤ negl(n)
 
-**Why Standard (Uniform PPT)**: The constraint `(A n).base.C ≤ (A 128).base.C` ensures all adversaries in the family share bounded polynomial constants — this is uniform PPT (same algorithm description for all n), not non-uniform (which would allow advice strings).
+**Note on Adversary Model**: The constraint `(A n).base.C ≤ (A 128).base.C` enforces uniform polynomial time bounds across the family, but the quantifier ranges over arbitrary families `A : Nat → StructuralOWFAdversary`. This is stronger than standard uniform-PPT (which requires a single TM taking 1^n). The security guarantee holds against this stronger adversary class.
 
 **Why Critical**:
 - **Textbook correspondence**: Matches standard OWF definition exactly
@@ -2726,7 +2726,7 @@ These definitions determine **what the theorem claims**. They MUST exactly match
 |------------|-----------|-----------|---|
 | `TuringMachine` | Classical k-tape TM | Turing 1936, Sipser Def 3.3 | |
 | `TMConfig` | TM configuration (state + tapes + heads) | Sipser §3.1 | |
-| `DeterministicRun` | Deterministic execution | Standard TM semantics | |
+| `DeterministicRun` | Run summary (not TM semantics) | Internal (see `TMConfig.step`/`run`) | |
 
 **Cryptographic Primitives (4):**
 
