@@ -33,6 +33,7 @@ This repository contains a full mathematical proof that P≠NP, formalized in th
 │   ├── Layer3_InformationBounds/   # Keyedness, segment reduction
 │   ├── Layer4_Operational/         # Turing machines, execution semantics
 │   ├── Layer5_Applications/        # P≠NP theorem, cryptographic applications
+│   │   └── PvsNP/PrimaryPath/MainTheorems.lean  # ⬅ FINAL PROOF FILE
 │   ├── Infrastructure/             # Witness finding, time bounds
 │   └── testing/                    # Regression tests (17 test files)
 │
@@ -78,11 +79,14 @@ This repository contains a full mathematical proof that P≠NP, formalized in th
 
 ### Main Theorem
 
-```lean
--- File: Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean
+**Final Proof File**: [`Layer5_Applications/PvsNP/PrimaryPath/MainTheorems.lean`](lean/Layer5_Applications/PvsNP/PrimaryPath/MainTheorems.lean)
 
-theorem pnenp : ¬BitstringBridge.PeqNP_parametric
+```lean
+-- File: Layer5_Applications/PvsNP/PrimaryPath/MainTheorems.lean
+
 theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical
+theorem explicit_NP_not_P_witness : ∃ (L : Lang (List Bool)), InNP L ∧ ¬InP L
+theorem OWF_exists_main : ∃ Φ : CNFFamily, IsOneWayPlantFlat Φ
 ```
 
 ## Trust Boundary (2 Axioms)
@@ -134,7 +138,7 @@ lake build Layer5_Applications
 
 To verify the axiom count for the main theorem:
 ```bash
-lake env lean -c "import Layer5_Applications; #print axioms LStar.Complexity.StructuralOWFBridge.P_ne_NP"
+lake env lean -c "import Layer5_Applications; #print axioms MainTheorems.P_ne_NP"
 ```
 
 **WARNING**: Never run `lake clean` — Mathlib rebuild takes 2-4+ hours. Use only `lake build` (incremental).
@@ -144,8 +148,8 @@ lake env lean -c "import Layer5_Applications; #print axioms LStar.Complexity.Str
 ```bash
 cd lean
 
-# Verify main theorem compiles
-lake build Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
+# Verify main theorem compiles (final proof file)
+lake build Layer5_Applications.PvsNP.PrimaryPath.MainTheorems
 
 # Run regression tests
 lake build testing

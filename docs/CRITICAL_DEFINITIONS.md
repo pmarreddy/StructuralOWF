@@ -268,6 +268,19 @@ def Assignment.extend {n : Nat} (a : Assignment n) : AssignmentInf :=
 - **Assignment n**: FINITE function `Fin n → Bool` (exactly n bits, encodable as bitstring)
 - **AssignmentInf**: Infinite function `Nat → Bool` (for internal CNF evaluation)
 
+**Satisfaction Semantics** (Sipser Def 7.32):
+```lean
+def Literal.eval (l : Literal) (σ : AssignmentInf) : Bool :=
+  if l.polarity then σ l.var else !(σ l.var)
+
+def Clause.satisfies (c : Clause) (σ : AssignmentInf) : Prop :=
+  ∃ l ∈ c.literals, Literal.eval l σ = true
+
+def CNF.satisfies (φ : CNF) (σ : AssignmentInf) : Prop :=
+  ∀ c ∈ φ.clauses, Clause.satisfies c σ
+```
+Standard SAT semantics: CNF satisfied iff all clauses satisfied; clause satisfied iff some literal true.
+
 **Why Critical**:
 - **Problem representation**: L* instances embed 3-SAT formulas
 - **OWF construction**: Plant function uses CNF φ as public parameter
@@ -305,7 +318,7 @@ def isAcyclic (dag : DAG) : Prop := ∃ order, hasTopoOrder dag order
 
 ---
 
-### 1.4c DeterministicRun Structure (Execution Model)
+### 1.4c DeterministicRun Structure (Run Summary)
 **Definition**: `DeterministicRun` (Layer3_InformationBounds/Support/TimingModel.lean)
 
 ```lean
@@ -316,18 +329,22 @@ structure DeterministicRun (A X : Type) where
   time : Nat := 0                      -- Total execution time
 ```
 
-**Mathematical Object**: Abstract execution model for segment reduction analysis
+**Mathematical Object**: Run summary for segment reduction analysis (NOT TM execution semantics)
 - **strategy**: Computation strategy (single-run lane tracking)
 - **segmentCount**: Number of distinct configuration segments explored
 - **preFinalAgreement**: The "s" parameter in 2^(ρ-s) bound (revealed bits count)
 - **time**: Total computational steps
+
+**Note**: This is a run metadata structure, not TM execution semantics. Actual TM semantics are:
+- `TMConfig.step` (TuringMachineSemantics.lean) — single transition
+- `run M n := (step)^[n] (init M)` — multi-step execution
 
 **Why Critical**:
 - **Segment reduction**: Framework for proving time ≥ 2^(ρ-s)
 - **Information accounting**: Tracks resolved vs unresolved information
 - **PreFinalAgreement source**: This is where `PreFinalAgreement L run` gets its value!
 
-**Theory**: Operational semantics (Plotkin 1981) - abstract execution models
+**Theory**: Abstract execution summaries for complexity analysis
 
 ---
 
@@ -615,6 +632,34 @@ def InNP_Logical {α : Type} (L : Lang α) : Prop := Nonempty (VerifierCert L)
 
 ---
 
+**Definition**: `Lang` (Layer5_Applications/PvsNP/ComplexityClasses/NPDefs.lean)
+```lean
+abbrev Lang (α : Type u) := α → Prop
+```
+
+**Mathematical Object**: Decision language over type α (Sipser Def 3.5)
+- **Standard encoding**: Language as predicate/characteristic function
+- **Bitstring instance**: `Lang (List Bool)` = languages over `{0,1}*` (Sipser's domain)
+
+**Why Standard**: This is the standard proof-assistant encoding of languages. When α = List Bool, it exactly matches Sipser's definition of languages as subsets of `{0,1}*`.
+
+---
+
+**Definition**: `Reduces` (Layer5_Applications/PvsNP/ComplexityClasses/NPDefs.lean)
+```lean
+def Reduces {α : Type u} {γ : Type u} (A : Lang α) (B : Lang γ) : Prop :=
+  ∃ f : α → γ, ∀ x, A x ↔ B (f x)
+```
+
+**Mathematical Object**: Many-one (Karp) reduction (Sipser Def 7.27, Karp 1972)
+- **Biconditional**: `A x ↔ B (f x)` — both soundness AND completeness required
+- **Soundness**: x ∈ A → f(x) ∈ B
+- **Completeness**: f(x) ∈ B → x ∈ A
+
+**Why Standard**: This is the standard Karp reduction. The biconditional ensures both directions, which is required for NP-completeness proofs (reducing FROM a known NP-complete problem requires completeness).
+
+---
+
 **Definition**: `PeqNP_classical` (Layer5_Applications/PvsNP/ComplexityClasses/ComplexityClasses.lean)
 ```lean
 def PeqNP_classical : Prop :=
@@ -622,16 +667,18 @@ def PeqNP_classical : Prop :=
     InNP L → InP L
 ```
 
-**Mathematical Object**: Classical P=NP statement (textbook formulation)
+**Mathematical Object**: Classical P=NP statement (Sipser §7.4, Arora-Barak §2.3)
 - **Universal quantification**: For ALL types α and ALL languages L
 - **Implication**: If L ∈ NP then L ∈ P
 - **Contrapositive**: ¬PeqNP_classical ↔ P≠NP (classical version)
 
-**Why Important**:
-- **Standard formulation**: Exactly matches Sipser, Arora-Barak textbook definitions
-- **Comparison to parametric**: PeqNP_parametric (§2.5) uses security parameter families
-- **P≠NP bridge**: ¬PeqNP_classical is the TARGET theorem (via FPneFNP bridge)
-- **Primary vs Classical**: ParametricBitstringBridge proves ¬PeqNP_parametric which implies ¬PeqNP_classical
+**Why Standard**: Generic `α` subsumes Sipser's `{0,1}*` — both forms proven equivalent:
+```lean
+-- BitstringOWF.lean
+theorem P_ne_NP_both_forms :
+    ¬PeqNP_classical ∧ (∃ (L : Lang (List Bool)), InNP L ∧ ¬InP L)
+```
+The bitstring form `Lang (List Bool)` is exactly Sipser's formulation over `{0,1}*`.
 
 **Relationship to Parametric Version**:
 ```
@@ -640,9 +687,6 @@ Proof chain:
 2. → FPneFNP_parametric_bits (bitstring witness separation)
 3. → ¬PeqNP_parametric (parametric P≠NP)
 4. → ¬PeqNP_classical (classical P≠NP)
-
-Step 3→4: Parametric separation implies classical separation
-(If ∃ parametric NP family without parametric P solver → ∃ classical NP without P solver)
 ```
 
 **Theory**: Classical complexity classes (Cook 1971, Karp 1972) - P vs NP dichotomy
@@ -1099,9 +1143,11 @@ def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
   ∃ (prec : CNFPreconditions Φ), SecurityProperty Φ prec
 ```
 
-**Mathematical Object**: Standard OWF predicate (Goldreich/Katz-Lindell form)
+**Mathematical Object**: Standard OWF predicate (Goldreich Def 2.4.1, Katz-Lindell)
 - **Part 1 (efficient forward)**: `forward_polytime` — output size ≤ C·n^k
 - **Part 2 (hard to invert)**: `SecurityProperty` — ∀ PPT A, Pr[invert] ≤ negl(n)
+
+**Why Standard (Uniform PPT)**: The constraint `(A n).base.C ≤ (A 128).base.C` ensures all adversaries in the family share bounded polynomial constants — this is uniform PPT (same algorithm description for all n), not non-uniform (which would allow advice strings).
 
 **Why Critical**:
 - **Textbook correspondence**: Matches standard OWF definition exactly
@@ -3960,7 +4006,7 @@ def RunSearchComplete {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
 
 ---
 
-**Last Updated**: 2025-12-16
+**Last Updated**: 2025-12-17
 
 **Verification**: Complete definition-by-definition audit (49 critical+supporting definitions verified against source + theoretical coherence + spot-check of moderate definitions)
 

@@ -1,5 +1,7 @@
 # Layer 5: Applications (P≠NP, Cryptographic Primitives)
 
+**Final Proof File**: `PvsNP/PrimaryPath/MainTheorems.lean` — The official endpoint collecting all main results.
+
 **Purpose**: Applications derived from Structural OWF existence via complexity-theoretic connections.
 
 **Location**: `lean/Layer5_Applications/`
@@ -233,7 +235,7 @@ Core complexity class definitions and infrastructure:
 Primary OWF → P≠NP path:
 - **CheckAxioms.lean**: Axiom verification
 - **EncodingHelpers.lean**: Encoding helper functions
-- **MainTheorems.lean**: Final theorem exports (`P_ne_NP`, `OWF_exists_main`)
+- **MainTheorems.lean**: **[FINAL PROOF FILE]** Official endpoint (`P_ne_NP`, `OWF_exists_main`)
 - **OWFExistence.lean**: Standard OWF existence theorem (Goldreich/Katz-Lindell form)
 - **ParametricBitstringBridge.lean**: Main P≠NP theorem (`fpnefnp_implies_not_peqnp`)
 - **ParametricComplexity.lean**: Parametric FP/FNP families
@@ -479,6 +481,7 @@ This distinction matters for cryptographic applications where OWFs are defined a
 
 | **Concept** | **File** | **Description** |
 |-------------|----------|-----------------|
+| **FINAL PROOF FILE** | PrimaryPath/MainTheorems.lean | Official endpoint: `P_ne_NP`, `OWF_exists_main` |
 | **P≠NP theorem** | PrimaryPath/ParametricBitstringBridge.lean | `fpnefnp_implies_not_peqnp` |
 | **OWF→FP≠FNP bridge** | PrimaryPath/StructuralOWFBridge.lean | OWF to FP≠FNP reduction |
 | **OWF existence** | PrimaryPath/OWFExistence.lean | `OWF_exists` (standard crypto form) |
