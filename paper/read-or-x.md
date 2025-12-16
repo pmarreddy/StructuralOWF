@@ -4071,21 +4071,48 @@ Equivalently: bs ∈ L\* iff bs is the canonical encoding of some yes-instance.
 
 The proof proceeds cleanly in two stages:
 
-1. **§§6-10.5 (Structured)**: Prove all results for L\*\_struct ⊆ X\*
+1. **Stage 1: Mathematical Core (§§6-10.5)** — Prove P≠NP for abstract/parametric types
    - Construction satisfies A1-A5 (§6)
    - A1-A5 → SCL (§7)
    - Per-instance deterministic bounds (§8)
    - Structural OWF construction (§9)
    - NP-completeness and classical bridge (§10.1-10.5)
 
-2. **§10.6 (Bitstring Transfer)**: Transfer all results to L\* ⊆ {0,1}\*
-   - Define Encode and prove encoding lemmas
+2. **Stage 2: Encoding Transfer (§10.6)** — Transfer all results to L\* ⊆ {0,1}\*
+   - Define Encode and prove encoding lemmas (E1-E4)
    - Connection Theorem: structured ↔ bitstring membership
    - Bitstring corollaries: NP, OWF, P ≠ NP
 
-This separation keeps mathematical development clean (no parsing overhead in proofs) while ensuring the final statement is the standard textbook form (language over {0,1}\*).
+##### 6.9.7 Why This Architecture Works
 
-**Why not define bitstrings first?** Working with structured instances avoids encoding/decoding complexity in proofs. The SCL theorem, per-instance bounds, and OWF security are all *structure-dependent*—they reason about DAGs, seeds, and emergence matrices, not bit patterns. Introducing bitstrings early would obscure the mathematical content without adding rigor.
+**Key Insight: Hardness is type-agnostic.** The exponential lower bounds derived in Stage 1 depend on *information flow through structure*, not on how that structure is represented as bits. Specifically:
+
+- **SCL (q + Φ ≥ R)** counts information bits and distinguishable states — representation-independent quantities
+- **Per-instance bounds (Theorem 8.A)** measure time via configuration visits — independent of encoding
+- **OWF security** relies on the information-theoretic gap between R emergent bits and polynomial observation budget
+
+None of these arguments reference bit patterns, parsing, or string manipulation. They reason about:
+- DAG dependencies (which nodes feed which)
+- Seed injectivity (distinct histories → distinct seeds)
+- Emergence rank (how many bits must be discovered)
+- Verification correctness (what makes a witness valid)
+
+**Why encoding transfer works:** Since hardness comes from structure, any "reasonable" encoding preserves it:
+- Encode is injective (Lemma E1') → distinct instances remain distinct
+- Encode is poly-time (Lemma E2) → no computational blowup
+- Size is preserved (Lemmas E3-E4) → polynomial bounds transfer
+
+If a poly-time algorithm could decide L\* ⊆ {0,1}\*, composing with Encode (poly-time) would decide L\*\_struct in poly-time — contradicting Stage 1's bounds. The encoding is a transparent wrapper, not a source of hardness or easiness.
+
+**Contrast with representation-dependent proofs:** Some lower bound techniques (e.g., circuit lower bounds via gate elimination) are sensitive to representation. Our approach avoids this: the SCL framework operates at the semantic level (what information must flow) rather than the syntactic level (how bits are arranged). This is why Stage 2 is a clean transfer theorem rather than a new proof.
+
+**Summary:**
+```
+Stage 1:  Abstract types → Information bounds → Time bounds → P≠NP (parametric)
+Stage 2:  Parametric X* → {0,1}* encoding → Explicit L* ∈ NP \ P
+```
+
+The result is an explicit language L\* ⊆ {0,1}\* witnessing P ≠ NP, derived from structure-based hardness that encoding cannot circumvent.
 
 ---
 
@@ -6212,6 +6239,81 @@ Therefore P ≠ NP. ∎
 ---
 
 **Note on NP-Completeness (Optional).** If NP-hardness is desired, §10.3 provides an explicit Karp reduction from 3-SAT to L\*\_struct. Composing with Encode (poly-time by E2) gives a reduction to L\*. Combined with Corollary 10.6.6, this yields L\* is NP-complete. However, NP-completeness is not required for the main P ≠ NP result—NP membership plus OWF suffices via the classical bridge.
+
+##### 10.6.5 Why Encoding Transfer Works (Architectural Note)
+
+This subsection explains why §10.6's transfer theorems succeed — why hardness proven for structured instances (Stage 1) automatically transfers to bitstrings (Stage 2). See §6.9.7 for the preview; here we provide the complete picture.
+
+**The Core Insight: Hardness is Structure-Dependent, Not Representation-Dependent**
+
+The lower bounds established in §§6-10.5 depend on *information-theoretic properties of the computational problem*, not on how instances are encoded:
+
+- **SCL (Theorem 7.A)**: Measures information bits q and distinguishable states 2^Φ — representation-independent (counts semantic quantities)
+- **Per-instance bound (Theorem 8.A)**: Measures configuration visits and observation budget — representation-independent (counts TM transitions)
+- **OWF security (§9)**: Measures gap between R emergent bits and poly observation — representation-independent (information-theoretic)
+
+None of these theorems mention bit patterns, string lengths, or parsing. They reason about:
+- **DAG structure**: Which nodes depend on which (graph property)
+- **Seed injectivity**: Distinct histories yield distinct seeds (algebraic property)
+- **Emergence rank**: How many fresh bits appear at each node (linear algebra)
+- **Verification**: What makes a witness valid (predicate over structures)
+
+**Why Encode Preserves Hardness**
+
+The encoding lemmas E1-E4 ensure Encode is a "transparent wrapper":
+
+1. **Injectivity (E1')**: Different structured instances encode to different bitstrings
+   - Contrapositive: If bs = Encode(x\*) = Encode(y\*), then x\* = y\*
+   - Consequence: Distinguishing power is preserved
+
+2. **Poly-time (E2)**: Encoding adds only polynomial overhead
+   - An algorithm for L\* ⊆ {0,1}\* yields one for L\*\_struct via: x\* ↦ Encode(x\*) ↦ decide ↦ answer
+   - Total time: poly(|x\*|) + T\_decide(|Encode(x\*)|) = poly(|x\*|) if T\_decide is polynomial
+
+3. **Size preservation (E3-E4)**: |Encode(x\*)| = Θ(|x\*|)
+   - Polynomial bounds in one world transfer to polynomial bounds in the other
+   - "Poly-time for bitstrings" ↔ "Poly-time for structures"
+
+**The Transfer Argument (Corollaries 10.6.6-10.6.8)**
+
+Each corollary follows the same pattern:
+
+```
+Structured result:     R holds for L*_struct ⊆ X*
+Encoding properties:   Encode : X* → {0,1}* is injective, poly-time, size-preserving
+Transfer:              R holds for L* ⊆ {0,1}* (the Encode-image)
+```
+
+For example, Corollary 10.6.7 (OWF):
+- §9 proves: inverting Plant over X\* requires super-polynomial time
+- Encode is poly-time, so: if A inverts f\_n(r) = Encode(Plant(φ\_n, r)) in poly-time...
+- ...then A' = A ∘ Encode inverts Plant in poly-time (contradiction)
+
+**Contrast with Representation-Sensitive Techniques**
+
+Some complexity arguments are sensitive to representation:
+- Circuit lower bounds may depend on gate basis
+- Communication complexity depends on input partition
+- Some reductions require specific encodings to preserve structure
+
+Our approach avoids this fragility. The SCL framework operates at the *semantic level* (what information must flow through the DAG) rather than the *syntactic level* (how bits are arranged in memory). This is why:
+- Stage 1 proves hardness for the abstract computational problem
+- Stage 2 transfers to any reasonable encoding without re-proving anything
+
+**Summary: The Two-Stage Architecture**
+
+```
+Stage 1 (§§6-10.5):  X* (structures) → A1-A5 → SCL → Bounds → OWF → FP≠FNP → P≠NP
+                     [Information-theoretic, representation-independent]
+
+Stage 2 (§10.6):     X* --Encode--> {0,1}*
+                     L*_struct --image--> L*
+                     [Transparent wrapper via E1-E4]
+
+Result:              Explicit L* ⊆ {0,1}* in NP \ P
+```
+
+The encoding is not where hardness comes from — it's a formatting step that converts the mathematically natural proof (over structured instances) into the textbook-standard form (language over {0,1}\*).
 
 ---
 
