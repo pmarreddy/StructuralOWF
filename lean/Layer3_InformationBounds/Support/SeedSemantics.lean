@@ -6,9 +6,9 @@ import Layer1_Construction.Core.Pools
 import Layer0_Foundations.Base.FiniteEncoding
 import Mathlib.Data.Vector.Basic
 
--- Import R_of for centralized R computation
+-- Import R_of_flat for centralized R computation (exponential profile)
 -- This ensures type consistency between pure structure and planted instances
-import Layer3_InformationBounds.Randomness.RanksCore
+import Layer3_InformationBounds.Randomness.RanksExponential
 
 /-! ## SeedSemantics: Pure Functions for Emergent Configuration (Non-Circular)
 
@@ -425,7 +425,7 @@ and emergence matrices are pure functions of φ.
     - FG gate digests (those require randomness)
     - Assignment-dependent pool assignments
 
-    **Key Property**: Uses R_of φ numGates to compute R values IDENTICALLY to plant_flat,
+    **Key Property**: Uses R_of_flat φ numGates to compute R values IDENTICALLY to plant_flat,
     ensuring type consistency (Fin (2^R) indices match perfectly).
 
     **Precondition**: φ must be non-trivial (φ.nvars > 0), now enforced via explicit hypothesis. -/
@@ -434,9 +434,9 @@ noncomputable def lstarStructureFromCNF (φ : CNF) (h_nvars_pos : φ.nvars > 0) 
   -- Pass numGates to create FG-aware DAG structure
   let dag := Construction.build3SATReductionDAG φ numGates
 
-  -- Compute R values using centralized R_of
+  -- Compute R values using centralized R_of_flat (exponential profile)
   -- This ensures R values match planted instances exactly, eliminating type mismatches!
-  let R_val := LStar.StructuralOWF.Foundations.R_of φ numGates
+  let R_val := LStar.StructuralOWF.Foundations.R_of_flat φ numGates
 
   -- SeedWidth: recursive definition matching paper specification
   -- seedWidth(v) := Σ(parent widths) + R(v)

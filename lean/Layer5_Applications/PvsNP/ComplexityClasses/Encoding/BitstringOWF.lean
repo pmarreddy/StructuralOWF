@@ -777,19 +777,22 @@ lemma entropy_eq_all_vertices
         -- These reduce to the else branches
         split_ifs <;> first | rfl | contradiction
 
-/-- The R component from emergentConfigAtGate equals R_of for the QP profile.
+/-- The R component from emergentConfigAtGate equals R_of_flat (exponential profile).
 
     When emergentConfigAtGate returns some ⟨R_ret, cfg⟩, the R value equals
-    R_of φ numGates (1 + φ.nvars + gateIndex).
+    R_of_flat φ numGates (1 + φ.nvars + gateIndex).
 
     **Proof**: Unfold emergentConfigAtGate, which creates L := lstarStructureFromCNF
-    and returns L.R v. By definition, lstarStructureFromCNF sets R := R_of φ numGates,
-    so L.R v = R_of φ numGates v.val. -/
+    and returns L.R v. By definition, lstarStructureFromCNF sets R := R_of_flat φ numGates,
+    so L.R v = R_of_flat φ numGates v.val.
+
+    **Note**: This is a local copy for backwards compatibility. The primary lemma
+    `emergentConfigAtGate_R_component_flat` in PlantExponential.lean is preferred. -/
 lemma emergentConfigAtGate_R_component
     (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf) (gateIndex : Nat)
     (R_ret : Nat) (cfg_ret : Fin (2^R_ret))
     (h_ret : Foundations.emergentConfigAtGate φ h_nvars_pos numGates a gateIndex = some ⟨R_ret, cfg_ret⟩)
-    : R_ret = Foundations.R_of φ numGates (1 + φ.nvars + gateIndex) := by
+    : R_ret = Foundations.R_of_flat φ numGates (1 + φ.nvars + gateIndex) := by
   unfold Foundations.emergentConfigAtGate at h_ret
   simp only at h_ret
   split at h_ret
@@ -803,7 +806,7 @@ lemma emergentConfigAtGate_R_component
         let clause_start := 1 + φ.nvars
         let vertex_idx := clause_start + gateIndex
         let v : Fin L.dag.n := ⟨vertex_idx, h_vertex_valid⟩
-        show L.R v = Foundations.R_of φ numGates (1 + φ.nvars + gateIndex)
+        show L.R v = Foundations.R_of_flat φ numGates (1 + φ.nvars + gateIndex)
         rfl
       · cases h_ret
     · cases h_ret
