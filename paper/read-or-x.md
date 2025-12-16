@@ -4113,6 +4113,8 @@ Our canonical Encode (Appendix D.5) satisfies all three:
 
 n\_core ≤ |Encode(x\*)| ≤ n\_core^c
 
+**Where n\_core lives:** The security parameter n\_core is stored as an explicit field in the instance tuple x\* (the first field of Encode(x\*) per Appendix D.5), equal to the variable count of the underlying CNF φ from which x\* was reduced. For any x\* ∈ X\*, n\_core is recoverable in O(1) time from the encoding header.
+
 *Proof sketch:* Lower bound: the instance must encode n\_core variable identities. Upper bound: By §10.1's polynomial clause bound, |clauses| ≤ poly(n\_core). The DAG has poly(n\_core) nodes (§6.6), each storing poly(log n\_core) bits of metadata. All components are polynomial in n\_core, so |Encode(x\*)| ≤ n\_core^c for some fixed c depending on the construction parameters. ∎
 
 **Remark (Constant c).** The exact value of c depends on the clause-bound exponent k from §10.1 and the DAG depth/width parameters from §6.6. For transfer purposes, only the existence of such c matters—not its precise value.
@@ -6204,6 +6206,8 @@ The following properties of Encode are established in Appendix D.5.
 **Lemma E5 (Parameter-to-Size Bound).** For any x\* ∈ X\* constructed from φ with n\_core variables, there exists a fixed constant c > 0 (depending only on the construction parameters) such that:
 
 n\_core ≤ |Encode(x\*)| ≤ n\_core^c
+
+**Where n\_core lives:** n\_core is stored as an explicit field in x\* (the first field of Encode(x\*) per Appendix D.5), equal to the variable count of φ. It is recoverable in O(1) time from the encoding header. This makes n\_core intrinsic to every x\* ∈ X\*, not just reduced instances.
 
 *Proof:*
 - *Lower bound:* The instance must encode at least the n\_core variable identities.
