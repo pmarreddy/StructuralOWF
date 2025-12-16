@@ -684,7 +684,7 @@ theorem exp_exceeds_poly_fully_general (C k : Nat)
 For any polynomial C·n^k with positive C and k, the quasi-polynomial
 2^((log n)²) = n^(log n) eventually dominates.
 
-This is the theorem needed to fix OWFQP.lean - it works for ANY adversary
+This theorem works for ANY adversary
 parameters C_time, k_time, not just bounded values.
 
 Mathematical content:

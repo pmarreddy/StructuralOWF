@@ -188,11 +188,10 @@ gets encoder boundedness from proven `tmEmergentEncoder_bounded` theorem.
 - `plant_flat_wf_transfer` - CNF well-formedness now part of WellFormedRandomness_flat definition
 - `fg_lossless_encoding` - Now proven (145-line theorem in EncodingDiscipline.lean:344-489)
 
-**Profile Comparison**:
-- **Exponential** (this file): 2 axioms, bound 2^{Ω(n)} (maximum strength)
-- **QP** (OWFQP.lean): 2 axioms, bound n^{Ω(log n)} (sufficient for P≠NP)
+**Trust Boundary**:
+- **Exponential** (this file): 2 axioms, bound 2^{Ω(n)}
 
-Both profiles use `qp_dominates_poly` (proven, 0 custom axioms). Exponential uses the `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` execution bridge; QP uses executionPrefix.
+Uses `qp_dominates_poly` (proven, 0 custom axioms) and `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` execution bridge.
 
 **Axiom Layer Note**: Both axioms operate at the inversion/information layer
 (TM semantics, Shannon's theorem)—neither mentions P, NP, or

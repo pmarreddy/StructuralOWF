@@ -40,7 +40,7 @@ This would be technically correct but mathematically meaningless.
 - `AlgSpec` — ComplexityClasses/AlgSpec.lean — Algorithmic specification
 
 **Main Theorem**:
-- `pnenp` — PvsNP/QP/StructuralOWFBridgeQP.lean:2336 — ¬PeqNP_parametric (P ≠ NP)
+- `pnenp` — PvsNP/PrimaryPath/StructuralOWFBridge.lean:3196 — ¬PeqNP_parametric (P ≠ NP)
 
 ---
 
@@ -428,7 +428,7 @@ grep -A 3 "^def negligible_parametric" \
 
 # Main theorem
 grep -A 20 "^theorem pnenp" \
-  Layer5_Applications/PvsNP/QP/StructuralOWFBridgeQP.lean
+  Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean
 ```
 
 ### Step 2: Compare with Textbooks
@@ -501,7 +501,7 @@ Search for academic consensus:
    - `halts` guarantees termination
 
 **Main Theorem Location**:
-- `pnenp : ¬PeqNP_parametric` at StructuralOWFBridgeQP.lean:2336
+- `pnenp : ¬PeqNP_parametric` at StructuralOWFBridge.lean:3196
 
 ---
 
