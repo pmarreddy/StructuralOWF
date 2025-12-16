@@ -29,7 +29,7 @@ This repository contains a full mathematical proof that P≠NP, formalized in th
 ├── lean/                           # Lean 4 formalization (171 files)
 │   ├── Layer0_Foundations/         # Base: CNF, DAG, SCL, encodings
 │   ├── Layer1_Construction/        # L* instance, pools, seed chains
-│   ├── Layer2_StructuralOWF/           # One-way function construction
+│   ├── Layer2_StructuralOWF/       # One-way function construction
 │   ├── Layer3_InformationBounds/   # Keyedness, segment reduction
 │   ├── Layer4_Operational/         # Turing machines, execution semantics
 │   ├── Layer5_Applications/        # P≠NP theorem, cryptographic applications
@@ -52,6 +52,14 @@ This repository contains a full mathematical proof that P≠NP, formalized in th
 └── README.md                       # This file
 ```
 
+**Layer Documentation**:
+- [Layer 0: Foundations](lean/Layer0_Foundations/Layer0_README.md) — CNF, DAG, SCL framework, encodings
+- [Layer 1: Construction](lean/Layer1_Construction/Layer1_README.md) — L* instance family, seed chains, A1-A3 properties
+- [Layer 2: StructuralOWF](lean/Layer2_StructuralOWF/Layer2_StructuralOWF_README.md) — One-way function construction
+- [Layer 3: Information Bounds](lean/Layer3_InformationBounds/Layer3_README.md) — Keyedness, world-commit, segment reduction
+- [Layer 4: Operational](lean/Layer4_Operational/Layer4_README.md) — TM semantics, execution model, time bridge
+- [Layer 5: Applications](lean/Layer5_Applications/Layer5_README.md) — P≠NP theorem, cryptographic primitives
+
 ## Proof Architecture
 
 ### The Proof Chain
@@ -70,12 +78,12 @@ This repository contains a full mathematical proof that P≠NP, formalized in th
 
 | Layer | Purpose | Key Results |
 |-------|---------|-------------|
-| **0: Foundations** | CNF, DAG, SCL framework, encodings | NodeData, keyed property |
-| **1: Construction** | L* instance family, seed chains | Hermeticity (A1), Injectivity (A2), Emergence (A3) |
-| **2: StructuralOWF** | One-way function construction | Plant/Extract, security proofs |
-| **3: Information** | Lower bounds via SCL | Keyedness, world-commit, no-backdoor |
-| **4: Operational** | TM semantics, execution model | TMAdapter, TimeBridge |
-| **5: Applications** | Complexity classes, final theorems | **P≠NP**, cryptographic primitives |
+| [**0: Foundations**](lean/Layer0_Foundations/Layer0_README.md) | CNF, DAG, SCL framework, encodings | NodeData, keyed property |
+| [**1: Construction**](lean/Layer1_Construction/Layer1_README.md) | L* instance family, seed chains | Hermeticity (A1), Injectivity (A2), Emergence (A3) |
+| [**2: StructuralOWF**](lean/Layer2_StructuralOWF/Layer2_StructuralOWF_README.md) | One-way function construction | Plant/Extract, security proofs |
+| [**3: Information**](lean/Layer3_InformationBounds/Layer3_README.md) | Lower bounds via SCL | Keyedness, world-commit, no-backdoor |
+| [**4: Operational**](lean/Layer4_Operational/Layer4_README.md) | TM semantics, execution model | TMAdapter, TimeBridge |
+| [**5: Applications**](lean/Layer5_Applications/Layer5_README.md) | Complexity classes, final theorems | **P≠NP**, cryptographic primitives |
 
 ### Main Theorem
 
