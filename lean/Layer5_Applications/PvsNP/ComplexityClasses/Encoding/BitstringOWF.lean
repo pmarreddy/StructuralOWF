@@ -31,21 +31,19 @@ open LStar.Complexity.BitstringBridge
 open LStar.StructuralOWF
 open Foundations.CutConstraint
 
-/-! ## Profile-Consistent Digest Computation (Clean Fix)
+/-! ## Profile-Consistent Digest Computation
 
-The original `digestsFromAssignmentWithSeeds` uses `emergentConfigAtGate` which internally
-uses `R_of` (QP profile: R = (log n)²). However, `plant_flat` uses `R_of_flat`
-(exponential profile: R = n), causing an R mismatch that triggers the fallback path.
+The codebase uses `R_of_flat` (exponential profile: R = n) exclusively.
+`emergentConfigAtGate` uses `lstarStructureFromCNF` which computes R via R_of_flat,
+ensuring profile consistency with `plant_flat`.
 
 This section provides `digestsFromAssignmentWithSeeds_flat` which uses `emergentConfigAtGate_flat`,
-ensuring profile consistency. Both the planted instance and digest computation use R_of_flat,
-so emergent configs match properly without needing the fallback.
+matching the planted instance profile exactly.
 -/
 
-/-- **Flat profile digest computation**: Uses emergentConfigAtGate_flat for profile consistency.
+/-- **Exponential profile digest computation**: Uses emergentConfigAtGate_flat for profile consistency.
 
-    Unlike `digestsFromAssignmentWithSeeds` which uses the QP profile (R = (log n)²),
-    this version uses the flat/exponential profile (R = n), matching `plant_flat`.
+    Uses the exponential profile (R = n) matching `plant_flat`.
 
     **Key property**: For planted instances created with `plant_flat`, the R values
     from `emergentConfigAtGate_flat` match `L.R v` exactly, so the actual emergent
