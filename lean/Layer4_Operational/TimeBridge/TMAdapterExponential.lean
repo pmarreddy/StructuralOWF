@@ -412,10 +412,6 @@ noncomputable def simpleCanonicalPlantedPrefix_flat
     - Forward: All emergent configs are computed (by iterating over all FG gates)
     - revealedBits = [] (by construction)
 
-    **TODO**: Complete proof with proper dependent type handling. The structure is correct
-    but requires careful casting between R_of and L.R. See simple_canonical_planted_prefix_valid
-    in PlantedBoundaryDiversity.lean for the QP version.
-
     **Axiom count**: Uses NO custom axioms - purely definitional reasoning. -/
 theorem simple_canonical_planted_prefix_valid_flat
     (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)

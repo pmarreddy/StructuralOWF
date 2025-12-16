@@ -595,8 +595,7 @@ def toRawGateDigest (g : GateDigest) : RawGateDigest :=
 
 /-- GateDigest equality from raw field equalities.
     Given segmentBudget equality and bits.toList equality, the GateDigests are equal.
-    Note: This uses List.Vector's property that toList is injective.
-    TODO: Complete this mechanical proof using Vector.ext. -/
+    Note: This uses List.Vector's property that toList is injective. -/
 theorem GateDigest_eq_of_raw_eq {g₁ g₂ : GateDigest}
     (h_sb : g₁.segmentBudget = g₂.segmentBudget)
     (h_bits : g₁.bits.toList = g₂.bits.toList) : g₁ = g₂ := by
