@@ -16,20 +16,20 @@ Russell Impagliazzo (1995) identified five possible "worlds" based on the existe
 2. **Heuristica** - P ≠ NP but no OWF (worst-case ≠ average-case)
 3. **Pessiland** - OWF exist but not usefully (hard problems, no solutions)
 4. **Minicrypt** - OWF exist → private-key cryptography
-5. **Cryptomania** - Structural OWF exist → public-key cryptography
+5. **Cryptomania** - Trapdoor functions exist → public-key cryptography
 
-The L* construction places us in **Cryptomania**: we have both OWF (for Minicrypt) and Structural OWF (for public-key primitives).
+The L* Plant construction has two applications: the **OWF application** (for Minicrypt) and the **trapdoor application** (for Cryptomania). Both use the same core Plant(φ, r) machinery with different φ sources.
 
 ### Main Results
 
-**Minicrypt (13 primitives)**: L* Structural OWF → PRG → PRF → MAC, PRP, Encryption, Commitment → ZK, Coin Flip, Signatures → Merkle Signatures, OT → MPC, UOWHF
+**Minicrypt (13 primitives)**: L* OWF → PRG → PRF → MAC, PRP, Encryption, Commitment → ZK, Coin Flip, Signatures → Merkle Signatures, OT → MPC, UOWHF
 
-**Cryptomania (3 primitives)**: L* Trapdoor Structural OWF → Public-Key Encryption, Key Exchange, Public-Key Signatures
+**Cryptomania (3 primitives)**: L* Trapdoor Function → Public-Key Encryption, Key Exchange, Public-Key Signatures
 
 ### Reduction Hierarchy
 
 ```
-L* Structural OWF (Layer2, unconditional)
+L* OWF (Plant + OWF application, Layer2)
     │
     ├──► PRG (HILL 1999)
     │     ├──► PRF (GGM 1986)
@@ -50,7 +50,7 @@ L* Structural OWF (Layer2, unconditional)
     │
     └──► ZK Soundness (Bellare-Goldreich 1992)
 
-L* Trapdoor Structural OWF (Layer2/Plant/TrapdoorStructuralOWF.lean)
+L* Trapdoor Function (Plant + trapdoor application, Layer2)
     │
     ├──► Public-Key Encryption (Goldreich 2004)
     │     └──► Key Exchange

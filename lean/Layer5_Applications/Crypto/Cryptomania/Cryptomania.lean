@@ -3,9 +3,9 @@ import Layer5_Applications.Crypto.Cryptomania.KeyExchange
 import Layer5_Applications.Crypto.Cryptomania.PKSignature
 import Layer5_Applications.Crypto.Minicrypt
 
-/-! # Cryptomania: Public-Key Cryptography from L* Structural OWF
+/-! # Cryptomania: Public-Key Cryptography from L* Trapdoor Function
 
-This module establishes that L* OWF enables **Cryptomania** (Impagliazzo 1995):
+This module establishes that L* enables **Cryptomania** (Impagliazzo 1995):
 the world where public-key cryptography is possible.
 
 ## Impagliazzo's Five Worlds
@@ -14,15 +14,16 @@ the world where public-key cryptography is possible.
 2. **Heuristica** - P ≠ NP but no OWF
 3. **Pessiland** - Hard problems exist but unusable
 4. **Minicrypt** - OWF exist → private-key crypto
-5. **Cryptomania** - Structural OWF exist → public-key crypto
+5. **Cryptomania** - Trapdoor functions exist → public-key crypto
 
 ## What We Prove
 
-The L* construction provides **Structural OWF** (Layer2/Plant/TrapdoorStructuralOWF.lean):
+The L* Plant construction has a **trapdoor application** (Layer2/Plant/TrapdoorStructuralOWF.lean):
 - Public key: CNF formula φ generated from known assignment x
 - Private key: The satisfying assignment x
 - Trapdoor property: Knowing x allows efficient inversion
 
+This is the same Plant(φ, r) construction as the OWF, but with φ generated from a secret α.
 This enables all public-key primitives via standard reductions.
 
 ## References
@@ -57,9 +58,9 @@ private abbrev negl := LStar.Crypto.PRG.negligible
 
 /-! ## Master Theorem -/
 
-/-- **Cryptomania Master Theorem**: L* Structural OWF gives public-key crypto.
+/-- **Cryptomania Master Theorem**: L* trapdoor function gives public-key crypto.
 
-    From the Structural OWF construction, we derive:
+    From the trapdoor application of Plant, we derive:
     1. **PKE** - Public-key encryption (CPA-secure)
     2. **Key Exchange** - Secure key agreement
     3. **PK Signatures** - Digital signatures (EUF-CMA) -/

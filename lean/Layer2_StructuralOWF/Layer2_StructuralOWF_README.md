@@ -16,9 +16,9 @@
 
 The **Structural OWF** derives hardness from structural incompressibility (keyedness via A2 injectivity) rather than computational assumptions like factoring or discrete logarithms. The one-wayness comes from a counting argument: 2^R configurations must map to distinct states, and compression causes correctness failure (pigeonhole principle).
 
-### Basic Structural OWF (for P≠NP)
+### Core Construction: Plant(φ, r)
 
-Given a fixed 3-SAT formula φ, define f: D(φ) → L* where D(φ) contains valid preimages:
+Given any satisfiable 3-SAT formula φ, define f: D(φ) → L* where D(φ) contains valid preimages:
 
 ```
 Input:   r = (α, gateDigests, salt) where α satisfies φ
@@ -39,33 +39,34 @@ Backward: Ω(2^n) or Ω(n^{log n}) — must resolve all emergence bits
 
 **The Identity Digest Barrier**: FrontierGate requires ALL R emergence bits to match (full identity digest, not 1-bit parity). The domain constraint `WellFormedRandomness` checks that every bit of `r.gateDigests` equals the corresponding bit of the emergent configuration. This creates the 2^R bottleneck: an algorithm must distinguish among all 2^R configurations (not 2^{R-1}), which requires resolving all R emergence bits.
 
-### Trapdoor Structural OWF (enables Cryptomania)
+### Two Applications of the Same Construction
 
-The trapdoor variant starts from the answer and generates the puzzle:
+The Plant construction yields different cryptographic primitives depending on how φ is chosen:
 
-Input:   α (Alice's secret assignment)
+**Application 1: One-Way Function (for P≠NP)**
 
-Generate φ from α:
-         For each variable i:
-           if α(i) = 1: add unit clause (xᵢ)
-           if α(i) = 0: add unit clause (¬xᵢ)
-         Result: φ where α is the UNIQUE satisfying assignment (proven)
+Fix an explicit satisfiable family {φₙ} with known satisfying assignments {αₙ}. The sampler draws r ← D(φₙ) (which includes αₙ as a component) and outputs x* = Plant(φₙ, r). Security: inversion is hard for *everyone* — no secret exists. This establishes P ≠ NP.
 
+**Application 2: Trapdoor Function (enables Cryptomania)**
+
+Generate φ from a secret α: for each variable i, add unit clause (xᵢ) if α(i)=1, else (¬xᵢ). Result: φ where α is the unique satisfying assignment (uniqueness follows from unit-clause CNF structure, not a general L* property).
+
+```
 Public key:  x* = Plant(φ, r) — the OAP-encoded instance (φ is seed-locked, NOT plaintext)
 Private key: sk = α
-Operation:   Anyone can verify solutions against x* (or extend it with additional inputs)
 
 With trapdoor (knows α):    O(poly(n)) — can invert x* to r (using α to generate valid seeds)
 Without trapdoor:           Ω(2^n) — inverting requires breaking OAP (solving φ without seeing φ)
+```
 
 **Security Note (OAP)**: The formula φ is NOT published in plaintext. Instead, it is seed-locked via **Overlay-as-Problem (OAP)**:
    literal_i = enc(actual_literal_i) ⊕ R_mask_i
    (where R_mask_i depends on seeds, which depend on α)
 This creates a circular dependency: to decode φ one needs seeds, to get seeds one needs α, to find α one must solve φ. Thus, even if φ consists of unit clauses (trivial to solve if known), the OAP encoding makes them inaccessible without α.
 
-This places us in **Cryptomania** — both private-key (Minicrypt) and public-key cryptography are possible from L*.
+This trapdoor application places us in **Cryptomania** — both private-key (Minicrypt) and public-key cryptography are possible from L*.
 
-**See**: `Plant/TrapdoorStructuralOWF.lean` for implementation.
+**See**: `Plant/TrapdoorStructuralOWF.lean` for trapdoor-specific implementation.
 
 ---
 
@@ -244,13 +245,13 @@ digest_fg depends on ALL variable seeds (full R-bit identity digest)
 
 ---
 
-## 3. Structural OWF (Public-Key Extension)
+## 3. Trapdoor Application (Public-Key Cryptography)
 
-**Purpose**: Extend plain OWF to Structural OWF with trapdoor, enabling public-key cryptography.
+**Purpose**: Apply the Plant construction with trapdoor-generated φ, enabling public-key cryptography.
 
 ### Key Insight
 
-The L* OWF security proof requires only that φ is **satisfiable**—it does not depend on how φ was generated. This enables a trapdoor construction:
+The L* OWF security proof requires only that φ is **satisfiable**—it does not depend on how φ was generated. This enables a trapdoor application (same Plant construction, different φ source):
 
 1. **Alice generates** φ from a known satisfying assignment x
 2. **Alice publishes** pk = Plant(φ, r) — the OAP-encoded instance (φ is seed-locked)
@@ -271,7 +272,7 @@ theorem generateCNF_satisfied : (generateCNF n x h_n).satisfies x
 - If x(i) = true: add clause (xᵢ)
 - If x(i) = false: add clause (¬xᵢ)
 
-This ensures exactly one satisfying assignment (the generator x).
+This ensures exactly one satisfying assignment (uniqueness follows from unit-clause CNF structure, not a general L* property).
 
 **OAP Security**: The unit-clause structure is irrelevant to security because the OAP (Overlay-as-Problem) mechanism seed-locks all formula data. An attacker never sees the plaintext clauses—only the encrypted form `literal_i = enc(actual_literal_i) ⊕ R_mask_i`. Decoding requires knowing α, creating the circular dependency that forces exponential search.
 
@@ -279,10 +280,10 @@ This ensures exactly one satisfying assignment (the generator x).
 
 | World | Requires | Status |
 |-------|----------|--------|
-| Minicrypt | OWF | ✅ Proven (PlantCore) |
-| Cryptomania | Structural OWF | ✅ Proven (TrapdoorStructuralOWF) |
+| Minicrypt | OWF | ✅ Proven (Plant + OWF application) |
+| Cryptomania | Trapdoor Function | ✅ Proven (Plant + trapdoor application) |
 
-**Impagliazzo's Five Worlds**: This construction demonstrates we are in **Cryptomania**, not just Minicrypt. All public-key primitives (encryption, key exchange, signatures) can be built from Structural OWF.
+**Impagliazzo's Five Worlds**: The trapdoor application demonstrates we are in **Cryptomania**, not just Minicrypt. All public-key primitives (encryption, key exchange, signatures) can be built from the trapdoor function.
 
 ### Integration with Security Proofs
 
