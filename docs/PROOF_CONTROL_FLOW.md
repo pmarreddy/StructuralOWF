@@ -320,7 +320,7 @@ def R_of_flat (φ : CNF) (numGates : Nat) (v : Nat) : Nat :=
 
 #### [5] parity_requires_all_bits: Information-Theoretic Foundation
 
-**Location**: `Layer3_InformationBounds/SegmentReduction/ParityLowerBound.lean`
+**Location**: `Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean`
 
 **Formal Statement**:
 ```lean
@@ -956,4 +956,4 @@ To verify proof soundness, auditors should check:
 
 See `docs/AXIOM_FINAL_COUNT.md` for comprehensive axiom documentation.
 
-**Last Verified**: 2025-12-09 (audit against Lean implementation)
+**Last Verified**: 2025-12-17 (audit against Lean implementation)
