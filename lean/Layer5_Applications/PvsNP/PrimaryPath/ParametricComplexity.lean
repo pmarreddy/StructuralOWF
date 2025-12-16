@@ -114,6 +114,13 @@ with degree 2 (check each clause, linear in formula size).
 
 **Relation to InFNP**: At fixed n, if R_family n is in FNP (fixed-size), then
 the collection {R_family n} is in FNP_parametric if one verifier works for all n.
+
+**Standard Alignment Note**: This generic definition does NOT include a polynomial
+witness-size bound (standard FNP requires witnesses to be polynomially bounded).
+For standard-aligned FNP with explicit witness-length bounds, use `InFNP_parametric_bits`
+from `ParametricBitstringBridge.lean`, which includes the constraint:
+`∃ C k, C > 0 ∧ k > 0 ∧ ∀ n, wlen n ≤ C * (n + 1) ^ k`
+The main proof path uses `InFNP_parametric_bits` for this reason.
 -/
 def InFNP_parametric {α β : Nat → Type} [∀ n, Sized (α n)] [∀ n, Sized (β n)]
     (R_family : ∀ n, α n → β n → Prop) : Prop :=

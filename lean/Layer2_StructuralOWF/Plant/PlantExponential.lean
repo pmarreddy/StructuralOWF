@@ -3236,42 +3236,6 @@ theorem plant_flat_gateReq_formula
   -- The definition expands to the decide expression via simp
   simp only [plant_flat]
 
-/-! ## TM Bridge Functions for Exponential Profile
-
-These functions bridge Turing Machine execution to ExecutionPrefixReal for security proofs.
-They use the explicit parameters from the planted instance (avoiding Classical.choose opacity).
--/
-
--- NOTE: tmExecutionToPrefix_flat is commented out due to circular dependency with TMEncoderDefs.
--- The TM execution bridge functions require imports that cause Layer cycles.
--- The dependent code in StructuralOWFExponential.lean (computedConfigs_bounded_by_gates_flat)
--- is also commented out pending proper Layer organization.
-/-
-/-- **TM execution to ExecutionPrefixReal for plant_flat**.
-
-    Maps a TM execution to an ExecutionPrefixReal structure for the exponential profile.
-    Uses explicit parameters (n, φ, r) instead of Classical.choose for transparency. -/
-noncomputable def tmExecutionToPrefix_flat
-    {k : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
-    [Fintype alphabet] [DecidableEq alphabet]
-    (L : LStarInstanceFG)
-    (M : Foundations.TuringMachine k states alphabet)
-    (haltTime : Nat)
-    (C : Finset (Fin L.dag.n))
-    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4) (h_aligned : AlignedCNFConstraints φ)
-    (extractWitness : Foundations.TMConfig M → Witness φ.nvars)
-    (h_tm_correct : φ.satisfies (Foundations.tmOutputWitness M haltTime extractWitness).assignmentInf)
-    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
-    (h_wf : WellFormedRandomness φ r)
-    : Foundations.ExecutionPrefixReal L :=
-  { time := haltTime
-    revealedBits := extractRevealedBitsFromWitness_flat L
-                      (Foundations.tmOutputWitness M haltTime extractWitness) C
-    computedConfigs := extractComputedConfigsFromWitness_flat n φ r h_nvars h_aligned L h_L_eq h_wf
-                         (Foundations.tmOutputWitness M haltTime extractWitness)
-                         h_tm_correct }
--/
-
 /-- **Helper: Planted FG flat instances have non-empty digests**.
     Flat-mode analog of TMToExecutionPrefix.planted_implies_nonempty_digestBits_verified. -/
 theorem planted_implies_nonempty_digestBits_verified_flat

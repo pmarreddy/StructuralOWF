@@ -387,32 +387,25 @@ theorem my_proof3 := exponential_time_lower_bound_dual_path ...
      h_monotone : timestamps is strictly increasing
    ```
 
-2. **tmExecutionToPrefix** (TM execution → ExecutionPrefix):
-   ```lean
-   def tmExecutionToPrefix (M : TuringMachine k states alphabet)
-       (haltTime : Nat) : ExecutionPrefixReal L C :=
-     -- Extract observations from TM execution trace
-   ```
-
-**Proof chain** (Path 2 - active):
+**Proof chain** (Path 2 - active, semantic derivation):
 ```
 TM execution (M, haltTime, witness)
-  ↓ tmExecutionToPrefix (this file)
-ExecutionPrefixReal (abstract observations)
-  ↓ fg_first_commit_time_lower_bound_sub_one (TMAdapter)
-  ↓ correctness → exhaustive config exploration
+  ↓ correctness_implies_realizesAllValues (TMAdapterExponential)
   ↓ visitedEncodings_card_ge_pow (TuringMachineSemantics - PROVEN)
 haltTime ≥ 2^ρ
 ```
+
+**Note**: The `tmExecutionToPrefix_flat` bridge function (TM execution → ExecutionPrefixReal)
+was removed due to circular Layer dependencies. The active proof path uses semantic derivation
+via `correctness_implies_realizesAllValues` instead of operational trace conversion.
 
 **Status**: 0 sorries in active chain (6 sorries in unused private lemmas).
 
 **Trust boundary**: 2 axioms (Church-Turing + semantic bridge).
 
-**Axiom audits** (16 statements):
+**Axiom audits** (14 statements):
 ```lean
 #print axioms ExecutionTrace
-#print axioms tmExecutionToPrefix
 #print axioms totalEliminations_bounded_by_time
 #print axioms realizability_for_planted_instances
 #print axioms exponential_time_lower_bound_via_WC1
@@ -730,11 +723,11 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 ### TimeBridge/ (2 files, 26 axiom audits total)
 
-1. **TMToExecutionPrefix.lean** (5401 lines, 16 audits)
+1. **TMToExecutionPrefix.lean** (5401 lines, 14 audits)
    - **Dual-path architecture** (both paths in ONE file!)
    - Path 1: exponential_time_lower_bound_via_WC1
    - Path 2: exponential_time_lower_bound_via_Realizability
-   - ExecutionTrace, tmExecutionToPrefix
+   - ExecutionTrace (tmExecutionToPrefix removed - circular deps)
    - Status: 0 sorries in active chains
    - Trust boundary: 2 axioms (Church-Turing + semantic bridge)
 
