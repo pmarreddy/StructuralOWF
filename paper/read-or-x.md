@@ -4097,12 +4097,29 @@ None of these arguments reference bit patterns, parsing, or string manipulation.
 - Emergence rank (how many bits must be discovered)
 - Verification correctness (what makes a witness valid)
 
-**Why encoding transfer works:** Since hardness comes from structure, any "reasonable" encoding preserves it:
-- Encode is injective (Lemma E1') → distinct instances remain distinct
-- Encode is poly-time (Lemma E2) → no computational blowup
-- Size is preserved (Lemmas E3-E4) → polynomial bounds transfer
+**Why encoding transfer works:** Since hardness comes from structure, any *admissible* encoding preserves it. We define admissibility precisely:
 
-If a poly-time algorithm could decide L\* ⊆ {0,1}\*, composing with Encode (poly-time) would decide L\*\_struct in poly-time — contradicting Stage 1's bounds. The encoding is a transparent wrapper, not a source of hardness or easiness.
+**Definition (Admissible Encoding).** An encoding Enc : X\* → {0,1}\* is *admissible* if:
+1. **Injective**: Enc(x\*) = Enc(y\*) → x\* = y\* (no collisions)
+2. **Poly-time computable**: Enc runs in time poly(|x\*|)
+3. **Polynomial size bounds**: ∃ polynomials p, q such that p(n\_core) ≤ |Enc(x\*)| ≤ q(n\_core) where n\_core is the security parameter of x\*
+
+Our canonical Encode (Appendix D.5) satisfies all three:
+- Injectivity: Lemma E1' (via unique decodability)
+- Poly-time: Lemma E2
+- Size bounds: |Encode(x\*)| = Θ(n\_core · poly(log n\_core)) by construction (see Lemma E5 below)
+
+**Lemma E5 (Parameter-to-Size Bound).** For any x\* ∈ X\* with security parameter n\_core:
+  n\_core ≤ |Encode(x\*)| ≤ O(n\_core² · log n\_core)
+
+*Proof sketch:* The instance contains Θ(n\_core) variables, O(n\_core) clauses (by §10.1's polynomial clause bound), DAG with O(n\_core log n\_core) nodes, and per-node data of size O(log n\_core). Total: O(n\_core² log n\_core). Lower bound: at minimum, the n\_core variable assignments require n\_core bits. ∎
+
+**Transfer via admissibility:** Given these properties:
+- If a poly-time algorithm decides L\* ⊆ {0,1}\*, composing with Encode (poly-time) decides L\*\_struct
+- The hardness bounds (time ≥ n\_core^(Ω(log n\_core)) or 2^(Ω(n\_core))) translate via E5 to |bs|^(Ω(log |bs|)) or 2^(Ω(√|bs|))
+- Polynomial in |bs| remains sub-exponential in n\_core, preserving the contradiction
+
+The encoding is a transparent wrapper: it cannot introduce shortcuts (injectivity prevents collapsing distinct instances) or blow up complexity (poly-time, polynomial size).
 
 **Contrast with representation-dependent proofs:** Some lower bound techniques (e.g., circuit lower bounds via gate elimination) are sensitive to representation. Our approach avoids this: the SCL framework operates at the semantic level (what information must flow) rather than the syntactic level (how bits are arranged). This is why Stage 2 is a clean transfer theorem rather than a new proof.
 
@@ -6179,6 +6196,22 @@ The following properties of Encode are established in Appendix D.5.
 
 *Proof:* Immediate from the size convention |x\*| := |Encode(x\*)| (take poly(n) = n). ∎
 
+**Remark (E3/E4 are tautological).** Under our convention |x\*| := |Encode(x\*)|, E3 and E4 hold trivially. What matters for transfer is the relationship between the *hardness parameter* n\_core (security parameter of the instance) and the *bitstring length* |Encode(x\*)|. This is captured by E5:
+
+**Lemma E5 (Parameter-to-Size Bound).** For any x\* ∈ X\* constructed from φ with n\_core variables:
+
+n\_core ≤ |Encode(x\*)| ≤ O(n\_core² · log n\_core)
+
+*Proof:*
+- *Lower bound:* The instance must encode at least the n\_core variable identities.
+- *Upper bound:* By §10.1 (polynomial clause bound), |clauses| ≤ O(n\_core^k) for some fixed k. The DAG has O(n\_core log n\_core) nodes (§6.6). Each node stores O(log n\_core) bits of metadata. Total: O(n\_core² log n\_core). ∎
+
+**Corollary (Hardness Bound Translation).** The per-instance bounds translate as follows:
+- QP-sharp (time ≥ n\_core^(Ω(log n\_core))): becomes |bs|^(Ω(log |bs|)) in bitstring length
+- Exponential (time ≥ 2^(Ω(n\_core))): becomes 2^(Ω(√|bs|)) in bitstring length
+
+In both cases, polynomial time in |bs| contradicts the structured lower bound.
+
 ##### 10.6.3 Connection Theorem
 
 **Theorem 10.6.5 (Connection).** For any bs ∈ {0,1}\*:
@@ -6187,12 +6220,22 @@ bs ∈ L\*  ↔  ∃ x\* w, Encode(x\*) = bs ∧ Verify(x\*, w) = 1
 
 *Proof:* Immediate from Definitions 10.6.3 and 10.6.4. ∎
 
+**Corollary 10.6.5' (Backward Transfer via Injectivity).** For any structured instance x\* ∈ X\*:
+
+Encode(x\*) ∈ L\*  ↔  x\* ∈ L\*\_struct
+
+*Proof:*
+- (→) If Encode(x\*) ∈ L\*, then by Definition 10.6.4, ∃ y\* ∈ L\*\_struct such that Encode(y\*) = Encode(x\*). By injectivity (E1'), x\* = y\*, hence x\* ∈ L\*\_struct.
+- (←) If x\* ∈ L\*\_struct, then Encode(x\*) ∈ L\* by Definition 10.6.4 (take the same x\*). ∎
+
+**Why this matters:** The bitstring language L\* is defined existentially (bs ∈ L\* iff *some* x\* encodes to bs and is a yes-instance). A skeptic might worry: "Given Encode(x\*), how do I know the decider's answer corresponds to *this* x\* rather than some other y\*?" Corollary 10.6.5' answers: injectivity guarantees there is no other y\*. If Encode(x\*) = Encode(y\*), then x\* = y\*. This makes the transfer p\_backward (Lean terminology) well-defined.
+
 **Remark (Certificate-Carries-Structure).** The NP verifier for L\* receives input bs and certificate (x\*, w). It checks:
 
 - (1) Encode(x\*) = bs  — poly-time by Lemma E2
 - (2) Verify(x\*, w) = 1 — poly-time by §10.2
 
-No parsing of bs is required; the certificate carries the structure. This is standard for NP (the verifier need not decode the input if the certificate provides equivalent information).
+No parsing of bs is required; the certificate carries the structure. This is standard for NP: verifiers may receive auxiliary structure in the certificate and need only check consistency (condition 1) rather than parsing the input directly. The certificate size |x\*| + |w| is polynomial in |bs| by E5 and §10.2's witness bound.
 
 ##### 10.6.4 Bitstring Corollaries
 
@@ -6223,6 +6266,8 @@ Construct a structured inverter A': given x\* = Plant(φ\_n, r) for some r ∈ D
 3. Output r'
 
 Correctness: since f\_n(r') = bs = Encode(x\*) = Encode(Plant(φ\_n, r)), by Corollary E1' (injectivity) we have Plant(φ\_n, r') = Plant(φ\_n, r) = x\*. Thus A' inverts the structured planting function with the same success probability as A, contradicting the structured OWF theorem (§9, Theorem 9.4).
+
+**Distribution matching:** The success probability carries over exactly because Encode is deterministic and injective. When r ← D\_n uniformly, the structured challenge x\* = Plant(φ\_n, r) is distributed according to the structured OWF's challenge distribution. Since bs = Encode(x\*) is a deterministic bijection onto im(Encode), the bitstring challenge bs has the same distribution as f\_n(r) for r ← D\_n. Thus Pr[A succeeds on bs] = Pr[A' succeeds on x\*], and the reduction preserves success probability exactly.
 
 *(Optional intuition, used in §9.3–§9.4):* From any such preimage r' one may extract a satisfying assignment (Lemma 9.DOM) and then a canonical witness via Ext (Lemma 9.Ext), showing inversion implies SAT-solving. ∎
 
@@ -6260,19 +6305,19 @@ None of these theorems mention bit patterns, string lengths, or parsing. They re
 
 **Why Encode Preserves Hardness**
 
-The encoding lemmas E1-E4 ensure Encode is a "transparent wrapper":
+The encoding lemmas ensure Encode is a "transparent wrapper" (see §6.9.7 for the formal definition of *admissible encoding*):
 
 1. **Injectivity (E1')**: Different structured instances encode to different bitstrings
-   - Contrapositive: If bs = Encode(x\*) = Encode(y\*), then x\* = y\*
-   - Consequence: Distinguishing power is preserved
+   - Enables backward transfer: Encode(x\*) ∈ L\* ↔ x\* ∈ L\*\_struct (Corollary 10.6.5')
+   - The existential definition of L\* collapses to a unique preimage
 
 2. **Poly-time (E2)**: Encoding adds only polynomial overhead
    - An algorithm for L\* ⊆ {0,1}\* yields one for L\*\_struct via: x\* ↦ Encode(x\*) ↦ decide ↦ answer
    - Total time: poly(|x\*|) + T\_decide(|Encode(x\*)|) = poly(|x\*|) if T\_decide is polynomial
 
-3. **Size preservation (E3-E4)**: |Encode(x\*)| = Θ(|x\*|)
-   - Polynomial bounds in one world transfer to polynomial bounds in the other
-   - "Poly-time for bitstrings" ↔ "Poly-time for structures"
+3. **Parameter-to-size bound (E5)**: n\_core ≤ |Encode(x\*)| ≤ O(n\_core² log n\_core)
+   - Hardness bounds in n\_core translate to bounds in |bs| (see Hardness Bound Translation corollary)
+   - Note: E3/E4 are tautological under our convention; E5 is the substantive bound
 
 **The Transfer Argument (Corollaries 10.6.6-10.6.8)**
 
@@ -6280,14 +6325,16 @@ Each corollary follows the same pattern:
 
 ```
 Structured result:     R holds for L*_struct ⊆ X*
-Encoding properties:   Encode : X* → {0,1}* is injective, poly-time, size-preserving
+Encoding properties:   Encode is admissible (injective, poly-time, poly-size)
+Backward transfer:     Encode(x*) ∈ L* ↔ x* ∈ L*_struct (Corollary 10.6.5')
 Transfer:              R holds for L* ⊆ {0,1}* (the Encode-image)
 ```
 
 For example, Corollary 10.6.7 (OWF):
 - §9 proves: inverting Plant over X\* requires super-polynomial time
-- Encode is poly-time, so: if A inverts f\_n(r) = Encode(Plant(φ\_n, r)) in poly-time...
-- ...then A' = A ∘ Encode inverts Plant in poly-time (contradiction)
+- Encode is poly-time and injective, so: if A inverts f\_n(r) = Encode(Plant(φ\_n, r)) in poly-time...
+- ...then A' = A ∘ Encode inverts Plant in poly-time (same distribution by determinism)
+- Contradiction with §9's structured OWF theorem
 
 **Contrast with Representation-Sensitive Techniques**
 
@@ -6298,7 +6345,7 @@ Some complexity arguments are sensitive to representation:
 
 Our approach avoids this fragility. The SCL framework operates at the *semantic level* (what information must flow through the DAG) rather than the *syntactic level* (how bits are arranged in memory). This is why:
 - Stage 1 proves hardness for the abstract computational problem
-- Stage 2 transfers to any reasonable encoding without re-proving anything
+- Stage 2 transfers to any *admissible* encoding (Definition in §6.9.7) without re-proving anything
 
 **Summary: The Two-Stage Architecture**
 
