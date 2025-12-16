@@ -10,7 +10,7 @@ We prove P ≠ NP for uniform probabilistic polynomial‑time Turing machines by
 
 **Key Innovation: The Semantic Conservation Law.** The incompressibility derives from a structural correctness constraint q + Φ ≥ R, where Φ measures simultaneously distinguishable computational artifacts (log₂ of state count), while R and q denote required and resolved information. This constraint yields exactly three operational routes: (1) Storage—maintain 2^(R−q) distinguishable states in parallel; (2) Resolution—learn correct values through sequential reads; (3) Elimination—prune wrong values through testing. L\*'s structural properties (Keyedness; Emergence + Bandwidth; Per‑Node Antagonism) block all three routes simultaneously, forcing exponential cost. Maintaining fewer than 2^(R-q) artifacts causes collisions between inequivalent seeds, leading to incorrect designated addresses and verification failure—a correctness requirement, not a performance heuristic.
 
-**Construction and One-Wayness.** We define L\* ⊆ {0,1}\* as an NP-complete bitstring language (Definition 10.6.4) whose instances encode dependency DAG structures with seed-locked problem access: distinct computational histories induce distinct content-addressed seeds selecting designated memory locations. The one-way function family {f\_n : D(φ\_n) → {0,1}^{ℓ(n)}} with D(φ\_n) ⊆ {0,1}^{m(n)} (Corollary 10.6.7) maps r←D\_n to the encoded planted instance Encode(Plant(φ\_n, r)). Every output admits a per-instance, deterministic witness-finding lower bound: on any fixed run, producing the canonical witness requires time ≥ n^(Ω(log n)) or ≥ 2^(Ω(n)) (Theorem 8.A).
+**Construction and One-Wayness.** We construct the structured language L\*\_struct ⊆ X\* (§6, Definition 6.9.2) whose instances encode dependency DAG structures with seed-locked problem access: distinct computational histories induce distinct content-addressed seeds selecting designated memory locations. The bitstring language L\* ⊆ {0,1}\* is the Encode-image of L\*\_struct (§10.6, Definition 10.6.4). The one-way function family {f\_n : D(φ\_n) → {0,1}^{ℓ(n)}} with D(φ\_n) ⊆ {0,1}^{m(n)} (Corollary 10.6.7) maps r←D\_n to the encoded planted instance Encode(Plant(φ\_n, r)). Every output admits a per-instance, deterministic witness-finding lower bound: on any fixed run, producing the canonical witness requires time ≥ n^(Ω(log n)) or ≥ 2^(Ω(n)) (Theorem 8.A).
 
 Any uniform PPT inverter 𝓘 succeeding with non‑negligible probability can be coin-fixed (Yao's principle) to deterministic algorithm 𝓘_{c̄} succeeding on some instance x*. Composing with polynomial-time extractor Ext yields witness W in polynomial time, contradicting the per-instance lower bound. Hence f is one-way against uniform PPT.
 
@@ -54,11 +54,11 @@ See `docs/CONTRIBUTIONS.md` for full reviewer guidelines, contribution recogniti
 - §3: Main Results and Parametric Spectrum  -  P ≠ NP and unconditional Structural OWF construction; complexity bounds for different λ regimes
 - §4: Model and Semantic Framework  -  deterministic k-tape TMs; Semantic Multiplication Principle (SMP); DAG min-cut framework
 - §5: Computational Models and Classes  -  paradigm-specific SCL manifestations (backtracking, DP, OBDD, resolution, circuits)
-- §6: Instance Construction & Invariants  -  L\* structure with overlay; structural properties A1-A5 (Hermeticity, Injectivity, Emergence, Closure, Dependency)
+- §6: Instance Construction & Invariants  -  L\* structure with overlay; structural properties A1-A5 (Hermeticity, Injectivity, Emergence, Closure, Dependency); §6.9 establishes language conventions (L\*\_struct vs L\* ⊆ {0,1}\*)
 - §7: The Semantic Conservation Law (SCL) and Semantic Necessity  -  abstract proof: A1-A5 → per-node SCL (Theorem 7.A, §7.2.1)
 - §8: Per-Instance Deterministic Bounds  -  foundation for OWF: every FG-wired (Frontier-Gate) instance hard on any fixed run (Theorem 8.A); coin-fixing extends to randomized PPT
 - §9: Unconditional One-Way Function Construction  -  OWF from per-instance bounds (§8) via coin-fixing; OWF ⇒ FP ≠ FNP ⇒ P ≠ NP (classical bridge)
-- §10: NP-Completeness and Classical Bridge  -  L\* ∈ NP; NP-hardness via 3-SAT reduction; Proposition 10.4 (classical bridge); Main Theorem 10.5 (P ≠ NP)
+- §10: NP-Completeness and Classical Bridge  -  L\*\_struct ∈ NP (§10.1-10.3); classical bridge (§10.4); Main Theorem 10.5 (P ≠ NP); §10.6 transfers to bitstring L\* ⊆ {0,1}\*
 - §11: Related Work  -  connections to width-based lower bounds, algorithm-to-hardness frameworks; §11.4 documents SCL as structural parallel across 9 paradigms + formalized TM observation bridge
 - §12: Discussion and Implications  -  scope, limitations, future directions
 
@@ -81,9 +81,9 @@ See `docs/CONTRIBUTIONS.md` for full reviewer guidelines, contribution recogniti
 
 **Recommended reading order** (flexible - sections can be read non-linearly):
 1. §1.1 Configuration diversity → §2 SCL framework → §3 Results overview (including §3.6 falsifiability)
-2. §6 L\* construction (A1–A5 properties) → §7.2.1 SCL proof (A1–A5 ⇒ q + Φ ≥ R)
+2. §6 L\* construction (A1–A5 properties; **§6.9 language conventions**) → §7.2.1 SCL proof (A1–A5 ⇒ q + Φ ≥ R)
 3. §8.A Per-instance bounds (Theorem 8.A) → §9 Extractor + Structural OWF security
-4. §10 NP-completeness + classical bridge → §5 Paradigm manifestations
+4. §10 NP-completeness + classical bridge (§10.6 for bitstring formulation) → §5 Paradigm manifestations
 
 **Alternative for skeptics**: Start with §3.6 (falsifiability), §2.2-§2.4 (formal definitions), then §6-§10 (proof chain), Appendices C/A/J (technical details), finally §1+§5 (context).
 
@@ -2187,7 +2187,7 @@ Convention: In this section, n := n_core (see §1.7).
 ¹ *Polynomials are measured in |x*|; notation and sizing in §4 (Notation). Unless stated otherwise, §§1-8 use n := n_core; §12 restates bounds with n := |x*|.*
 
 **Main Separation (OWF Construction).**
-**Theorem (P ≠ NP via OWF).** We construct an unconditional one-way function f from NP-complete language L\* ⊆ {0,1}\* (Definition 10.6.4), proving **P ≠ NP** via the classical bridge OWF ⇒ FP ≠ FNP ⇒ P ≠ NP (Corollary 10.6.8).
+**Theorem (P ≠ NP via OWF).** We construct an unconditional one-way function f from NP-complete language L\* (structured: §6.9.2; bitstring: §10.6.4), proving **P ≠ NP** via the classical bridge OWF ⇒ FP ≠ FNP ⇒ P ≠ NP (Corollary 10.6.8).
 
 **Construction**: A function family {f_n} indexed by security parameter n. Each f_n uses a fixed 3-SAT formula φ_n of size n:
 - **Domain**: D(φ_n) = {r = (α, gateDigests, salt) | α satisfies φ_n}
@@ -4011,6 +4011,84 @@ Under this profile, a one-path verifier resolves all R_v at each node and runs i
 - Min-cut residual λ(A,x): Run-dependent bottleneck λ = min_C Σ_{v∈C}(R_v−q_v). See §7.2.1; App. J.
 - Algorithm V (Verifier): Explicit polynomial-time verifier for L\*. See §10.
 
+---
+
+#### 6.9 Language Conventions (Structured vs Bitstring)
+
+**This subsection establishes terminology used throughout §§6-10. Read this before proceeding.**
+
+The proof develops in two stages: first we prove results for *structured instances* (mathematical objects with DAG structure, emergence matrices, etc.), then we transfer these results to *bitstrings* via encoding. This subsection makes the distinction precise.
+
+##### 6.9.1 Structured Instance Type
+
+**Definition 6.9.1 (Structured Instance Type X\*).** Let X\* denote the type of overlay instances constructed in §§6.1-6.8:
+
+X\* := { (G, Sel\_v, H\_v, Enc\_schema, F\_overlay, GREQ, PathOf, S(P), salts, Φ̃) | satisfying A1-A5 }
+
+Elements x\* ∈ X\* are the concrete computational objects: DAGs with emergence matrices, seed-locking schemas, addressing functions, etc. These are *mathematical structures*, not bitstrings.
+
+##### 6.9.2 Structured Language
+
+**Definition 6.9.2 (Structured Language L\*\_struct).** L\*\_struct ⊆ X\* is defined by:
+
+x\* ∈ L\*\_struct  :↔  ∃w, Verify(x\*, w) = 1
+
+where Verify is the structured verifier (Algorithm V, §10.2). In words: L\*\_struct is the set of structured instances that admit a valid witness.
+
+##### 6.9.3 Size Convention
+
+**Definition 6.9.3 (Canonical Encoding).** Encode : X\* → {0,1}\* is the canonical binary encoding defined in Appendix D.5. This encoding is:
+- Injective (Lemma E1', §10.6.2)
+- Polynomial-time computable (Lemma E2, §10.6.2)
+- Length-delimited with unambiguous field boundaries
+
+**Convention (Size of Structured Instances).** We measure the size |x\*| of a structured instance x\* ∈ X\* by the length of its canonical bitstring representation:
+
+|x\*| := |Encode(x\*)|
+
+This is the standard convention in complexity theory: objects are measured by the length of their chosen admissible encoding. All polynomial bounds in §§6-10.5 refer to this measure.
+
+##### 6.9.4 Notation Convention
+
+**Convention (L\* means L\*\_struct until §10.6).** Throughout §§6-10.5, when we write **L\*** without qualification, we mean **L\*\_struct** (the structured language over X\*). Theorems, lemmas, and definitions in these sections concern structured instances, with size measured by |Encode(·)|.
+
+This convention simplifies notation while preserving precision. The distinction matters only when we must explicitly discuss bitstring representations.
+
+##### 6.9.5 Bitstring Language (Preview)
+
+**Definition 6.9.4 (Bitstring Language L\*, preview).** In §10.6.4, we define the bitstring language as the Encode-image of L\*\_struct:
+
+L\* ⊆ {0,1}\*  :=  { bs | ∃ x\* ∈ L\*\_struct, Encode(x\*) = bs }
+
+Equivalently: bs ∈ L\* iff bs is the canonical encoding of some yes-instance.
+
+**Theorem (Transfer, preview).** Section §10.6 proves that all structured results transfer to this bitstring language via encoding lemmas E1-E4 and the Connection Theorem (10.6.5). Specifically:
+- NP membership transfers (Corollary 10.6.6)
+- OWF construction transfers (Corollary 10.6.7)
+- P ≠ NP transfers (Corollary 10.6.8)
+
+##### 6.9.6 Summary: Two-Stage Proof Architecture
+
+The proof proceeds cleanly in two stages:
+
+1. **§§6-10.5 (Structured)**: Prove all results for L\*\_struct ⊆ X\*
+   - Construction satisfies A1-A5 (§6)
+   - A1-A5 → SCL (§7)
+   - Per-instance deterministic bounds (§8)
+   - Structural OWF construction (§9)
+   - NP-completeness and classical bridge (§10.1-10.5)
+
+2. **§10.6 (Bitstring Transfer)**: Transfer all results to L\* ⊆ {0,1}\*
+   - Define Encode and prove encoding lemmas
+   - Connection Theorem: structured ↔ bitstring membership
+   - Bitstring corollaries: NP, OWF, P ≠ NP
+
+This separation keeps mathematical development clean (no parsing overhead in proofs) while ensuring the final statement is the standard textbook form (language over {0,1}\*).
+
+**Why not define bitstrings first?** Working with structured instances avoids encoding/decoding complexity in proofs. The SCL theorem, per-instance bounds, and OWF security are all *structure-dependent*—they reason about DAGs, seeds, and emergence matrices, not bit patterns. Introducing bitstrings early would obscure the mathematical content without adding rigor.
+
+---
+
 ## Part IV: Core Technical Results
 
 ### 7. The Semantic Conservation Law (SCL) and Semantic Necessity
@@ -5508,7 +5586,7 @@ Section 9 constructed an unconditional one-way function f from L\*'s structural 
 
 #### 10.1 Formal Language Membership (Reduction from 3-SAT)
 
-**Notation.** Sections §10.1-10.5 prove results for structured instances (denoted L\*\_struct in §10.6). The bitstring language L\* ⊆ {0,1}\* is defined in §10.6.4; corollaries there lift all structured results to bitstrings via the encoding bridge (Theorem 10.6.5).
+**Notation (see §6.9 for complete conventions).** Per §6.9.4, when we write "L\*" in §§10.1-10.5, we mean L\*\_struct (structured instances over X\*). The bitstring language L\* ⊆ {0,1}\* is defined in §10.6.4 as the Encode-image of L\*\_struct; all structured results transfer via encoding lemmas E1-E4 and the Connection Theorem (10.6.5).
 
 Cross-reference. The verifier operates on canonical representations only; see §3.6 (Canonical Forms) for definitions and Appendix O.2.1 for the verifier/extractor checklist.
 
@@ -6026,25 +6104,29 @@ The proof does not rely on "no algorithm has been found" - it demonstrates "L\*'
 
 **Purpose:** This subsection formally defines L\* as a language over {0,1}\* and establishes the encoding bridge. All structured proofs (§§10.1-10.5) transfer to bitstring statements via this interface.
 
+**Relationship to §6.9:** The definitions below repeat and formalize the conventions established in §6.9 (Language Conventions). Section 6.9 introduced these concepts informally; this section provides the complete formal treatment with encoding lemmas and transfer theorems.
+
 ##### 10.6.1 Definitions
 
-**Definition 10.6.1 (Structured Instance Type).** Let X\* denote the type of overlay instances as constructed in §6:
+**Definition 10.6.1 (Structured Instance Type).** Let X\* denote the type of overlay instances as constructed in §6 (see §6.9.1 for the informal introduction):
 
 X\* := (G, Sel\_v, H\_v, Enc\_schema, F\_overlay, GREQ, PathOf, S(P), salts, Φ̃)
 
-**Definition 10.6.2 (Encoding Function).** Encode : X\* → {0,1}\* is the canonical binary encoding defined in Appendix D.5.
+**Definition 10.6.2 (Encoding Function).** Encode : X\* → {0,1}\* is the canonical binary encoding defined in Appendix D.5 (referenced in §6.9.3).
 
-**Convention (Size of structured instances).** We measure the size |x\*| of a structured instance x\* ∈ X\* by the length of its canonical bitstring representation: |x\*| := |Encode(x\*)|. This is the standard convention in complexity theory (objects are measured by the length of their chosen admissible encoding).
+**Convention (Size of structured instances).** We measure the size |x\*| of a structured instance x\* ∈ X\* by the length of its canonical bitstring representation: |x\*| := |Encode(x\*)|. This is the standard convention in complexity theory (objects are measured by the length of their chosen admissible encoding). See §6.9.3.
 
-**Definition 10.6.3 (Structured Language).** L\*\_struct ⊆ X\* is defined by:
+**Definition 10.6.3 (Structured Language).** L\*\_struct ⊆ X\* is defined by (see §6.9.2):
 
 x\* ∈ L\*\_struct  :↔  ∃w, Verify(x\*, w) = 1
 
 where Verify is the structured verifier (Algorithm V, §10.2).
 
-**Definition 10.6.4 (Bitstring Language).** L\* ⊆ {0,1}\* is defined by:
+**Definition 10.6.4 (Bitstring Language).** L\* ⊆ {0,1}\* is defined by (see §6.9.5 for preview):
 
 bs ∈ L\*  :↔  ∃ x\*, Encode(x\*) = bs ∧ x\* ∈ L\*\_struct
+
+This is the Encode-image of L\*\_struct: the set of bitstrings that canonically encode yes-instances.
 
 ##### 10.6.2 Encoding Lemmas
 
