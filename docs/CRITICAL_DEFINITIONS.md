@@ -1039,7 +1039,7 @@ structure bundles clause count and 3-SAT constraints to guarantee proper CNF wel
 
 **This Construction**:
 - f_φ : D(φ) → LStarInstanceFG where φ is public CNF formula
-- Domain: D(φ) = { r : Randomness φ.nvars | WellFormedRandomness φ r } (includes φ.satisfies r.assignmentInf)
+- Domain (exponential profile): D(φ) = { r : Randomness φ.nvars | WellFormedRandomness_flat φ r } (includes φ.satisfies r.assignmentInf)
 - Inversion success: f(r') = y AND r' ∈ D(φ) (both checks poly-time)
 - Total extension: f_total : {0,1}* → Option LStarInstanceFG via parseBits
 
@@ -1084,15 +1084,15 @@ structure CNFPreconditions (Φ : CNFFamily) : Prop where
   wf_literals : ∀ n, CNF.WellFormed (Φ n)
   nvars_eq : ∀ n ≥ 128, (Φ n).nvars = n
   nonempty_clauses : ∀ n, n ≥ 128 → 0 < (Φ n).clauses.length
-  clauses_poly : ∃ C k, ∀ n ≥ 128, (Φ n).clauses.length ≤ C * n^k
+  clauses_poly : ∃ C_cl k_cl, C_cl > 0 ∧ k_cl > 0 ∧ ∀ n ≥ 128, (Φ n).clauses.length ≤ C_cl * n^k_cl
   positive_clause : ∀ n ≥ 128, CNF.HasPositiveClause (Φ n)
   bounded_solutions : ∃ c, CNFFamily.BoundedSolutions Φ c
   aligned : ∀ n ≥ 128, AlignedCNFConstraints (Φ n)
-  forward_polytime : ∃ C k, ∀ n ≥ 128, n + (Φ n).clauses.length * n ≤ C * n^k
+  forward_polytime : ∃ C k, C > 0 ∧ k > 0 ∧ ∀ n ≥ 128, n + (Φ n).clauses.length * n ≤ C * n^k
 
 def SecurityProperty (Φ : CNFFamily) (prec : CNFPreconditions Φ) : Prop :=
   ∀ (A : (n : Nat) → StructuralOWFAdversary (Φ n).nvars),
-    UniformPolyBounded A →
+    (∀ n, (A n).base.C ≤ (A 128).base.C ∧ (A n).base.k ≤ (A 128).base.k) →
     negligible_parametric 128 (fun n => avg_success_prob_n_exp ... (A n).base)
 
 def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=

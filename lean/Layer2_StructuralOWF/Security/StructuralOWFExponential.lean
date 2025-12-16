@@ -1194,18 +1194,10 @@ theorem exists_success_input_exp
   let r := Foundations.RandomnessN.toRandomness φ.nvars φ.nvars h_nvars_pos rN
   refine ⟨r, h_wf.1, h_wf.2, h_success.1, h_success.2⟩
 
-/-- Success probability for QP profile (LEGACY - uses dgLen = 64, R = (log n)²).
+/-- Success probability for exponential profile (uses dgLen = 64, R = n).
 
-**WARNING**: This definition has a profile mismatch:
-- plant_flat uses R_of_flat (R = n)
-- WellFormedRandomness uses R_of (R = (log n)²)
-
-For airtight exponential security, use `success_prob_n_coin_exp` instead.
-
-This definition is preserved for backward compatibility with existing proofs
-that only need quasi-polynomial security bounds.
-
-**Key**: Uses `plant_flat` in the success predicate.
+**Key**: Uses `plant_flat` with `WellFormedRandomness_flat` (exponential profile)
+in the success predicate. Both use R_of_flat (R = nvars).
 
 **Definition**: For a fixed coin c, the probability that the adversary successfully inverts
 the OWF when using plant_flat construction. This is the count of well-formed randomnesses

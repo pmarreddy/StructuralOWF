@@ -78,7 +78,7 @@ open LStar LStar.StructuralOWF
 
     **Non-Circular**: NO reference to plant_flat or r! Pure computation from φ, numGates, a.
 
-    **Type Consistency**: Uses R_of φ numGates internally, matching plant_flat exactly! -/
+    **Type Consistency**: Uses R_of_flat φ numGates internally, matching plant_flat exactly! -/
 noncomputable def emergentConfigAtGate (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat) (a : AssignmentInf) (gateIndex : Nat)
     : Option (@PSigma Nat (fun R => Fin (Nat.pow 2 R))) :=
   -- Get pure L* structure
@@ -160,7 +160,7 @@ lemma emergentConfigAtGate_some_implies_gateIndex_bound
       match the emergent configuration computed from r.assignment (identity digest)
 
     **Why This Works**:
-    - emergentConfigAtGate computes what the emergent config WOULD BE using R_of
+    - emergentConfigAtGate computes what the emergent config WOULD BE using R_of_flat
     - We require r.gateDigests to encode this BEFORE planting
     - Plant.lean then COPIES r.gateDigests into the instance
     - Result: Planted instance has digests matching actual emergent configs!
@@ -193,7 +193,7 @@ def WellFormedRandomness (φ : CNF) (r : Randomness φ.nvars) : Prop :=
 We provide a pure assignment-derived configuration function over the DAG, to
 serve as the planted "world" when transporting to planted instances. This avoids
 any dependence on Plant.lean and can be cast into CutWorld for planted L via
-the usual R equality (both use `R_of φ numGates`).
+the usual R equality (both use `R_of_flat φ numGates`).
 -/
 
 /-- Emergent configuration at a vertex, computed purely from assignment.

@@ -417,7 +417,7 @@ and emergence matrices are pure functions of φ.
 
     **Computes** (from φ and numGates):
     - DAG structure (vertices, edges)
-    - Emergence ranks R_v at each vertex (using centralized R_of)
+    - Emergence ranks R_v at each vertex (using R_of_flat - exponential profile)
     - Seed widths
     - Emergence matrices
 

@@ -86,8 +86,8 @@ def numGates (L : LStarInstanceFG) : Nat :=
     With the FG bottleneck architecture, each gate produces R bits (not 1 parity bit).
     This is the correct length for digestBits: sum of R values for all FG gates.
 
-    For single-gate instances: `totalRBits L = R_of φ numGates gateVertex`
-    which equals `(log₂ φ.nvars)²` for the QP profile. -/
+    For single-gate instances: `totalRBits L = R_of_flat φ numGates gateVertex`
+    which equals `φ.nvars` for the exponential profile. -/
 def totalRBits (L : LStarInstanceFG) : Nat :=
   (Finset.univ.filter (fun v : Fin L.dag.n => L.fg.gateReq v)).sum (fun v => L.R v)
 
@@ -625,7 +625,7 @@ theorem digestsFromAssignment_length_eq_totalRBits
     With the FG bottleneck architecture, each gate produces R bits (not 1 parity bit).
     The digest length is the sum of R values for all FG gates.
 
-    For single-gate instances: length = R_of φ numGates gateVertex = (log₂ n)². -/
+    For single-gate instances: length = R_of_flat φ numGates gateVertex = n. -/
 theorem verified_witness_length_eq_totalRBits
     (L : LStarInstanceFG)
     (vw : VerifiedWitness L)
