@@ -1,4 +1,5 @@
 import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
+import Layer5_Applications.PvsNP.PrimaryPath.OWFExistence
 import Layer5_Applications.PvsNP.ComplexityClasses.Encoding.BitstringOWF
 
 /-! # Main Theorems: P ≠ NP
@@ -93,8 +94,31 @@ theorem P_ne_NP_complete :
     (¬PeqNP_classical) ∧ (∃ (L : Lang (List Bool)), InNP L ∧ ¬InP L) :=
   ⟨P_ne_NP, explicit_NP_not_P_witness⟩
 
+/-! ## OWF Existence (Standard Cryptographic Form)
+
+This section exports the OWF existence theorem in textbook form:
+`∃ Φ, IsOneWayPlantFlat Φ`
+
+**Standard Definition** (Goldreich/Katz-Lindell):
+- Preconditions: CNF family well-formedness
+- Security: ∀ uniform PPT adversary A, Pr[A inverts] ≤ negl(n)
+
+**Trust Boundary**: 1 custom axiom (subset of P≠NP's 2 axioms).
+-/
+
+open LStar.StructuralOWF.OWFExistence
+
+/-- **OWF Existence**: There exists a CNF family with one-way plant_flat.
+
+    Matches textbook OWF definition: ∃ f, (f poly-time) ∧ (∀ PPT A, Pr[invert] ≤ negl).
+    Uses 1 custom axiom (tm_correctness_implies_realizesAllValuesFrom_flat_encoded). -/
+theorem OWF_exists_main : ∃ Φ : LStar.StructuralOWF.Theorems.CNFFamily,
+    IsOneWayPlantFlat Φ :=
+  OWF_exists
+
 /-! ## Axiom Audit -/
 
+-- P ≠ NP theorems (2 custom axioms)
 #print axioms P_ne_NP
 #print axioms explicit_NP_not_P_witness
 #print axioms PrefixLangBits_separation
@@ -102,5 +126,8 @@ theorem P_ne_NP_complete :
 #print axioms Corollary_10_6_7
 #print axioms Corollary_10_6_8
 #print axioms P_ne_NP_complete
+
+-- OWF existence (1 custom axiom)
+#print axioms OWF_exists_main
 
 end MainTheorems
