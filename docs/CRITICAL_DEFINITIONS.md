@@ -27,7 +27,7 @@
 ## Table of Contents
 
 ### Definition Verification Summary
-- [Category A: External Interface](#category-a-external-interface-standard-required--21-definitions) — 21 definitions `[STANDARD-REQUIRED]`
+- [Category A: External Interface](#category-a-external-interface-standard-required--23-definitions) — 23 definitions `[STANDARD-REQUIRED]`
 - [Category B: Internal Machinery](#category-b-internal-machinery-coherent-required--40-definitions) — 40 definitions `[COHERENT-REQUIRED]`
 
 ### Part I: Core Definitions
@@ -45,7 +45,7 @@
 - [§ 6. Logical Dependencies](#-6-logical-dependencies)
 - [§ 7. Theoretical Alignment](#-7-theoretical-alignment)
   - [§ 7.5 Reviewer Verification Checklist](#75-reviewer-verification-checklist) ⬅ **START HERE**
-    - Category A: External Interface `[STANDARD-REQUIRED]` — 21 definitions
+    - Category A: External Interface `[STANDARD-REQUIRED]` — 23 definitions
     - Category B: Internal Machinery `[COHERENT-REQUIRED]` — 40 definitions
 - [§ 8. Sensitivity Analysis](#-8-sensitivity-analysis)
 - [§ 9. Design Philosophy](#-9-design-philosophy)
@@ -75,7 +75,7 @@
 
 ## Definition Verification Summary
 
-### Category A: External Interface `[STANDARD-REQUIRED]` — 21 definitions
+### Category A: External Interface `[STANDARD-REQUIRED]` — 23 definitions
 
 These MUST exactly match textbook definitions. Any deviation means the proof claims something other than "P≠NP".
 
@@ -86,7 +86,7 @@ These MUST exactly match textbook definitions. Any deviation means the proof cla
 
 **Computation Model (3):** `TuringMachine`, `TMConfig`, `DeterministicRun`
 
-**Cryptographic (4):** `PPTAdversary`, `RandAdv`, `negligible`, OWF security
+**Cryptographic (6):** `PPTAdversary`, `RandAdv`, `negligible_parametric`, `IsOneWayPlantFlat`, `SecurityProperty`, `OWF_exists`
 
 **SAT/Problem (5):** `CNF`, `Clause`, `Literal`, `Assignment`, `CNF.satisfies`
 
@@ -2656,7 +2656,7 @@ See `TuringMachineSemantics.lean` and paper §11.4 for detailed documentation.
 
 **Two categories of definitions require different verification:**
 
-#### Category A: External Interface Definitions `[STANDARD-REQUIRED]` — 21 definitions
+#### Category A: External Interface Definitions `[STANDARD-REQUIRED]` — 23 definitions
 
 These definitions determine **what the theorem claims**. They MUST exactly match textbook definitions — otherwise the proof proves something other than "P≠NP" in the standard sense.
 
