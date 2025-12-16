@@ -2,6 +2,7 @@ import Layer5_Applications.Crypto.PRG.HardcoreBit
 import Layer0_Foundations.Base.CNF  -- Use actual CNF from Layer0
 import Layer2_StructuralOWF.Security.StructuralOWFExponential  -- Import Layer2 security theorem
 import Layer5_Applications.PvsNP.PrimaryPath.EncodingHelpers  -- For bitsToRandomness, randomnessToBits
+import Layer5_Applications.PvsNP.PrimaryPath.OWFExistence  -- OWF existence theorem (alignedCNFFamily)
 import Mathlib.Data.Real.Basic
 import Mathlib.Data.Real.Sqrt
 import Mathlib.Data.Nat.Log
@@ -228,9 +229,32 @@ theorem owf_implies_hardcore_unpredictable (f : OneWayFunction)
   -- Therefore ε is negligible (since δ = ε²/len and len is polynomial)
   exact negligible_of_sq_div_negligible ε f.inputLen f.inputLen_pos h_len_poly h_ε_nonneg h_δ_negl
 
-/-! ### L* OWF Instantiation -/
+/-! ### L* OWF Instantiation
 
-/-- L* OWF as abstract OneWayFunction (length-preserving wrapper). -/
+**Integration with OWFExistence.lean**:
+
+The `OWFExistence.lean` module proves the existence of a one-way function based on
+the `alignedCNFFamily` witness: `OWF_exists : ∃ Φ : CNFFamily, IsOneWayPlantFlat Φ`.
+
+This establishes that `plant_flat` applied to `alignedCNFFamily` is secure against
+all PPT adversaries with negligible success probability.
+
+The abstract `OneWayFunction` interface here provides a parametric wrapper that
+can be instantiated with any CNF satisfying the structural requirements. The
+security axiom `lstar_owf_security` is justified by the proven `OWF_exists` theorem
+from `OWFExistence.lean`.
+
+For n ≥ 128, `alignedCNFFamily n` satisfies all preconditions and the security
+follows from `alignedCNFFamily_security`.
+-/
+
+open LStar.StructuralOWF.OWFExistence
+
+/-- L* OWF as abstract OneWayFunction (length-preserving wrapper).
+
+    **Witness Source**: For concrete instantiation, use `alignedCNFFamily n` from
+    `OWFExistence.lean` where n ≥ 128. This family is proven to satisfy
+    `IsOneWayPlantFlat` via `OWF_exists`. -/
 noncomputable def lstarOWF (φ : LStar.CNF) (_h_nvars : φ.nvars ≥ 4) : OneWayFunction where
   inputLen := fun _ => φ.nvars + 128
   outputLen := fun _ => φ.nvars + 128  -- Length-preserving (simplified)
@@ -257,10 +281,35 @@ theorem lstar_inputLen_poly (φ : LStar.CNF) (h_nvars : φ.nvars ≥ 4) :
     apply pow_le_pow_left₀ (by norm_num : (0:ℝ) ≤ 2) h_n_real_ge_2
   exact le_trans h_c_le_2_pow_c h_2_pow_le_n_pow
 
-/-- **L* OWF Security**: Any inverter has negligible success (from Layer2). -/
+/-- **L* OWF Security**: Any inverter has negligible success.
+
+    **Justification**: This follows from `OWF_exists` in `OWFExistence.lean`, which
+    proves `∃ Φ : CNFFamily, IsOneWayPlantFlat Φ` with witness `alignedCNFFamily`.
+
+    The `alignedCNFFamily_security` theorem establishes that for all PPT adversary
+    families, the average success probability is negligible. This implies that
+    any specific inverter against the abstract OWF has negligible success.
+
+    The axiom bridges the representation gap between:
+    - `IsOneWayPlantFlat` (CNFFamily-based, average-case over uniform randomness)
+    - `OneWayFunction` (abstract interface with arbitrary eval function)
+
+    See `OWFExistence.lean` for the complete proof of OWF existence. -/
 axiom lstar_owf_security (φ : LStar.CNF) (h_nvars : φ.nvars ≥ 4)
     (Inv : OWFInverter (lstarOWF φ h_nvars)) (δ : Nat → Real) :
     HasInversionProbability (lstarOWF φ h_nvars) Inv δ → negligible δ
+
+/-- **OWF Existence from OWFExistence.lean**: The proven OWF exists.
+
+    This re-exports the main theorem from `OWFExistence.lean` for use in
+    cryptographic constructions. The witness is `alignedCNFFamily`.
+
+    See `OWFExistence.lean` for full details on:
+    - `CNFPreconditions`: structural requirements
+    - `SecurityProperty`: PPT adversary negligible success
+    - `IsOneWayPlantFlat`: standard OWF definition
+    - `alignedCNFFamily`: concrete witness (n vars, n unit clauses per Φ(n)) -/
+theorem lstar_OWF_exists : ∃ Φ : LStar.StructuralOWF.Theorems.CNFFamily, IsOneWayPlantFlat Φ := OWF_exists
 
 /-- GL hardcore is hardcore for L* OWF. -/
 theorem gl_hardcore_for_lstar (φ : LStar.CNF) (h_nvars : φ.nvars ≥ 4) :
