@@ -355,7 +355,7 @@ theorem f_is_parity_owf_exponential_true : ...
 
 **Proven Theorems** (eliminated from axiom count):
 - `fg_lossless_encoding` (EncodingDiscipline.lean:344-489) - PROVEN (145 LOC theorem, A3 emergence encoding roundtrip)
-- `qp_dominates_poly` (PerInstanceBound.lean) - PROVEN (~100 LOC, 0 custom axioms)
+- `exp_dominates_poly_strict` (Probability.lean) - PROVEN (exponential dominance 2^n > C·n^k)
 
 **Axiom Layer Note**: All axioms operate at the inversion/information layer (TM semantics, encoding mechanics, keyedness/pigeonhole)—none mention P, NP, or complexity bounds. The separation emerges from the construction, not the axioms.
 

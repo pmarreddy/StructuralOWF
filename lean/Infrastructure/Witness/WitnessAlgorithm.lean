@@ -597,25 +597,13 @@ property. This will be used to show 2^64 > poly(128).
 
 /-! ## Exponential Domination
 
-The contradiction in Theorem 8.A requires showing 2^64 > poly(128) for reasonable
-polynomials. The correct versions of these theorems with complete proofs exist in
-`LStar.StructuralOWF.Foundations.PerInstanceBound`:
+The main proof uses exponential bounds (R = n via R_of_flat in RanksExponential.lean),
+which give 2^n lower bounds. The exponential dominance theorem `exp_dominates_poly_strict`
+in Probability.lean proves that 2^n eventually exceeds any polynomial C·n^k.
 
-Proven theorems (zero sorries) in PerInstanceBound.lean:
-- `exp_49_exceeds_poly_at_128`: proves 2^49 > C·n^k for reasonable C, k at n = 128
-- `exp_lambda_exceeds_poly`: parameterized version for λ = (log₂ n)² ≥ 49
-- For n=128: λ=49; for n=256: λ=64 (scales with instance size)
-
-These are used by `no_poly_time_witness_finder_explicit` which Security.lean
-depends on, and that theorem is fully proven.
-
-Why bounds matter: The statement "2^64 > p(128) for all polynomials" is false.
-For example, p(n) = n^100 gives p(128) = 128^100 >> 2^64. The correct statement
-requires bounds on the polynomial coefficients C and degree k.
-
-Integration: When assembling the full Theorem 8.A proof, use the bounded versions
-from PerInstanceBound.lean with the actual C and k from the adversary+extractor
-composition. -/
+Why bounds matter: The statement "2^n > p(n) for all polynomials" is true for
+sufficiently large n, but false for small n. The proof handles this by showing
+the exponential growth eventually dominates any fixed polynomial degree. -/
 
 /-! ## Completion Status
 

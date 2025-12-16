@@ -656,7 +656,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 **Proven Theorems** (eliminated from axiom count):
 - **`fg_lossless_encoding`** (EncodingDiscipline.lean:344-489) - PROVEN (145 LOC theorem, A3 emergence encoding roundtrip)
-- **`qp_dominates_poly`** (PerInstanceBound.lean) - PROVEN (~100 LOC, 0 custom axioms)
+- **`exp_dominates_poly_strict`** (Probability.lean) - PROVEN (exponential dominance 2^n > C·n^k)
 
 **Axiom Layer Note**: All axioms operate at the inversion/information layer (TM semantics, encoding mechanics, keyedness/pigeonhole)—none mention P, NP, or complexity bounds. The separation emerges from the construction, not the axioms.
 
@@ -687,7 +687,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 - states_per_segment_upper_bound (eliminated via projection analysis)
 - sequential_execution_time_bound (eliminated via OperationalModel.lean)
 - fg_complete_obs_forces_config_state_visitation (eliminated via ExecutionSemanticsAdapter)
-- qp_dominates_poly (now PROVEN in PerInstanceBound.lean, ~100 LOC)
+- exp_dominates_poly_strict (now PROVEN in Probability.lean)
 - fg_lossless_encoding (now PROVEN in EncodingDiscipline.lean:344-489, 145 LOC)
 - Many TM-specific axioms (now proven)
 

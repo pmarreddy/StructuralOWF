@@ -182,11 +182,10 @@ then no backdoor exists.
 
 **Note on asymptotics**: This theorem provides the CONDITIONAL bridge—it assumes the
 arithmetic inequality h_poly_less_lambda for a given n. The full asymptotic domination
-(∃ n₀, ∀ n ≥ n₀, 2^n > c·(log n)^k) is **PROVEN via Mathlib real analysis** in
-Infrastructure/Witness/PerInstanceBound.lean (`exp_dominates_poly_nat`). The proof uses
-Mathlib's `tendsto_exp_mul_div_rpow_atTop` theorem from asymptotic analysis. This clean
-separation allows the information-theoretic result (here) to be independent of calculus-based
-growth-rate proofs.
+(∃ n₀, ∀ n ≥ n₀, 2^n > c·n^k) is **PROVEN via Mathlib real analysis** in
+Probability.lean (`exp_dominates_poly_strict`). The proof uses Mathlib's
+`tendsto_exp_mul_div_rpow_atTop` theorem. This clean separation allows the
+information-theoretic result (here) to be independent of calculus-based growth-rate proofs.
 
 **Usage**: Bridge between polynomial time bounds and information-theoretic no-backdoor.
 

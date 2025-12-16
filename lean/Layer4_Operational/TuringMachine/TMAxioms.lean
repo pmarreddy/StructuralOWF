@@ -31,8 +31,8 @@ abstract complexity-theoretic framework.
    realization of all `2^R` FG emergent values during the run.
 
 **Proven Theorem** (eliminated from axiom count):
-- `qp_dominates_poly` (Infrastructure/Witness/PerInstanceBound.lean)
-  PROVEN: Asymptotic dominance 2^((log n)²) > C·n^k (~100 LOC, 0 custom axioms)
+- `exp_dominates_poly_strict` (Probability.lean) - Exponential dominance 2^n > C·n^k
+  The main proof uses exponential bounds (R = n via R_of_flat), which are stronger than QP
 
 ### Proven Theorems
 

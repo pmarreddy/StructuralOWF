@@ -580,13 +580,7 @@ This section provides the infrastructure to eliminate TM axioms 4 and 5:
 3. Tape semantics (config values must be on tape to be observed)
 -/
 
-namespace LStar.StructuralOWF.Foundations
-
-open Classical
-
-variable {k : Nat} {states alphabet : Type}
-variable [Fintype states] [DecidableEq states]
-variable [Fintype alphabet] [DecidableEq alphabet]
+-- Note: Already in namespace LStar.StructuralOWF.Foundations from line 246
 
 /-! ### Execution Trace
 

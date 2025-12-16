@@ -1,6 +1,5 @@
 import Layer2_StructuralOWF.Plant.PlantCore
 import Layer3_InformationBounds.SegmentReduction.WorkLowerBounds
-import Infrastructure.Witness.PerInstanceBound
 import Layer3_InformationBounds.Theorems.Quantitative
 import Layer0_Foundations.Base.CNF
 import Layer0_Foundations.Base.BoundedSecurityParam

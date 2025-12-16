@@ -13,7 +13,6 @@ import Infrastructure.Witness.WitnessAlgorithm
 -- import Infrastructure.Witness.Alternative.WitnessFinderConcrete  -- Alternative path (not in active chain, has 2 sorries)
 import Infrastructure.Witness.VerifiedWitness
 import Infrastructure.Witness.AlgorithmSeparation
-import Infrastructure.Witness.PerInstanceBound
 import Infrastructure.Witness.CorrectnessImpliesExhaustive
 import Infrastructure.Witness.WitnessFinderBridge
 import Infrastructure.Witness.WitnessFinderSoundnessBridge
