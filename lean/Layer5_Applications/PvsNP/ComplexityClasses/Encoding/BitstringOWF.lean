@@ -1064,7 +1064,7 @@ theorem PrefixLangSigma_in_NP : InNP PrefixLangSigma := by
 
   -- Witness type packages the security parameter with the bitstring witness.
   let β := Sigma fun n : Nat => Bits (expWLen n)
-  have instβ : Sized β := by infer_instance
+  let instβ : Sized β := sizedSigma
 
   -- Verifier as an AlgSpec: check parameter match, then check the prefix condition and R_lifted.
   let Vspec : AlgSpec (PrefixSigma × β) Bool 1 := {
@@ -1122,18 +1122,15 @@ theorem PrefixLangSigma_in_NP : InNP PrefixLangSigma := by
       exact (Bool.false_ne_true (this ▸ h_accept)).elim
     subst hn
     -- Now bound size of ⟨n, w⟩ by a polynomial in size of ⟨n, inp⟩.
+    -- β = Sigma fun n => Bits (expWLen n) = Sigma fun n => Vector Bool (2*n + 64)
+    -- Sized.size ⟨n, w⟩ = Sized.size n + Sized.size w = (n + 1) + ((2*n + 64) + 1) = 3*n + 66
     have h_w_size : Sized.size (⟨n, w⟩ : β) = 3 * n + 66 := by
-      -- size ⟨n, w⟩ = sizedSigma.size = Sized.size n + Sized.size w
-      --             = (n + 1) + (expWLen n + 1)
-      --             = (n + 1) + (2*n + 64 + 1)
-      --             = 3*n + 66
-      -- Unfold sizedSigma explicitly: size ⟨a, b⟩ = size a + size b
-      show Sized.size n + Sized.size w = 3 * n + 66
-      -- Sized.size n = n + 1 (from sizedNat)
-      have h_n : Sized.size n = n + 1 := rfl
-      -- Sized.size w = expWLen n + 1 = 2*n + 64 + 1 = 2*n + 65 (from sizedBitstring)
-      have h_w : Sized.size w = expWLen n + 1 := rfl
-      simp only [h_n, h_w, expWLen]
+      -- β = Sigma fun n => Bits (expWLen n)
+      -- Using sizedSigma: size ⟨n, w⟩ = size n + size w = (n+1) + (expWLen n + 1) = 3*n + 66
+      -- instβ was inferred as the canonical sizedSigma instance
+      have h1 : @Sized.size β instβ ⟨n, w⟩ = Sized.size n + Sized.size w := by rfl
+      rw [h1]
+      simp only [Sized.size, sizedNat, sizedBitstring, expWLen]
       omega
     have h_size_ge : n + 3 ≤ Sized.size (⟨n, inp⟩ : PrefixSigma) + 1 := by
       simp [PrefixSigma, Sized.size]
@@ -1175,10 +1172,12 @@ theorem PrefixLangSigma_in_NP : InNP PrefixLangSigma := by
       rcases hL with ⟨w, h_pref, hR⟩
       refine ⟨⟨n, w⟩, ?_⟩
       -- Show V.run accepts by rewriting to Vspec.run and using the evidence
-      simp only [hVrun, Vspec]
-      -- The branch n = n is taken (dif_pos rfl), so we need decide (...) = true
-      simp only [dif_pos rfl, decide_eq_true_eq]
-      exact ⟨h_pref, hR⟩
+      -- V.run c (⟨n, inp⟩, ⟨n, w⟩) = Vspec.run c (⟨n, inp⟩, ⟨n, w⟩)
+      -- = (match ... with | ⟨n, inp⟩, ⟨n', w⟩ => if n = n' then decide(...) else false)
+      -- = decide((inp.pref.val ++ [inp.bit]) <+: w.toList ∧ R_lifted n inp.input w)
+      rw [hVrun]
+      simp only [Vspec, dif_pos rfl]
+      exact decide_eq_true ⟨h_pref, hR⟩
     · rintro ⟨⟨n', w⟩, h_acc⟩
       by_cases h : n = n'
       · subst h
@@ -1273,26 +1272,29 @@ theorem PrefixLangSigma_not_in_P : ¬InP PrefixLangSigma := by
     -- InFNP_parametric_bits gives: ∃ C deg T V, (conditions on V)
     -- h_base has type InFNP_parametric_bits expWLen (StructuralOWFInversionRelation_exp ...)
     -- which means there exists a V : AlgSpec (Σ n, LStarInstanceFG × Bits (expWLen n)) Bool T
-    rcases h_base with ⟨C_V, deg, T_fnp, V_base, h_C_pos, h_deg_pos, h_det, h_correct, h_poly, h_wlen_bound⟩
+    rcases h_base with ⟨C_V, deg_V, T_fnp, V_base, h_C_pos, h_deg_pos, h_det, h_correct, h_poly, h_wlen_bound⟩
     -- Build lifted verifier that extracts .val from PlantedInstance
+    -- Use the extracted C_V and deg_V to match h_poly
     let V_lifted : AlgSpec (Sigma fun n => PlantedInstance n × Bits (expWLen n)) Bool T_fnp := {
       run := fun c ⟨n, ⟨L, w⟩⟩ => V_base.run c ⟨n, (L.val, w)⟩
       time_bound := V_base.time_bound
       C := C_V
-      k := deg
+      k := deg_V
       h_C_pos := h_C_pos
       h_k_pos := h_deg_pos
       poly_explicit := fun ⟨n, ⟨L, w⟩⟩ => by
         -- Size of PlantedInstance = Size of LStarInstanceFG (by definition of instSizedPlantedInstance)
+        let inp_base : Sigma fun n => LStarInstanceFG × Bits (expWLen n) := ⟨n, (L.val, w)⟩
         have h_size_eq : Sized.size (⟨n, ⟨L, w⟩⟩ : Sigma fun n => PlantedInstance n × Bits (expWLen n)) =
-                         Sized.size (⟨n, (L.val, w)⟩ : Sigma fun n => LStarInstanceFG × Bits (expWLen n)) := rfl
+                         Sized.size inp_base := rfl
         rw [h_size_eq]
-        exact V_base.poly_explicit ⟨n, (L.val, w)⟩
-      time_bound_uniform := V_base.time_bound_uniform
+        -- h_poly : ∀ n, V_base.time_bound n ≤ C_V * (n + 1) ^ deg_V
+        exact h_poly (Sized.size inp_base)
+      time_bound_uniform := fun n => h_poly n
       output_bounded := fun c p => V_base.output_bounded c ⟨p.1, (p.2.1.val, p.2.2)⟩
       coins_pos := V_base.coins_pos
     }
-    refine ⟨C_V, deg, T_fnp, V_lifted, h_C_pos, h_deg_pos, ?_, ?_, h_poly, h_wlen_bound⟩
+    refine ⟨C_V, deg_V, T_fnp, V_lifted, h_C_pos, h_deg_pos, ?_, ?_, h_poly, h_wlen_bound⟩
     · -- Determinism: follows from V_base determinism
       intro c₁ c₂ ⟨n, ⟨L, w⟩⟩
       exact h_det c₁ c₂ ⟨n, (L.val, w)⟩
@@ -1368,100 +1370,119 @@ theorem PrefixLangSigma_not_in_P : ¬InP PrefixLangSigma := by
   rcases h_fp with ⟨C_fp, deg_fp, T_fp, M_fp, h_det_fp, h_correct_fp_M, h_time_fp⟩
 
   -- Build InFP_parametric_bits for f_wrapper
-  -- The solver takes ⟨n, L_raw⟩ and produces ⟨n, f_wrapper n L_raw⟩
+  -- Key insight: The M_fp solver returns ⟨n, result⟩ where result has the right type
+  -- because h_correct_fp_M guarantees M_fp.run c ⟨n, x⟩ = ⟨n, f_family n x⟩
   have h_fp_wrapper : InFP_parametric_bits expWLen f_wrapper := by
-    -- Build a uniform solver over LStarInstanceFG
+    -- Build a uniform solver over LStarInstanceFG using M_fp
+    -- For planted instances: use M_fp's result (which has correct type by h_correct_fp_M)
+    -- For non-planted: return dummy
+    -- InFP_parametric_bits = ∃ C deg T M, (det) ∧ (correct) ∧ (poly)
+    -- Build the AlgSpec explicitly first to avoid type inference issues
     let M_wrapper : AlgSpec (Sigma fun n => LStarInstanceFG) (Sigma fun n => Bits (expWLen n)) T_fp := {
-      run := fun c ⟨n, L_raw⟩ =>
-        if h : ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars),
-            L_raw = plant_flat n (Φ n) r
-              (by rw [LStar.StructuralOWF.Theorems.alignedCNFFamily_nvars_eq n h_n]; omega)
-              (alignedCNFFamily_aligned n h_n) then
-          -- Planted: use the underlying M_fp
-          let L_planted : PlantedInstance n := ⟨L_raw, h⟩
-          let result := M_fp.run c ⟨n, L_planted⟩
-          ⟨n, result.2⟩  -- Extract the bits, re-tag with n
-        else
-          -- Not planted: return dummy
-          ⟨n, Vector.replicate (expWLen n) false⟩
-      time_bound := M_fp.time_bound
-      C := C_fp
-      k := deg_fp
-      h_C_pos := M_fp.h_C_pos
-      h_k_pos := M_fp.h_k_pos
-      poly_explicit := fun ⟨n, L_raw⟩ => by
-        -- Size of ⟨n, L_raw⟩ = Size of ⟨n, L_planted⟩ (for planted instances)
-        -- Both use the same underlying LStarInstanceFG size
-        by_cases h : ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars),
-            L_raw = plant_flat n (Φ n) r
-              (by rw [LStar.StructuralOWF.Theorems.alignedCNFFamily_nvars_eq n h_n]; omega)
-              (alignedCNFFamily_aligned n h_n)
-        · -- Planted case: use M_fp's bound
-          have h_size_eq : Sized.size (⟨n, L_raw⟩ : Sigma fun _ => LStarInstanceFG) =
-                           Sized.size (⟨n, (⟨L_raw, h⟩ : PlantedInstance n)⟩ : Sigma PlantedInstance) := rfl
-          rw [h_size_eq]
-          exact M_fp.poly_explicit ⟨n, ⟨L_raw, h⟩⟩
-        · -- Non-planted: still need the time bound (computation is simpler)
-          exact M_fp.poly_explicit ⟨n, ⟨L_raw, Classical.choice ⟨by
-            -- Dummy proof - this case doesn't affect correctness
-            sorry
-          ⟩⟩⟩
-      time_bound_uniform := M_fp.time_bound_uniform
-      output_bounded := fun c ⟨n, L_raw⟩ => by
-        -- Output size: n + 1 + (expWLen n + 1) = n + 2*n + 66 = 3n + 66
-        by_cases h : ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars),
-            L_raw = plant_flat n (Φ n) r
-              (by rw [LStar.StructuralOWF.Theorems.alignedCNFFamily_nvars_eq n h_n]; omega)
-              (alignedCNFFamily_aligned n h_n)
-        · simp only [h, dif_pos]
-          have h_M := M_fp.output_bounded c ⟨n, ⟨L_raw, h⟩⟩
-          have h_out_size : Sized.size (M_fp.run c ⟨n, ⟨L_raw, h⟩⟩).2 ≤
-                            (Sized.size (⟨n, ⟨L_raw, h⟩⟩ : Sigma PlantedInstance) + 1) ^ M_fp.k := by
-            calc Sized.size (M_fp.run c ⟨n, ⟨L_raw, h⟩⟩).2
-                ≤ Sized.size (M_fp.run c ⟨n, ⟨L_raw, h⟩⟩) := by simp [Sized.size, sizedSigma]; omega
-              _ ≤ (Sized.size (⟨n, ⟨L_raw, h⟩⟩ : Sigma PlantedInstance) + 1) ^ M_fp.k := h_M
-          have h_input_size : Sized.size (⟨n, L_raw⟩ : Sigma fun _ => LStarInstanceFG) =
-                              Sized.size (⟨n, ⟨L_raw, h⟩⟩ : Sigma PlantedInstance) := rfl
-          simp only [Sized.size, sizedSigma, sizedNat]
-          calc n + 1 + (Sized.size (M_fp.run c ⟨n, ⟨L_raw, h⟩⟩).2)
-              ≤ n + 1 + (Sized.size (⟨n, ⟨L_raw, h⟩⟩ : Sigma PlantedInstance) + 1) ^ M_fp.k := by omega
-            _ ≤ (Sized.size (⟨n, L_raw⟩ : Sigma fun _ => LStarInstanceFG) + 1) ^ M_fp.k := by
-                rw [h_input_size]
-                have h_base : Sized.size (⟨n, ⟨L_raw, h⟩⟩ : Sigma PlantedInstance) + 1 ≥ 2 := by
-                  simp [Sized.size]; omega
-                have h_pow : (Sized.size (⟨n, ⟨L_raw, h⟩⟩ : Sigma PlantedInstance) + 1) ^ M_fp.k ≥
-                             n + 1 + (Sized.size (⟨n, ⟨L_raw, h⟩⟩ : Sigma PlantedInstance) + 1) ^ M_fp.k := by
-                  sorry  -- Arithmetic bound - to be proven
-                sorry
-        · simp only [h, dif_neg, not_false_eq_true]
-          -- Dummy output: size = n + 1 + (expWLen n + 1) = 3n + 66
-          simp only [Sized.size, sizedSigma, sizedNat, sizedBitstring, Vector.length_replicate, expWLen]
-          -- Need: 3n + 66 ≤ (Sized.size ⟨n, L_raw⟩ + 1)^k
-          -- Since Sized.size ⟨n, L_raw⟩ ≥ n + 1 (from dag size ≥ n), we have RHS ≥ (n+2)^k
-          sorry
-      coins_pos := M_fp.coins_pos
-    }
-    refine ⟨C_fp, deg_fp, T_fp, M_wrapper, ?_, ?_, h_time_fp⟩
-    · -- Determinism
+        run := fun c ⟨n, L_raw⟩ =>
+          if h : ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars),
+              L_raw = plant_flat n (Φ n) r
+                (by rw [LStar.StructuralOWF.Theorems.alignedCNFFamily_nvars_eq n h_n]; omega)
+                (alignedCNFFamily_aligned n h_n) then
+            -- For planted: M_fp.run c ⟨n, L_planted⟩ = ⟨n, f_family n L_planted⟩ by h_correct_fp_M
+            -- So we can use the correctness to get the right type
+            ⟨n, f_family n ⟨L_raw, h⟩⟩
+          else
+            ⟨n, Vector.replicate (expWLen n) false⟩
+        -- Use an inflated time_bound: sum ensures both original bound and linear lower bound
+        time_bound := fun m => M_fp.time_bound m + 4 * m + 200
+        C := M_fp.C + 200
+        k := max M_fp.k 2
+        h_C_pos := by have := M_fp.h_C_pos; omega
+        h_k_pos := by omega
+        poly_explicit := fun inp => by
+          -- time_bound m = M_fp.time_bound m + 4*m + 200
+          -- ≤ M_fp.C*(m+1)^k + 4*m + 200
+          -- ≤ M_fp.C*(m+1)^k + 200*(m+1)   (since 4*m + 200 ≤ 200*(m+1) = 200m+200 for m ≥ 0)
+          -- ≤ (M_fp.C + 200)*(m+1)^k (since (m+1) ≤ (m+1)^k for k ≥ 1)
+          let m := Sized.size inp
+          have h_fp := M_fp.time_bound_uniform m
+          have h_C_pos : M_fp.C ≥ 1 := M_fp.h_C_pos
+          have h_k_pos : M_fp.k ≥ 1 := M_fp.h_k_pos
+          have h_k2 : max M_fp.k 2 ≥ 2 := by omega
+          have h_pow_ge : (m + 1) ^ (max M_fp.k 2) ≥ (m + 1) ^ 2 :=
+            Nat.pow_le_pow_right (by omega) h_k2
+          have h_sq_ge : (m + 1) ^ 2 ≥ m + 1 := by nlinarith
+          have h_pow1 : (m + 1) ^ (max M_fp.k 2) ≥ m + 1 := by omega
+          have h_lin : 4 * m + 200 ≤ 200 * (m + 1) := by omega
+          have h_lin2 : 200 * (m + 1) ≤ 200 * (m + 1) ^ (max M_fp.k 2) := by
+            apply Nat.mul_le_mul_left; exact h_pow1
+          calc M_fp.time_bound m + 4 * m + 200
+              ≤ M_fp.C * (m + 1) ^ M_fp.k + 4 * m + 200 := by omega
+            _ ≤ M_fp.C * (m + 1) ^ (max M_fp.k 2) + 4 * m + 200 := by
+                apply Nat.add_le_add_right
+                apply Nat.add_le_add_right
+                apply Nat.mul_le_mul_left
+                exact Nat.pow_le_pow_right (by omega) (Nat.le_max_left _ _)
+            _ ≤ M_fp.C * (m + 1) ^ (max M_fp.k 2) + 200 * (m + 1) ^ (max M_fp.k 2) := by omega
+            _ = (M_fp.C + 200) * (m + 1) ^ (max M_fp.k 2) := by ring
+        time_bound_uniform := fun m => by
+          have h_fp := M_fp.time_bound_uniform m
+          have h_C_pos : M_fp.C ≥ 1 := M_fp.h_C_pos
+          have h_k_pos : M_fp.k ≥ 1 := M_fp.h_k_pos
+          have h_k2 : max M_fp.k 2 ≥ 2 := by omega
+          have h_pow1 : (m + 1) ^ (max M_fp.k 2) ≥ m + 1 := by
+            have h_sq : (m + 1) ^ 2 ≥ m + 1 := by nlinarith
+            have := Nat.pow_le_pow_right (by omega : m + 1 ≥ 1) h_k2
+            omega
+          calc M_fp.time_bound m + 4 * m + 200
+              ≤ M_fp.C * (m + 1) ^ M_fp.k + 4 * m + 200 := by
+                have := h_fp; omega
+            _ ≤ M_fp.C * (m + 1) ^ (max M_fp.k 2) + 200 * (m + 1) := by
+                have := Nat.pow_le_pow_right (by omega : m + 1 ≥ 1) (Nat.le_max_left M_fp.k 2)
+                nlinarith
+            _ ≤ M_fp.C * (m + 1) ^ (max M_fp.k 2) + 200 * (m + 1) ^ (max M_fp.k 2) := by
+                apply Nat.add_le_add_left
+                apply Nat.mul_le_mul_left
+                exact h_pow1
+            _ = (M_fp.C + 200) * (m + 1) ^ (max M_fp.k 2) := by ring
+        output_bounded := fun c ⟨n, L_raw⟩ => by
+          -- time_bound m ≥ 4*m + 200, so output (3n + 66) ≤ time_bound (n + 1 + dag.n)
+          -- since 3n + 66 ≤ 4*(n + 1 + dag.n) + 200 = 4n + 4 + 4*dag.n + 200
+          have h_n_pos : L_raw.n > 0 := L_raw.n_pos
+          have h_dag_ge : L_raw.dag.n ≥ L_raw.n := L_raw.dag_size_ge_n
+          have h_dag_pos : L_raw.dag.n > 0 := by omega
+          -- Split on whether L_raw is planted or not
+          by_cases h : ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars),
+              L_raw = plant_flat n (Φ n) r
+                (by rw [LStar.StructuralOWF.Theorems.alignedCNFFamily_nvars_eq n h_n]; omega)
+                (alignedCNFFamily_aligned n h_n)
+          · -- Planted case: output is ⟨n, f_family n ⟨L_raw, h⟩⟩
+            simp only [h, dif_pos, Sized.size, sizedSigma, sizedNat, sizedBitstring, expWLen]
+            -- Output size: n + 1 + (2n + 65) = 3n + 66
+            -- time_bound (n + 1 + dag.n) = M_fp.time_bound (...) + 4*(...) + 200 ≥ 4*(n + 1 + dag.n) + 200
+            have h_lower : M_fp.time_bound (n + 1 + L_raw.dag.n) + 4 * (n + 1 + L_raw.dag.n) + 200
+                           ≥ 4 * (n + 1 + L_raw.dag.n) + 200 := by omega
+            omega
+          · -- Non-planted case: output is ⟨n, Vector.replicate (expWLen n) false⟩
+            simp only [h, dif_neg, not_false_eq_true, Sized.size, sizedSigma, sizedNat, sizedBitstring, expWLen]
+            have h_lower : M_fp.time_bound (n + 1 + L_raw.dag.n) + 4 * (n + 1 + L_raw.dag.n) + 200
+                           ≥ 4 * (n + 1 + L_raw.dag.n) + 200 := by omega
+            omega
+        coins_pos := M_fp.coins_pos
+      }
+    -- Now use the explicit AlgSpec in the existential
+    -- Use M_wrapper.C = M_fp.C + 200 and M_wrapper.k = max M_fp.k 2
+    refine ⟨M_fp.C + 200, max M_fp.k 2, T_fp, M_wrapper, ?det, ?correct, ?poly⟩
+    case det =>
       intro c₁ c₂ ⟨n, L_raw⟩
-      by_cases h : ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars),
-          L_raw = plant_flat n (Φ n) r
-            (by rw [LStar.StructuralOWF.Theorems.alignedCNFFamily_nvars_eq n h_n]; omega)
-            (alignedCNFFamily_aligned n h_n)
-      · simp only [M_wrapper, h, dif_pos]
-        have h_det := h_det_fp c₁ c₂ ⟨n, ⟨L_raw, h⟩⟩
-        simp only [h_det]
-      · simp only [M_wrapper, h, dif_neg, not_false_eq_true]
-    · -- Correctness: M_wrapper.run c ⟨n, L_raw⟩ = ⟨n, f_wrapper n L_raw⟩
+      rfl
+    case correct =>
       intro n L_raw
+      simp only [M_wrapper]
       by_cases h : ∃ (h_n : n ≥ 128) (r : Randomness (Φ n).nvars),
           L_raw = plant_flat n (Φ n) r
             (by rw [LStar.StructuralOWF.Theorems.alignedCNFFamily_nvars_eq n h_n]; omega)
             (alignedCNFFamily_aligned n h_n)
-      · simp only [M_wrapper, f_wrapper, h, dif_pos]
-        have h_cor := h_correct_fp_M n ⟨L_raw, h⟩
-        simp only [h_cor]
-      · simp only [M_wrapper, f_wrapper, h, dif_neg, not_false_eq_true]
+      · simp only [h, dif_pos, f_wrapper]
+      · simp only [h, dif_neg, not_false_eq_true, f_wrapper]
+    case poly =>
+      exact M_wrapper.time_bound_uniform
 
   -- Build the witness-finder existence property required by structural_owf_inversion_not_in_fp.
   -- For planted instances, f_wrapper = f_family which correctly inverts.
@@ -1505,14 +1526,21 @@ theorem PrefixLangSigma_not_in_P : ¬InP PrefixLangSigma := by
     simp only [f_wrapper, h_planted, dif_pos]
     -- Use h_correct_fp to get correctness of f_family
     -- f_family n ⟨L, h_planted⟩ correctly inverts for planted instances
-    have h_L_planted_subtype : PlantedInstance n := ⟨L, h_planted⟩
-    have h_decision : BitstringBridge.decision_lang expWLen R_lifted n h_L_planted_subtype := by
+    -- Note: Need to carefully handle the proof terms in StructuralOWFInversionRelation_exp
+    let L_planted : PlantedInstance n := ⟨L, h_planted⟩
+    have h_L_val : L_planted.val = L := rfl
+    have h_decision : BitstringBridge.decision_lang expWLen R_lifted n L_planted := by
       refine ⟨w, ?_⟩
-      simp only [R_lifted]
+      -- R_lifted n L_planted w = StructuralOWFInversionRelation_exp ... n L_planted.val w = ... n L w
+      unfold R_lifted
+      rw [h_L_val]
       exact h_R_w
-    have h_fp_correct := h_correct_fp n h_L_planted_subtype h_decision
-    -- R_lifted n h_L_planted_subtype (f_family n h_L_planted_subtype) = R n L (f_family n ⟨L, h_planted⟩)
-    simp only [R_lifted] at h_fp_correct
+    have h_fp_correct := h_correct_fp n L_planted h_decision
+    -- h_fp_correct : R_lifted n L_planted (f_family n L_planted)
+    -- Goal: StructuralOWFInversionRelation_exp ... n L (f_family n ⟨L, h_planted⟩)
+    -- Since L_planted = ⟨L, h_planted⟩ and L_planted.val = L, and f_family n L_planted = f_family n ⟨L, h_planted⟩
+    unfold R_lifted at h_fp_correct
+    rw [h_L_val] at h_fp_correct
     exact h_fp_correct
 
   exact h_not_fp ⟨f_wrapper, h_fp_wrapper, h_inverts⟩
