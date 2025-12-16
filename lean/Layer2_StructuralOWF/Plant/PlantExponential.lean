@@ -93,9 +93,9 @@ private lemma binary_foldl_bound (bits : List Bool) (n : Nat) (h_len : bits.leng
     - FG Gates: entropy from ALL dgLen bits of gateDigest (2^R bottleneck!)
     - Other: 0 entropy
 
-    This is the exponential-profile plant entropy function. Like the QP profile,
+    This is the exponential-profile plant entropy function.
     ALL dgLen bits flow through the FG gate to create the 2^R information bottleneck.
-    The difference is R_v = nvars (exponential) vs R_v = (log n)² (QP).
+    Profile: R_v = nvars (exponential).
 -/
 def plant_flat_entropy (φ : CNF) (r : Randomness φ.nvars) (h_nvars_min : φ.nvars ≥ 4)
     (dag : DAG) (seedWidth_val : Fin dag.n → Nat) :
@@ -2604,7 +2604,7 @@ theorem emergentConfigAtVertex_R_component_flat
 
 For the exponential profile, well-formedness must check that ALL n bits of the
 emergent configuration match the digest. This uses `emergentConfigAtGate_flat`
-which returns R = n (not (log n)² as in QP).
+which returns R = n.
 
 **Key Requirement**: r.dgLen ≥ n to have enough digest bits.
 -/
@@ -2612,7 +2612,7 @@ which returns R = n (not (log n)² as in QP).
 /-- Well-formed randomness for exponential profile.
 
     Uses `emergentConfigAtGate_flat` which returns R = n at FG gates.
-    Requires digest to match ALL n emergent bits (not just (log n)²).
+    Requires digest to match ALL n emergent bits.
 
     **Constraint**: r.dgLen ≥ φ.nvars (digest must have enough bits for R = n).
 

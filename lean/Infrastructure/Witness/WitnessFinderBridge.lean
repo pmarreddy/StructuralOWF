@@ -159,8 +159,7 @@ property that converts segment count into time lower bound.
 - Each FG gate v has digest of R_v ≈ λ_base bits
 - Computing digest requires Ω(R_v) parity operations
 - Each segment must compute at least one digest, requiring Ω(λ_base) parity ops per segment
-- For QP-sharp (λ_base = Θ(log² n)), this is Ω(log² n) ops per segment
-- For exponential (λ_base = Θ(n)), this is Ω(n) ops per segment
+- For exponential profile (λ_base = Θ(n)), this is Ω(n) ops per segment
 
 These properties formalize the parity work requirements. They are proven in the paper
 via the FG construction, pending formalization of the FG parity mechanism.

@@ -103,8 +103,7 @@ Define the key quantities connecting L* structure to computational requirements.
     distinguished by any correct computation.
 
     For L* with FG wiring:
-    - QP-sharp: λ_base = Θ(log² n)
-    - Flat: λ_base = Θ(n)
+    - Exponential profile: λ_base = Θ(n)
 
     **Single-Gate Architecture**:
     For FG instances with single gate (h_single_gate: gateDigests.length = 1),
@@ -864,8 +863,7 @@ When ρ is large (ρ ≈ λ_base), this gives exponential lower bound.
     5. From time_from_segments: time ≥ segmentCount × α·R_v
     6. Combine: time ≥ 2^ρ × α·R_v ≥ 2^(λ_base - τ) × α·R_v
     7. Choose c > 1 such that c^λ_base ≤ 2^(λ_base - τ) × α·R_v
-    8. For QP-sharp (λ = Θ(log² n)): c = 2^(1/log n) → time ≥ n^Ω(log n)
-    9. For flat (λ = Θ(n)): c = 2^(1 - τ/λ) → time ≥ 2^Ω(n)
+    8. For exponential profile (λ = Θ(n)): c = 2^(1 - τ/λ) → time ≥ 2^Ω(n)
 
     **Paper reference**: Appendix C.3, Theorem (C.A) -/
 

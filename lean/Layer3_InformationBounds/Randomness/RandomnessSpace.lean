@@ -62,14 +62,14 @@ noncomputable instance vectorFintype {α : Type*} [DecidableEq α] [Fintype α] 
 
 /-- Finite randomness space with parametric digest length.
 
-  - `dgLen`: digest length (e.g., (log n)² for QP-sharp, n for exponential)
+  - `dgLen`: digest length (n for exponential profile)
   - `numGates`: number of FG gates (typically 1 for single-gate construction)
   - `numVars`: number of CNF variables (typically φ.nvars)
   - `assignment`: truth values for `numVars` variables
   - `gateDigests`: `numGates` digests, each `dgLen` bits
   - `structuralBits`: `numGates` auxiliary bits
 
-**Type design**: Parametric dgLen supports QP-sharp ((log n)²) and exponential (n) profiles.
+**Type design**: Parametric dgLen for flexibility; exponential profile uses dgLen = n.
 -/
 structure RandomnessN (dgLen : Nat) (numGates : Nat) (numVars : Nat) where
   assignment : Fin numVars → Bool
@@ -117,7 +117,7 @@ def extendAssign (numVars : Nat) (σ : Fin numVars → Bool) : AssignmentInf :=
     With the single-gate constraint, numGates = 1.
 
     Uses numVars for assignment extension to correctly represent CNFs with many variables.
-    The dgLen parameter specifies digest length (e.g., (log n)² for QP-sharp).
+    The dgLen parameter specifies digest length (n for exponential profile).
 
     **Note**: Pads structuralBits with zeros to meet the 64-bit salt requirement. -/
 def toRandomness (dgLen numVars : Nat) (h_dgLen_pos : dgLen > 0) (r : RandomnessN dgLen 1 numVars) : Randomness numVars :=

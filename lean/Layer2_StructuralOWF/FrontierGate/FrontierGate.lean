@@ -37,8 +37,7 @@ digest_fg = identityDigestVec(cfg) = full R-bit configuration (identity function
 ```
 
 **World Splitting**:
-- QP: R = (log n)² → 2^{(log n)²} = n^{log n} worlds
-- Exponential: R = n → 2^n worlds
+- Exponential profile (R = n): 2^n worlds → exponential separation
 
 **Trust Boundary**: Proven theorem (no custom axioms).
 
@@ -163,7 +162,7 @@ q + Φ ≥ R     (bits read + bits stored ≥ bits that must emerge)
 ```
 
 For FG-wired instances with minimal q (few designated reads):
-- R_fg = n (Exponential) or (log n)² (QP)
+- R_fg = n (exponential profile)
 - q_fg ≈ 0 (cut topology prevents early revelation of seeds)
 - Therefore: Φ_fg ≥ R_fg → MUST maintain ≥ 2^R_fg distinguishable states
 
@@ -1327,9 +1326,7 @@ structure LStarInstanceFG extends LStarInstanceFull where
       There exist W_min, c_lower, c_upper > 0 such that:
         c_lower * (n/W_min) ≤ R_v ≤ c_upper * (n/W_min)
 
-      Supported modes:
-      - QP-Sharp: R_v = (log₂ n)², yielding 2^((log n)²) = n^(log n) bound
-      - Flat: R_v = n, yielding 2^n exponential bound
+      Profile: R_v = n (exponential), yielding 2^n exponential bound
 
       Parity computation over R_v bits requires Ω(R_v) work, linking
       constraint evolution to computational cost.

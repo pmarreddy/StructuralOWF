@@ -34,49 +34,16 @@ Better: theorem property (n : SecurityParam k) : ...  (proven, k ≤ n automatic
 ```
 
 **Benefits**:
-- Trust boundary: Eliminates 2+ domain axioms
+- Trust boundary: Eliminates domain axioms
 - Type safety: Cannot use n < k (type system prevents)
 - Ergonomics: `(n : SecurityParam 128)` cleaner than `(n : Nat) (h : n ≥ 128)`
-
-**Key Theorem**: `lambdaBaseSize_ge_generic` - (log₂ n)² ≥ (log₂ k)² for n ≥ k (PROVEN).
 
 **Applications**: OWF families indexed by SecurityParam (ensures minimum security level).
 
 **Paper**: §5 "Security parameter families".
-- k=256: λ_base ≥ (log₂ 256)² = 8² = 64 (post-quantum security parameter)
 
-**Why Crucial for QP-Sharp Profile**:
-The quasi-polynomial time bound n^{Ω(log n)} (Theorem 8.A) requires λ = Θ(log² n).
-This theorem establishes the minimum λ_base that enables this scaling:
-```
-λ_base = (log₂ n)² → bound 2^{λ_base} = 2^{(log₂ n)²} = n^{log₂ n}  (quasi-polynomial)
-```
-
-**Proof Technique**:
-Pure monotonicity via Mathlib lemmas—no custom axioms:
-1. n ≥ k (from SecurityParam k constraint)
-2. log₂ n ≥ log₂ k (log is monotone: Nat.log_mono_right)
-3. (log₂ n)² ≥ (log₂ k)² (squaring is monotone: Nat.pow_le_pow_left)
-
-**Paper References**:
-- §3 "Parametric Complexity Spectrum" - Security parameter families k → L*(φ, k)
-- §1.2.1 "QP-sharp profile" - λ = Θ(log² n) residual enables n^{Ω(log n)} bound
-- §8.A "Per-instance Deterministic Bounds" - λ_base = (log₂ n)² formula
-- Theorem 8.A "Quasi-polynomial time bound" - n^{Ω(log n)} from λ = Θ(log² n)
-
-**Dependencies**:
-- Mathlib.Data.Nat.Log: Natural logarithm and monotonicity lemmas
-
-**Applications in Proof Chain**:
-- **Layer 2 (PlantCore.lean)**: Uses SecurityParam 128 for QP-sharp OWF construction
-- **Layer 2 (PlantExponential.lean)**: Does NOT use—exponential profile uses unrestricted Nat
-- **Layer 3 (Information Bounds)**: λ_base = (log₂ n)² formula appears in residual calculations
-- **Layer 4 (Operational)**: QP time bound n^{log n} traces back to this quadratic λ
-
-**Design Note - Profile Specificity**:
-This module is SPECIFIC to the quasi-polynomial profile. The exponential profile (R_v = n)
-doesn't need bounded security parameters—it works for all n ∈ ℕ. This demonstrates the
-formalization's support for DUAL PROFILES with different parameter requirements.
+**Note**: The exponential profile (R = n) is used throughout the P≠NP proof.
+This module provides general security parameter infrastructure.
 -/
 
 namespace LStar.Base
@@ -96,13 +63,8 @@ namespace LStar.Base
     - **Proof automation**: Bound available via `n.property` (automatic subtype projection)
 
     **Standard Instantiations**:
-    - `SecurityParam 64`: n ∈ [64, ∞) (minimal practical security)
-    - `SecurityParam 128`: n ∈ [128, ∞) (standard 128-bit security parameter)
+    - `SecurityParam 128`: n ∈ [128, ∞) (standard security parameter)
     - `SecurityParam 256`: n ∈ [256, ∞) (post-quantum security parameter)
-
-    **Usage in L* Construction**:
-    PlantCore.lean uses SecurityParam 128 to enforce minimum security level for quasi-polynomial
-    OWF construction. This eliminates domain axioms—bound enforcement is definitional.
 -/
 def SecurityParam (k : Nat) : Type := { n : Nat // k ≤ n }
 
@@ -146,7 +108,7 @@ def mk (n : Nat) (h_lo : k ≤ n) : SecurityParam k := ⟨n, h_lo⟩
 -/
 instance (n : Nat) : Decidable (k ≤ n) := Nat.decLe k n
 
-/-- **Quadratic lower bound on λ_base**: Minimum residual complexity for QP-sharp profile.
+/-- **Logarithmic lower bound**: (log₂ n)² ≥ (log₂ k)² for n ≥ k.
 
     **Theorem Statement**:
     ```lean
@@ -154,24 +116,12 @@ instance (n : Nat) : Decidable (k ≤ n) := Nat.decLe k n
     ```
 
     **Mathematical Content**:
-    For security parameter families indexed by k ≥ 2, the residual complexity λ_base = (log₂ n)²
-    is bounded below by the constant (log₂ k)². This establishes the minimum "hardness floor"
-    for the family—no instance can have residual smaller than (log₂ k)².
+    For security parameter families indexed by k ≥ 2, the value (log₂ n)²
+    is bounded below by (log₂ k)².
 
     **Concrete Bounds** (standard security levels):
-    - k=64:  λ_base ≥ (log₂ 64)²  = 6² = 36  (minimal practical security)
-    - k=128: λ_base ≥ (log₂ 128)² = 7² = 49  (standard 128-bit security)
-    - k=256: λ_base ≥ (log₂ 256)² = 8² = 64  (post-quantum security parameter)
-
-    **Why Crucial for Quasi-Polynomial Bound**:
-    The QP-sharp profile achieves time bound n^{Ω(log n)} via residual λ = Θ(log² n):
-    ```
-    λ_base = (log₂ n)²
-    → Bound = 2^{λ_base} = 2^{(log₂ n)²} = n^{log₂ n}  (quasi-polynomial in n)
-    ```
-
-    This theorem establishes that λ_base ≥ (log₂ k)², ensuring the bound holds uniformly
-    for all n ≥ k in the security parameter family.
+    - k=128: (log₂ n)² ≥ (log₂ 128)² = 7² = 49
+    - k=256: (log₂ n)² ≥ (log₂ 256)² = 8² = 64
 
     **Proof Strategy**:
     Pure monotonicity argument using Mathlib lemmas (no custom axioms):
@@ -180,15 +130,6 @@ instance (n : Nat) : Decidable (k ≤ n) := Nat.decLe k n
     3. **Power monotone**: (log₂ n)² ≥ (log₂ k)² (Nat.pow_le_pow_left from Mathlib)
 
     **Trust Boundary**: Proven theorem relying only on Mathlib monotonicity lemmas.
-    No custom axioms introduced—bounds follow from type-level constraints and monotonicity.
-
-    **Paper References**:
-    - §8.A "Per-instance Deterministic Bounds" - λ_base = (log₂ n)² formula
-    - Theorem 8.A "Quasi-polynomial bound" - n^{Ω(log n)} from λ = Θ(log² n)
-    - §3 "Parametric Complexity Spectrum" - Security parameter families k → L*(φ, k)
-
-    **Application**: PlantCore.lean uses this bound to establish minimum residual for
-    quasi-polynomial OWF security.
 -/
 theorem lambdaBaseSize_ge_generic (_h_k : k ≥ 2) (n : SecurityParam k) :
     (Nat.log 2 n.val) ^ 2 ≥ (Nat.log 2 k) ^ 2 := by
@@ -208,12 +149,6 @@ theorem lambdaBaseSize_ge_generic (_h_k : k ≥ 2) (n : SecurityParam k) :
    **lambdaBaseSize_ge_generic**: Proven theorem using only Mathlib lemmas.
    - Dependencies: Nat.log_mono_right, Nat.pow_le_pow_left (standard monotonicity)
    - No custom axioms introduced
-
-   **Significance**: This module ELIMINATES historical domain axioms by encoding constraints
-   in types. Previous versions had axioms like `practical_domain_bound : n ≥ 64 → ...`.
-   Now: domain restrictions are definitional, shrinking trust boundary.
-
-   **Verification**: The #print axioms commands below confirm no custom axioms.
 -/
 #print axioms SecurityParam
 #print axioms lambdaBaseSize_ge_generic

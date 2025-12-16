@@ -298,12 +298,9 @@ with lambda = lambdaBase L v. For instances with specific λ values, call the
 parameterized version directly with the appropriate hypotheses.
 -/
 
-/-- Flat variant with λ = Θ(n), giving full exponential 2^Θ(n). L is FG-wired
-    with lambda = Θ(n) yielding W.time ≥ 2^(c·n-1) for constant c. This contrasts
-    with QP-sharp (λ = Θ(log² n)) giving quasi-polynomial n^Θ(log n). The paper
-    proves both variants to show flexibility. QP-sharp provides a tighter bound
-    closer to polynomial, while flat gives stronger exponential separation. Both
-    are sufficient for P ≠ NP. -/
+/-- Exponential variant with λ = Θ(n), giving full exponential 2^Θ(n). L is FG-wired
+    with lambda = Θ(n) yielding W.time ≥ 2^(c·n-1) for constant c. This gives
+    strong exponential separation, sufficient for P ≠ NP. -/
 theorem witness_finder_time_lower_bound_flat
     (L : LStarInstanceFG)
     (c : Nat)
@@ -345,7 +342,7 @@ Components built:
   - Lane exhaustiveness (logical dichotomy)
   - Main theorem (both lanes yield exponential time)
 - witness_finder_requires_exponential_time (via lane dichotomy)
-- Concrete bounds: 2^63 (QP-sharp) and 2^(c·n-1) (flat)
+- Concrete bounds: 2^(c·n-1) (exponential profile)
 
 The paper proves (rather than axiomatizes) the lower bound: SCL and keyedness yield
 2^λ mutually incompatible configurations (information-theoretic). Correctness requires

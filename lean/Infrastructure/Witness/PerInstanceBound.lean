@@ -6,14 +6,17 @@ import Layer3_InformationBounds.SegmentReduction.WorkLowerBounds
 import Layer3_InformationBounds.Support.Probability
 import Layer2_StructuralOWF.Plant.PlantCore
 
-/-! ## Quasi-Polynomial Dominates Polynomial
+/-! ## Polynomial Dominance Bounds
 
-**Theorem**: For any constants C, k > 0, quasi-polynomial 2^((log n)²) eventually
-dominates polynomial C·n^k.
+**Theorem**: For any constants C, k > 0, super-polynomial functions eventually
+dominate polynomial C·n^k.
 
-**Proof technique**: Let L = log₂ n. The threshold n ≥ 2^(2k + log₂ C + 2) ensures
-L ≥ 2k + log₂ C + 2, which implies L² > k·(L+1) + log₂ C via the quadratic-linear
-dominance L·(L-k) ≥ (2k + log₂ C + 2)(k + log₂ C + 2) > k + log₂ C.
+This file provides mathematical infrastructure for proving lower bounds that
+exceed polynomial time. The key results are used internally by the security proofs.
+
+**Note**: The main P≠NP proof uses exponential bounds (2^n) via R_of_flat.
+This file provides helper theorems for polynomial dominance that work with
+any super-polynomial growth (including 2^((log n)²) and 2^n).
 
 **Paper reference**: Standard asymptotic complexity theory; used in §8 for
 per-instance bounds.
@@ -43,11 +46,14 @@ lemma pow_sq_gt_C_mul_pow (C m L : ℕ) (_h_C : C > 0) (h_ineq : L^2 > m + Nat.l
       ≥ 2^(Nat.log 2 C + 1 + m) := Nat.pow_le_pow_right (by omega) h_exp_ineq
     _ > C * 2^m := h_prod_bound
 
-/-- Quasi-polynomial dominates polynomial: 2^((log₂ n)²) > C · n^k for sufficiently large n.
+/-- Super-polynomial dominates polynomial: 2^((log₂ n)²) > C · n^k for sufficiently large n.
 
-For n ≥ 2^(2k + log₂ C + 2), the quasi-polynomial 2^((log₂ n)²) strictly exceeds
+For n ≥ 2^(2k + log₂ C + 2), the function 2^((log₂ n)²) strictly exceeds
 the polynomial C · n^k. The explicit threshold ensures the quadratic term (log₂ n)²
-dominates the linear term k · log₂ n + log₂ C. -/
+dominates the linear term k · log₂ n + log₂ C.
+
+Note: This is helper math for polynomial dominance proofs. The main P≠NP result
+uses exponential bounds (2^n via R_of_flat), which are strictly stronger. -/
 theorem qp_dominates_poly (C k : ℕ) (h_C : C > 0) (h_k : k > 0) (n : ℕ)
     (h_n : n ≥ 2^(2*k + Nat.log 2 C + 2)) :
     2^((Nat.log 2 n)^2) > C * n^k := by
@@ -104,8 +110,8 @@ regardless of the algorithm used.
 ## Theorem 8.A Statement
 
 For any FG-wired instance L and any witness finder W:
-- W.time ≥ 2^λ where λ = 64 (QP-sharp) or λ = Θ(n) (flat)
-- In particular: W.time ≥ 2^64 for QP-sharp FG instances with n = 128
+- W.time ≥ 2^λ where λ = Θ(n) (exponential profile via R_of_flat)
+- Lower bound: W.time ≥ 2^49 for n = 128 (using λ_base(n) = (log₂ n)² helper)
 
 Contrapositive proof structure:
 - Assume witness finder W with W.time ≤ C·n^k for some fixed C, k
@@ -222,34 +228,35 @@ lemma nat_quadratic_dominates_linear (L : Nat) (h : L ≥ 9) : L ^ 2 ≥ 5 * L +
 For the generalized security proof, we need Theorem 8.A to work for all n ≥ 128,
 not just n = 128 exactly.
 
-Approach: Use λ_base(n) = (log₂ n)² which grows with n.
+Helper function: λ_base(n) = (log₂ n)² provides a size-based lower bound.
 - For n = 128: log₂(128) = 7, so λ_base(128) = 49
 - For n ≥ 128: λ_base(n) ≥ 49
 - Lower bound: 2^(λ_base(n)) which is ≥ 2^49 for all n ≥ 128
 
-This gives quasi-polynomial lower bounds n^{Θ(log n)} that dominate any fixed polynomial.
+This helper establishes super-polynomial lower bounds that dominate any fixed polynomial.
+
+Note: The main P≠NP proof uses exponential bounds (R = n via R_of_flat).
+This helper provides additional flexibility for the proofs.
 
 Formalization strategy:
 - Prove concretely: n = 128 (the case actually used in the security proof)
 - Defer: n > 128 (standard asymptotic result)
-
-This matches the paper's approach: prove the hard case concretely, cite standard
-results for the extension.
 -/
 
-/-- Size-based lambda parameter for quasi-polynomial lower bounds.
+/-- Size-based lambda parameter for super-polynomial lower bounds.
 
 Definition: λ_base_size(n) = (log₂ n)²
 
 For n = 128: λ_base_size(128) = 7² = 49
 For n ≥ 128: λ_base_size(n) ≥ 49
 
-Lower bound: 2^(λ_base_size(n)) = 2^((log₂ n)²) = n^(log₂ n)
+Lower bound: 2^(λ_base_size(n)) = 2^((log₂ n)²)
 
-This is quasi-polynomial and dominates any fixed polynomial C·n^k.
+This function dominates any fixed polynomial C·n^k (standard asymptotic result).
 
 Note: Different from `lambdaBase` in WorkLowerBounds.lean, which is
-instance-specific (takes L and v). This is a size-only parameter. -/
+instance-specific (takes L and v). This is a size-only parameter.
+The main P≠NP proof uses exponential bounds via R_of_flat. -/
 def lambdaBaseSize (n : Nat) : Nat :=
   (Nat.log 2 n) ^ 2
 
@@ -331,11 +338,11 @@ lemma exp_49_exceeds_poly_at_128
 
 /-! ## Asymptotic Extension: n > 128
 
-For n > 128, the quasi-polynomial continues to dominate. The mathematics is
+For n > 128, the super-polynomial bound continues to dominate. The mathematics is
 standard (textbook complexity theory) but the formalization is tedious.
 
 Mathematical content:
-For any fixed polynomial C·n^k, the quasi-polynomial 2^((log n)²) eventually dominates.
+For any fixed polynomial C·n^k, the function 2^((log n)²) eventually dominates.
 
 Proof strategy:
 1. For log₂ n ≥ 9: (log₂ n)² ≥ 5(log₂ n) + 12 (nat_quadratic_dominates_linear above)
@@ -346,12 +353,12 @@ Proof strategy:
 6. Therefore: 2^((log₂ n)²) > C·n^k
 -/
 
-/-- For n > 128, quasi-polynomial dominates polynomial (asymptotic).
+/-- For n > 128, super-polynomial dominates polynomial (asymptotic).
 
-Mathematical claim: For n > 128, the quasi-polynomial 2^((log n)²)
+Mathematical claim: For n > 128, the function 2^((log n)²)
 exceeds any fixed polynomial C·n^k with k ≤ 5, C ≤ 64.
 
-Why it's true: Quasi-polynomial n^(log n) grows faster than any
+Why it's true: n^(log n) grows faster than any
 fixed polynomial n^k since n^(log n - k) → ∞.
 
 Proof strategy:
@@ -583,13 +590,13 @@ theorem quasi_poly_beats_poly_for_large_n
 This combines the proven concrete case with the deferred asymptotic extension.
 -/
 
-/-- Quasi-polynomial 2^(λ_base(n)) exceeds any fixed polynomial.
+/-- Super-polynomial 2^(λ_base(n)) exceeds any fixed polynomial.
 
 Combines:
 - exp_49_exceeds_poly_at_128: n = 128 case
 - quasi_poly_beats_poly_for_large_n: n > 128 asymptotic
 
-Usage: This is the theorem used by Theorem 8.A to derive the contradiction. -/
+Usage: Helper theorem used by Theorem 8.A to derive the contradiction. -/
 lemma exp_lambda_exceeds_poly
     (n C k : Nat)
     (h_n : n ≥ 128)
@@ -648,12 +655,12 @@ theorem exp_dominates_poly_nat (C k : Nat)
   have h_strict : ((C * n ^ k : ℕ) : ℝ) < ((2 ^ n : ℕ) : ℝ) := by linarith
   exact Nat.cast_lt.mp h_strict
 
-/-! ### General Quasi-Polynomial Dominance
+/-! ### General Super-Polynomial Dominance
 
-For the QP profile, we need a general dominance theorem that works for
-arbitrary adversary parameters C_time, k_time (not just C≤64, k≤5).
+For general adversary parameters C_time, k_time (not just C≤64, k≤5),
+we need a dominance theorem that works for arbitrary polynomial bounds.
 
-Mathematical claim: For any fixed polynomial C·n^k, the quasi-polynomial
+Mathematical claim: For any fixed polynomial C·n^k, the function
 2^((log n)²) = n^(log n) eventually dominates.
 
 Proof strategy:
@@ -679,16 +686,16 @@ theorem exp_exceeds_poly_fully_general (C k : Nat)
     : ∃ n₀, n₀ ≥ 128 ∧ ∀ n ≥ n₀, 2^n > C * n^k :=
   exp_dominates_poly_nat C k
 
-/-- General quasi-polynomial dominance theorem.
+/-- General super-polynomial dominance theorem.
 
-For any polynomial C·n^k with positive C and k, the quasi-polynomial
+For any polynomial C·n^k with positive C and k, the function
 2^((log n)²) = n^(log n) eventually dominates.
 
 This theorem works for ANY adversary
 parameters C_time, k_time, not just bounded values.
 
 Mathematical content:
-- Quasi-poly growth: 2^((log n)²) = n^(log n)
+- Super-poly growth: 2^((log n)²) = n^(log n)
 - Polynomial growth: C·n^k
 - Ratio: n^(log n) / (C·n^k) = (1/C)·n^(log n - k)
 - For n ≥ 2^(k+1): log₂ n ≥ k+1, so log n - k ≥ 1
@@ -712,14 +719,14 @@ theorem quasi_poly_dominates_poly_general
   have h_exp_dom := exp_exceeds_poly_fully_general C k
   obtain ⟨n₀_exp, h_n₀_exp_ge_128, h_exp_dominates⟩ := h_exp_dom
 
-  -- For QP dominance (case neg), we need (log n)² ≥ k·log n + log C + some margin
+  -- For dominance (case neg), we need (log n)² ≥ k·log n + log C + some margin
   -- This holds when log n ≥ 2k + log C + 2 (then (log n)² ≥ (2k + log C + 2)² >> k·log n + log C)
   -- So we need n ≥ 2^(2k + log C + 2)
   let log_C := Nat.log 2 C
   let n₀_QP := 2^(2*k + log_C + 2)
 
   -- Threshold calculation: We need log₂ n ≥ k+1, which means n ≥ 2^(k+1)
-  -- Also need n ≥ C, n ≥ 128, n ≥ n₀_exp, and n ≥ n₀_QP (for QP dominance)
+  -- Also need n ≥ C, n ≥ 128, n ≥ n₀_exp, and n ≥ n₀_QP (for super-poly dominance)
   let n₀ := max (max (max (max (2^(k+1)) (C+1)) 128) n₀_exp) n₀_QP
   use n₀
 
@@ -786,20 +793,21 @@ theorem quasi_poly_dominates_poly_general
 
   case neg =>
     -- Parameters exceed concrete bounds (C > 64 or k > 5)
-    -- Apply qp_dominates_poly with threshold n₀_QP = 2^(2k + log C + 2)
+    -- Apply the dominance theorem with threshold n₀_QP = 2^(2k + log C + 2)
     unfold lambdaBaseSize
     exact qp_dominates_poly C k h_C_pos h_k_pos n h_n_ge_n₀_QP
 
-/-! ### Quasi-Polynomial vs Exponential Bounds
+/-! ### Super-Polynomial vs Exponential Bounds
 
 The proof uses two complementary dominance theorems:
 - `exp_dominates_poly_nat`: Exponential 2^n dominates C·n^k (via Mathlib)
-- `qp_dominates_poly`: Quasi-polynomial 2^((log n)²) dominates C·n^k (proven)
+- `qp_dominates_poly`: Super-polynomial 2^((log n)²) dominates C·n^k (proven)
 
 For small parameters (C ≤ 64, k ≤ 5), concrete arithmetic suffices.
 For larger parameters, the general qp_dominates_poly theorem applies.
 
 Both approaches yield the same conclusion: no polynomial-time witness finder exists.
+Note: The main P≠NP proof uses exponential bounds (R = n via R_of_flat).
 -/
 
 /-! ## Main Result: Theorem 8.A
@@ -818,17 +826,17 @@ Proof structure:
 
 Therefore: No poly-time witness finder exists for FG-wired instances.
 -/
-/-- Corollary: Quasi-polynomial dominates C * (n+1)^k (with successor).
+/-- Corollary: Super-polynomial dominates C * (n+1)^k (with successor).
 
 This version proves that 2^((log n)²) > C * (n+1)^k for large n.
-Key insight: (n+1)^k ≤ 2^k * n^k, and the quasi-polynomial has exponential
+Key insight: (n+1)^k ≤ 2^k * n^k, and the super-polynomial bound has
 margin to absorb the 2^k factor.
 
 **Use case**: When PPTAdversary API uses (n+1) formula to avoid n=0 edge cases. -/
 theorem quasi_poly_dominates_poly_succ
     (C k : Nat) (h_C_pos : C > 0) (h_k_pos : k > 0) :
     ∃ n₀, ∀ n ≥ n₀, 2^(lambdaBaseSize n) > C * (n + 1)^k := by
-  -- Strategy: Use quasi_poly_dominates_poly_general with amplified constant C*2^k
+  -- Strategy: Use the general dominance theorem with amplified constant C*2^k
   -- This accounts for the fact that (n+1)^k ≤ 2^k * n^k
 
   -- Get threshold for C*2^k and k (amplified to account for (n+1) factor)
@@ -1095,14 +1103,14 @@ theorem no_exhaustive_in_poly_time
 
 Trust boundary verification for all theorems in this file. -/
 
--- QP dominance theorem (proven via quadratic-linear dominance)
+-- Super-polynomial dominance theorem (proven via quadratic-linear dominance)
 #print axioms qp_dominates_poly
 
 -- Exponential dominance (via Mathlib asymptotics)
 #print axioms exp_dominates_poly_nat
 #print axioms exp_exceeds_poly_fully_general
 
--- QP dominance wrapper (invokes qp_dominates_poly)
+-- General dominance wrapper (invokes qp_dominates_poly)
 #print axioms quasi_poly_dominates_poly_general
 
 -- Main per-instance bounds

@@ -646,8 +646,7 @@ def StructuralOWFInversionRelation_dynamic (Φ : LStar.StructuralOWF.Theorems.CN
     **Key property**: Uses expWLen n = 2n + 64, encoding ALL n digest bits.
     This enables the full 2^n hardness from R_of_flat = n.
 
-    Unlike the QP profile (dgLen = (log n)²) or fixed profile (dgLen = 64),
-    this version threads n bits through the FG gate, matching R_of_flat exactly.
+    This version threads n bits through the FG gate, matching R_of_flat exactly.
 -/
 def StructuralOWFInversionRelation_exp (Φ : LStar.StructuralOWF.Theorems.CNFFamily)
     (h_nvars : ∀ n ≥ 128, (Φ n).nvars ≥ 4)

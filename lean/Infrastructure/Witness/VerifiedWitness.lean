@@ -150,9 +150,7 @@ noncomputable def decodeφFromAssignment (L : LStarInstanceFG) (a : Assignment L
     - decodeφFromWitness: Uses W.digestBits as FG entropy (FG-aware)
 
     **Profile Parameter**: The `profile` determines how R is computed:
-    - `.exponential`: R = nvars - exponential hardness (default, stronger result)
-    - `.qp`: R = (log₂ nvars)² - quasi-polynomial hardness
-    Must match the profile used during planting for correct decoding. -/
+    - `.exponential`: R = nvars - exponential hardness -/
 noncomputable def decodeφFromWitness (L : LStarInstanceFG) (W : Witness L.n)
     (profile : Foundations.EmergenceProfile := .exponential) : CNF :=
   -- R = emergence rank at FG gates (= digest bits per gate)
