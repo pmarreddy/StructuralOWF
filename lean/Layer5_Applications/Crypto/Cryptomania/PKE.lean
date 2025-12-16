@@ -2,10 +2,10 @@ import Layer5_Applications.Crypto.PRG.GoldreichLevin
 
 /-! # Public-Key Encryption from L* Structural OWF
 
-## NOTE: Module Partially Disabled (Depends on Deleted Trapdoor)
+## NOTE: Module Partially Disabled (Import Issue)
 
-This module references `generateCNF` from a deleted module. This is an EXTENSION
-result showing public-key crypto from L*. It is NOT required for the main P≠NP proof.
+This module uses `generateCNF` from `Layer2_StructuralOWF/Plant/TrapdoorStructuralOWF.lean`.
+This is an EXTENSION result showing public-key crypto from L*. It is NOT required for the main P≠NP proof.
 
 ## Construction (Goldreich 2004, Section 5.4)
 
@@ -28,7 +28,7 @@ CPA security reduces to Goldreich-Levin hardcore bit unpredictability.
 namespace LStar.Crypto.Cryptomania.PKE
 
 open LStar.StructuralOWF
--- NOTE: Trapdoor module deleted (QP-profile specific)
+-- NOTE: Import TrapdoorStructuralOWF to use generateCNF
 -- open LStar.StructuralOWF.Trapdoor
 open LStar.Crypto.PRG
 

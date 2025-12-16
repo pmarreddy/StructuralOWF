@@ -686,17 +686,15 @@ example : 2^1000 > 2^999 := by
 
 ## Critical Lemma Coverage (from PROOF_CONTROL_FLOW.md)
 
-The codebase supports **two proof profiles** that share the same trust boundary:
+The codebase uses the **exponential profile** with 2 axioms:
 
 | Profile | R_v Formula | Bound | Key Files | Proof Path |
 |---------|-------------|-------|-----------|------------|
 | **Exponential** | n | 2^n | RanksExponential, StructuralOWFExponential, TMAdapterExponential | Top-down |
-| **QP-Sharp** | (log₂ n)² | n^{log n} | RanksQP, OWFSecurity, TMAdapter | Bottom-up (segment reduction) |
 
 The **exponential profile** uses a top-down semantic derivation (simpler, stronger bounds).
-The **QP profile** uses bottom-up segment reduction with WC-1 counting.
 
-The following attacks verify non-vacuity of critical theorems from **both** proof spines. The exponential profile has **11 critical theorems** [1]-[11]; QP-specific theorems are marked.
+The following attacks verify non-vacuity of critical theorems from the proof spine. The exponential profile has **11 critical theorems** [1]-[11].
 
 ---
 
@@ -742,9 +740,9 @@ theorem SCL_cut (C : CutData)
 
 ---
 
-### ATTACK 2.21: World Cardinality Non-Vacuity (QP Profile)
+### ATTACK 2.21: World Cardinality Non-Vacuity
 
-**Profile Note**: This attack targets the **QP profile** (bottom-up segment reduction path). The **exponential profile** uses top-down approach via `TMAdapterExponential.lean` and bypasses segment reduction. Both profiles are valid; this attack ensures the QP path is non-vacuous.
+**Note**: This attack tests the segment reduction theorems which provide information-theoretic lower bounds. The exponential profile uses these bounds via `TMAdapterExponential.lean`.
 
 **Goal**: Verify BitsOnlyWorlds and FeasibleWorlds are properly inhabited with non-trivial cardinality
 
@@ -908,9 +906,9 @@ theorem fpnefnp_and_peqnp_contradiction
 
 ---
 
-### ATTACK 2.24: WorldCommit WC-1 Property (QP Profile)
+### ATTACK 2.24: WorldCommit WC-1 Property
 
-**Profile Note**: This attack targets the **QP profile** (bottom-up segment reduction). The **exponential profile** uses top-down derivation via visited encodings counting and does not use WC-1. This attack ensures the QP path is non-vacuous.
+**Note**: This attack tests the WC-1 property which provides the information-theoretic foundation for segment counting bounds.
 
 **Goal**: Verify WC-1 property (each refutation eliminates ≤1 world) is non-vacuous
 

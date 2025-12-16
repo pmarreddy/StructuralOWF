@@ -74,15 +74,15 @@ theorem cryptomania_from_lstar (n : Nat) (h_n : n ≥ 4) :
 
 /-! ## Complete Cryptographic Landscape -/
 
-/-! ## NOTE: Theorem Commented Out (Depends on Deleted Trapdoor Module)
+/-! ## NOTE: Theorem Commented Out (Import Issue)
 
-The `complete_crypto_from_lstar` theorem below was commented out because it depends on
-`generateCNF` from the deleted `TrapdoorStructuralOWF` module (QP-profile specific).
+The `complete_crypto_from_lstar` theorem below was commented out due to import issues.
+The `generateCNF` function exists in `Layer2_StructuralOWF/Plant/TrapdoorStructuralOWF.lean`.
 
 This is an EXTENSION result showing that L* enables both Minicrypt and Cryptomania.
 It is NOT required for the main P≠NP proof.
 
-To restore: Reimplement trapdoor CNF generation for the exponential profile.
+To restore: Add appropriate import and fix type compatibility issues.
 -/
 
 /-

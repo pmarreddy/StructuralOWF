@@ -4038,7 +4038,7 @@ where Verify is the structured verifier (Algorithm V, §10.2). In words: L\*\_st
 ##### 6.9.3 Size Convention
 
 **Definition 6.9.3 (Canonical Encoding).** Encode : X\* → {0,1}\* is the canonical binary encoding defined in Appendix D.5. This encoding is:
-- Injective (Lemma E1', §10.6.2)
+- Injective (Corollary E1', §10.6.2)
 - Polynomial-time computable (Lemma E2, §10.6.2)
 - Length-delimited with unambiguous field boundaries
 
@@ -6162,7 +6162,7 @@ The proof does not rely on "no algorithm has been found" - it demonstrates "L\*'
 
 **Definition 10.6.1 (Structured Instance Type).** Let X\* denote the type of overlay instances as constructed in §6 (see §6.9.1 for the informal introduction):
 
-X\* := (G, Sel\_v, H\_v, Enc\_schema, F\_overlay, GREQ, PathOf, S(P), salts, Φ̃)
+X\* := { (G, Sel\_v, H\_v, Enc\_schema, F\_overlay, GREQ, PathOf, S(P), salts, Φ̃) | satisfying A1-A5 }
 
 **Definition 10.6.2 (Encoding Function).** Encode : X\* → {0,1}\* is the canonical binary encoding defined in Appendix D.5 (referenced in §6.9.3).
 
@@ -6213,7 +6213,7 @@ n\_core ≤ |Encode(x\*)| ≤ n\_core^c
 **Where n\_core lives:** n\_core is stored as an explicit field in x\* (the first field of Encode(x\*) per Appendix D.5), equal to the variable count of φ. It is recoverable in O(1) time from the encoding header. This makes n\_core intrinsic to every x\* ∈ X\*, not just reduced instances.
 
 *Proof:*
-- *Lower bound:* The instance must encode at least the n\_core variable identities.
+- *Lower bound:* The salt component alone contributes Θ(n\_core · log² n\_core) bits (§10.1 size accounting), which is Ω(n\_core). Hence |Encode(x\*)| ≥ n\_core.
 - *Upper bound:* By §10.1 (polynomial clause bound), |clauses| ≤ poly(n\_core). The DAG has poly(n\_core) nodes (§6.6). Each node stores poly(log n\_core) bits of metadata. All components are polynomial in n\_core, yielding |Encode(x\*)| ≤ n\_core^c for some fixed c. ∎
 
 **Remark (Constant c).** The exact value of c depends on §10.1's clause-bound exponent and §6.6's DAG parameters. For transfer purposes, only the existence of polynomial bounds matters—not the precise exponent. See §6.9.7 for discussion.
@@ -6256,7 +6256,7 @@ No parsing of bs is required; the certificate carries the structure. This is sta
 *Proof:*
 
 - Witness: (x\*, w) where Encode(x\*) = bs and Verify(x\*, w) = 1.
-- Witness size: |x\*| ≤ poly(|bs|) by Lemma E4; |w| ≤ poly(|x\*|) by §10.2.
+- Witness size: |x\*| = |bs| (since Encode(x\*) = bs and |x\*| := |Encode(x\*)| by convention); |w| ≤ poly(|x\*|) by §10.2.
 - Verification: Check (1) and (2) above; both poly-time.
 
 Hence L\* ∈ NP. ∎

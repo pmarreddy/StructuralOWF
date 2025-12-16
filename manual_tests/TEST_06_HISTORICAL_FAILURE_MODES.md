@@ -2210,33 +2210,19 @@ P≠NP should be compatible with fine-grained complexity hypotheses (SETH, ETH, 
 
 ### Background
 
-The proof has TWO security profiles:
-- **QP-Sharp**: R = (log n)², yields n^{log n} lower bound
+The proof uses the **exponential profile** with 2 axioms:
 - **Exponential**: R = n, yields 2^n lower bound
-
-Each profile has different axiom sets and proof paths.
 
 ### Attack Vectors
 
-#### VECTOR 29.1: QP Profile Axioms
-**QP-Sharp Profile** (plant_n with R = (log n)²):
-1. `algspec_has_tm` (SHARED)
-2. `fg_lossless_encoding` (SHARED)
-3. `executionPrefix_compatible_with_planted` (QP ONLY)
-4. `planted_pss_uniqueness` (QP ONLY)
-
----
-
-#### VECTOR 29.2: Exponential Profile Axioms
+#### VECTOR 29.1: Exponential Profile Axioms
 **Exponential Profile** (plant_flat with R = n):
-1. `algspec_has_tm` (SHARED)
-2. `fg_lossless_encoding` (SHARED)
-3. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (EXP ONLY)
-4. `planted_pss_uniqueness_flat` (EXP ONLY)
+1. `algspec_has_tm` - Church-Turing bridge
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` - Semantic bridge
 
 ---
 
-#### VECTOR 29.3: Primary Path Uses Exponential Profile
+#### VECTOR 29.2: Primary Path Uses Exponential Profile
 ```bash
 grep -n "plant_flat" Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean | head -5
 ```
@@ -2245,47 +2231,44 @@ grep -n "plant_flat" Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.l
 
 ---
 
-#### VECTOR 29.4: Both Profiles Prove P≠NP
-**Manual Check**: Both profiles give P≠NP:
-- QP: n^{log n} > n^k for any fixed k
+#### VECTOR 29.3: Exponential Profile Proves P≠NP
+**Manual Check**: Exponential profile gives P≠NP:
 - Exponential: 2^n > n^k for any fixed k
 
-**Pass Criteria**: Both are sufficient for separation.
+**Pass Criteria**: Exponential bound is sufficient for separation.
 
 ---
 
-#### VECTOR 29.5: Axiom Count Consistency
-**Manual Check**: Both profiles have 2 axioms:
-- 2 shared: algspec_has_tm + collision_indistinguishability
+#### VECTOR 29.4: Axiom Count Consistency
+**Manual Check**: Exponential profile has 2 axioms:
+- algspec_has_tm + tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 
-**Pass Criteria**: Axiom count is consistent.
+**Pass Criteria**: Axiom count is 2.
 
 ---
 
-#### VECTOR 29.6: No Profile Confusion
+#### VECTOR 29.5: No Profile Confusion
 ```bash
-grep -rn "plant_n\|plant_flat" --include="*.lean" Layer5_Applications/PvsNP/PrimaryPath/ | head -10
+grep -rn "plant_flat" --include="*.lean" Layer5_Applications/PvsNP/PrimaryPath/ | head -10
 ```
 
-**Pass Criteria**: Each file uses consistent profile.
+**Pass Criteria**: Primary path uses exponential profile consistently.
 
 ---
 
-#### VECTOR 29.7: FG Emergence Sizing Difference
+#### VECTOR 29.6: FG Emergence Sizing
 **Manual Check**:
-- QP: `fg_emergence_sizing` with R = (log n)²
 - Exponential: `fg_emergence_sizing` with R = n
 
-**Pass Criteria**: Each profile has correct emergence scaling.
+**Pass Criteria**: Exponential profile has correct emergence scaling.
 
 ---
 
-#### VECTOR 29.8: dgLen Parameter Difference
+#### VECTOR 29.7: dgLen Parameter
 **Manual Check**:
-- QP: dgLen = (log n)² (must match R)
-- Exponential: dgLen = 64 (fixed, sufficient)
+- Exponential: dgLen = 64 (fixed, sufficient for exponential profile)
 
-**Pass Criteria**: dgLen is appropriate for each profile.
+**Pass Criteria**: dgLen is appropriate for exponential profile.
 
 ---
 
