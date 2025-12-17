@@ -4056,13 +4056,13 @@ This convention simplifies notation while preserving precision. The distinction 
 
 ##### 6.9.5 Bitstring Language (Preview)
 
-**Definition 6.9.4 (Bitstring Language L\*, preview).** In §10.6.4, we define the bitstring language as the Encode-image of L\*\_struct:
+**Definition 6.9.5 (Bitstring Language L\*, preview).** In §10.6.4, we define the bitstring language as the Encode-image of L\*\_struct:
 
 L\* ⊆ {0,1}\*  :=  { bs | ∃ x\* ∈ L\*\_struct, Encode(x\*) = bs }
 
 Equivalently: bs ∈ L\* iff bs is the canonical encoding of some yes-instance.
 
-**Theorem (Transfer, preview).** Section §10.6 proves that all structured results transfer to this bitstring language via encoding lemmas E1-E4 and the Connection Theorem (10.6.5). Specifically:
+**Theorem (Transfer, preview).** Section §10.6 proves that all structured results transfer to this bitstring language via encoding lemmas E1-E2 and E5 and the Connection Theorem (10.6.5). Specifically:
 - NP membership transfers (Corollary 10.6.6)
 - OWF construction transfers (Corollary 10.6.7)
 - P ≠ NP transfers (Corollary 10.6.8)
@@ -4071,70 +4071,69 @@ Equivalently: bs ∈ L\* iff bs is the canonical encoding of some yes-instance.
 
 **Purpose:** To answer "give me an example of a string in L\*," we provide an explicit bitstring bs₀ ∈ L\*.
 
-**Encoding specification:** The canonical encoding Encode : X\* → {0,1}\* follows the normative specification in **Appendix D.5.2**. All fields use decimal ASCII length prefixes with `:` delimiters, per the D.5 record format.
+**Encoding specification:** The canonical encoding Encode : X\* → {0,1}\* follows the Lean implementation's `Encodable` typeclass, documented in **Appendix D.5.2**. The encoding uses Elias-gamma-style length prefixes (no ASCII delimiters).
 
 **Minimal instance x₀\*:**
 
 Take φ₀ = (x₁ ∨ x₂ ∨ x₃), a minimal 3-SAT formula. The reduction produces x₀\* ∈ X\* with:
 - n\_core = 3, m = 1
 - DAG G₀: single root node v₀ (depth 0, no parents)
-- Emergence: R\_{v₀} = 3, H\_{v₀} = I₃ (3×3 identity matrix)
-- Salt table: 8 designated addresses with 2-byte payloads
-- Initial seed: Seed₀ = 0x4A2F (from §2.6)
-- Φ̃₀: masked literal table with b = 3 bits/literal and **R = 0** (no masking in this minimal example)
+- Emergence: R\_{v₀} = 3, H\_{v₀} = I₃ (3×3 identity matrix, row-major bits)
+- Pools: stride = 1000003 (prime)
+- Φ̃₀: EncodedCNF with maskedVar values 1,2,3 and maskedPolarity = false
 
 **The bitstring bs₀:**
 
-Applying Encode per D.5.2 yields a concrete 82-byte bitstring. First 64 bytes (hex):
+Applying Encode per D.5.2 yields a concrete 132-bit (17-byte) bitstring:
 
 ```
-343a333a313a353a313a303a3a363a333a333a888033323a323aa73c323a5b91
-323ae24f323a18d6323ac37a323a6d05323af4b8323a29e331363a0000000000
+dd973b76f7ff447ffffd8485fbbab2dac0
 ```
 
 **Verification data:**
-- **Length:** 82 bytes (656 bits)
-- **SHA-256:** `e22a8ae4cba5fc00cf606191da0116e0006d0d6f3337868688639cf3c2a41541`
-- **Complete encoding (raw bytes):** `paper/artifacts/bs0.bin`
-- **Annotated hex (same bytes):** `paper/artifacts/bs0.hex`
+- **Length:** 132 bits (17 bytes padded)
+- **SHA-256:** `c40a60a7fc817227b0a68b7506784e1f78bb04f5b54c69d11090c96c9892c503`
+- **Complete encoding (raw bytes):** `paper/artifacts/bs0_lean.bin`
+- **Annotated hex:** `paper/artifacts/bs0_lean.hex`
+- **Lean source:** `lean/testing/extract_minimal_encoding.lean`
 
-**Decode sketch (verifiable without Lean):**
+**Component breakdown:**
 
-The 82 bytes parse as exactly 7 D.5 records with content lengths [4, 5, 6, 32, 16, 1, 2]:
+The 132 bits decompose as three concatenated structures:
+- **base (RawLStarInstanceFull):** 99 bits
+  - n=3, dag={n=1, parents=[[]]}, seedWidth=[6], R=[3], emergence=[I₃], pools={stride=1000003}
+- **encodedφ (EncodedCNF):** 27 bits
+  - nvars=3, clauses=[{literals=[{1,false},{2,false},{3,false}]}]
+- **fg (RawFrontierGateConfig):** 6 bits
+  - gateReq=[true], gateDigests=[none]
 
-- **F1 (Header):** `"4:3:1:"` → len=4, content=`"3:1:"` → n\_core=3, m=1 ✓
-- **F2 (DAG):** `"5:1:0::"` → len=5, content=`"1:0::"` → 1 node, node 0 has 0 parents ✓
-- **F3 (Matrices):** `"6:3:3:"` + `0x8880` → len=6, R₀=3, cols=3, H₀ bits = `100 010 001` = I₃ ✓
-- **F4 (Salts):** `"32:"` + 8×`"2:xx"` → len=32, 8 salt entries × 2 bytes each ✓
-- **F5 (Seed):** `"16:"` + 16 bytes → len=16, Seed₀ = `0x00...004a2f` (big-endian) ✓
-- **F6 (GREQ):** `"1:"` + `0x80` → len=1, GREQ₀ = 1 (bit 7 set) ✓
-- **F7 (Φ̃):** `"2:"` + `0x2980` → len=2, E = `001 010 011` (R=0, so E = enc(lit) directly per D.5.2) ✓
+**Decode sketch (per D.5.2 encodeNat format):**
+
+The encoding uses prefix-free natural number encoding: encodeNat(n) = `1^len 0 bits(n)` (LSB-first). For example:
+- encodeNat(3) = `11 0 11` (5 bits)
+- encodeNat(1000003) = 41 bits
+
+Lists encode as: length followed by concatenated elements.
 
 **Witness W₀ and Verify check:**
 
-- φ₀ decoded: Since R=0, E[i,p] = enc(lit[i,p]) directly → literals x₁, x₂, x₃ (var IDs 1,2,3, positive polarity)
+- φ₀ decoded: literals x₁, x₂, x₃ (maskedVar=1,2,3; maskedPolarity=false for all)
 - W₀ = (1,1,1): all variables true → φ₀(W₀) = (1∨1∨1) = 1 ✓
-- Seed chain: Seed₀ = 0x4A2F, single node v₀, no parents → chain trivially consistent ✓
-- Emergence: H₀ = I₃, so y₀ = H₀·x₀ = x₀ for any x₀ ∈ {0,1}³ → completeness holds ✓
-- Designated reads: salt payloads at F\_overlay(Seed₀; j, ℓ) addresses exist and are consistent ✓
+- Emergence: H₀ = I₃, row-major bits [1,0,0,0,1,0,0,0,1] → completeness holds ✓
 
 **Membership in L\*:**
 
 bs₀ ∈ L\* because:
-1. bs₀ = Encode(x₀\*) per D.5.2 specification
+1. bs₀ = Encode(x₀\*) per D.5.2 (Lean's `Encodable.encode`)
 2. x₀\* ∈ L\*\_struct: witness W₀ = (1,1,1) satisfies φ₀(W₀) = 1 and Verify(x₀\*, W₀) = 1
 
-The verifier (§10.2) checks: seed chain consistency, designated address lookups, and completeness H\_{v₀} · x\_{v₀} = y\_{v₀}. All pass in O(1) time.
+The verifier (§10.2) checks: seed chain consistency, emergence completeness H\_{v₀} · x\_{v₀} = y\_{v₀}. All pass in O(1) time.
 
 **Scaling:**
 
-For a formula φ with n variables, |Encode(x\*)| = poly(n) bytes (Lemma E5). The membership argument is identical.
+For a formula φ with n variables, |Encode(x\*)| = O(n³) bits (proven in `LStarEncoding.lean`). The membership argument is identical.
 
-**Connection to §2.6:**
-
-The §2.6 toy instance uses a simplified XOR-based seed encoding for pedagogical clarity. The x₀\* above uses the canonical D.5.2 format, demonstrating that L\* is a concrete set of bitstrings with a fully specified, normative encoding.
-
-**Why this matters:** L\* ⊆ {0,1}\* is explicitly defined. The 82-byte bitstring bs₀, identified by its SHA-256 hash, is a specific verifiable element of L\*. The encoding follows D.5.2—one normative scheme, everywhere.
+**Why this matters:** L\* ⊆ {0,1}\* is explicitly defined. The 132-bit bitstring bs₀, identified by its SHA-256 hash, is a specific verifiable element of L\*. The encoding is exactly what Lean's `encodeBits` function produces—paper and implementation are aligned.
 
 ##### 6.9.6 Summary: Two-Stage Proof Architecture
 
@@ -5707,7 +5706,7 @@ Section 9 constructed an unconditional one-way function f from L\*'s structural 
 
 #### 10.1 Formal Language Membership (Reduction from 3-SAT)
 
-**Notation (see §6.9 for complete conventions).** Per §6.9.4, when we write "L\*" in §§10.1-10.5, we mean L\*\_struct (structured instances over X\*). The bitstring language L\* ⊆ {0,1}\* is defined in §10.6.4 as the Encode-image of L\*\_struct; all structured results transfer via encoding lemmas E1-E4 and the Connection Theorem (10.6.5).
+**Notation (see §6.9 for complete conventions).** Per §6.9.4, when we write "L\*" in §§10.1-10.5, we mean L\*\_struct (structured instances over X\*). The bitstring language L\* ⊆ {0,1}\* is defined in §10.6.4 as the Encode-image of L\*\_struct; all structured results transfer via encoding lemmas E1-E2 and E5 and the Connection Theorem (10.6.5).
 
 Cross-reference. The verifier operates on canonical representations only; see §3.6 (Canonical Forms) for definitions and Appendix O.2.1 for the verifier/extractor checklist.
 
@@ -6261,6 +6260,10 @@ The following properties of Encode are established in Appendix D.5.
 
 *Proof:* Apply Decode to both sides; by E1, x\* = Decode(Encode(x\*)) = Decode(Encode(y\*)) = y\*. ∎
 
+**Corollary E1'' (Decode Poly-time).** On inputs in im(Encode), Decode runs in time O(|bs|).
+
+*Proof:* The D.5 format is length-delimited; Decode parses left-to-right, reading each field's length prefix then its content. Total work is linear in |bs|. ∎
+
 **Lemma E2 (Poly-time Computability).** Encode is computable in time poly(|x\*|).
 
 *Proof:* Each field is serialized in one pass with O(1) overhead per field (D.5). ∎
@@ -6279,7 +6282,7 @@ The following properties of Encode are established in Appendix D.5.
 
 n\_core ≤ |Encode(x\*)| ≤ n\_core^c
 
-**Where n\_core lives:** n\_core is stored as an explicit field in x\* (the first field of Encode(x\*) per Appendix D.5), equal to the variable count of φ. It is recoverable in O(1) time from the encoding header. This makes n\_core intrinsic to every x\* ∈ X\*, not just reduced instances.
+**Where n\_core lives:** n\_core is stored as an explicit field in x\* (the first field of Encode(x\*) per Appendix D.5), equal to the variable count of φ. It is recoverable in O(log n\_core) time from the encoding header (i.e., linear in the header length), hence poly(|bs|). This makes n\_core intrinsic to every x\* ∈ X\*, not just reduced instances.
 
 *Proof:*
 - *Lower bound:* The salt component alone contributes Θ(n\_core · log² n\_core) bits (§10.1 size accounting), which is Ω(n\_core). Hence |Encode(x\*)| ≥ n\_core.
@@ -6322,11 +6325,17 @@ No parsing of bs is required; the certificate carries the structure. This is sta
 
 **Corollary 10.6.6 (NP Membership).** L\* ∈ NP.
 
-*Proof:*
+*Proof:* We exhibit a poly-time verifier V' operating on bitstrings.
 
-- Witness: (x\*, w) where Encode(x\*) = bs and Verify(x\*, w) = 1.
-- Witness size: |x\*| = |bs| (since Encode(x\*) = bs and |x\*| := |Encode(x\*)| by convention); |w| ≤ poly(|x\*|) by §10.2.
-- Verification: Check (1) and (2) above; both poly-time.
+- **Input:** bs ∈ {0,1}\*
+- **Witness:** w (the structured witness, a bitstring of length poly(|bs|) by §10.2)
+- **Verifier V'(bs, w):**
+  1. Compute x\* := Decode(bs). If Decode fails (bs ∉ im(Encode)), reject.
+  2. Run Verify(x\*, w). Accept iff Verify returns 1.
+
+**Complexity:** Step 1 runs in O(|bs|) time by Corollary E1''. Step 2 runs in poly(|x\*|) = poly(|bs|) time by §10.2.
+
+**Correctness:** bs ∈ L\* iff ∃x\* with Encode(x\*) = bs and x\* ∈ L\*\_struct (Definition 10.6.4). By E1, Decode(bs) = x\* recovers the unique preimage. By Definition 10.6.3, x\* ∈ L\*\_struct iff ∃w with Verify(x\*, w) = 1.
 
 Hence L\* ∈ NP. ∎
 
@@ -6366,7 +6375,7 @@ Therefore P ≠ NP. ∎
 
 **Note on NP-Completeness (Optional).** If NP-hardness is desired, §10.3 provides an explicit Karp reduction from 3-SAT to L\*\_struct. Composing with Encode (poly-time by E2) gives a reduction to L\*. Combined with Corollary 10.6.6, this yields L\* is NP-complete. However, NP-completeness is not required for the main P ≠ NP result—NP membership plus OWF suffices via the classical bridge.
 
-##### 10.6.5 Why Encoding Transfer Works (Architectural Note)
+##### Why Encoding Transfer Works (Architectural Note)
 
 This subsection explains why §10.6's transfer theorems succeed — why hardness proven for structured instances (Stage 1) automatically transfers to bitstrings (Stage 2). See §6.9.7 for the preview; here we provide the complete picture.
 
@@ -9122,68 +9131,88 @@ Bottom line. Even without hardware "addresses," k-tape TMs realize the address-p
 
 #### D.5.2 Canonical Instance Encoding (Normative Specification)
 
-**Purpose:** This subsection provides the normative, byte-level specification for Encode : X\* → {0,1}\*. All references to "canonical encoding" in this paper refer to this specification.
+**Purpose:** This subsection provides the normative, bit-level specification for Encode : X\* → {0,1}\*. All references to "canonical encoding" in this paper refer to the Lean implementation's `Encodable` typeclass, documented here.
 
-**Encoding Convention:** All top-level fields use the D.5 record format: a decimal ASCII length `len`, followed by a delimiter `:`, followed by exactly `len` payload bytes. Payload bytes may themselves contain `:` characters and may contain nested, length-prefixed subrecords. The bitstring is the concatenation of these bytes interpreted as bits (8 bits per byte, big-endian within each byte).
+**Encoding Convention:** The encoding uses a prefix-free, self-delimiting format based on Elias-gamma-style length prefixes. No byte-level delimiters are used—the encoding is a pure bitstring. This enables unambiguous parsing without sentinel characters.
 
-**Field Order (fixed):**
+**Primitive: encodeNat**
+
+Natural numbers are encoded as follows:
+- n = 0: single bit `0`
+- n > 0: `1^len ‖ 0 ‖ bits(n)` where:
+  - len = ⌈log₂(n+1)⌉ (bit-length of n)
+  - bits(n) = binary representation of n, **LSB-first**
+
+Examples:
+- encodeNat(0) = `0` (1 bit)
+- encodeNat(1) = `1 0 1` (3 bits: one 1, delimiter 0, value 1)
+- encodeNat(2) = `11 0 01` (5 bits: two 1s, delimiter 0, value 01 LSB-first = 2)
+- encodeNat(3) = `11 0 11` (5 bits: two 1s, delimiter 0, value 11 LSB-first = 3)
+- encodeNat(6) = `111 0 011` (7 bits: three 1s, delimiter 0, value 011 LSB-first = 6)
+
+**Primitive: encodeList**
+
+Lists are encoded as: `encodeNat(length) ‖ encode(elem₁) ‖ ... ‖ encode(elemₙ)`
+
+**Primitive: encodeBool**
+
+Booleans are encoded as: false → `0`, true → `1`
+
+**Top-Level Structure: RawLStarInstanceFG**
+
 ```
-Encode(x*) = F1 ‖ F2 ‖ F3 ‖ F4 ‖ F5 ‖ F6 ‖ F7
+Encode(x*) = encode(base) ‖ encode(encodedφ) ‖ encode(fg)
 ```
 
-**F1: Header**
-- Format: `|len|:n_core:m:`
-- n\_core: number of variables (decimal ASCII)
-- m: number of clauses (decimal ASCII)
+where:
 
-**F2: DAG Adjacency**
-- Format: `|len|:adjacency_data:`
-- Nodes numbered 0..(|V|-1) in topological order (roots first)
-- For each node v in order: `|num_parents|:p1,p2,...:`
-- Parent lists sorted ascending
+**base : RawLStarInstanceFull**
+- n : Nat (security parameter / n\_core)
+- dag : RawDAG = { n : Nat, parents : List (List Nat) }
+- seedWidth : List Nat
+- R : List Nat (emergence ranks)
+- emergence : List RawEmergenceMatrix
+- pools : RawPoolConfig = { stride : Nat }
 
-**F3: Emergence Matrices**
-- Format: `|len|:matrices_data:`
-- For each node v in topological order:
-  - `|R_v|:|cols|:` followed by row-major bits of H\_v (R\_v × cols matrix)
-  - Bits packed 8 per byte, zero-padded to byte boundary
+**encodedφ : EncodedCNF**
+- nvars : Nat
+- clauses : List EncodedClause
+  - Each clause: literals : List EncodedLiteral
+  - Each literal: { maskedVar : Nat, maskedPolarity : Bool }
 
-**F4: Salt Table**
-- Format: `|len|:salt_data:`
-- For each node v in topological order:
-  - For each address u = 0..(D\_v - 1) in ascending order:
-    - `|payload_len|:payload_bytes`
-- Payload bytes are raw binary (not ASCII-encoded)
+**fg : RawFrontierGateConfig**
+- gateReq : List Bool
+- gateDigests : List (Option RawGateDigest)
 
-**F5: Initial Seed**
-- Format: `|len|:seed_bytes:`
-- Seed₀ as fixed-width binary (16 bytes for 128-bit seeds, zero-padded if shorter)
+**RawEmergenceMatrix**
+- R : Nat (rows)
+- n : Nat (columns)
+- bits : List Bool (row-major, R×n entries)
 
-**F6: Gate Requirements**
-- Format: `|len|:greq_bits:`
-- One bit per node in topological order: GREQ\_v ∈ {0,1}
-- Packed 8 per byte, zero-padded
-
-**F7: Masked Literal Table Φ̃**
-- Format: `|len|:phi_data:`
-- b := ⌈log₂ n\_core⌉ + 1 (bits per literal)
-- **Literal encoding (normative):** bit[b-1] = polarity (0=positive, 1=negative); bits[b-2:0] = var\_id (1-indexed)
-  - Example: for b=3, enc(x₂) = 0|10 = 010 (polarity=0, var\_id=2)
-- For each clause i = 1..m:
-  - For each position p = 1..3:
-    - b bits of E[i,p] = enc(lit[i,p]) ⊕ R[i,p] (masked literal; R=0 if no masking)
-- Bits packed 8 per byte, zero-padded to byte boundary
+**Encoding Order:** Fields are concatenated in declaration order. Each structure's `Encodable` instance concatenates its fields' encodings.
 
 **Canonicalization Rules:**
 1. Node numbering: topological order, ties broken by lexicographic parent list
 2. Parent lists: sorted ascending by node number
-3. All numeric fields: decimal ASCII, no leading zeros (except "0" itself)
-4. Byte order: big-endian for multi-byte integers
-5. Bit packing: MSB first within each byte
+3. All numeric fields: encodeNat (Elias-gamma style, LSB-first binary)
+4. Boolean lists: one bit per element
+5. Option encoding: `0` for none, `1 ‖ encode(value)` for some
 
 **Minimal Instance Example (see §6.9.5.1):**
 
-For φ₀ = (x₁ ∨ x₂ ∨ x₃) with n\_core = 3, m = 1, the encoding produces a bitstring bs₀ of 82 bytes. The complete bs₀ is provided in `paper/artifacts/bs0.bin` (with an annotated rendering in `paper/artifacts/bs0.hex`) and is identified by SHA-256 `e22a8ae4cba5fc00cf606191da0116e0006d0d6f3337868688639cf3c2a41541`.
+For φ₀ = (x₁ ∨ x₂ ∨ x₃) with n\_core = 3, m = 1, the Lean encoding produces:
+- **Total bits:** 132 (padded to 17 bytes)
+- **Hex:** `dd973b76f7ff447ffffd8485fbbab2dac0`
+- **SHA-256:** `c40a60a7fc817227b0a68b7506784e1f78bb04f5b54c69d11090c96c9892c503`
+
+Component breakdown:
+- base (RawLStarInstanceFull): 99 bits
+- encodedφ (EncodedCNF): 27 bits
+- fg (RawFrontierGateConfig): 6 bits
+
+The complete encoding is provided in `paper/artifacts/bs0_lean.bin` (with annotated rendering in `paper/artifacts/bs0_lean.hex`).
+
+**Lean Implementation Reference:** See `lean/Layer5_Applications/PvsNP/ComplexityClasses/Encoding/LStarEncoding.lean` for the authoritative `Encodable` instances and `lean/testing/extract_minimal_encoding.lean` for the minimal instance construction.
 
 ---
 
