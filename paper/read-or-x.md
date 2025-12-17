@@ -6418,7 +6418,7 @@ where R is the OWF inversion relation (w is a valid preimage for instance L), an
 
 - `PrefixLangBits_separation` (MainTheorems.lean) — the theorem: `InNP PrefixLangBits ∧ ¬InP PrefixLangBits`.
 
-**Terminology Note:** The explicit NP \ P witness in Lean is PrefixLangBits (prefix-extension), not LStarLanguageLang (range membership). This is standard: self-reducibility connects OWF security to prefix-query hardness. Both languages are in NP; the prefix language has the direct connection to the OWF inversion lower bound.
+**Terminology Note:** The explicit NP \ P witness in Lean is PrefixLangBits (prefix-extension), not LStarLanguageLang (bitstring membership). LStarLanguageLang asks "does bs encode some yes-instance?" (Definition 10.6.4); PrefixLang asks "can this partial witness extend?" (Definition 10.6.11). Both are in NP; the prefix language has the direct connection to OWF security via self-reducibility. Note: Range(f) (planted outputs) is a strict subset of L\*, not all of L\*.
 
 ---
 
