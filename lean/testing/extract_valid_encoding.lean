@@ -22,9 +22,10 @@ it's valid? This file provides THREE levels of evidence:
 - **Part 2 - Proper (FormalVerification)**: Uses the real `LStarInstanceFG` type with dependent
   proofs. Lean type-checks that every constraint holds. This is the "airtight" proof.
 
-- **Part 3 - OAP Demo (OAPDemo)**: Demonstrates the seed-locked encoding mechanism. Shows
-  that only the correct seed (derived from the solution) can decode the formula. This is the
-  circular dependency that makes L* hard: need φ to find solution, but φ is hidden until solved.
+- **Part 3 - OAP Demo (OAPDemo)**: Demonstrates the full Overlay-as-Problem mechanism from
+  paper §10.1.1. Shows three layers: (1) typed addresses with hermeticity, (2) seed-keyed
+  `computeAddress` = F_overlay, (3) OAP masking where wrong seed → wrong address → garbage.
+  Proves the circular dependency: need seed to decode φ, need solution to get seed.
 
 ## The Concrete Example
 
