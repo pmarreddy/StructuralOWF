@@ -6420,6 +6420,10 @@ where R is the OWF inversion relation (w is a valid preimage for instance L), an
 
 **Terminology Note:** The explicit NP \ P witness in Lean is PrefixLangBits (prefix-extension), not LStarLanguageLang (bitstring membership). LStarLanguageLang asks "does bs encode some yes-instance?" (Definition 10.6.4); PrefixLang asks "can this partial witness extend?" (Definition 10.6.11). Both are in NP; the prefix language has the direct connection to OWF security via self-reducibility. Note: Range(f) (planted outputs) is a strict subset of L\*, not all of L\*.
 
+**Relationship between L\* and PrefixLang:** There is a one-query reduction L\* ≤ PrefixLang: to decide if L ∈ L\*, query PrefixLang(L, [], 0) ∨ PrefixLang(L, [], 1) — if the empty prefix can extend (with either bit), a witness exists. This means PrefixLang ∈ P → L\* ∈ P. However, the converse does not hold: knowing a witness exists (L\*) does not help answer whether a specific partial witness extends (PrefixLang). Thus PrefixLang is "harder" — it enables search, not just existence.
+
+**Separation Note:** The separation P ≠ NP follows from PrefixLang ∉ P (Corollary 10.6.12), not from L\* ∉ P, which is not proven directly. Both suffice for P ≠ NP since both are in NP.
+
 ---
 
 **Note on NP-Completeness (Optional).** If NP-hardness is desired, §10.3 provides an explicit Karp reduction from 3-SAT to L\*\_struct. Composing with Encode (poly-time by E2) gives a reduction to L\*. Combined with Corollary 10.6.6, this yields L\* is NP-complete. However, NP-completeness is not required for the main P ≠ NP result—NP membership plus OWF suffices via the classical bridge.
