@@ -4113,7 +4113,7 @@ The encoding uses prefix-free natural number encoding: encodeNat(n) = `1^len 0 b
 - encodeNat(3) = `11 0 11` (5 bits)
 - encodeNat(1000003) = 41 bits
 
-Lists encode as: length followed by concatenated elements.
+Lists encode as: unary length prefix (`1^n 0`) followed by concatenated elements.
 
 **Witness W₀ and Verify check:**
 
@@ -9152,11 +9152,18 @@ Examples:
 
 **Primitive: encodeList**
 
-Lists are encoded as: `encodeNat(length) ‖ encode(elem₁) ‖ ... ‖ encode(elemₙ)`
+Lists are encoded as: `1^length ‖ 0 ‖ encode(elem₁) ‖ ... ‖ encode(elemₙ)`
+
+Note: This is direct unary length (n ones + delimiter), NOT `encodeNat(length)`. For example:
+- Empty list: `0` (1 bit)
+- Length 1: `10 ‖ encode(elem₁)` (2-bit prefix)
+- Length 3: `1110 ‖ encode(elem₁) ‖ encode(elem₂) ‖ encode(elem₃)` (4-bit prefix)
 
 **Primitive: encodeBool**
 
 Booleans are encoded as: false → `0`, true → `1`
+
+**Byte/hex rendering for artifacts (non-normative):** Encode(x\*) is a pure bitstring. When we present it as a hex string or store it in a `.bin` file (e.g., `paper/artifacts/bs0_lean.bin`), we pack bits in order into bytes by taking the first bit as the MSB of the first byte, and we pad the final byte with `0` bits to reach a multiple of 8.
 
 **Top-Level Structure: RawLStarInstanceFG**
 
