@@ -4,19 +4,33 @@ import Layer5_Applications.PvsNP.ComplexityClasses.Encoding.LStarEncoding
 # Extract Encoding of VALID L* Instance
 
 This file constructs a RawLStarInstanceFG that satisfies all LStarInstanceFG
-structural constraints, ensuring it represents an actual L* member.
+AND LStarInstanceFull structural constraints, ensuring it represents an actual L* member.
 
-**Key Constraints Satisfied**:
+**LStarInstanceFull Constraints**:
+- n_pos: n = 4 > 0 ✓
+- dagAcyclic: linear DAG 0←1←2←3 is acyclic ✓
+- seedWidth_ok: ∀v, sum(parent seedWidths) + R(v) ≤ seedWidth(v)
+  - Node 0: 0 + 4 = 4 ≤ 4 ✓
+  - Node 1: 4 + 0 = 4 ≤ 4 ✓
+  - Node 2: 4 + 0 = 4 ≤ 4 ✓
+  - Node 3: 4 + 0 = 4 ≤ 4 ✓
+
+**LStarInstanceFG Constraints**:
 - dag_size_ge_n: dag.n = 4 ≥ n = 4 ✓
 - h_n_eq_nvars: n = 4 = nvars ✓
 - R_upper: R(v) ≤ 4 for all v ✓
 - seedWidth_upper: seedWidth(v) ≤ 32 for all v ✓
-- R_times_seedWidth_upper: R(v) * seedWidth(v) ≤ 16 for all v ✓
+- R_times_seedWidth_upper: R(v) * seedWidth(v) ≤ 16 for all v
+  - Node 0: 4 * 4 = 16 ≤ 16 ✓
+  - Nodes 1-3: 0 * 4 = 0 ≤ 16 ✓
 - clauses_upper: 1 ≤ 4 ✓
 - lits_upper: 3 ≤ 12 ✓
 - maskedVar_upper: all maskedVar ≤ 4 ✓
 - gateDigest_budget_upper: segmentBudget = 4 ≤ 4 ✓
 - gateDigest_bits_upper: bits.length = 4 ≤ 4 ✓
+- stride_bound: 1000003 ≤ 2^65 ✓
+- fg_emergence_bound: sum(all R) = 4 ≤ R(gate) = 4 ✓
+- fg_emergence_sizing: W_min=1, c_lower=c_upper=1 → R(gate)=4=1*(4/1) ✓
 
 Instance: φ = (x₁ ∨ x₂ ∨ x₃), 4 variables, 4-node DAG, one frontier gate.
 -/
@@ -53,11 +67,11 @@ def zeroMatrix : Encoding.RawEmergenceMatrix where
 def validPools : Encoding.RawPoolConfig where
   stride := 1000003
 
-/-- Valid base instance satisfying all constraints -/
+/-- Valid base instance satisfying all constraints including seedWidth_ok -/
 def validRawBase : Encoding.RawLStarInstanceFull where
   n := 4                                           -- n = nvars
   dag := validRawDAG                               -- 4 nodes, ≥ n ✓
-  seedWidth := [4, 0, 0, 0]                        -- sw ≤ 2n² = 32 ✓
+  seedWidth := [4, 4, 4, 4]                        -- seedWidth_ok: propagates through DAG ✓
   R := [4, 0, 0, 0]                                -- R ≤ n = 4 ✓
   emergence := [identityMatrix4, zeroMatrix, zeroMatrix, zeroMatrix]
   pools := validPools                              -- R×sw = 16 ≤ 16 ✓

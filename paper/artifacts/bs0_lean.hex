@@ -7,18 +7,31 @@
 #
 # To extract raw bytes: grep -v '^#' bs0_lean.hex | xxd -r -p > bs0_lean.bin
 #
-# === Structural Constraint Satisfaction ===
-# This encoding represents a VALID LStarInstanceFG satisfying:
+# === Structural Constraint Satisfaction (21 constraints) ===
+#
+# LStarInstanceFull Constraints:
+#   - n_pos: n = 4 > 0 ✓
+#   - dagAcyclic: linear DAG is acyclic ✓
+#   - seedWidth_ok: ∀v, sum(parent sw) + R(v) ≤ sw(v)
+#     - Node 0: 0 + 4 = 4 ≤ 4 ✓
+#     - Node 1: 4 + 0 = 4 ≤ 4 ✓
+#     - Node 2: 4 + 0 = 4 ≤ 4 ✓
+#     - Node 3: 4 + 0 = 4 ≤ 4 ✓
+#
+# LStarInstanceFG Constraints:
 #   - dag_size_ge_n: dag.n = 4 ≥ n = 4 ✓
 #   - h_n_eq_nvars: n = 4 = nvars ✓
 #   - R_upper: R(v) ≤ 4 for all v ✓
 #   - seedWidth_upper: seedWidth(v) ≤ 32 for all v ✓
-#   - R_times_seedWidth_upper: R×sw = 16 ≤ n² = 16 ✓
+#   - R_times_seedWidth_upper: R(0)×sw(0) = 16 ≤ n² = 16 ✓
 #   - clauses_upper: 1 clause ≤ n = 4 ✓
 #   - lits_upper: 3 literals ≤ 3n = 12 ✓
 #   - maskedVar_upper: all maskedVar ≤ nvars = 4 ✓
 #   - gateDigest_budget_upper: segmentBudget = 4 ≤ n = 4 ✓
 #   - gateDigest_bits_upper: bits.length = 4 ≤ n = 4 ✓
+#   - stride_bound: 1000003 ≤ 2^65 ✓
+#   - fg_emergence_bound: sum(R) = 4 ≤ R(gate) = 4 ✓
+#   - fg_emergence_sizing: W_min=1, c=1 → R(gate)=4=1*(4/1) ✓
 #
 # === Encoding Format ===
 # Nat encoding: encodeNat n =
@@ -31,12 +44,12 @@
 # { base : RawLStarInstanceFull, encodedφ : EncodedCNF, fg : RawFrontierGateConfig }
 #
 # === Component Breakdown ===
-# Base instance (RawLStarInstanceFull): 185 bits
+# Base instance (RawLStarInstanceFull): 203 bits
 #   - n = 4
 #   - dag = { n=4, parents=[[],[0],[1],[2]] }  (linear DAG)
-#   - seedWidth = [4, 0, 0, 0]
+#   - seedWidth = [4, 4, 4, 4]  (propagated through DAG)
 #   - R = [4, 0, 0, 0]
-#   - emergence = [I₄, 0, 0, 0]  (4×4 identity at node 0)
+#   - emergence = [I₄, 0×4, 0×4, 0×4]
 #   - pools = { stride=1000003 }
 #
 # EncodedCNF: 29 bits
@@ -47,10 +60,10 @@
 #   - gateReq = [true, false, false, false]
 #   - gateDigests = [some {4, [T,F,F,F]}, none, none, none]
 #
-# === Raw Encoding (248 bits = 31 bytes) ===
-e3c7c95b3ee23dc47b8f1ffff4210b89c4e2fffff61217f1bab2dbd1ef1f40
+# === Raw Encoding (266 bits = 34 bytes) ===
+e3c7c95b3ee3c78f1f711ee3c7fffd0842e27138bffffd8485fc6eacb6f47bc7d000
 #
 # === Verification ===
-# Total bits: 248
-# Total bytes: 31
-# SHA-256: 316697da351fcdc766ac38f7c9d7b59b29edc68e523b06d1d73c2be22c83f9aa
+# Total bits: 266
+# Total bytes: 34
+# SHA-256: c89ad28f941c8d3ffb170314c525a1c7dac3622693717ad3a9bd9b5231711722

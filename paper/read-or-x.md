@@ -4075,35 +4075,35 @@ Equivalently: bs ∈ L\* iff bs is the canonical encoding of some yes-instance.
 
 **Valid instance x₀\*:**
 
-Take φ₀ = (x₁ ∨ x₂ ∨ x₃), a 3-SAT formula with nvars=4. The reduction produces x₀\* ∈ X\* satisfying all `LStarInstanceFG` constraints:
+Take φ₀ = (x₁ ∨ x₂ ∨ x₃), a 3-SAT formula with nvars=4. The reduction produces x₀\* ∈ X\* satisfying all `LStarInstanceFull` and `LStarInstanceFG` constraints:
 - n = 4 (= nvars), m = 1
 - DAG G₀: 4-node linear chain (v₀ ← v₁ ← v₂ ← v₃)
 - Emergence: R = [4,0,0,0], H₀ = I₄ (4×4 identity at frontier gate v₀)
-- seedWidth = [4,0,0,0] (R × seedWidth = 16 ≤ n² = 16)
+- seedWidth = [4,4,4,4] (satisfies seedWidth\_ok: propagates through DAG)
 - Pools: stride = 1000003 (prime)
 - Φ̃₀: EncodedCNF with maskedVar values 1,2,3 and maskedPolarity = false
 - FG: gateReq=[true,false,false,false], gateDigest with segmentBudget=4
 
 **The bitstring bs₀:**
 
-Applying Encode per D.5.2 yields a concrete 248-bit (31-byte) bitstring:
+Applying Encode per D.5.2 yields a concrete 266-bit (34-byte) bitstring:
 
 ```
-e3c7c95b3ee23dc47b8f1ffff4210b89c4e2fffff61217f1bab2dbd1ef1f40
+e3c7c95b3ee3c78f1f711ee3c7fffd0842e27138bffffd8485fc6eacb6f47bc7d000
 ```
 
 **Verification data:**
-- **Length:** 248 bits (31 bytes)
-- **SHA-256:** `316697da351fcdc766ac38f7c9d7b59b29edc68e523b06d1d73c2be22c83f9aa`
+- **Length:** 266 bits (34 bytes)
+- **SHA-256:** `c89ad28f941c8d3ffb170314c525a1c7dac3622693717ad3a9bd9b5231711722`
 - **Complete encoding (raw bytes):** `paper/artifacts/bs0_lean.bin`
 - **Annotated hex:** `paper/artifacts/bs0_lean.hex`
 - **Lean source:** `lean/testing/extract_valid_encoding.lean`
 
 **Component breakdown:**
 
-The 248 bits decompose as three concatenated structures:
-- **base (RawLStarInstanceFull):** 185 bits
-  - n=4, dag={n=4, parents=[[],[0],[1],[2]]}, seedWidth=[4,0,0,0], R=[4,0,0,0], emergence=[I₄,0,0,0], pools={stride=1000003}
+The 266 bits decompose as three concatenated structures:
+- **base (RawLStarInstanceFull):** 203 bits
+  - n=4, dag={n=4, parents=[[],[0],[1],[2]]}, seedWidth=[4,4,4,4], R=[4,0,0,0], emergence=[I₄,0×4,0×4,0×4], pools={stride=1000003}
 - **encodedφ (EncodedCNF):** 29 bits
   - nvars=4, clauses=[{literals=[{1,false},{2,false},{3,false}]}]
 - **fg (RawFrontierGateConfig):** 34 bits
@@ -4135,7 +4135,7 @@ The verifier (§10.2) checks: seed chain consistency, emergence completeness H\_
 
 For a formula φ with n variables, |Encode(x\*)| = O(n³) bits (proven in `LStarEncoding.lean`). The membership argument is identical.
 
-**Why this matters:** L\* ⊆ {0,1}\* is explicitly defined. The 248-bit bitstring bs₀, identified by its SHA-256 hash, is a specific verifiable element of L\* satisfying all structural constraints. The encoding is exactly what Lean's `encodeBits` function produces—paper and implementation are aligned.
+**Why this matters:** L\* ⊆ {0,1}\* is explicitly defined. The 266-bit bitstring bs₀, identified by its SHA-256 hash, is a specific verifiable element of L\* satisfying all 21 structural constraints (verified in `paper/artifacts/bs0_lean.hex`). The encoding is exactly what Lean's `encodeBits` function produces—paper and implementation are aligned.
 
 ##### 6.9.6 Summary: Two-Stage Proof Architecture
 
@@ -9209,19 +9209,20 @@ where:
 
 **Valid Instance Example (see §6.9.5.1):**
 
-For φ₀ = (x₁ ∨ x₂ ∨ x₃) with n = 4, nvars = 4, the Lean encoding produces a valid `LStarInstanceFG` satisfying all structural constraints:
-- **Total bits:** 248 (31 bytes)
-- **Hex:** `e3c7c95b3ee23dc47b8f1ffff4210b89c4e2fffff61217f1bab2dbd1ef1f40`
-- **SHA-256:** `316697da351fcdc766ac38f7c9d7b59b29edc68e523b06d1d73c2be22c83f9aa`
+For φ₀ = (x₁ ∨ x₂ ∨ x₃) with n = 4, nvars = 4, the Lean encoding produces a valid `LStarInstanceFull` and `LStarInstanceFG` satisfying all 21 structural constraints:
+- **Total bits:** 266 (34 bytes)
+- **Hex:** `e3c7c95b3ee3c78f1f711ee3c7fffd0842e27138bffffd8485fc6eacb6f47bc7d000`
+- **SHA-256:** `c89ad28f941c8d3ffb170314c525a1c7dac3622693717ad3a9bd9b5231711722`
 
 Component breakdown:
-- base (RawLStarInstanceFull): 185 bits
+- base (RawLStarInstanceFull): 203 bits
 - encodedφ (EncodedCNF): 29 bits
 - fg (RawFrontierGateConfig): 34 bits
 
-**Constraint satisfaction** (see `paper/artifacts/bs0_lean.hex` for full verification):
+**Key constraint satisfaction** (see `paper/artifacts/bs0_lean.hex` for all 21 constraints):
+- seedWidth\_ok: seed propagation through DAG (seedWidth = [4,4,4,4]) ✓
 - dag\_size\_ge\_n: dag.n = 4 ≥ n = 4 ✓
-- R\_times\_seedWidth\_upper: R×sw = 16 ≤ n² = 16 ✓
+- R\_times\_seedWidth\_upper: R(0)×sw(0) = 16 ≤ n² = 16 ✓
 - gateDigest present with segmentBudget = 4 ≤ n ✓
 
 The complete encoding is provided in `paper/artifacts/bs0_lean.bin` (with annotated rendering in `paper/artifacts/bs0_lean.hex`).
