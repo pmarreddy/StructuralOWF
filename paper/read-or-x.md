@@ -4187,7 +4187,7 @@ Our canonical Encode (Appendix D.5) satisfies all three:
 
 n\_core ≤ |Encode(x\*)| ≤ n\_core^c
 
-**Where n\_core lives:** The security parameter n\_core is stored as an explicit field in the instance tuple x\* (the first field of Encode(x\*) per Appendix D.5), equal to the variable count of the underlying CNF φ from which x\* was reduced. For any x\* ∈ X\*, n\_core is recoverable in O(1) time from the encoding header.
+**Where n\_core lives:** The security parameter n\_core is stored as an explicit field in the instance tuple x\* (the first field of Encode(x\*) per Appendix D.5), equal to the variable count of the underlying CNF φ from which x\* was reduced. For any x\* ∈ X\*, n\_core is recoverable in O(log n\_core) time from the encoding header (i.e., linear in the header length), hence poly(|bs|).
 
 *Proof sketch:* Lower bound: the instance must encode n\_core variable identities. Upper bound: By §10.1's polynomial clause bound, |clauses| ≤ poly(n\_core). The DAG has poly(n\_core) nodes (§6.6), each storing poly(log n\_core) bits of metadata. All components are polynomial in n\_core, so |Encode(x\*)| ≤ n\_core^c for some fixed c depending on the construction parameters. ∎
 
@@ -6319,13 +6319,6 @@ Encode(x\*) ∈ L\*  ↔  x\* ∈ L\*\_struct
 - (←) If x\* ∈ L\*\_struct, then Encode(x\*) ∈ L\* by Definition 10.6.4 (take the same x\*). ∎
 
 **Why this matters:** The bitstring language L\* is defined existentially (bs ∈ L\* iff *some* x\* encodes to bs and is a yes-instance). A skeptic might worry: "Given Encode(x\*), how do I know the decider's answer corresponds to *this* x\* rather than some other y\*?" Corollary 10.6.5' answers: injectivity guarantees there is no other y\*. If Encode(x\*) = Encode(y\*), then x\* = y\*. This makes the transfer p\_backward (Lean terminology) well-defined.
-
-**Remark (Certificate-Carries-Structure).** The NP verifier for L\* receives input bs and certificate (x\*, w). It checks:
-
-- (1) Encode(x\*) = bs  — poly-time by Lemma E2
-- (2) Verify(x\*, w) = 1 — poly-time by §10.2
-
-No parsing of bs is required; the certificate carries the structure. This is standard for NP: verifiers may receive auxiliary structure in the certificate and need only check consistency (condition 1) rather than parsing the input directly. The certificate size |x\*| + |w| is polynomial in |bs| by E5 and §10.2's witness bound.
 
 ##### 10.6.4 Bitstring Corollaries
 
