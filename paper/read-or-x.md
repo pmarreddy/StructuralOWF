@@ -173,6 +173,9 @@ Each layer builds on previous layers. Verify compilation: `lake build` at each l
      - See `ParametricBitstringBridge.lean` for direct OWF → FP≠FNP → P≠NP proof
      - Paper's 3-SAT reduction path not formalized (both approaches valid)
      - Bitstring transfer: `LStarEncoding.lean` (np\_transfer, p\_backward\_transfer theorems)
+     - **Explicit NP \ P witness**: `PrefixLangBits` (prefix-extension language, §10.6.9)
+       - Theorem: `PrefixLangBits_separation` in `MainTheorems.lean`
+       - Self-reducibility: prefix decider → poly-time OWF inverter → contradiction
 
 3. **Quantifier structure: ∀x∀A or ∃x∀A? Why can't non-uniform circuits hardcode solutions?**
    - **CHECK**: Abstract (per-instance deterministic claim), §4.3 (uniform restriction), Theorem 8.A
@@ -4066,6 +4069,7 @@ Equivalently: bs ∈ L\* iff bs is the canonical encoding of some yes-instance.
 - NP membership transfers (Corollary 10.6.6)
 - OWF construction transfers (Corollary 10.6.7)
 - P ≠ NP transfers (Corollary 10.6.8)
+- Explicit NP \ P witness: PrefixLangBits (Corollary 10.6.12, §10.6.9)
 
 ##### 6.9.5.1 Concrete Bitstring Example
 
@@ -5702,7 +5706,7 @@ Section 9 constructed an unconditional one-way function f from L\*'s structural 
 - **§10.3**: **L\* is NP-hard**  -  deterministic witness-preserving Karp reduction (Algorithm R)
 - **§10.4**: **Classical Bridge**  -  OWF ⇒ FP ≠ FNP ⇒ P ≠ NP (Proposition 10.4 connects §9's OWF to P ≠ NP)
 - **§10.5**: **Main Theorem**  -  P ≠ NP (Theorem 10.5 combining all results)
-- **§10.6**: **Bitstring Interface**  -  formal definition of L\* ⊆ {0,1}\*, encoding lemmas, connection theorem, bitstring corollaries
+- **§10.6**: **Bitstring Interface**  -  formal definition of L\* ⊆ {0,1}\*, encoding lemmas, connection theorem, bitstring corollaries, explicit NP \ P witness (PrefixLangBits, §10.6.9)
 
 **Why this section completes the proof:** Sections 1-9 constructed a one-way function f from structural properties, but one-wayness alone doesn't imply P ≠ NP - we must show f is built from an NP-complete problem. Section 10 closes this gap by proving L\* is NP-complete (membership + hardness) and invoking the classical bridge: OWF from NP-complete problem ⇒ FP ≠ FNP ⇒ P ≠ NP. This transforms the Structural OWF construction into an unconditional complexity separation. The result is model-specific (deterministic k-tape TMs with constant parameters) but unconditional within that model - no unproven assumptions, no cryptographic conjectures, just structural properties of an explicit language.
 
@@ -6372,6 +6376,49 @@ Correctness: since f\_n(r') = bs = Encode(x\*) = Encode(Plant(φ\_n, r)), by Cor
 3. By the classical bridge (§10.4, Proposition 10.4): OWF from an NP language family ⇒ FP ≠ FNP ⇒ P ≠ NP
 
 Therefore P ≠ NP. ∎
+
+##### 10.6.9 Explicit NP \ P Witness: Prefix-Extension Language
+
+The Lean formalization provides an **explicit named language** witnessing the separation. This subsection documents the correspondence between Lean's `PrefixLangBits` and the paper's OWF-based argument.
+
+**Definition 10.6.11 (Prefix-Extension Language).** PrefixLang ⊆ {0,1}\* is defined by:
+
+(L, prefix, bit) ∈ PrefixLang  :↔  ∃ w, (prefix ++ [bit]) ⊑ w ∧ R(L, w)
+
+where R is the OWF inversion relation (w is a valid preimage for instance L), and ⊑ denotes prefix-of.
+
+**Intuition:** The prefix language asks "can this partial witness be extended to a full valid witness?" This is the standard **self-reducibility** query used in search-to-decision reductions.
+
+**Corollary 10.6.12 (Explicit NP \ P Witness).** PrefixLang ∈ NP ∧ PrefixLang ∉ P.
+
+*Proof:*
+
+- **NP membership:** The certificate is the full witness w. Verification checks (1) prefix ++ [bit] ⊑ w and (2) R(L, w). Both are polynomial-time.
+
+- **Not in P (self-reducibility argument):** Suppose PrefixLang ∈ P with poly-time decider D. Construct a poly-time OWF inverter:
+
+  ```
+  Given instance L, recover witness w bit-by-bit:
+    prefix := []
+    for i := 1 to |w|:
+      if D(L, prefix, 0) = "yes":  prefix := prefix ++ [0]
+      else:                         prefix := prefix ++ [1]
+    return prefix
+  ```
+
+  This makes |w| = O(n) queries to D, each taking poly(n) time. Total: poly(n) time to find w.
+
+  But this contradicts OWF security (Corollary 10.6.7): no poly-time algorithm can invert f with non-negligible probability. ∎
+
+**Lean Correspondence:**
+
+- `LStarLanguageLang` (LStarEncoding.lean) — the NP membership language: "does this bitstring encode a yes-instance?" Used for Corollary 10.6.6.
+
+- `PrefixLangBits` (BitstringOWF.lean) — the explicit NP \ P witness: the prefix-extension language over bitstrings. This is the **named separation witness** in Lean.
+
+- `PrefixLangBits_separation` (MainTheorems.lean) — the theorem: `InNP PrefixLangBits ∧ ¬InP PrefixLangBits`.
+
+**Terminology Note:** The explicit NP \ P witness in Lean is PrefixLangBits (prefix-extension), not LStarLanguageLang (range membership). This is standard: self-reducibility connects OWF security to prefix-query hardness. Both languages are in NP; the prefix language has the direct connection to the OWF inversion lower bound.
 
 ---
 
