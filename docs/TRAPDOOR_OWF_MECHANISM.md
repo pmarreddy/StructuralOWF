@@ -105,7 +105,7 @@ NAIVE ATTEMPT:
 ```
 THE OAP SOLUTION:
     1. Use α to generate MASKS (via a seed chain)
-    2. Hide φ by XORing it with these masks: encodedφ = φ ⊕ masks
+    2. Hide φ by masking literals: var → (var + mask) % bound, pol → pol ⊕ mask
     3. Publish only encodedφ (not φ, not masks, not α)
 
     Now the inverter is stuck:
@@ -202,7 +202,7 @@ non-FG clause seeds ───────────────→   ??? (depe
 ↓                                       ↓
 masks (via hashSeed) ──────────────→   ??? (needs clause seeds)
 ↓                                       ↓
-φ ⊕ masks = encodedφ ──────────────→   encodedφ ⊕ ??? = garbage
+mask(φ) = encodedφ ────────────────→   unmask(encodedφ, ???) = garbage
 
 Alice: O(n) to decode                   Inverter: 2^R work required
                                         (R = n → exponential 2^n work)
@@ -245,9 +245,9 @@ Unlike typical encryption where you have a message and encrypt it with a key, he
 
 ```
 α ──→ φ (formula that α satisfies)
-α ──→ seeds ──→ masks (XOR values that hide φ)
+α ──→ seeds ──→ masks (values that hide φ)
 
-encodedφ = φ ⊕ masks
+encodedφ = mask(φ, masks)
 ```
 
 This creates a circular dependency that makes inversion hard:
@@ -440,7 +440,8 @@ OAP (Overlay-as-Problem) is the encoding mechanism that hides φ:
 ```
 For each literal in φ:
     mask = computeMask(clause_seed, position)
-    encoded_literal = literal ⊕ mask
+    encoded_var = (literal.var + mask.var) % bound    -- modular addition
+    encoded_pol = literal.pol ⊕ mask.pol              -- XOR
 ```
 
 **Why OAP needs the FG bottleneck**:
@@ -521,8 +522,9 @@ Clause seeds:    Seed(Cⱼ) = f(parent seeds including FG)
 **Step 4: Compute masks and encode**
 ```
 For each clause j, literal k:
-    mask = computeLiteralMask(Seed(Cⱼ), j, k)
-    encoded[j][k] = literal[j][k] ⊕ mask
+    (maskVar, maskPol) = computeLiteralMask(Seed(Cⱼ), j, k)
+    encoded[j][k].var = (literal[j][k].var + maskVar) % (nvars + 1)
+    encoded[j][k].pol = literal[j][k].pol ⊕ maskPol
 ```
 
 **Step 5: Publish x***
@@ -550,7 +552,7 @@ clause seeds = f(FG, variables) ← computable
     ↓
 masks = computeMask(seeds)      ← computable
     ↓
-φ = encodedφ ⊕ masks            ← recovered!
+φ = unmask(encodedφ, masks)     ← recovered!
 ```
 
 **Complexity**: O(n) — just follow the chain.
@@ -570,7 +572,7 @@ clause seeds = ???               ← can't compute
     ↓
 masks = ???                      ← can't compute
     ↓
-encodedφ ⊕ ??? = garbage         ← can't decode!
+unmask(encodedφ, ???) = garbage  ← can't decode!
 ```
 
 **The only option**: Guess α values and check if they produce matching digest.
@@ -606,7 +608,7 @@ NOTE: Seeds grow via concatenation. Hashing only occurs in mask computation.
 
 ### Encoding vs Decoding: The Same Chain
 
-**Key insight**: Encoding and decoding use the EXACT SAME computation chain. The only difference is the direction of the final XOR:
+**Key insight**: Encoding and decoding use the EXACT SAME computation chain. The only difference is the direction of the final masking operation:
 
 ```
 ENCODING (Alice creates):              DECODING (Alice recovers):
@@ -626,20 +628,21 @@ Step 4: non-FG clause seeds            Step 4: non-FG clause seeds
 Step 5: masks                          Step 5: masks
         computeLiteralMask(seed, j, k)         (same — hashing here)
         ↓                                      ↓
-Step 6: XOR to ENCODE                  Step 6: XOR to DECODE
-        encoded = plaintext ⊕ mask             plaintext = encoded ⊕ mask
+Step 6: MASK to ENCODE                 Step 6: UNMASK to DECODE
+        enc.var = (plain.var + m) % b          plain.var = (enc.var + b - m%b) % b
+        enc.pol = plain.pol ⊕ m_pol            plain.pol = enc.pol ⊕ m_pol
         ↓                                      ↓
 OUTPUT: encodedφ (publish)             OUTPUT: φ (recovered!)
 ```
 
-**Why this works**: XOR is self-inverse: `A ⊕ B ⊕ B = A`
+**Why this works**: Modular arithmetic is invertible, XOR is self-inverse
 
 ### Verification vs Decoding
 
 Two separate operations Alice can perform:
 
 - **Verify**: Prove α is correct. Recompute digest from α, compare to x*.digest.
-- **Decode**: Recover φ. Use masks to undo XOR.
+- **Decode**: Recover φ. Use masks to reverse the encoding.
 
 Verification is cheaper — just compute the R-bit digest and compare. Decoding requires computing all clause seeds and masks.
 
@@ -764,10 +767,10 @@ CONCERN: "φ uses unit clauses like (x₁), (¬x₂) — trivial to solve!"
 REALITY: The unit clauses are INSIDE the OAP encoding:
 
   What's stored in x*.encodedφ:
-    encodedLit.maskedVar = 0 ⊕ 0x1234 = 0x1234    (not recognizable as var 0!)
+    encodedLit.maskedVar = (0 + mask) % (nvars+1)    (not recognizable as var 0!)
     encodedLit.maskedPolarity = true ⊕ true = false
 
-  Inverter sees: { maskedVar: 0x1234, maskedPolarity: false }
+  Inverter sees: { maskedVar: ???, maskedPolarity: false }
   Inverter needs: mask to decode
   Inverter can't get mask without seed
   Inverter can't get seed without α
@@ -809,25 +812,26 @@ Seed(c₁) = 0x22222222
 Seed(c₂) = 0x33333333
 ```
 
-**Compute masks**:
+**Compute masks** (hash + clauseIdx*997 + litIdx*991):
 ```
-mask₀ = computeLiteralMask(0x11111111, 0, 0) = (0x1234, true)
-mask₁ = computeLiteralMask(0x22222222, 1, 0) = (0x5678, false)
-mask₂ = computeLiteralMask(0x33333333, 2, 0) = (0x9ABC, true)
+mask₀ = computeLiteralMask(Seed₀, 0, 0) = (7, true)
+mask₁ = computeLiteralMask(Seed₁, 1, 0) = (5, false)
+mask₂ = computeLiteralMask(Seed₂, 2, 0) = (6, true)
 ```
 
-**Encode** (XOR literal with mask):
+**Encode** (modular addition for var, XOR for polarity):
 ```
-encoded₀ = {maskedVar: 0⊕0x1234, maskedPol: T⊕T} = {0x1234, false}
-encoded₁ = {maskedVar: 1⊕0x5678, maskedPol: F⊕F} = {0x5679, false}
-encoded₂ = {maskedVar: 2⊕0x9ABC, maskedPol: T⊕T} = {0x9ABE, false}
+With nvars=3, bound = nvars+1 = 4:
+encoded₀ = {maskedVar: (0+7)%4=3, maskedPol: T⊕T=F} = {3, false}
+encoded₁ = {maskedVar: (1+5)%4=2, maskedPol: F⊕F=F} = {2, false}
+encoded₂ = {maskedVar: (2+6)%4=0, maskedPol: T⊕T=F} = {0, false}
 ```
 
 **Published x*.encodedφ**:
 ```
-[{maskedVar: 0x1234, maskedPol: false},
- {maskedVar: 0x5679, maskedPol: false},
- {maskedVar: 0x9ABE, maskedPol: false}]
+[{maskedVar: 3, maskedPol: false},   ← was var 0
+ {maskedVar: 2, maskedPol: false},   ← was var 1
+ {maskedVar: 0, maskedPol: false}]   ← was var 2
 ```
 
 ### Alice Decodes (has α)
@@ -837,16 +841,17 @@ encoded₂ = {maskedVar: 2⊕0x9ABC, maskedPol: T⊕T} = {0x9ABE, false}
    → Same seeds as before
 
 2. Recompute masks
-   → mask₀ = (0x1234, true), etc.
+   → mask₀ = (7, true), mask₁ = (5, false), mask₂ = (6, true)
 
-3. Decode (XOR encoded with mask)
-   lit₀.var = 0x1234 ⊕ 0x1234 = 0
+3. Decode (modular subtraction for var, XOR for polarity)
+   With bound = 4:
+   lit₀.var = (3 + 4 - 7%4) % 4 = (3 + 4 - 3) % 4 = 0 ✓
    lit₀.pol = false ⊕ true = true  → x₀ ✓
 
-   lit₁.var = 0x5679 ⊕ 0x5678 = 1
+   lit₁.var = (2 + 4 - 5%4) % 4 = (2 + 4 - 1) % 4 = 1 ✓
    lit₁.pol = false ⊕ false = false → ¬x₁ ✓
 
-   lit₂.var = 0x9ABE ⊕ 0x9ABC = 2
+   lit₂.var = (0 + 4 - 6%4) % 4 = (0 + 4 - 2) % 4 = 2 ✓
    lit₂.pol = false ⊕ true = true  → x₂ ✓
 
 φ recovered: (x₀) ∧ (¬x₁) ∧ (x₂) ✓
@@ -862,15 +867,17 @@ encoded₂ = {maskedVar: 2⊕0x9ABC, maskedPol: T⊕T} = {0x9ABE, false}
    → Completely different seeds!
 
 2. Wrong seeds → wrong masks:
-   mask'₀ = (0xAAAA, false)  ← WRONG
-   mask'₁ = (0xBBBB, true)   ← WRONG
-   mask'₂ = (0xCCCC, false)  ← WRONG
+   mask'₀ = (13, false)  ← WRONG (was 7, true)
+   mask'₁ = (11, true)   ← WRONG (was 5, false)
+   mask'₂ = (9, false)   ← WRONG (was 6, true)
 
 3. "Decode" with wrong masks → garbage:
-   lit'₀.var = 0x1234 ⊕ 0xAAAA = 0xB89E  (not 0!)
-   → Variable 47262 ???
+   With bound = 4:
+   lit'₀.var = (3 + 4 - 13%4) % 4 = (3 + 4 - 1) % 4 = 2  (not 0!)
+   lit'₀.pol = false ⊕ false = false  (not true!)
+   → Got x₂ instead of x₀ ???
 
-4. Result: Nonsense formula, obviously wrong
+4. Result: Wrong formula, verification fails
 
 5. Can verify via digest:
    emergentConfig(φ, α') ≠ published digest → REJECT
@@ -972,12 +979,12 @@ Where:
 
 **Step 7: Encode**
 ```
-encoded.maskedVar = lit.var ⊕ mask_var
-encoded.maskedPolarity = lit.polarity ⊕ mask_pol
+encoded.maskedVar = (lit.var + mask_var) % (nvars + 1)   -- modular addition
+encoded.maskedPolarity = lit.polarity ⊕ mask_pol         -- XOR
 
-Roundtrip: decode(encode(lit)) = lit (XOR is self-inverse)
+Roundtrip: decode(encode(lit)) = lit (modular arithmetic is invertible)
 
-(Lean: OAPEncoding.lean, decode_encode_roundtrip)
+(Lean: OAPEncoding.lean, literal_roundtrip)
 ```
 
 ---
@@ -992,13 +999,15 @@ def computeLiteralMask (seed : Seed w) (clauseIdx litIdx : Nat) : (Nat × Bool) 
   let mix := h + clauseIdx * 997 + litIdx * 991
   (mix, (mix % 2) == 1)
 
-def encodeLiteral (lit : Literal) (seed : Seed w) (clauseIdx litIdx : Nat) : EncodedLiteral :=
+def encodeLiteral (lit : Literal) (seed : Seed w) (clauseIdx litIdx nvars : Nat) : EncodedLiteral :=
   let (maskVar, maskPol) := computeLiteralMask seed clauseIdx litIdx
-  { maskedVar := Nat.xor lit.var maskVar
+  let bound := nvars + 1
+  { maskedVar := (lit.var + maskVar) % bound      -- bounded modular addition
     maskedPolarity := xor lit.polarity maskPol }
 
-theorem literal_roundtrip (lit : Literal) (seed : Seed w) (clauseIdx litIdx : Nat) :
-    decodeLiteral (encodeLiteral lit seed clauseIdx litIdx) seed clauseIdx litIdx = lit
+theorem literal_roundtrip (lit : Literal) (seed : Seed w) (clauseIdx litIdx nvars : Nat)
+    (h_valid : lit.var < nvars) :
+    decodeLiteral (encodeLiteral lit seed clauseIdx litIdx nvars) seed clauseIdx litIdx nvars = lit
 ```
 
 ### Data Structures (EncodedCNF.lean, FrontierGate.lean)
@@ -1084,4 +1093,4 @@ The digest consistency constraint is the **2^R bottleneck** — ALL R bits are c
 
 ---
 
-**Last Updated**: 2025-12-09
+**Last Updated**: 2025-12-18
