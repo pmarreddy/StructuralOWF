@@ -16,8 +16,8 @@ it's valid? This file provides FOUR parts that together demonstrate the full mec
 Part 1: CONCRETE output         266-bit hex string: e3c7c95b...
 Part 2: PROOF of validity       Lean type-checks all 15+ constraints
 Part 3: HOW seed is derived     α → source → vars → FG → clause → seed
-                                         ↓
-Part 4: HOW formula is hidden   seed → mask → encode(φ) → hidden φ
+                                                                    ↓
+Part 4: HOW formula is hidden                                    seed → mask → encode(φ) → hidden φ
 ```
 
 **File order**: Part 1 → Part 2 → Part 3 → Part 4 (follows logical dependency)
@@ -642,7 +642,24 @@ Clause nodes         seed = encodeSeed(FG_seed, emergence(FG_seed))
 This matches computeSeedAtVertex in SeedSemantics.lean:
 - Source node: seed = 0 (fixed)
 - Variable nodes: seed = encodeSeed(source, α[i]) where α[i] is the entropy
-- Internal nodes: seed = encodeSeed(parent_seeds, emergence_matrix × parent_data)
+
+### Why Each Step is Necessary
+
+| Step | What | Why Needed |
+|------|------|------------|
+| 1. Source | seed = 0 (fixed) | Common starting point for all computations |
+| 2. Variables | seed = f(source, α[i]) | **α enters here** — secret is embedded into computation |
+| 3. FG Gate | seed = f(all vars) | **BOTTLENECK** — forces ALL info through ONE point |
+| 4. Clause | seed = f(FG) | Propagates dependency — wrong FG → ALL clauses wrong |
+| 5. Mask | hash(seed) + indices | Converts seed to unpredictable mask values |
+| 6. Encode | (var + mask) % bound | **Hides formula** — unreadable without mask |
+| 7. XOR pol | pol ⊕ maskPol | Hides literal polarity (positive/negative) |
+
+**Each step makes the NEXT step impossible without α:**
+- Without α → wrong var seeds → wrong FG → wrong clause → wrong mask → garbage
+
+**The FG bottleneck is critical**: It forces the adversary to know ALL of α,
+not just parts. Even one wrong bit in α produces completely different FG seed.
 -/
 
 /-- Assignment: 4 boolean values (matching our n=4 example with φ = (x₁ ∨ x₂ ∨ x₃)) -/
