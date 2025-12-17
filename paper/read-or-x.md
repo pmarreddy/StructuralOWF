@@ -4067,6 +4067,75 @@ Equivalently: bs ∈ L\* iff bs is the canonical encoding of some yes-instance.
 - OWF construction transfers (Corollary 10.6.7)
 - P ≠ NP transfers (Corollary 10.6.8)
 
+##### 6.9.5.1 Concrete Bitstring Example
+
+**Purpose:** To answer "give me an example of a string in L\*," we provide an explicit bitstring bs₀ ∈ L\*.
+
+**Encoding specification:** The canonical encoding Encode : X\* → {0,1}\* follows the normative specification in **Appendix D.5.2**. All fields use decimal ASCII length prefixes with `:` delimiters, per the D.5 record format.
+
+**Minimal instance x₀\*:**
+
+Take φ₀ = (x₁ ∨ x₂ ∨ x₃), a minimal 3-SAT formula. The reduction produces x₀\* ∈ X\* with:
+- n\_core = 3, m = 1
+- DAG G₀: single root node v₀ (depth 0, no parents)
+- Emergence: R\_{v₀} = 3, H\_{v₀} = I₃ (3×3 identity matrix)
+- Salt table: 8 designated addresses with 2-byte payloads
+- Initial seed: Seed₀ = 0x4A2F (from §2.6)
+- Φ̃₀: masked literal table with b = 3 bits/literal and **R = 0** (no masking in this minimal example)
+
+**The bitstring bs₀:**
+
+Applying Encode per D.5.2 yields a concrete 82-byte bitstring. First 64 bytes (hex):
+
+```
+343a333a313a353a313a303a3a363a333a333a888033323a323aa73c323a5b91
+323ae24f323a18d6323ac37a323a6d05323af4b8323a29e331363a0000000000
+```
+
+**Verification data:**
+- **Length:** 82 bytes (656 bits)
+- **SHA-256:** `e22a8ae4cba5fc00cf606191da0116e0006d0d6f3337868688639cf3c2a41541`
+- **Complete encoding (raw bytes):** `paper/artifacts/bs0.bin`
+- **Annotated hex (same bytes):** `paper/artifacts/bs0.hex`
+
+**Decode sketch (verifiable without Lean):**
+
+The 82 bytes parse as exactly 7 D.5 records with content lengths [4, 5, 6, 32, 16, 1, 2]:
+
+- **F1 (Header):** `"4:3:1:"` → len=4, content=`"3:1:"` → n\_core=3, m=1 ✓
+- **F2 (DAG):** `"5:1:0::"` → len=5, content=`"1:0::"` → 1 node, node 0 has 0 parents ✓
+- **F3 (Matrices):** `"6:3:3:"` + `0x8880` → len=6, R₀=3, cols=3, H₀ bits = `100 010 001` = I₃ ✓
+- **F4 (Salts):** `"32:"` + 8×`"2:xx"` → len=32, 8 salt entries × 2 bytes each ✓
+- **F5 (Seed):** `"16:"` + 16 bytes → len=16, Seed₀ = `0x00...004a2f` (big-endian) ✓
+- **F6 (GREQ):** `"1:"` + `0x80` → len=1, GREQ₀ = 1 (bit 7 set) ✓
+- **F7 (Φ̃):** `"2:"` + `0x2980` → len=2, E = `001 010 011` (R=0, so E = enc(lit) directly per D.5.2) ✓
+
+**Witness W₀ and Verify check:**
+
+- φ₀ decoded: Since R=0, E[i,p] = enc(lit[i,p]) directly → literals x₁, x₂, x₃ (var IDs 1,2,3, positive polarity)
+- W₀ = (1,1,1): all variables true → φ₀(W₀) = (1∨1∨1) = 1 ✓
+- Seed chain: Seed₀ = 0x4A2F, single node v₀, no parents → chain trivially consistent ✓
+- Emergence: H₀ = I₃, so y₀ = H₀·x₀ = x₀ for any x₀ ∈ {0,1}³ → completeness holds ✓
+- Designated reads: salt payloads at F\_overlay(Seed₀; j, ℓ) addresses exist and are consistent ✓
+
+**Membership in L\*:**
+
+bs₀ ∈ L\* because:
+1. bs₀ = Encode(x₀\*) per D.5.2 specification
+2. x₀\* ∈ L\*\_struct: witness W₀ = (1,1,1) satisfies φ₀(W₀) = 1 and Verify(x₀\*, W₀) = 1
+
+The verifier (§10.2) checks: seed chain consistency, designated address lookups, and completeness H\_{v₀} · x\_{v₀} = y\_{v₀}. All pass in O(1) time.
+
+**Scaling:**
+
+For a formula φ with n variables, |Encode(x\*)| = poly(n) bytes (Lemma E5). The membership argument is identical.
+
+**Connection to §2.6:**
+
+The §2.6 toy instance uses a simplified XOR-based seed encoding for pedagogical clarity. The x₀\* above uses the canonical D.5.2 format, demonstrating that L\* is a concrete set of bitstrings with a fully specified, normative encoding.
+
+**Why this matters:** L\* ⊆ {0,1}\* is explicitly defined. The 82-byte bitstring bs₀, identified by its SHA-256 hash, is a specific verifiable element of L\*. The encoding follows D.5.2—one normative scheme, everywhere.
+
 ##### 6.9.6 Summary: Two-Stage Proof Architecture
 
 The proof proceeds cleanly in two stages:
@@ -9050,6 +9119,71 @@ Bottom line. Even without hardware "addresses," k-tape TMs realize the address-p
  - Streaming retrieval (operational upper bound on overhead). Given a finite set S of target keys (p,u) for a segment, a 2-tape TM can compute S on W and then scan M once left-to-right, reading the first payload symbol at each encountered key. This takes O(|M| + |S|) head moves beyond the cost of reading payload symbols, not O(|M|·|S|). Here |M| is the input length |x*| (see §1.7 "Polynomial baselines"), i.e., |M| = Θ(n_core · log² n_core). Hence per segment, scanning overhead is at most linear in input size plus hits.
 - Strengthened single-run bound (already quantified elsewhere). Our FG/segment analysis (Appendix C) supplies a per-segment baseline independent of scanning: each segment must process Ω(n/W_min) designated primitives (GateDigest parity + address-churn; Cor. C.1.1), yielding time ≥ 2^(ρ-s)·Ω(n/W_min) in the single-run lane (see §9 and Appendix D.4). Sequential scans can only increase this.
 - Takeaway. The paper's time lower bounds do not rely on pessimistic head-movement; they use (i) an information-inflow baseline (restart lane) and (ii) explicit per-segment work (FG lane). Any additional scanning needed by a TM is a multiplicative polynomial factor that only strengthens the lower bounds and never weakens them.
+
+#### D.5.2 Canonical Instance Encoding (Normative Specification)
+
+**Purpose:** This subsection provides the normative, byte-level specification for Encode : X\* → {0,1}\*. All references to "canonical encoding" in this paper refer to this specification.
+
+**Encoding Convention:** All top-level fields use the D.5 record format: a decimal ASCII length `len`, followed by a delimiter `:`, followed by exactly `len` payload bytes. Payload bytes may themselves contain `:` characters and may contain nested, length-prefixed subrecords. The bitstring is the concatenation of these bytes interpreted as bits (8 bits per byte, big-endian within each byte).
+
+**Field Order (fixed):**
+```
+Encode(x*) = F1 ‖ F2 ‖ F3 ‖ F4 ‖ F5 ‖ F6 ‖ F7
+```
+
+**F1: Header**
+- Format: `|len|:n_core:m:`
+- n\_core: number of variables (decimal ASCII)
+- m: number of clauses (decimal ASCII)
+
+**F2: DAG Adjacency**
+- Format: `|len|:adjacency_data:`
+- Nodes numbered 0..(|V|-1) in topological order (roots first)
+- For each node v in order: `|num_parents|:p1,p2,...:`
+- Parent lists sorted ascending
+
+**F3: Emergence Matrices**
+- Format: `|len|:matrices_data:`
+- For each node v in topological order:
+  - `|R_v|:|cols|:` followed by row-major bits of H\_v (R\_v × cols matrix)
+  - Bits packed 8 per byte, zero-padded to byte boundary
+
+**F4: Salt Table**
+- Format: `|len|:salt_data:`
+- For each node v in topological order:
+  - For each address u = 0..(D\_v - 1) in ascending order:
+    - `|payload_len|:payload_bytes`
+- Payload bytes are raw binary (not ASCII-encoded)
+
+**F5: Initial Seed**
+- Format: `|len|:seed_bytes:`
+- Seed₀ as fixed-width binary (16 bytes for 128-bit seeds, zero-padded if shorter)
+
+**F6: Gate Requirements**
+- Format: `|len|:greq_bits:`
+- One bit per node in topological order: GREQ\_v ∈ {0,1}
+- Packed 8 per byte, zero-padded
+
+**F7: Masked Literal Table Φ̃**
+- Format: `|len|:phi_data:`
+- b := ⌈log₂ n\_core⌉ + 1 (bits per literal)
+- **Literal encoding (normative):** bit[b-1] = polarity (0=positive, 1=negative); bits[b-2:0] = var\_id (1-indexed)
+  - Example: for b=3, enc(x₂) = 0|10 = 010 (polarity=0, var\_id=2)
+- For each clause i = 1..m:
+  - For each position p = 1..3:
+    - b bits of E[i,p] = enc(lit[i,p]) ⊕ R[i,p] (masked literal; R=0 if no masking)
+- Bits packed 8 per byte, zero-padded to byte boundary
+
+**Canonicalization Rules:**
+1. Node numbering: topological order, ties broken by lexicographic parent list
+2. Parent lists: sorted ascending by node number
+3. All numeric fields: decimal ASCII, no leading zeros (except "0" itself)
+4. Byte order: big-endian for multi-byte integers
+5. Bit packing: MSB first within each byte
+
+**Minimal Instance Example (see §6.9.5.1):**
+
+For φ₀ = (x₁ ∨ x₂ ∨ x₃) with n\_core = 3, m = 1, the encoding produces a bitstring bs₀ of 82 bytes. The complete bs₀ is provided in `paper/artifacts/bs0.bin` (with an annotated rendering in `paper/artifacts/bs0.hex`) and is identified by SHA-256 `e22a8ae4cba5fc00cf606191da0116e0006d0d6f3337868688639cf3c2a41541`.
 
 ---
 
