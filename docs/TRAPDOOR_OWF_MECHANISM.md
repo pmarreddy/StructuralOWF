@@ -1091,6 +1091,13 @@ The digest consistency constraint is the **2^R bottleneck** — ALL R bits are c
 - `StructuralOWFExponential.lean`: Security proofs
 - `ParityLowerBound.lean`: Information-theoretic lower bounds
 
+**Demonstration**:
+- `testing/extract_valid_encoding.lean`: Concrete runnable demo showing:
+  - Part 1: Valid L* instance encoded to 266-bit hex string
+  - Part 2: Formal verification (Lean type-checks all constraints)
+  - Part 3: Seed chain derivation (α → source → vars → FG → clause → seed)
+  - Part 4: OAP masking (seed → mask → encode/decode, wrong seed → garbage)
+
 ---
 
 **Last Updated**: 2025-12-18
