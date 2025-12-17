@@ -510,22 +510,25 @@ Example: α = (T, F, T) → φ = (x₀) ∧ (¬x₁) ∧ (x₂)
 
 **Step 3: Compute seed chain** (this is where α gets embedded)
 ```
-Source seed:     S₀ = 0 (fixed)
+Source seed:     S₀ = 0 (fixed)              ← WHY: Common starting point
                   ↓
-Variable seeds:  Seed(vᵢ) has entropy bit = α(i)  ← α ENTERS HERE
+Variable seeds:  Seed(vᵢ) = f(S₀, α(i))      ← WHY: α enters here (secret embedded)
                   ↓
-FG seed:         Seed(FG) = f(variable seeds) + R emergence bits
+FG seed:         Seed(FG) = f(all var seeds) ← WHY: BOTTLENECK (forces ALL info through ONE point)
                   ↓
-Clause seeds:    Seed(Cⱼ) = f(parent seeds including FG)
+Clause seeds:    Seed(Cⱼ) = f(FG, parents)   ← WHY: Propagates dependency (wrong FG → ALL wrong)
 ```
 
-**Step 4: Compute masks and encode**
+**Step 4: Compute masks and encode** (this hides the formula)
 ```
 For each clause j, literal k:
-    (maskVar, maskPol) = computeLiteralMask(Seed(Cⱼ), j, k)
-    encoded[j][k].var = (literal[j][k].var + maskVar) % (nvars + 1)
-    encoded[j][k].pol = literal[j][k].pol ⊕ maskPol
+    (maskVar, maskPol) = computeLiteralMask(Seed(Cⱼ), j, k)  ← WHY: Unpredictable values from seed
+    encoded[j][k].var = (literal[j][k].var + maskVar) % (nvars + 1)  ← WHY: Hides variable index
+    encoded[j][k].pol = literal[j][k].pol ⊕ maskPol                  ← WHY: Hides polarity
 ```
+
+**Why each step is necessary**: Each step makes the NEXT step impossible without α.
+Without α → wrong var seeds → wrong FG → wrong clause seeds → wrong masks → garbage decode.
 
 **Step 5: Publish x***
 ```
