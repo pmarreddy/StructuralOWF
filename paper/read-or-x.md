@@ -4020,7 +4020,13 @@ Under this profile, a one-path verifier resolves all R_v at each node and runs i
 
 **This subsection establishes terminology used throughout §§6-10. Read this before proceeding.**
 
-The proof develops in two stages: first we prove results for *structured instances* (mathematical objects with DAG structure, emergence matrices, etc.), then we transfer these results to *bitstrings* via encoding. This subsection makes the distinction precise.
+**Why encoding matters.** Complexity theory defines P and NP as classes of languages over {0,1}\*, but the SCL hardness proof (§§6-8) operates on *structured mathematical objects*: DAGs, emergence matrices, seed functions. We need a bridge. This section defines a canonical encoding Encode : X\* → {0,1}\* and proves that hardness transfers through it.
+
+**Why transfer works.** The key insight is that hardness is *structure-dependent, not representation-dependent*. The SCL bound q + Φ ≥ R counts information bits flowing through the DAG — a quantity unchanged by how we serialize the DAG to bits. Any encoding that is (1) injective (no shortcuts by conflating instances), (2) poly-time computable (no blowup), and (3) polynomially related to n\_core (so hardness bounds translate: time ≥ 2^Ω(n\_core) becomes time ≥ 2^Ω(|bs|^{1/c})) preserves the exponential lower bounds. We call such encodings *admissible* (Definition in §6.9.7). Note: OAP (§10.1.1) hides the CNF *content* behind seed-locked masks, but the security parameter n\_core is public (first field of the encoding).
+
+**Why this specific encoding.** We use a prefix-free, self-delimiting format based on Elias-gamma-style length prefixes (Appendix D.5.2). This choice is not essential — any admissible encoding works equally well. We chose Elias-gamma because it is standard, simple, and matches Lean's `Encodable` typeclass, ensuring paper-implementation alignment.
+
+**Two-stage architecture.** The proof develops in two stages: first we prove results for *structured instances* (mathematical objects with DAG structure, emergence matrices, etc.), then we transfer these results to *bitstrings* via encoding. This subsection makes the distinction precise.
 
 ##### 6.9.1 Structured Instance Type
 
@@ -4102,6 +4108,7 @@ e3c7c95b3ee3c78f1f711ee3c7fffd0842e27138bffffd8485fc6eacb6f47bc7d000
 - **Complete encoding (raw bytes):** `paper/artifacts/bs0_lean.bin`
 - **Annotated hex:** `paper/artifacts/bs0_lean.hex`
 - **Lean source:** `lean/testing/extract_valid_encoding.lean`
+- **Formal verification:** The `FormalVerification` namespace in the Lean source constructs a proper `LStarInstanceFG` with all 15+ structural constraints machine-checked (theorem `valid_instance_exists`). This proves bs₀ encodes a valid L* member, not just syntactically correct data.
 
 **Component breakdown:**
 
