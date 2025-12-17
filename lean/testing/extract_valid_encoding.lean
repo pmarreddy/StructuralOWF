@@ -22,10 +22,10 @@ it's valid? This file provides THREE levels of evidence:
 - **Part 2 - Proper (FormalVerification)**: Uses the real `LStarInstanceFG` type with dependent
   proofs. Lean type-checks that every constraint holds. This is the "airtight" proof.
 
-- **Part 3 - OAP Demo (OAPDemo)**: Demonstrates the full Overlay-as-Problem mechanism from
-  paper §10.1.1. Shows three layers: (1) typed addresses with hermeticity, (2) seed-keyed
-  `computeAddress` = F_overlay, (3) OAP masking where wrong seed → wrong address → garbage.
-  Proves the circular dependency: need seed to decode φ, need solution to get seed.
+- **Part 3 - OAP Demo (OAPDemo)**: Demonstrates Lean's OAP implementation (OAPEncoding.lean).
+  Shows `computeLiteralMask` computing masks directly from seed, `encodeLiteral`/`decodeLiteral`
+  roundtrip, and how wrong seed → wrong mask → garbage decode. No pool lookups—mask is derived
+  directly from seed hash.
 
 ## The Concrete Example
 
@@ -76,11 +76,11 @@ Key theorems:
 - `valid_instance_exists`: Proves ∃ L : LStarInstanceFG with n=4, dag.n=4, nvars=4
 - `components_match`: Proves the proper instance matches the raw construction
 
-**Part 3 (OAPDemo)** demonstrates the full OAP mechanism from paper §10.1.1:
+**Part 3 (OAPDemo)** demonstrates Lean's OAP implementation:
 - `oap_roundtrip_demo`: Proves decode(encode(φ, seed), seed) = φ
 - `wrong_seed_different`: Proves wrong seed ≠ correct decoding (formula is hidden)
-- `different_seeds_different_addresses`: Proves different seeds → different F_overlay addresses
-- Shows typed `Address` structure and `computeAddress` (designated address computation)
+- `different_seeds_different_masks`: Proves different seeds → different mask values
+- Shows `computeLiteralMask` and `encodeLiteral` step-by-step
 
 Axiom dependencies: propext, Classical.choice, Quot.sound (standard Lean 4 + Mathlib)
 -/
@@ -534,44 +534,39 @@ theorem components_match :
 
 end FormalVerification
 
-/-! ## Part 3: OAP (Overlay-as-Problem) Full Demonstration
+/-! ## Part 3: OAP (Overlay-as-Problem) Demonstration
 
-This section demonstrates the complete OAP mechanism from the paper (§10.1.1).
+This section demonstrates the OAP mechanism as implemented in Lean (OAPEncoding.lean).
 
-**Paper's OAP Description:**
+**Lean's OAP Implementation:**
+
+The mask is computed DIRECTLY from the seed (no pool lookups):
+```lean
+def computeLiteralMask (seed : Seed w) (clauseIdx litIdx : Nat) : (Nat × Bool) :=
+  let h := PoolConfig.hashSeed seed           -- seed.val (just the integer)
+  let mix := h + clauseIdx * 997 + litIdx * 991
+  (mix, (mix % 2) == 1)                        -- (maskVar, maskPol)
+
+def encodeLiteral (lit : Literal) ... : EncodedLiteral :=
+  let (maskVar, maskPol) := computeLiteralMask seed clauseIdx litIdx
+  { maskedVar := (lit.var + maskVar) % (nvars + 1)   -- bounded modular add
+    maskedPolarity := xor lit.polarity maskPol }      -- XOR
 ```
-E[i,p] = enc(lit[i,p]) ⊕ R[i,p]
-```
-where mask bits R[i,p] reside at seed-dependent **designated addresses**.
-
-**The Full Mechanism (3 Layers):**
-
-1. **Typed Addresses** (Pools.lean): `Address n = ⟨vertex : Fin n, offset : Nat⟩`
-   - Hermeticity: Different vertices → disjoint address pools (type-enforced)
-
-2. **Seed-Keyed Addressing**: `computeAddress(config, v, seed, clauseIdx, litIdx)`
-   - Address offset depends on seed hash: `hash(seed) + clauseIdx*997 + litIdx*991`
-   - Different seeds → different addresses → different mask values
-
-3. **OAP Masking** (OAPEncoding.lean):
-   - Variable: `maskedVar = (lit.var + mask) % (nvars + 1)` (bounded modular)
-   - Polarity: `maskedPol = lit.pol ⊕ maskPol` (XOR)
 
 **The Circular Dependency:**
 ```
-  To decode φ → need mask bits at designated addresses
-  To compute addresses → need seed (via F_overlay)
-  To get seed → need assignment α (seed chain depends on solution)
+  To decode φ → need correct mask (from computeLiteralMask)
+  To compute mask → need seed
+  To get seed → need assignment α (seed chain in real L*)
   To find α → must solve φ
   But φ is hidden until decoded!
 ```
 
 **What we demonstrate:**
-1. **Typed Address** structure with vertex isolation
-2. **computeAddress** showing seed-keyed offset computation
-3. **Different seeds → different addresses** (hermeticity in action)
-4. **OAP encoding/decoding roundtrip** with correct seed
-5. **Wrong seed produces garbage** (security property) -/
+1. `computeLiteralMask` showing seed → mask derivation
+2. `encodeLiteral` / `decodeLiteral` roundtrip
+3. Wrong seed → wrong mask → garbage decode
+4. The mask value depends entirely on seed (different seed = different mask) -/
 
 namespace OAPDemo
 
@@ -711,125 +706,94 @@ theorem wrong_seed_different :
 #print axioms oap_roundtrip_demo
 #print axioms wrong_seed_different
 
-/-! ### Part 3b: Designated Address Mechanism (Full Paper Mechanism)
+/-! ### Part 3b: Mask Computation Details (Lean's computeLiteralMask)
 
-The paper describes mask bits residing at **designated addresses** computed via
-`F_overlay(Seed, j, ℓ)`. This section demonstrates the Lean implementation. -/
+The Lean implementation computes masks DIRECTLY from the seed—there are no pool
+lookups. The key function is `computeLiteralMask` in OAPEncoding.lean. -/
 
-/-- Pool configuration for address computation. -/
-def demoPoolConfig : PoolConfig 4 where
-  stride := 1000003  -- Same as in properPools
-
-/-- Vertex 0 in our 4-node DAG (the frontier gate). -/
-def vertex0 : Fin 4 := ⟨0, by omega⟩
-
-/-- Compute a designated address for literal (clauseIdx, litIdx) using a seed.
-
-This is the `F_overlay(Seed, j, ℓ)` from the paper:
-- Address.vertex = v (which pool)
-- Address.offset = hash(seed) + clauseIdx*997 + litIdx*991 (where in pool)
-
-The mask bit for E[clauseIdx, litIdx] conceptually resides at this address. -/
-def designatedAddress (seed : Seed seedWidth) (clauseIdx litIdx : Nat) : Address 4 :=
-  computeAddress demoPoolConfig vertex0 seed clauseIdx litIdx
-
--- Demonstrate: Same (clauseIdx, litIdx) with DIFFERENT seeds → DIFFERENT addresses
+-- Show the actual mask computation for each literal
 #eval! do
   IO.println ""
-  IO.println "=== Designated Address Mechanism (Paper's F_overlay) ==="
+  IO.println "=== Mask Computation (Lean's computeLiteralMask) ==="
   IO.println ""
-  IO.println "Address structure: ⟨vertex : Fin n, offset : Nat⟩"
-  IO.println "  - vertex: Which pool (hermeticity: different v → disjoint pools)"
-  IO.println "  - offset: hash(seed) + clauseIdx*997 + litIdx*991"
+  IO.println "Formula: maskVar = hash(seed) + clauseIdx*997 + litIdx*991"
   IO.println ""
 
-  -- Show addresses for literal 0 with correct seed
-  let addr_correct := designatedAddress solutionSeed 0 0
-  IO.println s!"Literal (0,0) with CORRECT seed {solutionSeed.val}:"
-  IO.println s!"  Address = ⟨vertex={addr_correct.vertex.val}, offset={addr_correct.offset}⟩"
-
-  -- Show addresses for literal 0 with wrong seed
-  let addr_wrong := designatedAddress wrongSeed 0 0
-  IO.println s!"Literal (0,0) with WRONG seed {wrongSeed.val}:"
-  IO.println s!"  Address = ⟨vertex={addr_wrong.vertex.val}, offset={addr_wrong.offset}⟩"
+  -- Show masks for each literal with correct seed
+  IO.println s!"With CORRECT seed (value = {solutionSeed.val}):"
+  for litIdx in [0, 1, 2] do
+    let (maskVar, maskPol) := computeLiteralMask solutionSeed 0 litIdx
+    IO.println s!"  Literal {litIdx}: maskVar={maskVar}, maskPol={maskPol}"
+    IO.println s!"    → maskedVar = (var + {maskVar}) % 5"
 
   IO.println ""
-  IO.println s!"Offset difference: {addr_wrong.offset} - {addr_correct.offset} = {addr_wrong.offset - addr_correct.offset}"
-  IO.println "  (= difference in seed values, since clauseIdx and litIdx are same)"
+  IO.println s!"With WRONG seed (value = {wrongSeed.val}):"
+  for litIdx in [0, 1, 2] do
+    let (maskVar, maskPol) := computeLiteralMask wrongSeed 0 litIdx
+    IO.println s!"  Literal {litIdx}: maskVar={maskVar}, maskPol={maskPol}"
+    IO.println s!"    → maskedVar = (var + {maskVar}) % 5"
+
   IO.println ""
-  IO.println "KEY INSIGHT: Wrong seed → wrong address → wrong mask bit → wrong decode!"
+  IO.println "Different seed → different maskVar → different maskedVar → garbage!"
 
-/-- Different seeds produce different addresses (for same literal position).
+/-- Different seeds produce different masks.
 
-This is the core security property: you can't compute the correct address
-without the correct seed, and you can't get the correct seed without
-knowing the solution. -/
-theorem different_seeds_different_addresses :
-    designatedAddress solutionSeed 0 0 ≠ designatedAddress wrongSeed 0 0 := by
-  -- Addresses differ because offsets differ (seeds differ)
-  simp only [designatedAddress, computeAddress, PoolConfig.hashSeed, ne_eq, Address.mk.injEq,
-             solutionSeed, wrongSeed, seedWidth]
+This is the core security property: the mask depends entirely on the seed.
+Wrong seed = wrong mask = wrong decode. -/
+theorem different_seeds_different_masks :
+    computeLiteralMask solutionSeed 0 0 ≠ computeLiteralMask wrongSeed 0 0 := by
+  simp only [computeLiteralMask, PoolConfig.hashSeed, solutionSeed, wrongSeed, seedWidth, ne_eq]
   decide
 
--- Show all three literal addresses with correct vs wrong seed
+-- Show the full encoding/decoding trace
 #eval! do
   IO.println ""
-  IO.println "=== All Literal Addresses (Clause 0) ==="
+  IO.println "=== Full Encode/Decode Trace ==="
   IO.println ""
-  IO.println "With CORRECT seed (can decode φ):"
-  for litIdx in [0, 1, 2] do
-    let addr := designatedAddress solutionSeed 0 litIdx
-    IO.println s!"  Literal {litIdx}: offset = {addr.offset}"
+  IO.println "Original: φ = (x₁ ∨ x₂ ∨ x₃)"
+  IO.println "  Literal 0: var=1, pol=true"
+  IO.println "  Literal 1: var=2, pol=true"
+  IO.println "  Literal 2: var=3, pol=true"
+  IO.println ""
+
+  -- Encode with correct seed - show each literal manually
+  IO.println s!"Encode with seed={solutionSeed.val}:"
+
+  -- Literal 0: var=1
+  let (m0, mp0) := computeLiteralMask solutionSeed 0 0
+  let enc0 := encodeLiteral { var := 1, polarity := true } solutionSeed 0 0 plaintextCNF.nvars
+  IO.println s!"  Lit 0: var=1 + mask={m0} mod 5 = {enc0.maskedVar}"
+  IO.println s!"         pol=true xor {mp0} = {enc0.maskedPolarity}"
+
+  -- Literal 1: var=2
+  let (m1, mp1) := computeLiteralMask solutionSeed 0 1
+  let enc1 := encodeLiteral { var := 2, polarity := true } solutionSeed 0 1 plaintextCNF.nvars
+  IO.println s!"  Lit 1: var=2 + mask={m1} mod 5 = {enc1.maskedVar}"
+  IO.println s!"         pol=true xor {mp1} = {enc1.maskedPolarity}"
+
+  -- Literal 2: var=3
+  let (m2, mp2) := computeLiteralMask solutionSeed 0 2
+  let enc2 := encodeLiteral { var := 3, polarity := true } solutionSeed 0 2 plaintextCNF.nvars
+  IO.println s!"  Lit 2: var=3 + mask={m2} mod 5 = {enc2.maskedVar}"
+  IO.println s!"         pol=true xor {mp2} = {enc2.maskedPolarity}"
 
   IO.println ""
-  IO.println "With WRONG seed (reads garbage):"
-  for litIdx in [0, 1, 2] do
-    let addr := designatedAddress wrongSeed 0 litIdx
-    IO.println s!"  Literal {litIdx}: offset = {addr.offset}"
+  IO.println "Decode with CORRECT seed recovers original ✓"
+  IO.println "Decode with WRONG seed produces garbage ✗"
 
-  IO.println ""
-  IO.println "The offset encodes WHERE the mask bit lives."
-  IO.println "Wrong offset → read wrong memory location → wrong mask → garbage decode."
+/-! ### Why Modular Addition (not XOR)?
 
-/-! ### Connection to Paper's OAP Mechanism
+**Lean uses:** `maskedVar = (lit.var + mask) % (nvars + 1)`
+**Not:** `maskedVar = lit.var ⊕ mask` (XOR)
 
-**Paper (§10.1.1):**
-> The CNF formula φ is not provided in plaintext but encoded as
-> E[i,p] = enc(lit[i,p]) ⊕ R[i,p], where mask bits R[i,p] reside at
-> seed-dependent addresses.
+**Reason:** Polynomial encoding bounds.
+- XOR on unbounded Nats could produce maskedVar > nvars
+- Modular addition guarantees maskedVar ∈ [0, nvars]
+- This ensures the encoding fits in O(log nvars) bits
 
-**Lean Implementation:**
+**Security is preserved:** Wrong seed → wrong mask → garbage decode.
+The mathematical property (invertibility with correct key) is the same. -/
 
-1. **Address computation** (`computeAddress` in Pools.lean):
-   ```
-   offset = hash(seed) + clauseIdx * 997 + litIdx * 991
-   ```
-   This is `F_overlay(Seed, j, ℓ)` from the paper.
-
-2. **Mask derivation** (`computeLiteralMask` in OAPEncoding.lean):
-   ```
-   maskVar = hash(seed) + clauseIdx * 997 + litIdx * 991
-   maskPol = (maskVar % 2) == 1
-   ```
-   The mask IS the address offset (simplified for demo).
-
-3. **Encoding** (`encodeLiteral`):
-   ```
-   maskedVar = (lit.var + maskVar) % (nvars + 1)  -- bounded modular add
-   maskedPol = xor lit.pol maskPol                 -- XOR
-   ```
-
-**Why modular addition instead of XOR?**
-- Paper uses XOR (`⊕`) conceptually
-- Lean uses `(var + mask) % (nvars + 1)` for variables
-- Reason: XOR on unbounded Nats could produce maskedVar > nvars
-- Modular arithmetic guarantees maskedVar ∈ [0, nvars] (polynomial bounds)
-- Security property preserved: wrong seed → wrong mask → garbage
-
-**The key insight is the same:**
-Without the correct seed, you compute wrong addresses, read wrong mask bits,
-and decode garbage. The formula φ is information-theoretically hidden. -/
-
-#print axioms different_seeds_different_addresses
+#print axioms different_seeds_different_masks
 
 end OAPDemo

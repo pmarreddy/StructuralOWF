@@ -1920,71 +1920,67 @@ This derives the bound DIRECTLY from keyedness, bypassing these fields entirely.
 
 ---
 
-### 4.7 TM Execution Trace (Layer 4 Bridge)
-**Definition**: `TMExecutionTrace` (Layer4_Operational/TimeBridge/TMToExecutionPrefix.lean)
+### 4.7 Execution Trace Structures (Layer 4 Bridge)
+
+**Primary Definition**: `TrackedRun` (Layer4_Operational/ExecutionSemantics/ExecutionSemantics.lean)
 
 ```lean
-structure TMExecutionTrace (L : LStarInstanceFG) (M : TuringMachine k states alphabet) where
-  haltTime : Nat                           -- Total execution time (NOT "time")
-  observations : List (TimestampedObservation L)
-  h_ordered : observations.IsChain (fun o1 o2 => o1.time ≤ o2.time)  -- Time-ordered
-  h_time_bounds : ∀ obs ∈ observations, obs.time < haltTime           -- Within bounds
-  h_distinct_times : observations.Pairwise (fun o1 o2 => o1.time ≠ o2.time)  -- At most 1 per step
-  h_valid_bits : ∀ obs ∈ observations, ∀ node idx val,               -- Valid bit indices
-    obs.event = ObservationEvent.bitRead node idx val → idx < L.R node
+structure TrackedRun (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) extends
+    DeterministicRun (Assignment L.n) (Witness L.n) where
+  stateAtTime : Fin time → AlgorithmState       -- State at each time step
+  segmentOfState : AlgorithmState → Fin segmentCount  -- Which segment a state belongs to
+  configOfSegment : Fin segmentCount → ConfigSpace L C -- Config each segment explores
+  h_time_pos : 0 < time                         -- Non-trivial execution
+  h_segment_coverage : ∀ i : Fin segmentCount,  -- Each segment has ≥1 state
+    ∃ t : Fin time, segmentOfState (stateAtTime t) = i
 ```
 
-**Mathematical Object**: TM execution trace with time-stamped observations
-- **haltTime**: Total TM steps executed (halt time)
-- **observations**: List of timestamped observation events
-- **h_ordered**: Observations ordered by time
-- **h_time_bounds**: All observations within execution bounds
-- **h_distinct_times**: TM makes at most 1 observation per step
-- **h_valid_bits**: Bit read indices are valid
+**Mathematical Object**: Abstract execution trace with state→segment→config mapping
+- **stateAtTime**: Maps time steps to algorithm states (TM config, DP table, etc.)
+- **segmentOfState**: Partitions states by which configuration they explore
+- **configOfSegment**: Maps segments to the configurations being explored
+- **h_segment_coverage**: Every segment is visited (no empty segments)
 
-**Companion Structure**: `TimestampedObservation` (TMToExecutionPrefix.lean)
+**Why Critical**:
+- **Model-agnostic**: Works for TMs, backtracking, CDCL, any algorithm model
+- **Keyedness bridge**: `keyedness_from_execution` derives KeyednessProperty from TrackedRun
+- **Exponential counting**: Injective configOfSegment → ≥2^λ segments → ≥2^λ states
+- **Layer 3 connection**: ConfigSpace connects to SCL information bounds
+
+**Validation Predicate**: `ValidExecutionPrefix_flat` (Layer4_Operational/TimeBridge/TMAdapterExponential.lean)
+
 ```lean
-structure TimestampedObservation (L : LStarInstanceFG) where
-  time : Nat
-  event : ObservationEvent L  -- ObservationEvent = bitRead | digestComputed
+def ValidExecutionPrefix_flat
+    (L : LStarInstanceFG) (φ : CNF) (r : Randomness φ.nvars)
+    (π : ExecutionPrefixReal L) : Prop :=
+  -- Backward: computedConfigs come from emergentConfigAtGate_flat on r.assignment
+  (∀ psig ∈ π.computedConfigs, ∃ g h_g R cfg,
+    emergentConfigAtGate_flat φ ... r.assignmentInf g = some ⟨R, cfg⟩ ∧ ...) ∧
+  -- Forward: All FG gate emergent configs are in computedConfigs
+  (∀ v g ..., (⟨v, cfg⟩ : PSigma ...) ∈ π.computedConfigs) ∧
+  -- FG instances don't reveal individual bits
+  π.revealedBits = []
 ```
 
 **Why Critical**:
-- **TM → information bridge**: Connects concrete TM execution to abstract ExecutionPrefixReal
-- **Layer 4 main structure**: Central to all TM-to-bound proofs
-- **Time accounting**: Tracks when observations happen (operational time)
-- **Observation semantics**: Makes TM memory reads explicit
+- **TM→Information bridge**: Validates that ExecutionPrefixReal matches planted instance
+- **Bidirectional coherence**: Both backward (configs come from plant) and forward (all planted configs included)
+- **FG property**: Proves revealedBits = [] for FG instances (s=0 in bounds)
 
-**Key Function**: `tmExecutionToPrefix` (TMToExecutionPrefix.lean)
-```lean
-def tmExecutionToPrefix (trace : TMExecutionTrace L M) : ExecutionPrefixReal L :=
-  -- Converts TM trace to execution prefix (revealed bits + computed configs)
-  -- This is THE BRIDGE from operational (Layer 4) to information-theoretic (Layer 3)
-```
-
-**Main Theorem** (Layer 4 version): `refutation_count_exponential_bound` (TMToExecutionPrefix.lean)
-```lean
-theorem refutation_count_exponential_bound
-    (trace : TMExecutionTrace L M) (h : planted_instance L) :
-  refutationCount L C (tmExecutionToPrefix trace) ≥ 2^(ρ-s) - 1
-```
-
-**Companion Theorem**: `observations_le_time` (TMToExecutionPrefix.lean)
-```lean
-theorem observations_le_time (trace : TMExecutionTrace L M) :
-  totalObservations (tmExecutionToPrefix trace) ≤ trace.time
-```
+**Constructor**: `simpleCanonicalPlantedPrefix_flat` (TMAdapterExponential.lean:367)
+- Builds ExecutionPrefixReal from planted randomness
+- Satisfies ValidExecutionPrefix_flat by construction
 
 **Proof Chain**:
 ```
-1. TM executes for T steps → TMExecutionTrace with time=T
-2. tmExecutionToPrefix converts trace → ExecutionPrefixReal
-3. Segment reduction: refutationCount ≥ 2^(ρ-s)
-4. observations_le_time: refutationCount ≤ totalObservations ≤ T
-5. Therefore: T ≥ 2^(ρ-s) (TM requires exponential time!)
+1. WitnessFinder produces correct output → trackedRunFromWitnessFinder builds TrackedRun
+2. TrackedRun + A2 injectivity → keyedness_from_execution proves KeyednessProperty
+3. KeyednessProperty → ≥2^λ distinct configs must be explored
+4. ValidExecutionPrefix_flat validates TM execution against planted instance
+5. Therefore: haltTime ≥ 2^R (TM requires exponential time!)
 ```
 
-**Theory**: Operational semantics (Plotkin 1981) - execution traces with observational effects
+**Theory**: Operational semantics (Plotkin 1981) - abstract interpretation of execution traces
 
 ---
 
@@ -3104,50 +3100,50 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 8. **EffectiveResidual** -Computes ρ-s (parametric bound computation)
 
 **Construction Mechanisms** (9 definitions - A1/A2/A3 + bridges + verification):
-7. **EmergenceMatrix** - A3 mechanism (type-enforced rank)
-8. **constructFullRank** - A3 constructor (constructive proof)
-9. **Address** - A1 mechanism (definitional hermeticity)
-10. **ParentHistory** - Seed chain dependency type
-11. **encodeSeed** - A2 mechanism (proven injectivity)
-12. **decodeSeed** - Witness extraction (encodeSeed inverse, A4 enabler)
-13. **satisfies_A2** - A2 property verification (keyedness enabler)
-14. **satisfies_A3** - A3 property verification (emergence certification)
-15. **build3SATReductionDAG** - DAG construction (3-SAT → L*)
+9. **EmergenceMatrix** - A3 mechanism (type-enforced rank)
+10. **constructFullRank** - A3 constructor (constructive proof)
+11. **Address** - A1 mechanism (definitional hermeticity)
+12. **ParentHistory** - Seed chain dependency type
+13. **encodeSeed** - A2 mechanism (proven injectivity)
+14. **decodeSeed** - Witness extraction (encodeSeed inverse, A4 enabler)
+15. **satisfies_A2** - A2 property verification (keyedness enabler)
+16. **satisfies_A3** - A3 property verification (emergence certification)
+17. **build3SATReductionDAG** - DAG construction (3-SAT → L*)
 
 **Standard Complexity Classes** (5 definitions):
-16. **InP** - P membership (polynomial-time decision)
-17. **InNP** - NP membership (CRITICAL for OWF witness verification!)
-18. **InNP_Logical** - NP membership (logical/extensional, no resource bounds)
-19. **InFP** - FP membership (polynomial-time functions)
-20. **InFNP** - FNP membership (polynomial-time verifiable relations)
+18. **InP** - P membership (polynomial-time decision)
+19. **InNP** - NP membership (CRITICAL for OWF witness verification!)
+20. **InNP_Logical** - NP membership (logical/extensional, no resource bounds)
+21. **InFP** - FP membership (polynomial-time functions)
+22. **InFNP** - FNP membership (polynomial-time verifiable relations)
 
 **Parametric Complexity Classes** (3 definitions):
-21. **InFP_parametric** - Parametric FP families (uniform polynomial-time)
-22. **InFNP_parametric** - Parametric FNP families (uniform verifiable relations)
-23. **FPneFNP_parametric** - Parametric FP≠FNP separation (OWF bridge)
+23. **InFP_parametric** - Parametric FP families (uniform polynomial-time)
+24. **InFNP_parametric** - Parametric FNP families (uniform verifiable relations)
+25. **FPneFNP_parametric** - Parametric FP≠FNP separation (OWF bridge)
 
 **Bitstring Parametric Classes** (4 definitions - PRIMARY PATH):
-24. **InFP_parametric_bits** - Bitstring FP (zero-axiom bridge)
-25. **InFNP_parametric_bits** - Bitstring FNP (explicit witness construction)
-26. **FPneFNP_parametric_bits** - Bitstring FP≠FNP (main theorem input)
-27. **PeqNP_parametric** - Parametric P=NP definition (contrapositive → P≠NP)
+26. **InFP_parametric_bits** - Bitstring FP (zero-axiom bridge)
+27. **InFNP_parametric_bits** - Bitstring FNP (explicit witness construction)
+28. **FPneFNP_parametric_bits** - Bitstring FP≠FNP (main theorem input)
+29. **PeqNP_parametric** - Parametric P=NP definition (contrapositive → P≠NP)
 
 **Bitstring Interface** (4 definitions - paper §10.6):
-28. **encodeBits** - Structured instance → {0,1}* encoding (proven injective)
-29. **PrefixLangSigma** - Prefix-extension witness (structured form)
-30. **PrefixLangBits** - Prefix-extension witness over {0,1}* (main theorem witness)
-31. **owf_bits** - Bitstring OWF interface: w ↦ encodeBits(plant_flat(bitsToRandomness_exp(w)))
+30. **encodeBits** - Structured instance → {0,1}* encoding (proven injective)
+31. **PrefixLangSigma** - Prefix-extension witness (structured form)
+32. **PrefixLangBits** - Prefix-extension witness over {0,1}* (main theorem witness)
+33. **owf_bits** - Bitstring OWF interface: w ↦ encodeBits(plant_flat(bitsToRandomness_exp(w)))
 
 **Crypto & Information Bottleneck** (9 definitions + 3 theorems):
-32. **PPTAdversary** - Uniform polynomial-time model (TM + polynomial bounds)
-33. **localParity** - XOR fold (GF(2) arithmetic creating bottleneck)
-34. **fgDigestBit** - Digest bit wrapper (parity → Bool)
-35. **WellFormedRandomness** - Circularity breaking (non-circular OWF verification)
-36. **plant_flat** - One-way function construction (exponential profile)
-37. **HasWitnessUniqueness** - Planted instance singleton witness property
-38. **CNFPreconditions** - OWF preconditions bundle (9 structural requirements)
-39. **SecurityProperty** - OWF security: ∀ PPT A, Pr[invert] ≤ negl(n)
-40. **IsOneWayPlantFlat** - Standard OWF predicate (Goldreich/Katz-Lindell form)
+34. **PPTAdversary** - Uniform polynomial-time model (TM + polynomial bounds)
+35. **localParity** - XOR fold (GF(2) arithmetic creating bottleneck)
+36. **fgDigestBit** - Digest bit wrapper (parity → Bool)
+37. **WellFormedRandomness** - Circularity breaking (non-circular OWF verification)
+38. **plant_flat** - One-way function construction (exponential profile)
+39. **HasWitnessUniqueness** - Planted instance singleton witness property
+40. **CNFPreconditions** - OWF preconditions bundle (9 structural requirements)
+41. **SecurityProperty** - OWF security: ∀ PPT A, Pr[invert] ≤ negl(n)
+42. **IsOneWayPlantFlat** - Standard OWF predicate (Goldreich/Katz-Lindell form)
 
 **Crypto Theorems** (derived, not definitions):
 - **plant_flat_lambdaBase_eq_nvars** - THEOREM: Exponential profile achieves λ ≥ n
@@ -3155,38 +3151,38 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 - **OWF_exists** - THEOREM: OWF existence (witness: alignedCNFFamily)
 
 **Operational Foundation** (11 definitions + 1 theorem):
-41. **FrontierGateConfig** - FG gate configuration (information bottleneck wiring)
-42. **LStarInstanceFG** - FG-equipped instance (extends LStarInstanceFull + FG config)
-43. **NodeDataFull** - L* → NodeData bridge (enables SCL application)
-44. **ExecutionPrefix** - Observation-based execution model (info theory bridge)
-45. **refutationCount** - Segment reduction result (exponential time bound!)
-46. **Observation** - Partial/complete observation model (info-theoretic foundation)
-47. **AlgorithmState** - Abstract computational state (model-agnostic)
-48. **WitnessFinder** - Abstract witness-finding algorithm (Theorem 8.A foundation)
-49. **TMExecutionTrace** - TM trace with observations (Layer 4 bridge)
-50. **RevealedBit** - Single bit revelation (ExecutionPrefixReal component)
-51. **tmExecutionToPrefix** - TM → ExecutionPrefix bridge function
+43. **FrontierGateConfig** - FG gate configuration (information bottleneck wiring)
+44. **LStarInstanceFG** - FG-equipped instance (extends LStarInstanceFull + FG config)
+45. **NodeDataFull** - L* → NodeData bridge (enables SCL application)
+46. **ExecutionPrefix** - Observation-based execution model (info theory bridge)
+47. **refutationCount** - Segment reduction result (exponential time bound!)
+48. **Observation** - Partial/complete observation model (info-theoretic foundation)
+49. **AlgorithmState** - Abstract computational state (model-agnostic)
+50. **WitnessFinder** - Abstract witness-finding algorithm (Theorem 8.A foundation)
+51. **TrackedRun** - Execution trace structure (states → segments → configs mapping)
+52. **RevealedBit** - Single bit revelation (ExecutionPrefixReal component)
+53. **ValidExecutionPrefix_flat** - TM → ExecutionPrefix validation predicate
 
 **Operational Theorem** (derived, not definition):
 - **observations_le_time** - THEOREM: observations ≤ time (TM time accounting)
 
 **Supporting Infrastructure** (13 additional definitions - proof fails without):
 
-52. **CNF** - 3-SAT problem definition (NP-complete core)
-53. **WellFormed** - Witness extraction enabler (security-critical)
-54. **Seed** - Finite encoding type (SCL cardinality)
-55. **DAG** - Computation dependency graph (A5 property)
-56. **CutWorld** - World semantics (WC-1 theorem)
-57. **ConfigSpace** - Configuration type (info-theoretic bounds)
-58. **TuringMachine** - Machine specification (Church-Turing)
-59. **TMConfig** - Configuration state (operational semantics)
-60. **RandAdv** - Abstract PPT (complexity classes infrastructure)
-61. **negligible_parametric** - Cryptographic negligibility
-62. **Witness** - SAT witness + FG verification data (extraction target)
-63. **extract** - Direct witness extraction from randomness
-64. **LStarInstanceFull** - Base instance (supports critical LStarInstanceFG)
+54. **CNF** - 3-SAT problem definition (NP-complete core)
+55. **WellFormed** - Witness extraction enabler (security-critical)
+56. **Seed** - Finite encoding type (SCL cardinality)
+57. **DAG** - Computation dependency graph (A5 property)
+58. **CutWorld** - World semantics (WC-1 theorem)
+59. **ConfigSpace** - Configuration type (info-theoretic bounds)
+60. **TuringMachine** - Machine specification (Church-Turing)
+61. **TMConfig** - Configuration state (operational semantics)
+62. **RandAdv** - Abstract PPT (complexity classes infrastructure)
+63. **negligible_parametric** - Cryptographic negligibility
+64. **Witness** - SAT witness + FG verification data (extraction target)
+65. **extract** - Direct witness extraction from randomness
+66. **LStarInstanceFull** - Base instance (supports critical LStarInstanceFG)
 
-**Grand Total**: 64 definitions + 4 theorems (51 core definitions + 13 supporting definitions + 4 derived theorems)
+**Grand Total**: 66 definitions + 4 theorems (53 core definitions + 13 supporting definitions + 4 derived theorems)
 
 **Theoretical Foundations**:
 - Information theory (Hartley, Shannon)
