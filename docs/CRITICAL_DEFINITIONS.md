@@ -120,7 +120,7 @@ These are novel constructs. They must be coherent with underlying theory, not ma
 - State: `AlgorithmState`
 
 **Operational Semantics / Layer 4 (6):**
-- Execution: `ExecutionPrefix`, `TMExecutionTrace`, `WitnessFinder`
+- Execution: `ExecutionPrefix`, `TrackedRun`, `WitnessFinder`
 - Realization: `realizesAllValues`, `KeyednessProperty`
 - Encoding: `encodeSeed`, `decodeSeed`
 
@@ -1449,45 +1449,33 @@ def Witness.assignmentInf {nvars : Nat} (w : Witness nvars) : AssignmentInf :=
 
 ---
 
-### 3.7 Extractor (Witness Recovery)
-**Definition**: `extract` (Layer2_StructuralOWF/Extractor/Extractor.lean)
+### 3.7 Witness Extraction (Implicit in Structure)
 
-```lean
--- PARAMETRIC by nvars: preserves finite encoding
-def extract {nvars : Nat} (L : LStarInstanceFG) (r : Randomness nvars) : Witness nvars :=
-  { assignment := r.assignment  -- Direct: finite assignment passes through
-    gateProofs :=
-      (List.finRange L.dag.n).flatMap (fun v : Fin L.dag.n =>
-        let idx := v.val
-        if hgate : L.fg.gateReq v then
-          let digest : Vector Bool r.dgLen :=
-            if h : idx < r.gateDigests.length then
-              r.gateDigests.get ⟨idx, h⟩
-            else Vector.replicate r.dgLen false
-          digest.toList.zipIdx.map (fun (bit, pos) =>
-            { gateVertex := idx, position := pos, value := bit })
-        else [])
-    digestBits :=
-      (r.gateDigests.take L.dag.n).flatMap (fun v => v.toList) }
-```
+**Conceptual Operation**: Witness extraction from randomness
 
-**Mathematical Object**: Direct witness extraction from randomness structure
-- **nvars parameter**: Implicit, inferred from `Randomness nvars` input
-- **Input**: LStarInstanceFG instance L and randomness `r : Randomness nvars` (where plant(r) = L)
-- **Output**: `Witness nvars` record with FINITE assignment + gate proofs + digest bits
-- **Method**: Direct field extraction (not complex decoding)
+**Implementation Status**: Extraction is **implicit** via `Randomness` structure fields:
+- `r.assignment` : `Assignment nvars` — the satisfying assignment (SAT witness)
+- `r.assignmentInf` : `AssignmentInf` — infinite extension for matching
+- `r.gateDigests` : gate verification data
+
+**No standalone `extract` function exists** — the Randomness structure directly embeds the witness.
+
+**TM-Side Extraction**: `extractWitness : TMConfig M → Witness nvars` (PPTAdversary field)
+- Decodes TM output tape to produce Witness structure
+- Used in adversary definitions for OWF inversion
+
+**Mathematical Object**: Witness embedded in randomness structure
+- **Input**: `r : Randomness nvars` (where `plant_flat(r) = L`)
+- **Output**: Implicitly `r.assignment` serves as the SAT witness
+- **Verification**: `φ.satisfies r.assignmentInf` confirms validity
 
 **Why Critical**:
 - **Inversion → witness**: Bridges cryptography (OWF inversion) to complexity (witness extraction)
 - **Reduction core**: If ∃ polynomial-time Plant inverter → ∃ polynomial-time SAT solver
 - **FNP membership**: Proves L* ∈ FNP (witness recoverable in polynomial time)
-- **Simple extraction**: No complex decoding needed - just repackage randomness fields
-- **FINITE preservation**: Parametric nvars ensures output witness is finite and encodable
+- **Trivial extraction**: Witness is literally embedded in randomness — no decoding needed
 
-**Note**:Now parametric in nvars. Input `Randomness nvars` directly yields
-output `Witness nvars` - the finite assignment passes through unchanged.
-
-**Design Rationale**: Since OWF inverter provides randomness r (not just output), extraction is trivial - the witness is literally embedded in r. This is SIMPLER than decoding from output bits.
+**Design Rationale**: Since OWF inverter provides randomness r (not just encoded output), the witness is immediately available as `r.assignment`. This simplifies the reduction by avoiding complex output parsing.
 
 **Theory**: Reducibility (Karp 1972) - solution to hard problem yields solution to NP problem
 
@@ -1680,25 +1668,14 @@ noncomputable def refutationCount (L : LStarInstanceFG) (C : Finset (Fin L.dag.n
   [count refuted worlds from WorldCommit protocol]
 ```
 
-**Definition 2** (Operational): `refutationCount` (Layer4_Operational/TimeBridge/TMToExecutionPrefix.lean)
-
-```lean
-def refutationCount (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
-    (π : ExecutionPrefixReal L) : Nat :=
-  π.computedConfigs.filter (fun c => isRefuted L C c).length
-```
+**Implementation Note**: Only the information-theoretic version (Definition 1) is currently implemented.
+A separate "operational" version was previously planned but removed during codebase simplification.
+The single definition suffices since WorldCommit directly connects to TM execution via `TrackedRun`.
 
 **Mathematical Object**: Count of refuted candidate assignments in execution prefix
 - **Input**: LStarInstanceFG instance L, cut C, execution prefix π
 - **Output**: Number of distinct configurations proven wrong by computation
-- **Computation (Version 1)**: WorldCommit protocol - start with feasible worlds, apply constraints, count refuted
-- **Computation (Version 2)**: Direct filter - count configs with digest mismatch
-
-**Relationship Between Versions**:
-- **Version 1 (Primary for theorems)**: Used in segment reduction theorem proof (information-theoretic analysis)
-- **Version 2 (Operational witness)**: Simpler direct count used in TM-to-time bridge (operational semantics)
-- **Equivalence**: Both count the same quantity (worlds/configs refuted by digest mismatches)
-- **Layer separation**: Version 1 = Layer 3 (info theory), Version 2 = Layer 4 (operational)
+- **Computation**: WorldCommit protocol - start with feasible worlds, apply constraints, count refuted
 
 **Why Critical**:
 - **THE THEOREM RESULT**: Segment reduction (Layer 3) proves `refutationCount π ≥ 2^(ρ-s) - 1` (exponential lower bound!)
@@ -3179,7 +3156,7 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 62. **RandAdv** - Abstract PPT (complexity classes infrastructure)
 63. **negligible_parametric** - Cryptographic negligibility
 64. **Witness** - SAT witness + FG verification data (extraction target)
-65. **extract** - Direct witness extraction from randomness
+65. **extractWitness** - TM output → Witness decoder (PPTAdversary field)
 66. **LStarInstanceFull** - Base instance (supports critical LStarInstanceFG)
 
 **Grand Total**: 66 definitions + 4 theorems (53 core definitions + 13 supporting definitions + 4 derived theorems)
@@ -3798,28 +3775,32 @@ def run (M : TuringMachine k states alphabet) (n : Nat) : TMConfig M :=
 
 ---
 
-**Definition**: `tmExecutionToPrefix` (Layer4_Operational/TimeBridge/TMToExecutionPrefix.lean)
+**Definition**: `simpleCanonicalPlantedPrefix_flat` (Layer4_Operational/TimeBridge/TMAdapterExponential.lean)
 
 ```lean
-def tmExecutionToPrefix (trace : TMExecutionTrace L M) : ExecutionPrefixReal L :=
-  { time := trace.steps
-  , revealedBits := trace.observations.flatMap extractRevealedBits
-  , computedConfigs := trace.observations.flatMap extractComputedConfigs }
+noncomputable def simpleCanonicalPlantedPrefix_flat
+    (n : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
+    (h_aligned : AlignedCNFConstraints φ) (L : LStarInstanceFG)
+    (h_L_eq : L = plant_flat n φ r h_nvars h_aligned)
+    (_h_wf : WellFormedRandomness_flat φ r)
+    : ExecutionPrefixReal L := ...
 ```
 
-**Mathematical Object**: Convert TM execution trace to execution prefix
-- **Bridge**: Operational TM semantics → abstract information model
-- **Extraction**: Pull out revealed bits and computed configs from TM trace
+**Mathematical Object**: Construct canonical execution prefix from planted randomness
+- **Bridge**: Planted instance → ExecutionPrefixReal for validation
+- **Construction**: Iterates FG gates, computes emergent configs from r.assignmentInf
+- **Property**: Satisfies ValidExecutionPrefix_flat by construction
 
-**Why Moderate**: Bridge infrastructure, ExecutionPrefix is more fundamental
+**Why Moderate**: Constructor infrastructure, ValidExecutionPrefix_flat is the key predicate
 
-**Theory**: Semantic bridge (abstraction)
+**Theory**: Canonical models (model theory)
 
 ---
 
-**Definition**: `TMExecutionTrace` - See **§4.7** for complete definition
+**Definition**: `TrackedRun` - See **§4.7** for complete definition
 
-**Note**: TMExecutionTrace has `haltTime` (not `steps`), `observations`, plus 4 proof fields (h_ordered, h_time_bounds, h_distinct_times, h_valid_bits). The simplified version here was incomplete.
+**Note**: TrackedRun is the actual execution trace structure (stateAtTime, segmentOfState, configOfSegment).
+The earlier TMExecutionTrace design was removed during codebase simplification.
 
 **Why Moderate in this section**: Listed for catalog completeness; full definition in §4.7
 

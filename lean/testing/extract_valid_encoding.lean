@@ -49,7 +49,7 @@ We use φ = (x₁ ∨ x₂ ∨ x₃) with n=4 because:
 - dag_size_ge_n: dag.n = 4 ≥ n = 4 ✓
 - h_n_eq_nvars: n = 4 = nvars ✓
 - R_upper: R(v) ≤ 4 for all v ✓
-- seedWidth_upper: seedWidth(v) ≤ 32 for all v ✓
+- seedWidth_upper: seedWidth(v) ≤ 2n² = 32 for all v ✓
 - R_times_seedWidth_upper: R(v) * seedWidth(v) ≤ 16 for all v
   - Node 0: 4 * 4 = 16 ≤ 16 ✓
   - Nodes 1-3: 0 * 4 = 0 ≤ 16 ✓

@@ -721,22 +721,16 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
    - LocalEncoder abstraction (visitedEncodings_card_ge_pow)
    - Trust boundary: 0 axioms
 
-### TimeBridge/ (2 files, 26 axiom audits total)
+### TimeBridge/ (1 file)
 
-1. **TMToExecutionPrefix.lean** (5401 lines, 14 audits)
-   - **Dual-path architecture** (both paths in ONE file!)
-   - Path 1: exponential_time_lower_bound_via_WC1
-   - Path 2: exponential_time_lower_bound_via_Realizability
-   - ExecutionTrace (tmExecutionToPrefix removed - circular deps)
-   - Status: 0 sorries in active chains
-   - Trust boundary: 2 axioms (Church-Turing + semantic bridge)
-
-2. **TMAdapterExponential.lean** (3516 lines, 10 audits)
+1. **TMAdapterExponential.lean** (~2000 lines)
    - Exponential profile adapter (R=n)
+   - ValidExecutionPrefix_flat: TM→ExecutionPrefixReal validation
+   - simpleCanonicalPlantedPrefix_flat: Constructive prefix builder
    - tmToWitnessFinder implementation
    - tm_proves_keyed_visitation_exponential
    - Requires h_tm_exhaustive_search hypothesis
-   - Trust boundary: 0 axioms in adapter
+   - Trust boundary: 1 axiom (tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
 
 ### ExecutionSemantics/ (2 files, 24 axiom audits total)
 
@@ -754,11 +748,10 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 ### Summary
 
-**Total files**: 10 (5 TuringMachine + 2 TimeBridge + 2 ExecutionSemantics + 1 RWA)
-**Total lines**: ~12,000 lines (largest layer by far!)
-**Total axiom audits**: 76 statements
+**Total files**: 9 (5 TuringMachine + 1 TimeBridge + 2 ExecutionSemantics + 1 RWA)
+**Total lines**: ~10,000 lines (largest layer by far!)
 **Trust boundary**: 2 axioms (Church-Turing + semantic bridge)
-**Status**: All 10 files compile successfully
+**Status**: All 9 files compile successfully
 
 ---
 
