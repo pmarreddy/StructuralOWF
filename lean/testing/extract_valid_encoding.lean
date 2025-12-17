@@ -372,7 +372,7 @@ lemma properGateReq_eq_zero {v : Fin properDAG.n} (h : properGateReq v = true) :
   exact of_decide_eq_true h
 
 /-- wiring_in_seeds proof: R(v) ≥ segmentBudget for all gates -/
-theorem wiring_proof : ∀ v (h : properGateReq v),
+theorem wiring_proof : ∀ v (_ : properGateReq v),
     seedContainsDigest properInstanceFull v properGateDigest := by
   intro v h
   -- properGateReq v means v.val = 0
@@ -385,7 +385,7 @@ theorem wiring_proof : ∀ v (h : properGateReq v),
 /-- FrontierGateConfig -/
 def properFGConfig : FrontierGateConfig properInstanceFull :=
   { gateReq := properGateReq
-    gateDigest := fun ⟨v, h⟩ => properGateDigest
+    gateDigest := fun ⟨_, _⟩ => properGateDigest
     wiring_in_seeds := wiring_proof }
 
 /-- fg_emergence_bound: for any FG gate v and any subset C, sum(C, R) ≤ R(v).
@@ -797,3 +797,6 @@ The mathematical property (invertibility with correct key) is the same. -/
 #print axioms different_seeds_different_masks
 
 end OAPDemo
+
+/-- Dummy main for clean exit when run with `lake env lean --run`. -/
+def main : IO Unit := pure ()
