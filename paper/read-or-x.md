@@ -4073,44 +4073,46 @@ Equivalently: bs ∈ L\* iff bs is the canonical encoding of some yes-instance.
 
 **Encoding specification:** The canonical encoding Encode : X\* → {0,1}\* follows the Lean implementation's `Encodable` typeclass, documented in **Appendix D.5.2**. The encoding uses Elias-gamma-style length prefixes (no ASCII delimiters).
 
-**Minimal instance x₀\*:**
+**Valid instance x₀\*:**
 
-Take φ₀ = (x₁ ∨ x₂ ∨ x₃), a minimal 3-SAT formula. The reduction produces x₀\* ∈ X\* with:
-- n\_core = 3, m = 1
-- DAG G₀: single root node v₀ (depth 0, no parents)
-- Emergence: R\_{v₀} = 3, H\_{v₀} = I₃ (3×3 identity matrix, row-major bits)
+Take φ₀ = (x₁ ∨ x₂ ∨ x₃), a 3-SAT formula with nvars=4. The reduction produces x₀\* ∈ X\* satisfying all `LStarInstanceFG` constraints:
+- n = 4 (= nvars), m = 1
+- DAG G₀: 4-node linear chain (v₀ ← v₁ ← v₂ ← v₃)
+- Emergence: R = [4,0,0,0], H₀ = I₄ (4×4 identity at frontier gate v₀)
+- seedWidth = [4,0,0,0] (R × seedWidth = 16 ≤ n² = 16)
 - Pools: stride = 1000003 (prime)
 - Φ̃₀: EncodedCNF with maskedVar values 1,2,3 and maskedPolarity = false
+- FG: gateReq=[true,false,false,false], gateDigest with segmentBudget=4
 
 **The bitstring bs₀:**
 
-Applying Encode per D.5.2 yields a concrete 132-bit (17-byte) bitstring:
+Applying Encode per D.5.2 yields a concrete 248-bit (31-byte) bitstring:
 
 ```
-dd973b76f7ff447ffffd8485fbbab2dac0
+e3c7c95b3ee23dc47b8f1ffff4210b89c4e2fffff61217f1bab2dbd1ef1f40
 ```
 
 **Verification data:**
-- **Length:** 132 bits (17 bytes padded)
-- **SHA-256:** `c40a60a7fc817227b0a68b7506784e1f78bb04f5b54c69d11090c96c9892c503`
+- **Length:** 248 bits (31 bytes)
+- **SHA-256:** `316697da351fcdc766ac38f7c9d7b59b29edc68e523b06d1d73c2be22c83f9aa`
 - **Complete encoding (raw bytes):** `paper/artifacts/bs0_lean.bin`
 - **Annotated hex:** `paper/artifacts/bs0_lean.hex`
-- **Lean source:** `lean/testing/extract_minimal_encoding.lean`
+- **Lean source:** `lean/testing/extract_valid_encoding.lean`
 
 **Component breakdown:**
 
-The 132 bits decompose as three concatenated structures:
-- **base (RawLStarInstanceFull):** 99 bits
-  - n=3, dag={n=1, parents=[[]]}, seedWidth=[6], R=[3], emergence=[I₃], pools={stride=1000003}
-- **encodedφ (EncodedCNF):** 27 bits
-  - nvars=3, clauses=[{literals=[{1,false},{2,false},{3,false}]}]
-- **fg (RawFrontierGateConfig):** 6 bits
-  - gateReq=[true], gateDigests=[none]
+The 248 bits decompose as three concatenated structures:
+- **base (RawLStarInstanceFull):** 185 bits
+  - n=4, dag={n=4, parents=[[],[0],[1],[2]]}, seedWidth=[4,0,0,0], R=[4,0,0,0], emergence=[I₄,0,0,0], pools={stride=1000003}
+- **encodedφ (EncodedCNF):** 29 bits
+  - nvars=4, clauses=[{literals=[{1,false},{2,false},{3,false}]}]
+- **fg (RawFrontierGateConfig):** 34 bits
+  - gateReq=[true,false,false,false], gateDigests=[some{4,[T,F,F,F]},none,none,none]
 
 **Decode sketch (per D.5.2 encodeNat format):**
 
 The encoding uses prefix-free natural number encoding: encodeNat(n) = `1^len 0 bits(n)` (LSB-first). For example:
-- encodeNat(3) = `11 0 11` (5 bits)
+- encodeNat(4) = `111 0 001` (7 bits)
 - encodeNat(1000003) = 41 bits
 
 Lists encode as: unary length prefix (`1^n 0`) followed by concatenated elements.
@@ -4118,8 +4120,8 @@ Lists encode as: unary length prefix (`1^n 0`) followed by concatenated elements
 **Witness W₀ and Verify check:**
 
 - φ₀ decoded: literals x₁, x₂, x₃ (maskedVar=1,2,3; maskedPolarity=false for all)
-- W₀ = (1,1,1): all variables true → φ₀(W₀) = (1∨1∨1) = 1 ✓
-- Emergence: H₀ = I₃, row-major bits [1,0,0,0,1,0,0,0,1] → completeness holds ✓
+- W₀ = (1,1,1,0): first three variables true, fourth false → φ₀(W₀) = (1∨1∨1) = 1 ✓
+- Emergence: H₀ = I₄, row-major bits [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1] → completeness holds ✓
 
 **Membership in L\*:**
 
@@ -4133,7 +4135,7 @@ The verifier (§10.2) checks: seed chain consistency, emergence completeness H\_
 
 For a formula φ with n variables, |Encode(x\*)| = O(n³) bits (proven in `LStarEncoding.lean`). The membership argument is identical.
 
-**Why this matters:** L\* ⊆ {0,1}\* is explicitly defined. The 132-bit bitstring bs₀, identified by its SHA-256 hash, is a specific verifiable element of L\*. The encoding is exactly what Lean's `encodeBits` function produces—paper and implementation are aligned.
+**Why this matters:** L\* ⊆ {0,1}\* is explicitly defined. The 248-bit bitstring bs₀, identified by its SHA-256 hash, is a specific verifiable element of L\* satisfying all structural constraints. The encoding is exactly what Lean's `encodeBits` function produces—paper and implementation are aligned.
 
 ##### 6.9.6 Summary: Two-Stage Proof Architecture
 
@@ -9205,21 +9207,26 @@ where:
 4. Boolean lists: one bit per element
 5. Option encoding: `0` for none, `1 ‖ encode(value)` for some
 
-**Minimal Instance Example (see §6.9.5.1):**
+**Valid Instance Example (see §6.9.5.1):**
 
-For φ₀ = (x₁ ∨ x₂ ∨ x₃) with n\_core = 3, m = 1, the Lean encoding produces:
-- **Total bits:** 132 (padded to 17 bytes)
-- **Hex:** `dd973b76f7ff447ffffd8485fbbab2dac0`
-- **SHA-256:** `c40a60a7fc817227b0a68b7506784e1f78bb04f5b54c69d11090c96c9892c503`
+For φ₀ = (x₁ ∨ x₂ ∨ x₃) with n = 4, nvars = 4, the Lean encoding produces a valid `LStarInstanceFG` satisfying all structural constraints:
+- **Total bits:** 248 (31 bytes)
+- **Hex:** `e3c7c95b3ee23dc47b8f1ffff4210b89c4e2fffff61217f1bab2dbd1ef1f40`
+- **SHA-256:** `316697da351fcdc766ac38f7c9d7b59b29edc68e523b06d1d73c2be22c83f9aa`
 
 Component breakdown:
-- base (RawLStarInstanceFull): 99 bits
-- encodedφ (EncodedCNF): 27 bits
-- fg (RawFrontierGateConfig): 6 bits
+- base (RawLStarInstanceFull): 185 bits
+- encodedφ (EncodedCNF): 29 bits
+- fg (RawFrontierGateConfig): 34 bits
+
+**Constraint satisfaction** (see `paper/artifacts/bs0_lean.hex` for full verification):
+- dag\_size\_ge\_n: dag.n = 4 ≥ n = 4 ✓
+- R\_times\_seedWidth\_upper: R×sw = 16 ≤ n² = 16 ✓
+- gateDigest present with segmentBudget = 4 ≤ n ✓
 
 The complete encoding is provided in `paper/artifacts/bs0_lean.bin` (with annotated rendering in `paper/artifacts/bs0_lean.hex`).
 
-**Lean Implementation Reference:** See `lean/Layer5_Applications/PvsNP/ComplexityClasses/Encoding/LStarEncoding.lean` for the authoritative `Encodable` instances and `lean/testing/extract_minimal_encoding.lean` for the minimal instance construction.
+**Lean Implementation Reference:** See `lean/Layer5_Applications/PvsNP/ComplexityClasses/Encoding/LStarEncoding.lean` for the authoritative `Encodable` instances and `lean/testing/extract_valid_encoding.lean` for the valid instance construction.
 
 ---
 
