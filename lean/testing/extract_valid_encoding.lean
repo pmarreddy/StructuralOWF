@@ -13,13 +13,11 @@ it's valid? This file provides FOUR parts that together demonstrate the full mec
 ## The Four Parts (Logical Flow)
 
 ```
+Part 1: CONCRETE output         266-bit hex string: e3c7c95b...
+Part 2: PROOF of validity       Lean type-checks all 15+ constraints
 Part 3: HOW seed is derived     α → source → vars → FG → clause → seed
                                          ↓
 Part 4: HOW formula is hidden   seed → mask → encode(φ) → hidden φ
-                                         ↓
-Part 2: PROOF of validity       Lean type-checks all 15+ constraints
-                                         ↓
-Part 1: CONCRETE output         266-bit hex string: e3c7c95b...
 ```
 
 **File order**: Part 1 → Part 2 → Part 3 → Part 4 (follows logical dependency)
