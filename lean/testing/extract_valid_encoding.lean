@@ -33,6 +33,11 @@ AND LStarInstanceFull structural constraints, ensuring it represents an actual L
 - fg_emergence_sizing: W_min=1, c_lower=c_upper=1 → R(gate)=4=1*(4/1) ✓
 
 Instance: φ = (x₁ ∨ x₂ ∨ x₃), 4 variables, 4-node DAG, one frontier gate.
+
+**Note on constraint verification**: This file constructs a `RawLStarInstanceFG` directly
+and manually verifies constraints in comments. The constraints are satisfied but not
+type-checked by Lean (would require ~100 lines of proofs to lift to `LStarInstanceFG`).
+For the paper's purposes, manual verification suffices as this is an illustrative example.
 -/
 
 open LStar
