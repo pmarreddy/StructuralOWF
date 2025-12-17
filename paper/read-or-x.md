@@ -4065,6 +4065,8 @@ This convention simplifies notation while preserving precision. The distinction 
 
 ##### 6.9.5 Bitstring Language (Preview)
 
+**Note on notation:** This subsection previews the §10.6.4 definition. Here we temporarily use "L\*" to denote the bitstring language (anticipating §10.6), even though the §6.9.4 convention reserves "L\*" for L\*\_struct until §10.6. This preview is for orientation only; the formal treatment appears in §10.6.
+
 **Definition 6.9.5 (Bitstring Language L\*, preview).** In §10.6.4, we define the bitstring language as the Encode-image of L\*\_struct:
 
 L\* ⊆ {0,1}\*  :=  { bs | ∃ x\* ∈ L\*\_struct, Encode(x\*) = bs }
@@ -9185,6 +9187,8 @@ Bottom line. Even without hardware "addresses," k-tape TMs realize the address-p
 #### D.5.2 Canonical Instance Encoding (Normative Specification)
 
 **Purpose:** This subsection provides the normative, bit-level specification for Encode : X\* → {0,1}\*. All references to "canonical encoding" in this paper refer to the Lean implementation's `Encodable` typeclass, documented here.
+
+**Disambiguation:** This encoding is distinct from the TM tape record format in §D.5 (which uses decimal lengths and ':' delimiters for address-pool records during computation). The record format describes how a Turing machine organizes pool data on its tapes; this subsection specifies how structured instances X\* are serialized to bitstrings for defining L\* ⊆ {0,1}\*.
 
 **Encoding Convention:** The encoding uses a prefix-free, self-delimiting format based on Elias-gamma-style length prefixes. No byte-level delimiters are used—the encoding is a pure bitstring. This enables unambiguous parsing without sentinel characters.
 
