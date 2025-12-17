@@ -4090,14 +4090,14 @@ Take φ₀ = (x₁ ∨ x₂ ∨ x₃), a 3-SAT formula with nvars=4. The reducti
 
 **The bitstring bs₀:**
 
-Applying Encode per D.5.2 yields a concrete 266-bit (34-byte) bitstring:
+Applying Encode per D.5.2 yields a concrete 266-bit bitstring (padded to 34 bytes):
 
 ```
 e3c7c95b3ee3c78f1f711ee3c7fffd0842e27138bffffd8485fc6eacb6f47bc7d000
 ```
 
 **Verification data:**
-- **Length:** 266 bits (34 bytes)
+- **Length:** 266 bits (padded to 34 bytes)
 - **SHA-256:** `c89ad28f941c8d3ffb170314c525a1c7dac3622693717ad3a9bd9b5231711722`
 - **Complete encoding (raw bytes):** `paper/artifacts/bs0_lean.bin`
 - **Annotated hex:** `paper/artifacts/bs0_lean.hex`
@@ -4131,7 +4131,7 @@ Lists encode as: unary length prefix (`1^n 0`) followed by concatenated elements
 
 bs₀ ∈ L\* because:
 1. bs₀ = Encode(x₀\*) per D.5.2 (Lean's `Encodable.encode`)
-2. x₀\* ∈ L\*\_struct: witness W₀ = (1,1,1) satisfies φ₀(W₀) = 1 and Verify(x₀\*, W₀) = 1
+2. x₀\* ∈ L\*\_struct: witness W₀ = (1,1,1,0) satisfies φ₀(W₀) = 1 and Verify(x₀\*, W₀) = 1
 
 The verifier (§10.2) checks: seed chain consistency, emergence completeness H\_{v₀} · x\_{v₀} = y\_{v₀}. All pass in O(1) time.
 
