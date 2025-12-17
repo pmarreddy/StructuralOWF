@@ -6266,9 +6266,9 @@ The following properties of Encode are established in Appendix D.5.
 
 *Proof:* Apply Decode to both sides; by E1, x\* = Decode(Encode(x\*)) = Decode(Encode(y\*)) = y\*. ∎
 
-**Corollary E1'' (Decode Poly-time).** On inputs in im(Encode), Decode runs in time O(|bs|).
+**Corollary E1'' (Decode Total Poly-time).** Decode halts in time O(|bs|) on every bs ∈ {0,1}\*, returning either x\* with Encode(x\*) = bs, or FAIL.
 
-*Proof:* The D.5 format is length-delimited; Decode parses left-to-right, reading each field's length prefix then its content. Total work is linear in |bs|. ∎
+*Proof:* The D.5 format is length-delimited; Decode parses left-to-right, reading each field's length prefix then its content. On valid encodings, this recovers x\*; on invalid inputs, parsing fails at some point. Either way, total work is linear in |bs|. ∎
 
 **Lemma E2 (Poly-time Computability).** Encode is computable in time poly(|x\*|).
 
