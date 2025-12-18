@@ -5,6 +5,7 @@ import Layer4_Operational.TuringMachine.TMEncoderDefs
 
 -- Time bridges (TM execution → information bounds)
 import Layer4_Operational.TimeBridge.TMAdapterExponential  -- Exponential profile
+import Layer4_Operational.TimeBridge.WC1Bridge             -- WC-1 based bridge (0 axioms)
 
 -- Execution semantics
 import Layer4_Operational.ExecutionSemantics.ExecutionSemantics
