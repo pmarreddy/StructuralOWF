@@ -12,7 +12,7 @@
 
 **Status**: Publication-ready. P≠NP proof complete; cryptographic scaffolds implemented.
 
-**Build**: All 45 files compile successfully.
+**Build**: All 46 files compile successfully.
 
 **Trust Boundary**: 2 axioms (Church-Turing thesis + information-theoretic keyedness bound).
 
@@ -44,7 +44,7 @@ Impagliazzo (1995) proposed five possible computational worlds based on the exis
 
 ## Overview
 
-- **Files**: 45 total (23 in PvsNP/, 22 in Crypto/)
+- **Files**: 46 total (24 in PvsNP/, 22 in Crypto/)
 - **Folders**: PvsNP/ (Common, ComplexityClasses, PrimaryPath) and Crypto/ (with PRG, Cryptomania, ZeroKnowledge subdirectories)
 - **Sorries**: 0 in core P≠NP path (complete formalization)
 - **Main Theorem**: `fpnefnp_implies_not_peqnp` (ParametricBitstringBridge.lean)
@@ -156,14 +156,17 @@ def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
 | Standard | Formalization |
 |----------|---------------|
 | f poly-time | `forward_polytime` field (output size ≤ C·n^k) |
-| ∀ PPT A | Not mechanized (see note below) |
+| ∀ PPT A | `∀ U : UniformOWFAdversary` (UniformPPTEmbedding.lean) |
 | ∀ poly-bounded families A | `∀ (A : Nat → StructuralOWFAdversary ...), (∀ n, … ≤ …) → …` |
 | Pr[invert] ≤ negl | `negligible_parametric 128 (avg_success_prob_n_exp ...)` |
 
-**Note (important)**: `SecurityProperty` quantifies over adversary families
-`A : Nat → StructuralOWFAdversary (Φ n).nvars` with a uniform polynomial-bounds constraint.
-This differs from the textbook “single uniform PPT adversary” quantifier (one program for all n);
-the informal embedding of a single uniform adversary into this family model is not mechanized here.
+**Textbook Form**: `UniformPPTEmbedding.lean` proves `SecurityProperty → TextbookOWFSecurity`,
+where `TextbookOWFSecurity` quantifies over `UniformOWFAdversary` (family with same TM via HEq
+and same bounds). This mechanizes the embedding from textbook uniform PPT to our family model.
+
+**Modeling Choice**: In Lean, "uniform PPT" is represented as a family indexed by n with proofs
+the underlying TM and polynomial bounds are constant across n (uniformity-by-structure), not
+literally a single TM taking 1^n as input. This is morally equivalent for the security claim.
 
 ### Witness
 
@@ -190,12 +193,14 @@ All paths derive from OWF existence. P≠NP paths share 2 axioms; OWF existence 
 |------|------|---------|-----------|
 | **Abstract** | StructuralOWFBridge.lean | `P_ne_NP` | `¬PeqNP_classical` |
 | **Bitstring** | BitstringOWF.lean | `exists_language_in_NP_not_in_P_clean` | `∃ L ⊆ {0,1}*, InNP L ∧ ¬InP L` |
-| **OWF Existence** | OWFExistence.lean | `OWF_exists` | `∃ Φ, IsOneWayPlantFlat Φ` |
+| **OWF Existence (Family)** | OWFExistence.lean | `OWF_exists` | `∃ Φ, IsOneWayPlantFlat Φ` |
+| **OWF Existence (Textbook)** | UniformPPTEmbedding.lean | `OWF_exists_textbook` | `∃ Φ prec, TextbookOWFSecurity Φ prec` |
 
-**Why three paths?**
+**Why four paths?**
 - **Abstract**: General type-theoretic formulation (works over any decidable type)
 - **Bitstring**: Matches standard complexity theory (L ⊆ {0,1}*, aligns with paper §10.6)
-- **OWF Existence**: Standard cryptographic form (Goldreich/Katz-Lindell textbook definition)
+- **OWF Existence (Family)**: Family-quantified security over poly-bounded adversary families
+- **OWF Existence (Textbook)**: Standard uniform PPT security (Goldreich/Katz-Lindell definition)
 
 ### Proof Flow
 
@@ -237,12 +242,13 @@ Core complexity class definitions and infrastructure:
 - **TMEncoding.lean**: TM encoding definitions
 - **UniformPPT.lean**: Uniform PPT interface
 
-#### PvsNP/PrimaryPath/ (8 files)
+#### PvsNP/PrimaryPath/ (9 files)
 Primary OWF → P≠NP path:
 - **CheckAxioms.lean**: Axiom verification
 - **EncodingHelpers.lean**: Encoding helper functions
-- **MainTheorems.lean**: **[FINAL PROOF FILE]** Official endpoint (`P_ne_NP`, `OWF_exists_main`)
-- **OWFExistence.lean**: Standard OWF existence theorem (Goldreich/Katz-Lindell form)
+- **MainTheorems.lean**: **[FINAL PROOF FILE]** Official endpoint (`P_ne_NP`, `OWF_exists_main`, `OWF_exists_textbook_main`)
+- **OWFExistence.lean**: OWF existence theorem (family-quantified SecurityProperty)
+- **UniformPPTEmbedding.lean**: Textbook OWF security (uniform PPT → family embedding)
 - **ParametricBitstringBridge.lean**: Main P≠NP theorem (`fpnefnp_implies_not_peqnp`)
 - **ParametricComplexity.lean**: Parametric FP/FNP families
 - **StructuralOWFBridge.lean**: OWF to FP≠FNP bridge
@@ -487,10 +493,13 @@ This distinction matters for cryptographic applications where OWFs are defined a
 
 | **Concept** | **File** | **Description** |
 |-------------|----------|-----------------|
-| **FINAL PROOF FILE** | PrimaryPath/MainTheorems.lean | Official endpoint: `P_ne_NP`, `OWF_exists_main` |
+| **FINAL PROOF FILE** | PrimaryPath/MainTheorems.lean | Official endpoint: `P_ne_NP`, `OWF_exists_main`, `OWF_exists_textbook_main` |
 | **P≠NP theorem** | PrimaryPath/ParametricBitstringBridge.lean | `fpnefnp_implies_not_peqnp` |
 | **OWF→FP≠FNP bridge** | PrimaryPath/StructuralOWFBridge.lean | OWF to FP≠FNP reduction |
-| **OWF existence** | PrimaryPath/OWFExistence.lean | `OWF_exists` (standard crypto form) |
+| **OWF existence (family)** | PrimaryPath/OWFExistence.lean | `OWF_exists` (family-quantified) |
+| **OWF existence (textbook)** | PrimaryPath/UniformPPTEmbedding.lean | `OWF_exists_textbook` (uniform PPT) |
+| **TextbookOWFSecurity** | PrimaryPath/UniformPPTEmbedding.lean | ∀ uniform PPT, Pr[invert] ≤ negl(n) |
+| **UniformOWFAdversary** | PrimaryPath/UniformPPTEmbedding.lean | Family with uniform TM (HEq) and bounds |
 | **IsOneWayPlantFlat** | PrimaryPath/OWFExistence.lean | OWF predicate over adversary families |
 | **CNFPreconditions** | PrimaryPath/OWFExistence.lean | 9 structural requirements |
 | **SecurityProperty** | PrimaryPath/OWFExistence.lean | ∀ poly-bounded families A, Pr[invert] ≤ negl(n) |
@@ -504,7 +513,7 @@ This distinction matters for cryptographic applications where OWFs are defined a
 
 ## Verification Checklist
 
-- [x] All 45 files compile successfully
+- [x] All 46 files compile successfully
 - [x] Zero sorries in core P≠NP path
 - [x] All audits show only standard Lean axioms + 2 foundation axioms
 - [x] Primary path: Zero bridge axioms (bitstrings)
@@ -533,7 +542,8 @@ This distinction matters for cryptographic applications where OWFs are defined a
 
 **Main Results**:
 - P≠NP theorem: `fpnefnp_implies_not_peqnp` (PrimaryPath/ParametricBitstringBridge.lean)
-- OWF existence: `OWF_exists` (PrimaryPath/OWFExistence.lean) — standard crypto form
+- OWF existence (family): `OWF_exists` (PrimaryPath/OWFExistence.lean)
+- OWF existence (textbook): `OWF_exists_textbook` (PrimaryPath/UniformPPTEmbedding.lean)
 
 **Final Proof Chain**:
 ```
@@ -610,4 +620,4 @@ See `BRIDGE_STATUS.md` for detailed status and next steps.
 
 ---
 
-**Last Updated**: 2025-12-16 (added OWF existence theorem in standard cryptographic form)
+**Last Updated**: 2025-12-18 (added TextbookOWFSecurity via UniformPPTEmbedding.lean)

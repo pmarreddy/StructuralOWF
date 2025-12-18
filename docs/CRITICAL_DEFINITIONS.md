@@ -1122,6 +1122,8 @@ def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
 - `security_implies_textbook`: Proves `SecurityProperty → TextbookOWFSecurity`
 - Uniform adversaries are poly-bounded families, so our definition implies textbook
 
+**Modeling Choice**: In Lean, "uniform PPT" is represented as a family indexed by n with proofs the underlying TM and polynomial bounds are constant across n (uniformity-by-structure), not literally a single TM taking 1^n as input. This is morally equivalent for the security claim but is a mechanization design choice.
+
 **Why Critical**:
 - **Relationship to textbook**: Implies textbook via `security_implies_textbook`
 - **Existence theorem**: `OWF_exists : ∃ Φ, IsOneWayPlantFlat Φ`
