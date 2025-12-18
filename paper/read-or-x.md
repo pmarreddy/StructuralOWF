@@ -4184,10 +4184,10 @@ None of these arguments reference bit patterns, parsing, or string manipulation.
 
 **Why encoding transfer works:** Since hardness comes from structure, any *admissible* encoding preserves it. We define admissibility precisely:
 
-**Definition (Admissible Encoding).** An encoding Enc : X\* → {0,1}\* is *admissible* if:
-1. **Injective**: Enc(x\*) = Enc(y\*) → x\* = y\* (no collisions)
-2. **Poly-time computable**: Enc runs in time poly(|x\*|)
-3. **Polynomial size bounds**: ∃ polynomials p, q such that p(n\_core) ≤ |Enc(x\*)| ≤ q(n\_core) where n\_core is the security parameter of x\*
+**Definition (Admissible Encoding).** An encoding Encode : X\* → {0,1}\* is *admissible* if:
+1. **Injective**: Encode(x\*) = Encode(y\*) → x\* = y\* (no collisions)
+2. **Poly-time computable**: Encode runs in time poly(|x\*|)
+3. **Polynomial size bounds**: ∃ polynomials p, q such that p(n\_core) ≤ |Encode(x\*)| ≤ q(n\_core) where n\_core is the security parameter of x\*
 
 Our canonical Encode (Appendix D.5) satisfies all three:
 - Injectivity: Lemma E1' (via unique decodability)
