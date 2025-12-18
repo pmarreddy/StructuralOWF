@@ -11,7 +11,7 @@ import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFSizedInstances
 
 **Definitions**: InP, InFP, InFNP, InNP (RandAdv-based with poly bounds).
 
-**Theorems**: p_subset_np_logical (P ⊆ NP_Logical).
+**Theorems**: p_has_witness_structure (P ⊆ HasWitnessStructure).
 
 **Size Function**: All definitions use the Sized typeclass to make input size
 explicit and unambiguous. This eliminates the abstraction gap between "input x"
@@ -118,7 +118,7 @@ def PeqNP_classical : Prop :=
 #print axioms InFP
 #print axioms InFNP
 #print axioms InNP
-#print axioms p_subset_np_logical
+#print axioms p_has_witness_structure
 #print axioms PeqNP_classical
 
 end LStar.Complexity
