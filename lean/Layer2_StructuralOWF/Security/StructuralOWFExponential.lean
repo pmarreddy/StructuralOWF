@@ -1398,18 +1398,8 @@ theorem f_is_structural_owf_exponential_flat
   -- Extract clause bound constants early (needed for combined threshold)
   obtain ⟨C_cl, k_cl, h_C_cl_pos, h_k_cl_pos, h_clauses_bound⟩ := h_clauses_poly
 
-  -- Compute asymptotic dominance threshold for uniform parameters
-  obtain ⟨n₀_uniform, h_asymp_uniform⟩ := exponential_dominates_poly_general C_uniform k_uniform h_C_uni_pos h_k_uni_pos
-
-  -- Compute adjusted threshold for coefficient 2^k * C (needed for +1 handling)
-  have h_C_adjusted_pos_early : 2 ^ k_uniform * C_uniform > 0 := by
-    apply Nat.mul_pos
-    · apply Nat.pow_pos; omega
-    · exact h_C_uni_pos
-  obtain ⟨n₀_adjusted_exp, h_exp_adjusted⟩ := exponential_dominates_poly_general
-    (2 ^ k_uniform * C_uniform) k_uniform h_C_adjusted_pos_early h_k_uni_pos
-
   -- Compute combined threshold for the full polynomial from size L bound
+  -- Using exponential_dominates_poly_general_minus_one for WC1Bridge (gives 2^n - 1 > poly)
   -- Upper bound polynomial: C_uniform * (4 * C_cl * nvars^k_cl + 1)^k_uniform
   -- For nvars ≥ 1: 4*C_cl*nvars^k_cl + 1 ≤ 8*C_cl*nvars^k_cl
   -- So (...)^k_uniform ≤ (8*C_cl)^k_uniform * nvars^(k_cl*k_uniform)
@@ -1420,30 +1410,17 @@ theorem f_is_structural_owf_exponential_flat
     apply Nat.pow_pos
     omega
   have h_k_combined_pos : k_cl * k_uniform > 0 := Nat.mul_pos h_k_cl_pos h_k_uni_pos
-  obtain ⟨n₀_combined, h_exp_combined⟩ := exponential_dominates_poly_general
+  obtain ⟨n₀_combined, h_exp_combined⟩ := exponential_dominates_poly_general_minus_one
     (C_uniform * (8 * C_cl) ^ k_uniform) (k_cl * k_uniform) h_C_combined_pos h_k_combined_pos
 
-  -- Security parameter threshold: max(k, n₀_uniform, n₀_adjusted_exp, n₀_combined)
-  let N := max k (max n₀_uniform (max n₀_adjusted_exp n₀_combined))
+  -- Security parameter threshold
+  let N := max k n₀_combined
   refine ⟨N, ?_⟩
   intro n hn
   have hn_ge_N : n.val ≥ N := hn
-  -- N = max k (max n₀_uniform (max n₀_adjusted_exp n₀_combined))
+  -- N = max k n₀_combined
   have hn_ge_k : n.val ≥ k := Nat.le_trans (Nat.le_max_left k _) hn_ge_N
-  have hn_ge_n₀_uniform : n.val ≥ n₀_uniform := by
-    calc n.val
-        ≥ max n₀_uniform (max n₀_adjusted_exp n₀_combined) := Nat.le_trans (Nat.le_max_right k _) hn_ge_N
-      _ ≥ n₀_uniform := Nat.le_max_left n₀_uniform _
-  have hn_ge_n₀_adjusted_exp : n.val ≥ n₀_adjusted_exp := by
-    calc n.val
-        ≥ max n₀_uniform (max n₀_adjusted_exp n₀_combined) := Nat.le_trans (Nat.le_max_right k _) hn_ge_N
-      _ ≥ max n₀_adjusted_exp n₀_combined := Nat.le_max_right n₀_uniform _
-      _ ≥ n₀_adjusted_exp := Nat.le_max_left n₀_adjusted_exp n₀_combined
-  have hn_ge_n₀_combined : n.val ≥ n₀_combined := by
-    calc n.val
-        ≥ max n₀_uniform (max n₀_adjusted_exp n₀_combined) := Nat.le_trans (Nat.le_max_right k _) hn_ge_N
-      _ ≥ max n₀_adjusted_exp n₀_combined := Nat.le_max_right n₀_uniform _
-      _ ≥ n₀_combined := Nat.le_max_right n₀_adjusted_exp n₀_combined
+  have hn_ge_n₀_combined : n.val ≥ n₀_combined := Nat.le_trans (Nat.le_max_right k _) hn_ge_N
 
   have h_k_pos : 0 < k := Nat.lt_of_lt_of_le (by decide : 0 < 128) h_k
   have hn_ge_128 : n.val ≥ 128 := Nat.le_trans h_k hn_ge_k
@@ -1648,8 +1625,8 @@ theorem f_is_structural_owf_exponential_flat
   have h_planted_inst : ∃ n' φ' r' h_nvars h_aligned, L = plant_flat n' φ' r' h_nvars h_aligned ∧ WellFormedRandomness_flat φ' r' := by
     refine ⟨n.val, (Φ n.val), r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-  -- Lower bound: Prove 2^R ≤ haltTime using exponential profile time bound
-  have h_hyp2 : 2^(L.R v_fg.val) ≤ haltTime := by
+  -- Lower bound: Prove haltTime ≥ 2^R - 1 using WC1Bridge (weaker axiom)
+  have h_hyp2 : haltTime ≥ 2^(L.R v_fg.val) - 1 := by
     -- Define singleton cut for this FG gate
     let C : Finset (Fin L.dag.n) := {v_fg.val}
 
@@ -1852,9 +1829,10 @@ theorem f_is_structural_owf_exponential_flat
         L = plant_flat n' (Φ n.val) r' h_nvars' h_aligned' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-    exact Foundations.FlatProfile.fg_first_commit_time_lower_bound_encoded
+    -- Use WC1Bridge axiom (weaker than original)
+    exact Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
       L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
-      (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent h_tm_time_pos
+      (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
       extractWitness (A n.val).extractWitness_covers_bounded_assignments
       v_fg h_planted_inst h_halts_enc (Φ n.val) h_φ_match h_tm_correct
 
@@ -1871,14 +1849,14 @@ theorem f_is_structural_owf_exponential_flat
     exact plant_flat_R_eq_nvars n.val (Φ n.val) r_star h_nvars_ge_4 h_aligned_n v_fg.val v_fg.property
 
   -- Derive contradiction between exponential lower and polynomial upper bounds.
-  -- Lower bound: 2^nvars ≤ haltTime (from information-theoretic analysis)
+  -- Lower bound: 2^nvars - 1 ≤ haltTime (from WC1Bridge information-theoretic analysis)
   -- Upper bound: haltTime ≤ C_uniform * nvars^k_uniform (from PPT constraint)
-  -- Contradiction: 2^nvars > C_uniform * nvars^k_uniform (exponential dominance)
+  -- Contradiction: 2^nvars - 1 > C_uniform * nvars^k_uniform (exponential dominance)
 
-  -- Express lower bound in terms of nvars
-  have h_lower_nvars : 2^((Φ n.val).nvars) ≤ haltTime := by
-    calc 2^((Φ n.val).nvars)
-        = 2^(L.R v_fg.val) := by rw [h_R_eq_nvars]
+  -- Express lower bound in terms of nvars (using 2^nvars - 1)
+  have h_lower_nvars : 2^((Φ n.val).nvars) - 1 ≤ haltTime := by
+    calc 2^((Φ n.val).nvars) - 1
+        = 2^(L.R v_fg.val) - 1 := by rw [h_R_eq_nvars]
       _ ≤ haltTime := h_hyp2
 
   -- Express upper bound in terms of nvars
@@ -2006,24 +1984,24 @@ theorem f_is_structural_owf_exponential_flat
       _ = (8 * C_cl) ^ k_uniform * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
           rw [← Nat.pow_mul]
 
-  -- Apply exponential dominance for combined polynomial
-  have h_exp_combined_applied : 2^((Φ n.val).nvars) > (C_uniform * (8 * C_cl) ^ k_uniform) * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
+  -- Apply exponential dominance for combined polynomial (using 2^n - 1 from WC1Bridge)
+  have h_exp_combined_applied : 2^((Φ n.val).nvars) - 1 > (C_uniform * (8 * C_cl) ^ k_uniform) * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
     exact h_exp_combined (Φ n.val).nvars h_nvars_ge_n0_combined
 
-  have h_exp_dom_combined : 2^((Φ n.val).nvars) > C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
+  have h_exp_dom_combined : 2^((Φ n.val).nvars) - 1 > C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
     calc C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
         ≤ C_uniform * ((8 * C_cl) ^ k_uniform * (Φ n.val).nvars ^ (k_cl * k_uniform)) := by
           apply Nat.mul_le_mul_left
           exact h_outer_pow_adjust
       _ = (C_uniform * (8 * C_cl) ^ k_uniform) * (Φ n.val).nvars ^ (k_cl * k_uniform) := by ring
-      _ < 2^((Φ n.val).nvars) := h_exp_combined_applied
+      _ < 2^((Φ n.val).nvars) - 1 := h_exp_combined_applied
 
-  -- Derive final contradiction
-  have : 2^((Φ n.val).nvars) > 2^((Φ n.val).nvars) := by
-    calc 2^((Φ n.val).nvars)
+  -- Derive final contradiction (using 2^nvars - 1)
+  have : 2^((Φ n.val).nvars) - 1 > 2^((Φ n.val).nvars) - 1 := by
+    calc 2^((Φ n.val).nvars) - 1
         ≤ haltTime := h_lower_nvars
       _ ≤ C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := h_upper_nvars
-      _ < 2^((Φ n.val).nvars) := h_exp_dom_combined
+      _ < 2^((Φ n.val).nvars) - 1 := h_exp_dom_combined
 
   exact Nat.lt_irrefl _ this
 
@@ -2087,46 +2065,24 @@ theorem f_is_structural_owf_exponential_true
   -- Extract clause bound constants early
   obtain ⟨C_cl, k_cl, h_C_cl_pos, h_k_cl_pos, h_clauses_bound⟩ := h_clauses_poly
 
-  -- Compute asymptotic dominance threshold for uniform parameters
-  obtain ⟨n₀_uniform, h_asymp_uniform⟩ := exponential_dominates_poly_general C_uniform k_uniform h_C_uni_pos h_k_uni_pos
-
-  -- Compute adjusted threshold for coefficient 2^k * C
-  have h_C_adjusted_pos_early : 2 ^ k_uniform * C_uniform > 0 := by
-    apply Nat.mul_pos
-    · apply Nat.pow_pos; omega
-    · exact h_C_uni_pos
-  obtain ⟨n₀_adjusted_exp, h_exp_adjusted⟩ := exponential_dominates_poly_general
-    (2 ^ k_uniform * C_uniform) k_uniform h_C_adjusted_pos_early h_k_uni_pos
-
-  -- Compute combined threshold
+  -- Compute combined threshold for the full polynomial from size L bound
+  -- Using exponential_dominates_poly_general_minus_one for WC1Bridge (gives 2^n - 1 > poly)
   have h_C_combined_pos : C_uniform * (8 * C_cl) ^ k_uniform > 0 := by
     apply Nat.mul_pos h_C_uni_pos
     apply Nat.pow_pos
     omega
   have h_k_combined_pos : k_cl * k_uniform > 0 := Nat.mul_pos h_k_cl_pos h_k_uni_pos
-  obtain ⟨n₀_combined, h_exp_combined⟩ := exponential_dominates_poly_general
+  obtain ⟨n₀_combined, h_exp_combined⟩ := exponential_dominates_poly_general_minus_one
     (C_uniform * (8 * C_cl) ^ k_uniform) (k_cl * k_uniform) h_C_combined_pos h_k_combined_pos
 
   -- Security parameter threshold
-  let N := max k (max n₀_uniform (max n₀_adjusted_exp n₀_combined))
+  let N := max k n₀_combined
   refine ⟨N, ?_⟩
   intro n hn
   have hn_ge_N : n.val ≥ N := hn
+  -- N = max k n₀_combined
   have hn_ge_k : n.val ≥ k := Nat.le_trans (Nat.le_max_left k _) hn_ge_N
-  have hn_ge_n₀_uniform : n.val ≥ n₀_uniform := by
-    calc n.val
-        ≥ max n₀_uniform (max n₀_adjusted_exp n₀_combined) := Nat.le_trans (Nat.le_max_right k _) hn_ge_N
-      _ ≥ n₀_uniform := Nat.le_max_left n₀_uniform _
-  have hn_ge_n₀_adjusted_exp : n.val ≥ n₀_adjusted_exp := by
-    calc n.val
-        ≥ max n₀_uniform (max n₀_adjusted_exp n₀_combined) := Nat.le_trans (Nat.le_max_right k _) hn_ge_N
-      _ ≥ max n₀_adjusted_exp n₀_combined := Nat.le_max_right n₀_uniform _
-      _ ≥ n₀_adjusted_exp := Nat.le_max_left n₀_adjusted_exp n₀_combined
-  have hn_ge_n₀_combined : n.val ≥ n₀_combined := by
-    calc n.val
-        ≥ max n₀_uniform (max n₀_adjusted_exp n₀_combined) := Nat.le_trans (Nat.le_max_right k _) hn_ge_N
-      _ ≥ max n₀_adjusted_exp n₀_combined := Nat.le_max_right n₀_uniform _
-      _ ≥ n₀_combined := Nat.le_max_right n₀_adjusted_exp n₀_combined
+  have hn_ge_n₀_combined : n.val ≥ n₀_combined := Nat.le_trans (Nat.le_max_right k _) hn_ge_N
 
   have h_k_pos : 0 < k := Nat.lt_of_lt_of_le (by decide : 0 < 128) h_k
   have hn_ge_128 : n.val ≥ 128 := Nat.le_trans h_k hn_ge_k
@@ -2292,8 +2248,8 @@ theorem f_is_structural_owf_exponential_true
   have h_planted_inst : ∃ n' φ' r' h_nvars h_aligned, L = plant_flat n' φ' r' h_nvars h_aligned ∧ WellFormedRandomness_flat φ' r' := by
     refine ⟨n.val, (Φ n.val), r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-  -- Lower bound: 2^R ≤ haltTime
-  have h_hyp2 : 2^(L.R v_fg.val) ≤ haltTime := by
+  -- Lower bound: haltTime ≥ 2^R - 1 using WC1Bridge (weaker axiom)
+  have h_hyp2 : haltTime ≥ 2^(L.R v_fg.val) - 1 := by
     let C : Finset (Fin L.dag.n) := {v_fg.val}
 
     have h_R_nontrivial : L.R v_fg.val ≥ 2 := by
@@ -2463,9 +2419,10 @@ theorem f_is_structural_owf_exponential_true
         L = plant_flat n' (Φ n.val) r' h_nvars' h_aligned' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-    exact Foundations.FlatProfile.fg_first_commit_time_lower_bound_encoded
+    -- Use WC1Bridge axiom (weaker than original)
+    exact Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
       L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
-      (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent h_tm_time_pos
+      (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
       extractWitness (A n.val).extractWitness_covers_bounded_assignments
       v_fg h_planted_inst h_halts_enc (Φ n.val) h_φ_match h_tm_correct
 
@@ -2477,9 +2434,10 @@ theorem f_is_structural_owf_exponential_true
   have h_R_eq_nvars : L.R v_fg.val = (Φ n.val).nvars := by
     exact plant_flat_R_eq_nvars n.val (Φ n.val) r_star h_nvars_ge_4 (h_aligned n.val hn_ge_k) v_fg.val v_fg.property
 
-  have h_lower_nvars : 2^((Φ n.val).nvars) ≤ haltTime := by
-    calc 2^((Φ n.val).nvars)
-        = 2^(L.R v_fg.val) := by rw [h_R_eq_nvars]
+  -- Express lower bound in terms of nvars (using 2^nvars - 1)
+  have h_lower_nvars : 2^((Φ n.val).nvars) - 1 ≤ haltTime := by
+    calc 2^((Φ n.val).nvars) - 1
+        = 2^(L.R v_fg.val) - 1 := by rw [h_R_eq_nvars]
       _ ≤ haltTime := h_hyp2
 
   have h_size_L_eq : Sized.size L = L.dag.n := rfl
@@ -2573,55 +2531,48 @@ theorem f_is_structural_owf_exponential_true
       _ = (8 * C_cl) ^ k_uniform * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
           rw [← Nat.pow_mul]
 
-  have h_exp_combined_applied : 2^((Φ n.val).nvars) > (C_uniform * (8 * C_cl) ^ k_uniform) * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
+  -- Apply exponential dominance for combined polynomial (using 2^n - 1 from WC1Bridge)
+  have h_exp_combined_applied : 2^((Φ n.val).nvars) - 1 > (C_uniform * (8 * C_cl) ^ k_uniform) * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
     exact h_exp_combined (Φ n.val).nvars h_nvars_ge_n0_combined
 
-  have h_exp_dom_combined : 2^((Φ n.val).nvars) > C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
+  have h_exp_dom_combined : 2^((Φ n.val).nvars) - 1 > C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
     calc C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
         ≤ C_uniform * ((8 * C_cl) ^ k_uniform * (Φ n.val).nvars ^ (k_cl * k_uniform)) := by
           apply Nat.mul_le_mul_left
           exact h_outer_pow_adjust
       _ = (C_uniform * (8 * C_cl) ^ k_uniform) * (Φ n.val).nvars ^ (k_cl * k_uniform) := by ring
-      _ < 2^((Φ n.val).nvars) := h_exp_combined_applied
+      _ < 2^((Φ n.val).nvars) - 1 := h_exp_combined_applied
 
-  have : 2^((Φ n.val).nvars) > 2^((Φ n.val).nvars) := by
-    calc 2^((Φ n.val).nvars)
+  -- Derive final contradiction (using 2^nvars - 1)
+  have : 2^((Φ n.val).nvars) - 1 > 2^((Φ n.val).nvars) - 1 := by
+    calc 2^((Φ n.val).nvars) - 1
         ≤ haltTime := h_lower_nvars
       _ ≤ C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := h_upper_nvars
-      _ < 2^((Φ n.val).nvars) := h_exp_dom_combined
+      _ < 2^((Φ n.val).nvars) - 1 := h_exp_dom_combined
 
   exact Nat.lt_irrefl _ this
 
-/-! ## WC1Bridge Alternative Path
+/-! ## WC1Bridge Axiom (Current Implementation)
 
-The following documentation describes how to use the weaker WC1Bridge axiom
+The main theorems now use the weaker WC1Bridge axiom
 (`tm_correctness_implies_unitrefute_history`) instead of the original axiom
 (`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`).
 
-**Key differences**:
+**Key properties**:
 - WC1Bridge gives bound `haltTime ≥ 2^R - 1` instead of `haltTime ≥ 2^R`
 - Uses `exponential_dominates_poly_general_minus_one` to handle the `-1`
 - Both bounds are sufficient for P≠NP since `2^R - 1` is still exponential
 
-**How to use WC1Bridge in the main theorems**:
+**Why WC1Bridge is semantically weaker**:
+- Original axiom: "TM visits all 2^R encoder values" (surjectivity claim about TM behavior)
+- WC1Bridge axiom: "Valid refutation history exists" (existence claim about mathematical structure)
 
-To convert `f_is_structural_owf_exponential_flat` or `f_is_structural_owf_exponential_true`
-to use the weaker WC1Bridge axiom, make these changes:
+The WC1Bridge axiom doesn't require the TM to actually visit all values—it only requires
+that a valid `UnitRefuteHistory` structure can be constructed. The time bound is then
+DERIVED via the `time_bounds_refutations` theorem (proven, 0 custom axioms), not assumed.
 
-1. Replace the call to `Foundations.FlatProfile.fg_first_commit_time_lower_bound_encoded`
-   with `Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom`
-
-2. Change the dominance threshold computation to use `exponential_dominates_poly_general_minus_one`
-   instead of `exponential_dominates_poly_general`
-
-3. Update the contradiction derivation to use `2^nvars - 1` instead of `2^nvars`
-
-The core reasoning is identical - both `2^n` and `2^n - 1` are exponential and dominate
-any polynomial for sufficiently large n.
-
-**Trust boundary**: These changes would make the theorems depend on
-`tm_correctness_implies_unitrefute_history` which is semantically weaker than the
-original axiom. See `docs/AXIOM_FINAL_COUNT.md` for details.
+**Trust boundary**: The theorems depend on `tm_correctness_implies_unitrefute_history`.
+See `docs/AXIOM_FINAL_COUNT.md` for details.
 -/
 
 -- Verify the dominance lemma for WC1Bridge works correctly
