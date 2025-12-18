@@ -77,8 +77,8 @@ structure CNFPreconditions (Φ : CNFFamily) : Prop where
     strictly stronger than proving against fewer (single uniform). Any attack by a
     uniform PPT adversary is also an attack by the constant family.
 
-    **Bridge to Textbook**: See `uniform_ppt_as_constant_family` which shows uniform
-    PPT adversaries are a special case (constant families trivially satisfy the bound).
+    **Bridge to Textbook**: See `uniform_ppt_satisfies_poly_bound` which shows uniform
+    PPT adversaries (with equal bounds across n) trivially satisfy the constraint.
 
     **Experiment** (`avg_success_prob_n_exp`): Sample random assignment r,
     compute y = plant_flat(Φ(n), r), give y to adversary A(n), check if A(n)
@@ -109,7 +109,7 @@ def SecurityProperty (Φ : CNFFamily) (prec : CNFPreconditions Φ) : Prop :=
 
     **Conclusion**: SecurityProperty is strictly STRONGER than textbook OWF security.
     Proving security against poly-bounded families implies security against uniform PPT. -/
-theorem uniform_ppt_as_constant_family (Φ : CNFFamily) :
+theorem uniform_ppt_satisfies_poly_bound (Φ : CNFFamily) :
     ∀ (A : (n : Nat) → StructuralOWFAdversary (Φ n).nvars),
     (∀ n m, (A n).base.C = (A m).base.C ∧ (A n).base.k = (A m).base.k) →
     (∀ n, (A n).base.C ≤ (A 128).base.C ∧ (A n).base.k ≤ (A 128).base.k) := by
@@ -129,7 +129,7 @@ theorem uniform_ppt_as_constant_family (Φ : CNFFamily) :
     - Part 2 (hard to invert): `SecurityProperty` (stronger than textbook, see docstring)
 
     **Note**: Our SecurityProperty defends against non-uniform (family) adversaries,
-    which is strictly stronger than textbook uniform PPT. See `uniform_ppt_as_constant_family`. -/
+    which is strictly stronger than textbook uniform PPT. See `uniform_ppt_satisfies_poly_bound`. -/
 def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
   ∃ (prec : CNFPreconditions Φ), SecurityProperty Φ prec
 

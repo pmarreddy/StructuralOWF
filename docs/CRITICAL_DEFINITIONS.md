@@ -1113,7 +1113,7 @@ def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
 - **Ours**: Adversary FAMILIES `A : Nat → StructuralOWFAdversary` with poly bounds
 - **Constraint**: `(A n).base.C ≤ (A 128).base.C` ensures poly-boundedness across family
 - **Implication**: Defending against families ⊇ defending against uniform PPT
-- **Bridge lemma**: `uniform_ppt_as_constant_family` shows uniform PPT is a special case
+- **Bridge lemma**: `uniform_ppt_satisfies_poly_bound` shows uniform PPT is a special case
 
 **Why This is Sound**: Proving security against MORE adversaries (non-uniform families)
 is strictly stronger than proving against fewer (uniform PPT). Our proof establishes
