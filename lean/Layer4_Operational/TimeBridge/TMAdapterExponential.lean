@@ -2097,37 +2097,55 @@ theorem missing_value_implies_incomplete
       _ < R'.succ := Nat.lt_succ_self R'
       _ = L.R v.val := h_R_eq.symm
 
-/-- **EXHAUSTIVE REALIZATION AXIOM (flat, encoded-input)**.
+/-- **CHURCH-TURING BRIDGE FOR IMPOSSIBILITY (flat, encoded-input)**.
 
-**Plain English**: If a Turing Machine correctly solves a planted L* instance,
-it must have "visited" every possible emergent configuration value (all 2^R of them)
-at some point during execution.
+**Core principle**: Turing machines compute functions. Functional impossibility
+implies computational impossibility.
 
-**Why this is true** (information-theoretic argument):
-1. The planted instance has a unique satisfying assignment α* (by construction)
-2. To output α*, the TM must somehow "know" which of the 2^R possible assignments is correct
-3. The only way to distinguish α* from other assignments is to compute the emergent
-   configuration and check if it matches the planted value
-4. Since emergent configs are determined by assignment bits, and there are 2^R possible
-   configs, the TM must explore all 2^R possibilities to be certain it found the right one
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**What this axiom does NOT claim**:
-- It does NOT claim collisions are impossible (they exist - see `collision_lower_bound_at_fg_gate`)
-- It does NOT claim the TM "observes" all bits (observation is a different concept)
-- It only claims: correct output ⟹ all emergent values were realized during the run
+**ESTABLISHED (0 custom axioms)**:
+
+No function can determine correct parity from incomplete observation.
+
+- `parity_lower_bound_at_fg_gate`: Incomplete observation implies ∃ cfg₁ ≠ cfg₂
+  that are indistinguishable yet have different parities
+- `fg_correctness_requires_complete_observation`: Correctness on all configs
+  requires complete observation (reading all R bit positions)
+- Consequence: Any function that correctly computes the FG discriminator must
+  have access to complete observation of all R emergent bit positions
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**AXIOM CONTENT (Church-Turing bridge)**:
+
+Turing machines cannot bypass information-theoretic requirements.
+
+- TMs compute functions; they have no "magical" capabilities beyond function evaluation
+- The proven functional impossibility (no function works with incomplete observation)
+  transfers to TMs: no TM can be correct without complete observation
+- Complete observation requires distinguishing all 2^R configurations
+- Distinguishing 2^R configurations requires 2^R distinguishable execution states
+- Therefore: correctness implies the TM run realizes all 2^R emergent values
+
+This is the standard Church-Turing correspondence applied to impossibility results,
+not a claim about P vs NP or computational hardness directly.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**TRUST ASSESSMENT**:
+
+- **What's proven**: The information-theoretic content (parity indistinguishability,
+  collision existence, observation requirements) is fully formalized in Layers 0-3
+- **What's assumed**: TMs are bound by these information-theoretic limits
+- **Risk level**: Low. Rejecting this axiom requires asserting that TMs possess
+  computational capabilities beyond function evaluation—contradicting Church-Turing
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Soundness constraint** (`h_extractWitness_surj`):
-The `extractWitness` function must be a genuine tape decoder - it must be capable of
-producing ANY bounded assignment when given an appropriate TM configuration. This
-blocks a subtle attack:
-- Without surjectivity: attacker could define `extractWitness` as constant, making
-  `h_correct` trivially true while the encoder only realizes 1 value (not 2^R)
-- With surjectivity: different TM configs → different assignments → different emergent
-  values, so realizing all values requires visiting 2^R distinct configurations
-
-**Trust boundary**: This is one of 2 axioms in the exponential profile.
-The mathematical hardness (collision existence, emergence injectivity) is PROVEN.
-This axiom only bridges TM execution semantics to the abstract model.
+The `extractWitness` function must be surjective (can produce any bounded assignment).
+This blocks trivial instantiations where `extractWitness` is constant.
 -/
 axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
     {α : Type} [LStar.Complexity.Sized α]

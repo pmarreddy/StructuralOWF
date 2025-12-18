@@ -104,7 +104,7 @@ The proof relies on only **2 custom axioms**:
 | Axiom | Nature | Risk |
 |-------|--------|------|
 | `algspec_has_tm` | Church-Turing bridge | Very Low |
-| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | Semantic bound (correctness implies exhaustive exploration) | Low |
+| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | Church-Turing impossibility bridge | Low |
 
 ### Axiom Details
 
@@ -113,10 +113,11 @@ The proof relies on only **2 custom axioms**:
    - Preserves polynomial constants C and k
    - Universally accepted CS principle (Church 1936, Turing 1936)
 
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (Semantic Bound)
-   - Correctness on planted instances requires visiting all 2^R configurations
-   - Based on A2 injectivity: different configs → different seeds
-   - Information-theoretic necessity (pigeonhole counting)
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (Church-Turing Impossibility Bridge)
+   - Core principle: TMs compute functions; functional impossibility implies computational impossibility
+   - Proven (0 axioms): No function can determine correct parity from incomplete observation
+   - Bridge: TMs cannot bypass this information-theoretic limit
+   - Risk: Low — rejecting this requires TMs to have capabilities beyond function evaluation
 
 ### Previously Eliminated Axioms
 

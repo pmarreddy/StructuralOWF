@@ -59,8 +59,8 @@ The most common failure mode for formalized proofs: the paper claims one thing, 
 → Check: Run `#print axioms P_ne_NP` - exactly 2 custom axioms?
 → Expected output:
    - propext, Classical.choice, Quot.sound (standard Lean)
-   - algspec_has_tm (Church-Turing bridge)
-   - tm_correctness_implies_realizesAllValuesFrom_flat_encoded (semantic bound)
+   - algspec_has_tm (Church-Turing bridge, positive)
+   - tm_correctness_implies_realizesAllValuesFrom_flat_encoded (Church-Turing bridge, negative)
 → Reference: docs/AXIOM_FINAL_COUNT.md for authoritative count
 
 **Note**: `fg_lossless_encoding` was previously an axiom but is now fully proven (145-line theorem).
@@ -192,8 +192,8 @@ def PeqNP_classical : Prop :=
 **Method**:
 ```lean
 -- Paper claims 2 axioms (AXIOM_FINAL_COUNT.md):
--- 1. algspec_has_tm (Church-Turing bridge)
--- 2. tm_correctness_implies_realizesAllValuesFrom_flat_encoded (semantic bound)
+-- 1. algspec_has_tm (Church-Turing bridge, positive)
+-- 2. tm_correctness_implies_realizesAllValuesFrom_flat_encoded (Church-Turing bridge, negative)
 
 -- Verify via:
 #print axioms P_ne_NP
@@ -377,8 +377,8 @@ Each axiom is independently justifiable (see docs/AXIOM_FINAL_COUNT.md):
    - NOT Shannon's theorem specifically; rather, semantic requirement from injectivity
    - Risk: Low (math proven, uniformity requirement blocks non-uniform attacks)
 
-**Key Point**: Both axioms operate at the inversion/information layer (TM semantics,
-semantic bounds)—neither mentions P, NP, or complexity bounds.
+**Key Point**: Both axioms are Church-Turing bridges (TM-function correspondence)—
+neither mentions P, NP, or complexity bounds directly.
 The separation emerges from the construction, not the axioms.
 
 **Previously Eliminated Axioms**:

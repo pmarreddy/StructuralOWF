@@ -3864,9 +3864,9 @@ using bit-level manipulation and extraction lemmas.
 
 #### VECTOR 10.19.4: Axiom 4 - tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 
-**Goal**: Verify semantic bound axiom is barrier-safe
+**Goal**: Verify Church-Turing impossibility bridge axiom is barrier-safe
 
-**File**: `Layer4_Operational/TimeBridge/TMAdapterExponential.lean` (line 297)
+**File**: `Layer4_Operational/TimeBridge/TMAdapterExponential.lean`
 
 **Definition Summary**:
 ```lean

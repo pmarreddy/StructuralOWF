@@ -124,8 +124,8 @@ See **§1** of the paper for the full development of this perspective.
 | Compilation | ✅ Full build passes |
 
 ### The 2 Custom Axioms (Trust Boundary)
-1. **`algspec_has_tm`** (Church-Turing Bridge): Any algorithmic specification has a Turing machine implementation
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (Semantic Bound): Correctness on planted instances requires exhaustive exploration (pigeonhole principle)
+1. **`algspec_has_tm`** (Church-Turing Bridge, Positive): Any algorithmic specification has a Turing machine implementation
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (Church-Turing Bridge, Negative): Functional impossibility implies computational impossibility — TMs cannot bypass proven information-theoretic limits
 
 Note: `fg_lossless_encoding` was previously an axiom but is now fully proven (145-line theorem). See `docs/AXIOM_FINAL_COUNT.md` for details.
 

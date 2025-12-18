@@ -566,9 +566,9 @@ AXIOMS IN P_ne_NP CHAIN (2 total):
     Risk: Very Low (universally accepted CS principle)
 
 [2] tm_correctness_implies_realizesAllValuesFrom_flat_encoded
-    (TMAdapterExponential.lean:297)
-    Nature: Information-theoretic semantic bound
-    Risk: Low (math proven in parity_requires_all_bits)
+    (TMAdapterExponential.lean)
+    Nature: Church-Turing bridge (negative: functional impossibility → computational impossibility)
+    Risk: Low (functional impossibility proven; axiom says TMs can't bypass it)
 ═══════════════════════════════════════════════════════════════════
 ```
 

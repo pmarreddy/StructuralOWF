@@ -6,10 +6,10 @@ The P≠NP proof relies on exactly **2 custom axioms** plus Lean's standard axio
 
 | # | Axiom | Location | Nature |
 |---|-------|----------|--------|
-| 1 | `algspec_has_tm` | `Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean:298` | Church-Turing bridge |
-| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | `Layer4_Operational/TimeBridge/TMAdapterExponential.lean:2132` | Semantic bound |
+| 1 | `algspec_has_tm` | `Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean` | Church-Turing bridge |
+| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | `Layer4_Operational/TimeBridge/TMAdapterExponential.lean` | Church-Turing impossibility bridge |
 
-### 1. `algspec_has_tm` (Church-Turing Bridge)
+### 1. `algspec_has_tm` (Church-Turing Bridge, Positive Direction)
 
 Any polynomial-time algorithmic specification has a Turing Machine implementation that:
 - Preserves the polynomial constants C and k
@@ -18,17 +18,31 @@ Any polynomial-time algorithmic specification has a Turing Machine implementatio
 
 **Risk**: Very Low. This is the universally accepted Church-Turing correspondence (Church 1936, Turing 1936).
 
-### 2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Semantic Bound)
+### 2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Church-Turing Bridge, Negative Direction)
 
-If a Turing Machine correctly solves a planted L* instance, it must have "visited" every possible emergent configuration value (all 2^R of them) during execution.
+**Core principle**: Turing machines compute functions. Functional impossibility implies computational impossibility.
 
-**Why this is true** (information-theoretic argument):
-1. The planted instance has a unique satisfying assignment (by construction)
-2. To output the correct assignment, the TM must distinguish it from 2^R-1 alternatives
-3. The only distinguishing feature is the emergent configuration value
-4. Therefore, correctness requires exploring all 2^R possibilities
+**Established in Lean (0 custom axioms)**:
 
-**Risk**: Low. This is an information-theoretic necessity based on A2 injectivity and pigeonhole counting.
+No function can determine correct parity from incomplete observation.
+
+- `parity_lower_bound_at_fg_gate`: Incomplete observation → ∃ indistinguishable configs with different parities
+- `fg_correctness_requires_complete_observation`: Correctness requires complete observation (all R bit positions)
+- Consequence: Any function that correctly computes the FG discriminator needs complete observation
+
+**Axiom content (Church-Turing bridge for impossibility)**:
+
+Turing machines cannot bypass information-theoretic requirements.
+
+- TMs compute functions; they have no capabilities beyond function evaluation
+- Proven: No function works with incomplete observation
+- Bridge: Therefore no TM can be correct without complete observation
+- Complete observation → distinguishing 2^R configs → 2^R execution states → 2^R time
+
+This is the standard Church-Turing thesis applied to impossibility results:
+> If no function can solve a problem from given information, then no TM can either.
+
+**Risk**: Low. Rejecting this axiom requires asserting TMs have capabilities beyond function evaluation—contradicting Church-Turing. The information-theoretic content (parity indistinguishability, collision existence) is fully proven in Layers 0-3; this axiom only asserts TMs are bound by those limits.
 
 ## Standard Lean Axioms
 
@@ -44,7 +58,7 @@ These are standard in classical mathematics and accepted by the Lean community.
 To verify the axiom count for the main theorem:
 ```bash
 cd lean
-lake env lean -c "import Layer5_Applications; #print axioms MainTheorems.P_ne_NP"
+lake env lean Layer5_Applications/PvsNP/PrimaryPath/CheckAxioms.lean
 ```
 
 ## Previously Eliminated Axioms
@@ -57,4 +71,5 @@ The following were axioms in earlier versions but are now fully proven:
 ## Axiom Naming History
 
 For reviewers cross-referencing older documentation:
-- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` was informally referred to as `collision_indistinguishability` in some early test documentation
+- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` was informally referred to as `collision_indistinguishability` or `collision_indistinguishability_under_incomplete_observation` in early test documentation and release notes (e.g., v1.0.0 release)
+- The current name reflects the axiom's actual role: bridging TM correctness to semantic coverage

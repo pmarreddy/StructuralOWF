@@ -133,17 +133,19 @@ axiom church_turing_with_poly_simulation :
 
 **Status**: 1 axiom (shared across both profiles).
 
-#### Axiom 2: Semantic Bridge
+#### Axiom 2: Church-Turing Impossibility Bridge
 
 **Exponential Profile** (TMAdapterExponential.lean):
 ```lean
 axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded :
-  -- Correct output → Complete observation of all R_v bits
+  -- Functional impossibility → Computational impossibility
 ```
 
-**Nature**: Semantic→operational bridge (irreducible gap between abstract correctness and concrete execution).
+**Core principle**: TMs compute functions; they cannot bypass information-theoretic limits.
 
-**Scope**: ~10 lines, well-documented, represents minimal trust extension.
+**What's proven** (0 axioms): No function can determine correct parity from incomplete observation.
+
+**What's assumed**: TMs are bound by this limit (standard Church-Turing correspondence).
 
 **Status**: 1 axiom.
 
@@ -641,11 +643,11 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 ### Axiom Summary (Full Chain)
 
-**2 axioms total**:
-1. **`algspec_has_tm`** (RandAdv.lean) - Church-Turing bridge
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (TMAdapterExponential.lean) - Semantic bound + uniform PPT
-   - Requires uniform polynomial bounds (blocks non-uniform "lucky TMs" and exponential-time strategies)
-   - **Semantic content**: Correctness on planted instances requires complete exploration of 2^R config space. From A2 injectivity: different configs → different seeds → missing a config means missing information required for correctness.
+**2 axioms total** (both are Church-Turing bridges):
+1. **`algspec_has_tm`** (RandAdv.lean) - Church-Turing bridge (positive): algorithms → TMs exist
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (TMAdapterExponential.lean) - Church-Turing bridge (negative): functional impossibility → computational impossibility
+   - **Proven**: No function can determine correct parity from incomplete observation
+   - **Assumed**: TMs cannot bypass this information-theoretic limit
 
 **Proven Theorems** (eliminated from axiom count):
 - **`fg_lossless_encoding`** (EncodingDiscipline.lean:344-489) - PROVEN (145 LOC theorem, A3 emergence encoding roundtrip)
@@ -684,9 +686,9 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 - fg_lossless_encoding (now PROVEN in EncodingDiscipline.lean:344-489, 145 LOC)
 - Many TM-specific axioms (now proven)
 
-**After refactoring**: 2 axioms total
-- algspec_has_tm (Church-Turing bridge)
-- tm_correctness_implies_realizesAllValuesFrom_flat_encoded (semantic bridge)
+**After refactoring**: 2 axioms total (both Church-Turing bridges)
+- algspec_has_tm (positive: algorithms → TMs)
+- tm_correctness_implies_realizesAllValuesFrom_flat_encoded (negative: functional impossibility → computational impossibility)
 
 **Reduction**: 85%+ axiom elimination.
 

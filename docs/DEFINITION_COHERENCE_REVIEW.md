@@ -648,8 +648,8 @@ Excellent formalization:
 - fg_lossless_encoding → 145-line proof
 
 **Remaining axioms** (2 total):
-1. `algspec_has_tm` — Church-Turing bridge
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` — exhaustive exploration
+1. `algspec_has_tm` — Church-Turing bridge (positive: algorithms → TMs)
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` — Church-Turing bridge (negative: functional impossibility → computational impossibility)
 
 ---
 

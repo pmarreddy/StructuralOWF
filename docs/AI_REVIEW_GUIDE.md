@@ -50,8 +50,8 @@ What are the assumptions? Is there a gap between operational
 semantics and information flow?
 
 The tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom
-states that correctness requires exhaustive exploration. Is this
-a standard formulation? What would a counterexample look like?
+is framed as a Church-Turing bridge: functional impossibility implies
+computational impossibility. Is this standard? What would reject it?
 ```
 
 ---
