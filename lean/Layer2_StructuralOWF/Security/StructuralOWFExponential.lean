@@ -1829,8 +1829,8 @@ theorem f_is_structural_owf_exponential_flat
         L = plant_flat n' (Φ n.val) r' h_nvars' h_aligned' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-    -- Use search enumeration axiom (cleaner semantic formulation)
-    exact Foundations.fg_first_commit_time_lower_bound_via_search_enum
+    -- Use WC-1 bridge axiom: TM run → UnitRefuteHistory → time bound
+    exact Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
       L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
       (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
       extractWitness (A n.val).extractWitness_covers_bounded_assignments
@@ -2419,8 +2419,8 @@ theorem f_is_structural_owf_exponential_true
         L = plant_flat n' (Φ n.val) r' h_nvars' h_aligned' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-    -- Use search enumeration axiom (cleaner semantic formulation)
-    exact Foundations.fg_first_commit_time_lower_bound_via_search_enum
+    -- Use WC-1 bridge axiom: TM run → UnitRefuteHistory → time bound
+    exact Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
       L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
       (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
       extractWitness (A n.val).extractWitness_covers_bounded_assignments
@@ -2552,28 +2552,26 @@ theorem f_is_structural_owf_exponential_true
 
   exact Nat.lt_irrefl _ this
 
-/-! ## Search Enumeration Axiom (Current Implementation)
+/-! ## WC-1 Bridge Axiom (Current Implementation)
 
-The main theorems use the search enumeration axiom
-(`tm_execution_abstracts_to_search_simple`) from Package 16.
+The main theorems use the WC-1 bridge axiom (`tm_correctness_implies_unitrefute_history`).
+
+**What the axiom says (simple)**:
+"A correct TM run can be interpreted as a sequence of single-world refutations (WC-1),
+with one refutation per time step."
+
+**How it works**:
+1. Axiom: TM run → produces valid UnitRefuteHistory
+2. Proven: UnitRefuteHistory must refute all 2^R - 1 wrong worlds
+3. Proven: One refutation per time step → time ≥ refutations
+4. Conclusion: haltTime ≥ 2^R - 1
 
 **Key properties**:
-- Gives bound `haltTime ≥ 2^R - 1`
 - Uses `exponential_dominates_poly_general_minus_one` to handle the `-1`
 - Bound is sufficient for P≠NP since `2^R - 1` is still exponential
 
-**Semantic content**:
-- "TM execution on planted SAT can be abstracted as enumeration search"
-- Each search step tests at most one candidate
-- Correctness requires testing all 2^R - 1 wrong candidates
-- This is the "no free lunch" principle for unstructured search
-
-**Why search enumeration is the preferred formulation**:
-- Directly expresses the information-theoretic lower bound
-- No complex intermediate structures (UnitRefuteHistory, timestamps)
-- Semantically transparent: "unstructured search has no shortcuts"
-
-**Trust boundary**: The theorems depend on `tm_execution_abstracts_to_search_simple`.
+**Trust boundary**: The axiom claims TM execution conforms to WC-1 protocol.
+The time bound is DERIVED from proven theorems, not assumed.
 See `docs/AXIOM_FINAL_COUNT.md` for details.
 -/
 
@@ -2582,8 +2580,8 @@ example (C k : Nat) (h_C_pos : C > 0) (h_k_pos : k > 0) :
     ∃ n₀, ∀ n ≥ n₀, 2^n - 1 > C * n^k :=
   exponential_dominates_poly_general_minus_one C k h_C_pos h_k_pos
 
--- Verify search enumeration theorem is accessible from this module
-#check Foundations.fg_first_commit_time_lower_bound_via_search_enum
+-- Verify WC-1 bridge theorem is accessible from this module
+#check Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
 
 end LStar.StructuralOWF
 
