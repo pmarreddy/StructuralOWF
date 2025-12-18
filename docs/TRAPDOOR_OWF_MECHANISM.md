@@ -161,14 +161,15 @@ This document builds the trapdoor mechanism progressively. Use this map to find 
   - Example: Variable node i gets entropy bit = r.assignment(i)
 - **FG gate seed**: Seed at FrontierGate; first `numGates` clause nodes
   - R emergence bits from emergentConfig (ALL R bits, not just parity)
-  - dgLen-bit digest stored in r.gateDigests (dgLen ≥ R)
+  - dgLen-bit digest stored in r.gateDigests (exponential profile: dgLen ≥ n)
   - A3 independence of R bits → 2^R configurations to search
 - **Non-FG clause seed**: Seed for remaining clause nodes (R_v = 0)
   - Parents include FG gates → depends on FG emergence (bottleneck!)
 - **Mask**: A value XORed with plaintext to hide it; computed from clause seed
   - Example: mask = (0x1234, true)
 - **x***: The public instance (LStarInstanceFG) — what inverter sees
-  - Contains: encodedφ, DAG, digest
+  - Contains: encodedφ, DAG structure, FG digest, emergence matrices
+  - Does NOT contain the secret assignment α (that's in `Randomness`)
 - **OAP**: "Overlay-as-Problem" — the seed-locking mechanism
   - φ hidden inside encodedφ
 - **R_v (emergence rank)**: Number of independent bits at node v
@@ -176,8 +177,8 @@ This document builds the trapdoor mechanism progressively. Use this map to find 
   - R_v = n **at FG gates** (exponential hardness)
   - A3 guarantees these bits are linearly independent
 - **FrontierGate digest**: dgLen-bit value stored in r.gateDigests
-  - dgLen ≥ 64 bits (R = n for emergence rank)
-  - WellFormedRandomness requires: ALL R bits match emergentConfig
+  - `WellFormedRandomness_flat` (exponential profile) requires: `dgLen ≥ n` and ALL R bits match emergentConfig
+  - R = n at FG gates (exponential profile)
   - Stored in x* as `gateDigests` (from randomness r)
 
 ---
@@ -1038,7 +1039,7 @@ structure LStarInstanceFG extends LStarInstanceFull where
 | Hardness bound | 2^n (exponential) |
 | Mechanism | FG bottleneck with R-bit emergence |
 
-### Paper vs Implementation: PRF vs Random Memory
+### Paper vs Implementation: Direct Computation vs Random Memory
 
 **Paper model** (§10.1.1): Masks stored in random memory, accessed via seed-derived addresses:
 ```
@@ -1046,36 +1047,49 @@ address = F_overlay(seed, clauseIdx, litIdx)
 mask = payload[address]   // Read from pre-filled random memory
 ```
 
-**Implementation** (OAPEncoding.lean): Masks computed directly via hash/PRF:
+**Implementation** (OAPEncoding.lean): Masks computed directly via deterministic mixer:
 ```lean
 mask = computeLiteralMask(seed, clauseIdx, litIdx)
      = hash(seed) + clauseIdx * 997 + litIdx * 991
 ```
 
-**Why equivalent**: Both achieve the same security property:
-- Without the correct seed, the mask is unpredictable
+**Why equivalent**: Both achieve deterministic mask computation:
+- Without the correct seed, the mask cannot be computed
 - With the correct seed, the mask is deterministic and reproducible
-- The hash function acts as a PRF (pseudorandom function)
+- Security comes from **seed inaccessibility** (FG bottleneck), not hash properties
 
-**Why PRF is simpler**:
+**Why direct computation is simpler**:
 - No need to store/transmit random memory
 - Mask is recomputable from seed alone
 - Smaller instance size (no payload field)
-- Same security guarantee (PRF indistinguishability)
+
+**Note**: `hashSeed` is NOT cryptographic—it simply extracts `s.val` (see Pools.lean:144-148).
+A cryptographic PRF could be substituted in engineering, but that's not what's formalized.
 
 The `structuralBits` in `Randomness` serve a different purpose: they salt the pool stride for address computation (A1 hermeticity), not for OAP masking.
 
-### WellFormedRandomness Constraints
+### Randomness Structure Constraints (RandomnessTypes.lean)
 
-From `EmergentConfig.lean`, the randomness r must satisfy:
+The `Randomness nvars` structure enforces:
 
-- `φ.satisfies r.assignment` — α must satisfy the formula
-- `φ.clauses.length ≥ numGates` — enough clauses for FG gates
-- **Digest consistency**: ALL R bits of `gateDigests[i]` must match `emergentConfigAtGate φ numGates r.assignment i`
+- `h_dgLen_pos`: dgLen > 0
 - `h_single_gate`: gateDigests.length = 1 (single FrontierGate)
 - `h_sufficient_salts`: structuralBits.length ≥ 64
 
+### WellFormedRandomness_flat Predicate (PlantExponential.lean)
+
+For the **exponential profile**, `WellFormedRandomness_flat φ r` requires:
+
+- `φ.WellFormed` — CNF well-formedness (all literal indices < nvars)
+- `φ.satisfies r.assignmentInf` — α must satisfy the formula
+- `φ.clauses.length ≥ numGates` — enough clauses for FG gates
+- `r.dgLen ≥ φ.nvars` — **EXPONENTIAL REQUIREMENT**: digest has n bits
+- **Digest consistency**: ALL R bits of `gateDigests[i]` must match `emergentConfigAtGate_flat`
+
 The digest consistency constraint is the **2^R bottleneck** — ALL R bits are constrained, not just parity.
+
+**Note**: There is also a general `WellFormedRandomness` (EmergentConfig.lean) for other profiles,
+but the main P≠NP proof uses `WellFormedRandomness_flat` with dgLen = n.
 
 ---
 
