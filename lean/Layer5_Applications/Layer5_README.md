@@ -156,8 +156,14 @@ def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
 | Standard | Formalization |
 |----------|---------------|
 | f poly-time | `forward_polytime` field (output size ≤ C·n^k) |
-| ∀ PPT A | `∀ (A : ... → StructuralOWFAdversary ...)` |
+| ∀ PPT A | Not mechanized (see note below) |
+| ∀ poly-bounded families A | `∀ (A : Nat → StructuralOWFAdversary ...), (∀ n, … ≤ …) → …` |
 | Pr[invert] ≤ negl | `negligible_parametric 128 (avg_success_prob_n_exp ...)` |
+
+**Note (important)**: `SecurityProperty` quantifies over adversary families
+`A : Nat → StructuralOWFAdversary (Φ n).nvars` with a uniform polynomial-bounds constraint.
+This differs from the textbook “single uniform PPT adversary” quantifier (one program for all n);
+the informal embedding of a single uniform adversary into this family model is not mechanized here.
 
 ### Witness
 
@@ -485,9 +491,9 @@ This distinction matters for cryptographic applications where OWFs are defined a
 | **P≠NP theorem** | PrimaryPath/ParametricBitstringBridge.lean | `fpnefnp_implies_not_peqnp` |
 | **OWF→FP≠FNP bridge** | PrimaryPath/StructuralOWFBridge.lean | OWF to FP≠FNP reduction |
 | **OWF existence** | PrimaryPath/OWFExistence.lean | `OWF_exists` (standard crypto form) |
-| **IsOneWayPlantFlat** | PrimaryPath/OWFExistence.lean | Standard OWF predicate |
+| **IsOneWayPlantFlat** | PrimaryPath/OWFExistence.lean | OWF predicate over adversary families |
 | **CNFPreconditions** | PrimaryPath/OWFExistence.lean | 9 structural requirements |
-| **SecurityProperty** | PrimaryPath/OWFExistence.lean | ∀ PPT A, Pr[invert] ≤ negl(n) |
+| **SecurityProperty** | PrimaryPath/OWFExistence.lean | ∀ poly-bounded families A, Pr[invert] ≤ negl(n) |
 | **Parametric FP** | PrimaryPath/ParametricComplexity.lean | `InFP_parametric` |
 | **Parametric FNP** | PrimaryPath/ParametricComplexity.lean | `InFNP_parametric` |
 | **RandAdv** | ComplexityClasses/RandAdv.lean | Core randomized adversary structure |

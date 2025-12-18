@@ -229,6 +229,6 @@ These definitions use only standard Lean foundations (propext, quot.sound, class
 No custom axioms are introduced.
 -/
 
-#print axioms LStar_in_NP
+#print axioms LStar_has_witness_structure
 
 end LStar.StructuralOWF.Decision

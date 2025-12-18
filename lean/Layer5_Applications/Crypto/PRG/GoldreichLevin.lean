@@ -280,8 +280,8 @@ theorem lstarOWF_aligned_inputLen_poly (n : Nat) (h_n : n ≥ 128) :
 
     See `OWFExistence.lean` for full details on:
     - `CNFPreconditions`: structural requirements
-    - `SecurityProperty`: PPT adversary negligible success
-    - `IsOneWayPlantFlat`: standard OWF definition
+    - `SecurityProperty`: negligible success against poly-bounded adversary families
+    - `IsOneWayPlantFlat`: OWF predicate over adversary families
     - `alignedCNFFamily`: concrete witness (n vars, n unit clauses per Φ(n)) -/
 theorem lstar_OWF_exists : ∃ Φ : LStar.StructuralOWF.Theorems.CNFFamily, IsOneWayPlantFlat Φ := OWF_exists
 
