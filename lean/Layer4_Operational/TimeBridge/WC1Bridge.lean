@@ -1194,4 +1194,102 @@ we need to prove that any correct TM satisfies the planted world hypotheses:
 This can be established from semantic properties of the planted instance.
 -/
 
+/-! ### Package 7: Planted World Connection Theorems
+
+These theorems establish that TM correctness (outputting the planted config)
+implies the planted world hypotheses needed for `tm_time_lower_bound_via_WC1Bridge`.
+-/
+
+/-- **A world with the correct config is NOT in violatorsOf for that config**.
+
+    If ω.assignment v h = cfg, then ω satisfies ConfigMatch(v, h, cfg),
+    so it's NOT a violator.
+-/
+theorem planted_world_not_violator
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (cfg : Fin (2^(L.R v)))
+    (feasible : Finset (CutWorld L C))
+    (ω : CutWorld L C)
+    (h_ω_in_feasible : ω ∈ feasible)
+    (h_ω_has_cfg : ω.assignment v h_v_in = cfg)
+    : ω ∉ violatorsOf L C feasible (CutConstraint.ConfigMatch v h_v_in cfg) := by
+  unfold violatorsOf
+  simp only [Finset.mem_filter, not_and]
+  intro _
+  simp only [decide_eq_true_iff, not_not]
+  -- ConfigMatch.Satisfies ω means ω.assignment v h_v_in = cfg
+  unfold CutConstraint.Satisfies
+  exact h_ω_has_cfg
+
+/-- **A world with wrong config IS in violatorsOf** (assuming it's still feasible).
+
+    If ω.assignment v h ≠ cfg, then ω violates ConfigMatch(v, h, cfg).
+-/
+theorem wrong_world_in_violators
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (cfg : Fin (2^(L.R v)))
+    (feasible : Finset (CutWorld L C))
+    (ω : CutWorld L C)
+    (h_ω_in_feasible : ω ∈ feasible)
+    (h_ω_wrong_cfg : ω.assignment v h_v_in ≠ cfg)
+    : ω ∈ violatorsOf L C feasible (CutConstraint.ConfigMatch v h_v_in cfg) := by
+  unfold violatorsOf
+  simp only [Finset.mem_filter, decide_eq_true_iff]
+  constructor
+  · exact h_ω_in_feasible
+  · unfold CutConstraint.Satisfies
+    exact h_ω_wrong_cfg
+
+/-- **For singleton cuts, world is determined by its config**.
+
+    If C = {v}, then ω₁.assignment v = ω₂.assignment v implies ω₁ = ω₂.
+-/
+theorem singleton_cut_world_determined_by_config
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (h_singleton : C = {v})
+    (ω₁ ω₂ : CutWorld L C)
+    (h_same_cfg : ω₁.assignment v h_v_in = ω₂.assignment v h_v_in)
+    : ω₁ = ω₂ := by
+  apply CutWorld.ext
+  intro w hw
+  -- Since C = {v} and w ∈ C, we have w = v
+  rw [h_singleton] at hw
+  have h_w_eq_v : w = v := Finset.mem_singleton.mp hw
+  cases h_w_eq_v
+  exact h_same_cfg
+
+/-- **Planted config refutes all wrong worlds at once**.
+
+    **Key insight**: When the TM processes the planted config (cfg_planted):
+    - Worlds with cfg_planted SATISFY the ConfigMatch → NOT refuted
+    - Worlds with cfg ≠ cfg_planted VIOLATE the ConfigMatch → ARE refuted
+
+    So if the TM's config list includes cfg_planted, and all 2^R - 1 wrong worlds
+    are still feasible when cfg_planted is processed, they ALL get refuted at once!
+
+    **Status**: Stub - core logic is sound, full proof requires ~40 more lines.
+-/
+theorem planted_config_refutes_all_wrong_worlds
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (h_singleton : C = {v})
+    (cfg_planted : Fin (2^(L.R v)))
+    (feasible : Finset (CutWorld L C))
+    (h_feasible_univ : feasible = Finset.univ)
+    : let violators := violatorsOf L C feasible (CutConstraint.ConfigMatch v h_v_in cfg_planted)
+      violators.card = 2^(L.R v) - 1 := by
+  -- Proof sketch:
+  -- 1. For singleton cut C = {v}, |CutWorld L C| = 2^(L.R v)
+  -- 2. Exactly one world has config cfg_planted (by singleton_cut_world_determined_by_config)
+  -- 3. violatorsOf filters out the one world with cfg_planted
+  -- 4. Therefore violators.card = 2^(L.R v) - 1
+  sorry
+
 end LStar.StructuralOWF.Foundations
