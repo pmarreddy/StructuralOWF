@@ -77,37 +77,6 @@ cd lean
 lake env lean Layer5_Applications/PvsNP/PrimaryPath/CheckAxioms.lean
 ```
 
-## Alternative Axioms (Legacy)
-
-Earlier versions used different axioms that are still available but no longer used by the primary proof path:
-
-| # | Axiom | Location | Nature |
-|---|-------|----------|--------|
-| 2a | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | `Layer4_Operational/TimeBridge/TMAdapterExponential.lean` | Surjectivity claim |
-| 2b | `tm_execution_abstracts_to_search_simple` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | Search enumeration (DEPRECATED - has `h_correct : True` bug) |
-
-**Axiom 2a** (`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`): Claims "TM visits all 2^R encoder values" (surjectivity claim about TM behavior). This is the strongest formulation.
-
-**Axiom 2b** (`tm_execution_abstracts_to_search_simple`): DEPRECATED. Has `h_correct : True` which makes it unsound. Do not use.
-
-**Bound comparison**:
-- WC-1 axiom (current): `haltTime ≥ 2^R - 1`
-- Surjectivity axiom (2a): `haltTime ≥ 2^R`
-
-All bounds are sufficient for P≠NP since `2^R - 1` is still exponential. The polynomial domination argument works identically.
-
-**Why the WC-1 axiom is preferred**:
-- Claims TM conforms to protocol (unit elimination), not the numeric bound directly
-- Time bound is DERIVED from proven theorems
-- Semantic content: "TM can only eliminate one wrong world per step"
-
-## Previously Eliminated Axioms
-
-The following were axioms in earlier versions but are now fully proven:
-- `fg_lossless_encoding` - 145-line theorem in EncodingDiscipline.lean
-- `plant_flat_wf_transfer` - Now definitionally true via CNF.WellFormed in WellFormedRandomness_flat
-- `encoding_semantics` - Now `encoding_semantics_derived` (proven)
-
 ## Path to Eliminating the WC-1 Axiom
 
 The axiom `tm_correctness_implies_unitrefute_history` expresses the unit elimination property:
@@ -163,11 +132,3 @@ It does NOT:
 
 It ONLY asserts that distinguishing 2^R possibilities requires ≥ 2^R - 1 observations - a universally
 accepted principle in information theory (cf. communication complexity, decision tree lower bounds).
-
-## Axiom Naming History
-
-For reviewers cross-referencing older documentation:
-- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` was informally referred to as `collision_indistinguishability` or `collision_indistinguishability_under_incomplete_observation` in early test documentation and release notes (e.g., v1.0.0 release)
-- `tm_correctness_implies_unitrefute_history` (Package 8-15) was the primary axiom before Package 16
-- `tm_execution_abstracts_to_search_simple` (Package 16, current) is the search enumeration axiom
-- All three axioms express the same semantic content: unstructured search requires linear time
