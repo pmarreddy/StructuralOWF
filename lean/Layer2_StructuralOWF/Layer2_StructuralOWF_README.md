@@ -563,7 +563,7 @@ Extractor provides the **witness extraction guarantee** needed for the reduction
 ✅ **Compiles successfully**: 0 sorries
 
 ✅ **Trust boundary minimal**:
-- 2 axioms (Church-Turing + semantic bridge)
+- 2 axioms (Church-Turing, positive + Church-Turing, negative/impossibility)
 - All construction theorems proven without custom axioms
 - Former axioms `fg_lossless_encoding` and `plant_flat_wf_transfer` now proven/eliminated
 

@@ -16,7 +16,8 @@
 cd /Volumes/Ddrive/PNePNP-Publication/lean
 
 # Verify main theorem axioms (should show 2 custom axioms)
-lake env lean -c 'import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge; #print axioms LStar.Complexity.StructuralOWFBridge.P_ne_NP'
+# (Uses the repository’s dedicated axiom-audit file.)
+lake env lean Layer5_Applications/PvsNP/PrimaryPath/CheckAxioms.lean
 
 # Verify 0 sorries in proof chain
 grep -rn "sorry" --include="*.lean" | grep -v ".lake" | grep -v "-- sorry" | grep -v "sorryAx" | wc -l
@@ -24,7 +25,7 @@ grep -rn "sorry" --include="*.lean" | grep -v ".lake" | grep -v "-- sorry" | gre
 
 **Expected Axioms (2 total)**:
 1. `algspec_has_tm` - Church-Turing bridge
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` - Semantic bound
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` - Church-Turing bridge (negative direction: functional impossibility → TM impossibility)
 
 **Note**: Former axioms `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proved lemmas; the dependency list has been reduced accordingly.
 

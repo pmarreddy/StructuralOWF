@@ -310,13 +310,13 @@ Zero-knowledge proofs:
 | # | Axiom | File | What It Says | Risk |
 |---|-------|------|--------------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean | Any AlgSpec has a TM implementation (Church-Turing thesis) | Very Low |
-| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | Correctness implies exhaustive exploration (keyedness) | Low |
+| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | Church-Turing bridge (negative: functional impossibility → TM impossibility) | Low |
 
 ### Why Each is an Axiom
 
 1. **`algspec_has_tm`**: Church-Turing thesis — any algorithm can be implemented by a TM. Universally accepted.
 
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`**: Keyedness bound (pigeonhole) — correct output implies TM visited all 2^R emergent configurations.
+2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`**: Church-Turing bridge (negative direction) — imports the proven observation/indistinguishability impossibility into a claim about concrete TM runs (formalized as `realizesAllValuesFrom` for the emergent encoder).
    - **Paper vs. Lean**: The paper (§10.1.1 OAP Non-Inferability, Lemma 10.1.1-NI) proves this from first principles via a two-instance argument. The Lean formalization axiomatizes it due to mechanization challenges (dependent type indices, seed chain degrees of freedom). The core counting argument is proven in `ParityLowerBound.lean`. See `OAPLocalFlip.lean` for XOR local flip lemmas.
 
 ### Proven Theorem (Formerly Axiom)

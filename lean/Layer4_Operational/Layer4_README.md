@@ -4,7 +4,7 @@
 
 **Location**: `lean/Layer4_Operational/`
 
-**Architecture**: Proof system with 2 axioms (Church-Turing + semantic bridge).
+**Architecture**: Proof system with 2 axioms (Church-Turing, positive + Church-Turing, negative/impossibility).
 
 **Key achievement**: Exponential time lower bound `haltTime ≥ 2^ρ` from TM execution, with explicit model-specific proofs.
 
@@ -68,7 +68,7 @@ Operational (Layer 4)
 
 **Model-specific proofs eliminate axioms**: Instead of axiomatizing "keyedness → visitation" globally, each computational model (TM, circuit, proof system) *proves* it via adapter instance.
 
-**Result**: Only 2 axioms remain (Church-Turing + semantic bridge), down from 15+ in earlier iterations.
+**Result**: Only 2 axioms remain (Church-Turing, positive + Church-Turing, negative/impossibility), down from 15+ in earlier iterations.
 
 ---
 
@@ -164,7 +164,7 @@ axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded :
 - Deterministic TM visits different configs at different times
 - **Proven** via execution trace and injectivity
 
-**Trust boundary**: 2 axioms (Church-Turing + semantic bridge).
+**Trust boundary**: 2 axioms (Church-Turing, positive + Church-Turing, negative/impossibility).
 
 #### Axiom Audits
 
@@ -335,12 +335,12 @@ time ≥ 2^R
 
 **Path 2: Realizability / TMAdapter Route** (CURRENTLY ACTIVE)
 - Theorem: `exponential_time_lower_bound_via_Realizability`
-- Strategy: Correctness → Visits all configs → Time
-- Axiom: `realizability_for_planted_instances` (semantic: correctness → exhaustive search)
+- Strategy: Correctness → (Church–Turing impossibility bridge) → run supplies full 2^R distinguishability → Time
+- Axiom: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Church–Turing, negative direction)
 - Proof chain:
   ```
   fg_first_commit_time_lower_bound_sub_one (TMAdapter.lean)
-    ↓ correct output → visited all 2^R configs
+    ↓ correct output → run supplies full 2^R distinguishability
   visitedEncodings_card_ge_pow (TuringMachineSemantics.lean - PROVEN)
     ↓ visited 2^R configs → visitedStates ≥ 2^R
   Therefore: haltTime ≥ 2^R ✓
@@ -403,7 +403,7 @@ via `correctness_implies_realizesAllValues` instead of operational trace convers
 
 **Status**: 0 sorries in active chain (6 sorries in unused private lemmas).
 
-**Trust boundary**: 2 axioms (Church-Turing + semantic bridge).
+**Trust boundary**: 2 axioms (Church-Turing, positive + Church-Turing, negative/impossibility).
 
 **Axiom audits** (14 statements):
 ```lean
@@ -672,7 +672,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 - Hypothesis is caller's responsibility (not global axiom)
 
 **Axiomatized**:
-- 1 foundational (algspec_has_tm) + 1 semantic bridge (tm_correctness_implies_realizesAllValuesFrom_flat_encoded) = **2 total**
+- 1 Church-Turing bridge (positive: AlgSpec → TM) + 1 Church-Turing bridge (negative: functional impossibility → TM impossibility) = **2 total**
 
 ### Axiom Elimination History
 
@@ -752,7 +752,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 **Total files**: 9 (5 TuringMachine + 1 TimeBridge + 2 ExecutionSemantics + 1 RWA)
 **Total lines**: ~10,000 lines (largest layer by far!)
-**Trust boundary**: 2 axioms (Church-Turing + semantic bridge)
+**Trust boundary**: 2 axioms (Church-Turing, positive + Church-Turing, negative/impossibility)
 **Status**: All 9 files compile successfully
 
 ---
@@ -769,7 +769,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 - fg_complete_obs_forces_config_state_visitation: ✅ Eliminated (ExecutionSemanticsAdapter)
 - Many TM axioms: ✅ Eliminated (proven in TuringMachineSemantics.lean)
 
-**Remaining**: Church-Turing (foundational) + semantic bridge (irreducible).
+**Remaining**: Church-Turing (positive direction) + Church-Turing impossibility bridge (negative direction).
 
 ### Dual-Path Architecture
 

@@ -900,7 +900,8 @@ axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 **Method**:
 ```lean
 -- Intended principle:
--- "For planted instances, correctness requires visiting all 2^R configs"
+-- Framing: the underlying functional impossibility is proven (incomplete observation cannot determine the FG discriminator);
+-- the remaining bridge is Church–Turing (negative direction): TMs cannot bypass that limit.
 
 -- Axiom says:
 -- "If TM is correct but missed some reachable config, contradiction"

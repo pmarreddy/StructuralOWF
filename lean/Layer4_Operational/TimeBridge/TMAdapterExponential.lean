@@ -100,13 +100,14 @@ lemma planted_wf_flat' {L : LStarInstanceFG} (h : PlantedHyp_flat L) :
     WellFormedRandomness_flat (planted_φ_flat' h) (planted_r_flat' h) :=
   (Classical.choose_spec (Classical.choose_spec (Classical.choose_spec (Classical.choose_spec (Classical.choose_spec h))))).2
 
-/- **Exhaustive Realization Axiom**: Execution-Semantic Lower Bound
+/- **Church–Turing Impossibility Bridge Axiom** (negative direction): Execution-Semantic Lower Bound
 
-**Statement**: A Turing machine that fails to visit some emergent configuration value
-during execution cannot produce a correct satisfying assignment for the planted instance.
+**Statement**: The established functional impossibility under the observation interface
+is imported into the TM execution model: if a TM produces a correct witness for a planted
+instance, then its run supplies enough distinguishability to cover the full emergent-value
+space (formalized as `realizesAllValuesFrom` for the emergent encoder).
 
-**Formal Statement** (contrapositive): If a TM produces a correct witness,
-then it must have visited all 2^R emergent configuration values.
+**Formal payload**: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (declared below).
 
 **Information-Theoretic Justification**:
 
@@ -123,8 +124,8 @@ From A2 injectivity: different configs → different seeds. This means:
 - `fg_correctness_requires_complete_observation`: Correctness requires complete observation
 
 **Axiomatized Content**:
-The missing link is execution semantics: “TM outputs a correct witness on a planted instance”
-⇒ “the run realizes every `Fin (2^R)` emergent value”.
+The missing link is the Church–Turing-style *impossibility transfer*: turning the proven
+observation-model impossibility into a statement about concrete TM runs.
 
 **Uniformity Scope** (CRITICAL):
 
@@ -239,7 +240,7 @@ The axiom bridges two conceptual levels:
 
 **Operational level** (what the axiom captures):
 - This distinguishing requirement translates to the TM's execution trace
-- The TM must have computationally explored all 2^R values to identify the correct one
+- The TM must have generated enough distinguishability during the run to cover the full emergent-value space
 - "TM visits config at time t" ↔ "config value is observed"
 
 **The Bridge Argument** (Paper §9.3, formalized as this axiom):

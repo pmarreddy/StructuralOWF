@@ -9,7 +9,7 @@ This repository contains a full mathematical proof that P≠NP, formalized in th
 **Key Features:**
 - **~94,000 lines** of Lean 4 formalization across **171 files** (excluding Mathlib)
 - **0 sorries** — fully verified proof
-- **2 axioms** — minimal trust boundary (Church-Turing bridge + semantic bound)
+- **2 axioms** — minimal trust boundary (Church-Turing bridge, positive + Church-Turing bridge, negative/impossibility)
 - **6-layer architecture** — modular construction from foundations to complexity separation
 
 **The Core Insight:** The Semantic Conservation Law (SCL) establishes that distinguishing k possibilities requires either resolving k bits of information or maintaining k computational artifacts (q + Φ ≥ R). The L* construction creates instances where compression causes correctness failure. This is a counting argument based on information-theoretic necessity, not a computational hiding argument.

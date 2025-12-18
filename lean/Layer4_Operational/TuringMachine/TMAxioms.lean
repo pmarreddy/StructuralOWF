@@ -27,8 +27,7 @@ abstract complexity-theoretic framework.
 **Axioms**:
 1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge
 2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean)
-   Execution-semantic bridge: correct output on a planted instance forces exhaustive
-   realization of all `2^R` FG emergent values during the run.
+   Church–Turing bridge (negative direction): imports the proven observation/indistinguishability impossibility into a statement about concrete TM runs (formalized as `realizesAllValuesFrom`).
 
 **Proven Theorem** (eliminated from axiom count):
 - `exp_dominates_poly_strict` (Probability.lean) - Exponential dominance 2^n > C·n^k

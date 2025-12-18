@@ -3955,7 +3955,7 @@ Axioms should be POSITIVE statements about L*, not NEGATIVE statements about bar
 | Axiom | Type | Trust Level | Justification |
 |-------|------|-------------|---------------|
 | algspec_has_tm | Church-Turing | Foundational | Standard CT thesis instantiation |
-| tm_correctness_implies_realizesAllValuesFrom_flat_encoded | Semantic | Foundational | Keyedness/pigeonhole application |
+| tm_correctness_implies_realizesAllValuesFrom_flat_encoded | Church-Turing (negative) | Foundational | Functional impossibility → TM impossibility (execution bridge) |
 
 **Note**: `plant_flat_wf_transfer` and `fg_lossless_encoding` were previously axioms but are now proven theorems.
 

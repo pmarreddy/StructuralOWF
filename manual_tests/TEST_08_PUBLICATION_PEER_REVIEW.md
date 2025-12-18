@@ -370,7 +370,7 @@ Each axiom is independently justifiable (see docs/AXIOM_FINAL_COUNT.md):
    - Every polynomial-time algorithmic specification has TM implementation
    - Risk: Very Low (definitional, universally accepted)
 
-2. **tm_correctness_implies_realizesAllValuesFrom_flat_encoded**: Semantic bound
+2. **tm_correctness_implies_realizesAllValuesFrom_flat_encoded**: Church-Turing bridge (negative direction: functional impossibility → TM impossibility)
    - From A2 injectivity: correctness on planted instances requires visiting
      all 2^R emergent configurations
    - Information-theoretic collision argument (different configs → different seeds)
@@ -933,7 +933,7 @@ Passing this test means the paper is ready for peer review submission.
 | # | Axiom | Location | Nature | Risk |
 |---|-------|----------|--------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean:297 | Church-Turing bridge | Very Low |
-| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:2132 | Semantic bound | Low |
+| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:2132 | Church-Turing bridge (negative: functional impossibility → TM impossibility) | Low |
 
 **Previously Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding`: 145-line theorem (EncodingDiscipline.lean:344-489)

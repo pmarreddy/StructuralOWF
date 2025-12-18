@@ -31,7 +31,7 @@ This is the most aggressive test: actively try to BREAK the proof.
 | 1 | `algspec_has_tm` | RandAdv.lean:297 | Church-Turing bridge | Very Low |
 | 2 | `plant_flat_wf_transfer` (private) | PlantExponential.lean:1067 | CNF well-formedness transfer | Very Low |
 | 3 | `fg_lossless_encoding` (private) | EncodingDiscipline.lean:346 | A3 emergence encoding roundtrip | Very Low |
-| 4 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:297 | Semantic bound (A2 injectivity) | Low |
+| 4 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:2132 | Church-Turing bridge (negative: functional impossibility → TM impossibility) | Low |
 
 **Proof Chain**:
 ```

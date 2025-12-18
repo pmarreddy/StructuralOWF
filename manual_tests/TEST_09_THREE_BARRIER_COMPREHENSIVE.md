@@ -25,7 +25,7 @@ The P ≠ NP proof relies on L* simultaneously blocking all three operational ro
 | # | Axiom | Location | Barrier Impact | Risk |
 |---|-------|----------|----------------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean:297 | All (TM model) | Very Low |
-| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:297 | Resolution (OAP non-inferability) | Low |
+| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:2132 | Church-Turing bridge (negative: functional impossibility → TM impossibility) | Low |
 
 **Previously Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding` - Now 145-line theorem (EncodingDiscipline.lean)

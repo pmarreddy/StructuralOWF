@@ -429,7 +429,7 @@ theorem fg_first_commit_time_lower_bound
 - parity_requires_all_bits [5] (information-theoretic necessity)
 - visitedEncodings_card_ge_pow [6] (counting lemma)
 - correctness_implies_realizesAllValues (semantic bridge lemma)
-- [AXIOM] tm_correctness_implies_realizesAllValuesFrom_flat_encoded (applies information theory to TM)
+- [AXIOM] tm_correctness_implies_realizesAllValuesFrom_flat_encoded (Church–Turing bridge, negative: functional impossibility → TM impossibility)
 
 **Axiomatic Content**: 1 (tm_correctness_implies_realizesAllValuesFrom_flat_encoded - see Axiom 2/2 below)
 
@@ -510,7 +510,7 @@ theorem f_is_structural_owf_exponential_flat
 **Dependencies**:
 - Randomness.assignment [8] (witness extraction via field access)
 - fg_first_commit_time_lower_bound_encoded [7] (exponential time lower bound)
-- [AXIOM] tm_correctness_implies_realizesAllValuesFrom_flat_encoded (information-theoretic semantic bridge)
+- [AXIOM] tm_correctness_implies_realizesAllValuesFrom_flat_encoded (Church–Turing bridge, negative: functional impossibility → TM impossibility)
 - [AXIOM] algspec_has_tm (Church-Turing equivalence)
 
 **Axiomatic Content**: 2 (algspec_has_tm, tm_correctness_implies_realizesAllValuesFrom_flat_encoded - see Axiom Summary)

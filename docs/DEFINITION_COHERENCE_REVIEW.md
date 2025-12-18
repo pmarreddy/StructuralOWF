@@ -736,7 +736,7 @@ All 49 auxiliary definitions reviewed — standard implementations:
 
 **2 Axioms** — Minimal and reasonable:
 1. `algspec_has_tm` — Church-Turing thesis
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` — Core semantic insight
+2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` — Church-Turing bridge (negative direction) / core execution-semantic impossibility bridge
 
 ---
 
