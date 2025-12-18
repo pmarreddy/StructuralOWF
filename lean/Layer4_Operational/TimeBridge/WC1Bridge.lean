@@ -521,10 +521,45 @@ def emptyBasePrefix (L : LStarInstanceFG) : ExecutionPrefixReal L :=
 theorem emptyBasePrefix_no_constraints (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
     (h_positive_R : ∀ v ∈ C, L.R v > 0) :
     extractConstraints L C (emptyBasePrefix L) = [] := by
-  -- With empty prefix (no revealed bits, no computed configs), extractConstraints = []
-  -- because: extractBitConstraints = [], extractConfigConstraints = [],
-  -- and extractSyntheticConfigs = [] (completeAt fails with no bits and R > 0)
-  sorry -- ~20 lines: unfold definitions and show filterMaps return []
+  -- extractConstraints = bitConstraints ++ configConstraints ++ syntheticConfigs
+  unfold extractConstraints emptyBasePrefix
+
+  -- Part 1: extractBitConstraints on empty list = []
+  have h_bit : extractBitConstraints L C [] = [] := by
+    unfold extractBitConstraints
+    simp only [List.filterMap_nil]
+
+  -- Part 2: extractConfigConstraints on empty list = []
+  have h_config : extractConfigConstraints L C [] = [] := by
+    unfold extractConfigConstraints
+    simp only [List.filterMap_nil]
+
+  -- Part 3: extractSyntheticConfigs with empty revealedBits = []
+  have h_synth : extractSyntheticConfigs L C { time := 0, revealedBits := [], computedConfigs := [] } = [] := by
+    unfold extractSyntheticConfigs
+    -- Need to show filterMap returns [] for all v in C.toList
+    apply List.filterMap_eq_nil_iff.mpr
+    intro v hv
+    -- v ∈ C.toList means v ∈ C
+    have hv_in_C : v ∈ C := Finset.mem_toList.mp hv
+    -- Split on v ∈ C (which is true)
+    simp only [hv_in_C, ↓reduceDIte]
+    -- Now need to show ¬completeAt, so the inner if returns none
+    -- completeAt requires ∀ i : Fin (L.R v), ∃ bit ∈ revealedBits ...
+    -- But revealedBits = [] and L.R v > 0, so no such bit exists
+    have h_not_complete : ¬completeAt L C { time := 0, revealedBits := [], computedConfigs := [] } v hv_in_C := by
+      unfold completeAt
+      push_neg
+      -- Need to find some i : Fin (L.R v) with no bit in empty list
+      have h_pos := h_positive_R v hv_in_C
+      use ⟨0, h_pos⟩
+      intro bit h_bit_in
+      -- h_bit_in : bit ∈ [] gives False, use contradiction
+      cases h_bit_in
+    simp only [h_not_complete, ↓reduceDIte]
+
+  -- Combine
+  simp only [h_bit, h_config, h_synth, List.nil_append]
 
 /-! ### Package 2: Refuted Worlds Extraction
 
@@ -609,19 +644,101 @@ Each world added to the list comes from `violatorsOf current_feasible constraint
 which means it was in `current_feasible` at that moment. The `current_feasible`
 set is computed from `base_constraints ++ accumulated_refutes.map UnitRefute`,
 which is exactly what the invariant requires.
+
+**Core invariant: each refuted world was feasible before refutation**.
+
+**Why this now works**: With `buildRefutedWorlds`, worlds are added to the
+refuted list only if they are in the current feasible set. This is exactly
+what `h_refuted_were_feasible` requires!
+
+**Proof strategy**:
+- Induction on the `buildRefutedWorlds.aux` recursion
+- Each step adds worlds from `violatorsOf current_feasible`
+- By definition, these worlds were in `current_feasible`
 -/
 
-/-- **Core invariant: each refuted world was feasible before refutation**.
+/-- Helper: violatorsOf is a subset of the feasible set. -/
+theorem violatorsOf_subset_feasible
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (feasible : Finset (CutWorld L C))
+    (constraint : CutConstraint L C)
+    : violatorsOf L C feasible constraint ⊆ feasible := by
+  intro ω h_mem
+  unfold violatorsOf at h_mem
+  exact Finset.mem_filter.mp h_mem |>.1
 
-    **Why this now works**: With `buildRefutedWorlds`, worlds are added to the
-    refuted list only if they are in the current feasible set. This is exactly
-    what `h_refuted_were_feasible` requires!
+/-- Helper: membership in violatorsOf implies membership in feasible. -/
+theorem mem_violatorsOf_of_mem_feasible
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (feasible : Finset (CutWorld L C))
+    (constraint : CutConstraint L C)
+    (ω : CutWorld L C)
+    (h : ω ∈ violatorsOf L C feasible constraint)
+    : ω ∈ feasible := violatorsOf_subset_feasible L C feasible constraint h
 
-    **Proof strategy**:
-    - Induction on the `buildRefutedWorlds.aux` recursion
-    - Each step adds worlds from `violatorsOf current_feasible`
-    - By definition, these worlds were in `current_feasible`
+/-- **Key lemma**: Adding UnitRefute(ω') for ω' ≠ ω doesn't affect ω's feasibility.
+
+    If ω satisfies a constraint set, and we add UnitRefute(ω') where ω ≠ ω',
+    then ω still satisfies the extended constraint set.
 -/
+theorem feasible_preserved_under_different_unitRefute
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (constraints : List (CutConstraint L C))
+    (ω ω' : CutWorld L C)
+    (h_neq : ω ≠ ω')
+    (h_feasible : ω ∈ NormalForm.FeasibleUnder constraints)
+    : ω ∈ NormalForm.FeasibleUnder (constraints ++ [CutConstraint.UnitRefute ω']) := by
+  unfold NormalForm.FeasibleUnder at h_feasible ⊢
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h_feasible ⊢
+  rw [List.all_eq_true] at h_feasible ⊢
+  intro c h_c_in
+  rw [List.mem_append, List.mem_singleton] at h_c_in
+  cases h_c_in with
+  | inl h_in_orig => exact h_feasible c h_in_orig
+  | inr h_eq =>
+    rw [h_eq]
+    simp only [decide_eq_true_iff]
+    unfold CutConstraint.Satisfies
+    exact h_neq
+
+/-- **Corollary**: Adding multiple UnitRefute constraints for distinct worlds preserves feasibility.
+
+    If ω is feasible under constraints, and we add UnitRefute(ω_i) for a list of worlds
+    where ω ∉ worlds_to_exclude, then ω remains feasible.
+-/
+theorem feasible_preserved_under_list_unitRefute
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (constraints : List (CutConstraint L C))
+    (worlds_to_exclude : List (CutWorld L C))
+    (ω : CutWorld L C)
+    (h_not_in : ω ∉ worlds_to_exclude)
+    (h_feasible : ω ∈ NormalForm.FeasibleUnder constraints)
+    : ω ∈ NormalForm.FeasibleUnder (constraints ++ worlds_to_exclude.map CutConstraint.UnitRefute) := by
+  induction worlds_to_exclude generalizing constraints with
+  | nil =>
+    simp only [List.map_nil, List.append_nil]
+    exact h_feasible
+  | cons ω' rest ih =>
+    simp only [List.mem_cons, not_or] at h_not_in
+    have h_neq : ω ≠ ω' := h_not_in.1
+    have h_not_in_rest : ω ∉ rest := h_not_in.2
+    -- Goal: ω ∈ FeasibleUnder(constraints ++ (ω' :: rest).map UnitRefute)
+    -- Simplify: (ω' :: rest).map UnitRefute = UnitRefute(ω') :: rest.map UnitRefute
+    simp only [List.map_cons]
+    -- Goal: ω ∈ FeasibleUnder(constraints ++ (UnitRefute(ω') :: rest.map UnitRefute))
+    -- Use IH with extended constraints
+    have h_step := feasible_preserved_under_different_unitRefute L C constraints ω ω' h_neq h_feasible
+    have h_from_ih := ih (constraints ++ [CutConstraint.UnitRefute ω']) h_not_in_rest h_step
+    -- h_from_ih : ω ∈ FeasibleUnder((constraints ++ [UnitRefute(ω')]) ++ rest.map UnitRefute)
+    -- Need: ω ∈ FeasibleUnder(constraints ++ (UnitRefute(ω') :: rest.map UnitRefute))
+    -- These are equal by list associativity
+    convert h_from_ih using 2
+    simp only [List.singleton_append, List.append_assoc]
+
 theorem buildRefutedWorlds_aux_feasibility
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
@@ -638,7 +755,135 @@ theorem buildRefutedWorlds_aux_feasibility
         result.get ⟨i, h⟩ ∈ NormalForm.FeasibleUnder (
           base_constraints ++ (result.take i).map CutConstraint.UnitRefute
         ) := by
-  sorry -- ~100 lines: induction on configs, use violatorsOf membership
+  -- Induction on configs
+  induction configs generalizing accumulated with
+  | nil =>
+    -- Base case: result = accumulated
+    simp only [buildRefutedWorlds.aux]
+    exact h_acc_invariant
+  | cons config rest ih =>
+    -- Inductive case: result = aux base (accumulated ++ new_violators) rest
+    simp only [buildRefutedWorlds.aux]
+    -- Let new_violators = extractViolatorsForConfig ...
+    let new_violators := extractViolatorsForConfig L C base_constraints accumulated config
+    let new_accumulated := accumulated ++ new_violators
+
+    -- Apply IH with new_accumulated
+    apply ih new_accumulated
+
+    -- Need to prove: new_accumulated satisfies the invariant
+    intro i h_i
+    by_cases h_old : i < accumulated.length
+    · -- Case: i is in the old accumulated part
+      -- Goal: new_accumulated.get ⟨i, h_i⟩ ∈ FeasibleUnder(base ++ new_accumulated.take i .map UnitRefute)
+      simp only [new_accumulated] at h_i ⊢
+
+      -- Since i < accumulated.length, (accumulated ++ new_violators).take i = accumulated.take i
+      have h_take_eq : (accumulated ++ new_violators).take i = accumulated.take i := by
+        rw [List.take_append_eq_append_take]
+        -- Since i ≤ accumulated.length, accumulated.take i is just the first i elements (unchanged)
+        -- And i - accumulated.length = 0, so new_violators.take 0 = []
+        have h_le : i ≤ accumulated.length := Nat.le_of_lt h_old
+        have h_sub_zero : i - accumulated.length = 0 := Nat.sub_eq_zero_of_le h_le
+        rw [h_sub_zero]
+        simp only [List.take_zero, List.append_nil]
+
+      -- We know: accumulated.get ⟨i, h_old⟩ ∈ FeasibleUnder(base ++ accumulated.take i .map UnitRefute)
+      have h_orig := h_acc_invariant i h_old
+
+      -- Need to show: (accumulated ++ new_violators).get ⟨i, h_i⟩ ∈ ...
+      -- This equals accumulated.get ⟨i, h_old⟩
+      have h_get_eq : (accumulated ++ new_violators).get ⟨i, h_i⟩ = accumulated.get ⟨i, h_old⟩ := by
+        simp only [List.get_eq_getElem]
+        exact List.getElem_append_left h_old ..
+      rw [h_get_eq, h_take_eq]
+      exact h_orig
+
+    · -- Case: i is in the new_violators part
+      push_neg at h_old
+      have h_in_new : i - accumulated.length < new_violators.length := by
+        simp only [new_accumulated] at h_i
+        rw [List.length_append] at h_i
+        omega
+
+      simp only [new_accumulated] at h_i ⊢
+
+      -- Define j and ω for clarity
+      let j := i - accumulated.length
+      let ω := new_violators[j]'h_in_new
+
+      -- (accumulated ++ new_violators).get ⟨i, h_i⟩ = new_violators[j]
+      have h_get_eq : (accumulated ++ new_violators).get ⟨i, h_i⟩ = new_violators.get ⟨j, h_in_new⟩ := by
+        simp only [List.get_eq_getElem]
+        exact List.getElem_append_right h_old ..
+
+      -- Step 1: (accumulated ++ new_violators).take i = accumulated ++ new_violators.take j
+      have h_take_eq : (accumulated ++ new_violators).take i = accumulated ++ new_violators.take j := by
+        rw [List.take_append_eq_append_take]
+        have h_take_acc : accumulated.take i = accumulated := by
+          apply List.take_of_length_le
+          exact h_old
+        rw [h_take_acc]
+
+      rw [h_get_eq, h_take_eq, List.map_append]
+      -- Goal now: ω ∈ FeasibleUnder(base ++ (accum.map UnitRefute ++ new_violators.take(j).map UnitRefute))
+      rw [← List.append_assoc]
+
+      -- Step 2: Show ω ∈ FeasibleUnder(base ++ accumulated.map UnitRefute)
+      have h_new_violators_def : new_violators = extractViolatorsForConfig L C base_constraints accumulated config := rfl
+
+      have h_ω_in_new_violators : ω ∈ new_violators := List.getElem_mem h_in_new
+
+      have h_ω_feasible_under_acc : ω ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) := by
+        unfold extractViolatorsForConfig at h_new_violators_def
+        cases config with
+        | mk v cfg =>
+          simp only at h_new_violators_def
+          by_cases h_v_in_C : v ∈ C
+          · simp only [h_v_in_C, ↓reduceDIte] at h_new_violators_def
+            rw [h_new_violators_def] at h_ω_in_new_violators
+            have h_in_set := Finset.mem_toList.mp h_ω_in_new_violators
+            exact mem_violatorsOf_of_mem_feasible L C _ _ ω h_in_set
+          · simp only [h_v_in_C, ↓reduceDIte] at h_new_violators_def
+            rw [h_new_violators_def] at h_ω_in_new_violators
+            simp at h_ω_in_new_violators
+
+      -- Step 3: Show ω ∉ new_violators.take j (since ω is at position j and elements are distinct)
+      have h_ω_not_in_take : ω ∉ new_violators.take j := by
+        unfold extractViolatorsForConfig at h_new_violators_def
+        cases config with
+        | mk v cfg =>
+          simp only at h_new_violators_def
+          by_cases h_v_in_C : v ∈ C
+          · simp only [h_v_in_C, ↓reduceDIte] at h_new_violators_def
+            have h_nodup : new_violators.Nodup := by
+              rw [h_new_violators_def]
+              exact Finset.nodup_toList _
+            intro h_contra
+            have h_take_len : (new_violators.take j).length = min j new_violators.length :=
+              List.length_take ..
+            have h_j_le_len : j ≤ new_violators.length := Nat.le_of_lt h_in_new
+            simp only [min_eq_left h_j_le_len] at h_take_len
+            have ⟨k, h_k_bound, h_get_k⟩ := List.getElem_of_mem h_contra
+            have h_k_lt_j : k < j := by simp only [h_take_len] at h_k_bound; exact h_k_bound
+            have h_k_lt_len : k < new_violators.length := Nat.lt_trans h_k_lt_j h_in_new
+            have h_get_k' : new_violators[k]'h_k_lt_len = ω := by
+              simp only [List.getElem_take] at h_get_k
+              exact h_get_k
+            have h_ω_def : ω = new_violators[j]'h_in_new := rfl
+            have h_indices_eq := List.Nodup.getElem_inj_iff h_nodup |>.mp (h_get_k'.trans h_ω_def.symm)
+            omega
+          · simp only [h_v_in_C, ↓reduceDIte] at h_new_violators_def
+            rw [h_new_violators_def] at h_in_new
+            simp at h_in_new
+
+      -- Step 4: Apply feasible_preserved_under_list_unitRefute
+      exact feasible_preserved_under_list_unitRefute L C
+              (base_constraints ++ accumulated.map CutConstraint.UnitRefute)
+              (new_violators.take j)
+              ω
+              h_ω_not_in_take
+              h_ω_feasible_under_acc
 
 /-- **Corollary: buildRefutedWorlds satisfies the feasibility invariant**. -/
 theorem buildRefutedWorlds_feasibility
@@ -710,20 +955,122 @@ theorem base_feasible_card_eq_pow_R
     (v : Fin L.dag.n)
     (C : Finset (Fin L.dag.n))
     (h_singleton : C = {v})
+    (h_positive_R : ∀ w ∈ C, L.R w > 0)
     : (NormalForm.FeasibleUnder (extractConstraints L C (emptyBasePrefix L))).card = 2 ^ (L.R v) := by
-  sorry -- Should follow from emptyBasePrefix_no_constraints + CutWorld cardinality
+  -- Step 1: extractConstraints on empty prefix = []
+  have h_empty := emptyBasePrefix_no_constraints L C h_positive_R
+  rw [h_empty]
+
+  -- Step 2: FeasibleUnder [] = Finset.univ (empty list = no constraints = all worlds feasible)
+  have h_feasible_all : NormalForm.FeasibleUnder ([] : List (CutConstraint L C)) = Finset.univ := by
+    unfold NormalForm.FeasibleUnder
+    ext ω
+    simp only [Finset.mem_filter, Finset.mem_univ, List.all_nil, and_self]
+
+  rw [h_feasible_all]
+
+  -- Step 3: Cardinality of Finset.univ for CutWorld L C
+  rw [Finset.card_univ]
+
+  -- Step 4: Fintype.card (CutWorld L C) = 2^(C.sum R) via cutWorldEquiv
+  rw [Fintype.card_congr (cutWorldEquiv L C)]
+  have h_fin_card : ∀ w : C, Fintype.card (Fin (2^(L.R w.val))) = 2^(L.R w.val) := by
+    intro w
+    exact Fintype.card_fin (2^(L.R w.val))
+  trans (2 ^ (∑ w : C, L.R w.val))
+  · convert CutProduct.card_pi_eq_pow_sum (fun w : C => Fin (2^(L.R w.val))) (fun w => L.R w.val) h_fin_card
+  · -- Step 5: For singleton C = {v}, the sum is just L.R v
+    congr 1
+    -- Goal: ∑ w : C, L.R w.val = L.R v
+    -- Use sum_attach to connect subtype sum to finset sum
+    have h_eq : (∑ w : C, L.R w.val) = C.sum (fun w => L.R w) := Finset.sum_attach C (fun w => L.R w)
+    rw [h_eq, h_singleton, Finset.sum_singleton]
 
 /-- **Final feasible set has size 1** (unique world at acceptance).
 
     After all refutations, exactly one world remains feasible (the planted world).
+
+    **Hypotheses**:
+    - ω_planted: The planted world that should survive
+    - h_planted_feasible: The planted world is feasible under base constraints
+    - h_planted_not_refuted: The planted world is never refuted
+    - h_all_others_refuted: Every other world IS refuted
+    - h_nodup: No world is refuted twice (ensures correct counting)
 -/
 theorem final_feasible_card_eq_one
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (hist : UnitRefuteHistory L C)
-    -- Add planted/correctness hypotheses
+    (ω_planted : CutWorld L C)
+    (h_planted_feasible : ω_planted ∈ NormalForm.FeasibleUnder (extractConstraints L C hist.base_prefix))
+    (h_planted_not_refuted : ω_planted ∉ hist.refuted_worlds)
+    (h_all_others_refuted : ∀ ω, ω ≠ ω_planted → ω ∈ hist.refuted_worlds)
+    (h_nodup : hist.refuted_worlds.Nodup)
     : (effectiveFeasibleAt L C hist hist.refuted_worlds.length).card = 1 := by
-  sorry -- Follows from planted uniqueness + TM correctness
+  -- The feasible set after all refutations = {ω_planted}
+  -- Because: ω_planted survives (not refuted), all others are excluded (refuted)
+
+  -- Step 1: Show ω_planted IS in the final feasible set
+  have h_planted_in_final : ω_planted ∈ effectiveFeasibleAt L C hist hist.refuted_worlds.length := by
+    unfold effectiveFeasibleAt effectiveConstraintsAt NormalForm.FeasibleUnder
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    rw [List.all_eq_true]
+    intro c h_c_in
+    rw [List.mem_append] at h_c_in
+    cases h_c_in with
+    | inl h_base =>
+      -- c is from base constraints, ω_planted satisfies by h_planted_feasible
+      unfold NormalForm.FeasibleUnder at h_planted_feasible
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h_planted_feasible
+      rw [List.all_eq_true] at h_planted_feasible
+      exact h_planted_feasible c h_base
+    | inr h_refute =>
+      -- c is UnitRefute(ω') for some ω' in refuted_worlds
+      rw [List.take_length] at h_refute
+      rw [List.mem_map] at h_refute
+      obtain ⟨ω', h_ω'_in, h_c_eq⟩ := h_refute
+      rw [← h_c_eq]
+      -- Need: (UnitRefute ω').Satisfies ω_planted
+      -- i.e., ω_planted ≠ ω'
+      simp only [decide_eq_true_iff, CutConstraint.Satisfies]
+      intro h_eq
+      rw [h_eq] at h_planted_not_refuted
+      exact h_planted_not_refuted h_ω'_in
+
+  -- Step 2: Show no other world is in the final feasible set
+  have h_only_planted : ∀ ω, ω ∈ effectiveFeasibleAt L C hist hist.refuted_worlds.length → ω = ω_planted := by
+    intro ω h_ω_feasible
+    by_contra h_neq
+    -- ω ≠ ω_planted, so ω ∈ hist.refuted_worlds
+    have h_ω_refuted := h_all_others_refuted ω h_neq
+    -- But then ω fails the UnitRefute(ω) constraint
+    unfold effectiveFeasibleAt effectiveConstraintsAt NormalForm.FeasibleUnder at h_ω_feasible
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h_ω_feasible
+    rw [List.all_eq_true] at h_ω_feasible
+    have h_self_refute_in : CutConstraint.UnitRefute ω ∈
+        extractConstraints L C hist.base_prefix ++
+        (hist.refuted_worlds.take hist.refuted_worlds.length).map CutConstraint.UnitRefute := by
+      rw [List.mem_append]
+      right
+      rw [List.take_length, List.mem_map]
+      exact ⟨ω, h_ω_refuted, rfl⟩
+    have h_satisfies := h_ω_feasible (CutConstraint.UnitRefute ω) h_self_refute_in
+    -- UnitRefute(ω).Satisfies(ω) requires ω ≠ ω, contradiction!
+    simp only [decide_eq_true_iff, CutConstraint.Satisfies] at h_satisfies
+    exact h_satisfies rfl
+
+  -- Step 3: Therefore the final feasible set is exactly {ω_planted}
+  have h_eq_singleton : effectiveFeasibleAt L C hist hist.refuted_worlds.length = {ω_planted} := by
+    ext ω
+    simp only [Finset.mem_singleton]
+    constructor
+    · exact h_only_planted ω
+    · intro h_eq
+      rw [h_eq]
+      exact h_planted_in_final
+
+  -- Step 4: Cardinality of singleton is 1
+  rw [h_eq_singleton, Finset.card_singleton]
 
 /-- **Elimination lower bound from planted correctness**.
 
@@ -748,11 +1095,17 @@ theorem elimination_lower_bound
 
 /-- **End-to-end time lower bound via WC-1 bridge**.
 
-    This theorem, once the sorries are filled, provides the same conclusion as
-    `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` but with 0 axioms.
+    This theorem provides the same conclusion as
+    `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` but with 0 custom axioms.
 
-    **Current axiom says**: TM correctness implies time ≥ 2^R
-    **This theorem says**: Same conclusion, proven via WC-1 protocol
+    **Key insight**: By assuming the planted world and TM correctness properties explicitly,
+    we can derive the time bound purely from information-theoretic principles.
+
+    **Hypotheses (TM correctness)**:
+    - ω_planted: The unique correct world
+    - h_planted_not_in_configs: The planted world is NOT refuted by TM configs
+    - h_all_others_in_configs: Every other world IS refuted
+    - h_nodup: No duplicate refutations
 -/
 theorem tm_time_lower_bound_via_WC1Bridge
     (L : LStarInstanceFG)
@@ -761,19 +1114,39 @@ theorem tm_time_lower_bound_via_WC1Bridge
     (h_singleton : C = {v})
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
     (haltTime : Nat)
-    (h_positive_R : ∀ v ∈ C, L.R v > 0)
+    (h_positive_R : ∀ w ∈ C, L.R w > 0)
     (h_time_bound : haltTime ≥ (tmRefutedWorlds L C configs).length)
-    -- Add planted/correctness hypotheses as needed
+    -- Planted world hypotheses
+    (ω_planted : CutWorld L C)
+    (h_planted_not_in_refuted : ω_planted ∉ tmRefutedWorlds L C configs)
+    (h_all_others_in_refuted : ∀ ω, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L C configs)
+    (h_nodup : (tmRefutedWorlds L C configs).Nodup)
     : haltTime ≥ 2 ^ (L.R v) - 1 := by
   -- Step 1: Build UnitRefuteHistory from TM run
   let hist := tmRunToUnitRefuteHistory L C configs haltTime h_positive_R h_time_bound
 
   -- Step 2: Prove elimination lower bound
   have h_base : (NormalForm.FeasibleUnder (extractConstraints L C hist.base_prefix)).card = 2 ^ (L.R v) := by
-    sorry -- From base_feasible_card_eq_pow_R
+    -- hist.base_prefix = emptyBasePrefix L by construction
+    show (NormalForm.FeasibleUnder (extractConstraints L C (emptyBasePrefix L))).card = 2 ^ (L.R v)
+    exact base_feasible_card_eq_pow_R L v C h_singleton h_positive_R
 
-  have h_final : (effectiveFeasibleAt L C hist hist.refuted_worlds.length).card = 1 := by
-    sorry -- From final_feasible_card_eq_one
+  -- hist.refuted_worlds = tmRefutedWorlds L C configs by definition
+  have h_refuted_eq : hist.refuted_worlds = tmRefutedWorlds L C configs := rfl
+
+  -- Planted world is feasible under empty base constraints (all worlds are)
+  have h_planted_feasible : ω_planted ∈ NormalForm.FeasibleUnder (extractConstraints L C hist.base_prefix) := by
+    have h_empty := emptyBasePrefix_no_constraints L C h_positive_R
+    show ω_planted ∈ NormalForm.FeasibleUnder (extractConstraints L C (emptyBasePrefix L))
+    rw [h_empty]
+    unfold NormalForm.FeasibleUnder
+    simp only [List.all_nil, Finset.mem_filter, Finset.mem_univ, and_self]
+
+  have h_final : (effectiveFeasibleAt L C hist hist.refuted_worlds.length).card = 1 :=
+    final_feasible_card_eq_one L C hist ω_planted h_planted_feasible
+      (h_refuted_eq ▸ h_planted_not_in_refuted)
+      (fun ω h_neq => h_refuted_eq ▸ h_all_others_in_refuted ω h_neq)
+      (h_refuted_eq ▸ h_nodup)
 
   have h_elim : eliminationsAt L C hist hist.refuted_worlds.length ≥ 2 ^ (L.R v) - 1 :=
     elimination_lower_bound L v C h_singleton hist h_base h_final
@@ -786,34 +1159,39 @@ theorem tm_time_lower_bound_via_WC1Bridge
   have h_eq : hist.total_time = haltTime := rfl
   omega
 
-/-! ## Summary of Remaining Work
+/-! ## Summary: All Theorems Proven (0 custom axioms!)
 
-### PROVEN (0 custom axioms)
+### Core WC-1 Bridge Theorems
 | Theorem | Status |
 |---------|--------|
 | `unitRefuteStep_increases_eliminations_by_one` | ✅ PROVEN |
 | `finalEliminations_eq_refutationSteps` | ✅ PROVEN |
 | `eliminations_to_time` | ✅ PROVEN |
-| `buildRefutedWorlds_feasibility` | ✅ (modulo aux lemma) |
-| `tmRefutedWorlds_refuted_were_feasible` | ✅ (modulo aux + empty base) |
+| `emptyBasePrefix_no_constraints` | ✅ PROVEN |
+| `buildRefutedWorlds_aux_feasibility` | ✅ PROVEN |
+| `buildRefutedWorlds_feasibility` | ✅ PROVEN |
+| `tmRefutedWorlds_refuted_were_feasible` | ✅ PROVEN |
 | `tmRunToUnitRefuteHistory` | ✅ DEFINED |
+| `base_feasible_card_eq_pow_R` | ✅ PROVEN |
+| `final_feasible_card_eq_one` | ✅ PROVEN |
+| `elimination_lower_bound` | ✅ PROVEN |
+| `tm_time_lower_bound_via_WC1Bridge` | ✅ PROVEN |
 
-### REMAINING (sorry stubs)
-| Lemma | Purpose | Est. Lines |
-|-------|---------|------------|
-| `emptyBasePrefix_no_constraints` | Empty prefix has no constraints | ~20 |
-| `buildRefutedWorlds_aux_feasibility` | Core inductive proof | ~100 |
-| `base_feasible_card_eq_pow_R` | Base set has 2^R worlds | ~30 |
-| `final_feasible_card_eq_one` | Final set has 1 world | ~50 |
-| `tm_time_lower_bound_via_WC1Bridge` (glue) | End-to-end | ~20 |
+### Achievement
+This file provides an **axiom-free path** from TM execution to time bounds via WC-1.
+The main theorem `tm_time_lower_bound_via_WC1Bridge` establishes:
 
-**Total**: ~220 lines to eliminate the axiom completely.
+> Given a TM that correctly identifies the planted world (via correctness hypotheses),
+> the TM must take at least 2^R - 1 time steps.
 
-### Key Insight
-The `buildRefutedWorlds` construction ensures the feasibility invariant
-holds BY CONSTRUCTION: each world added comes from `violatorsOf current_feasible`,
-so it was in the feasible set at that moment. The main remaining work is the
-inductive proof `buildRefutedWorlds_aux_feasibility`.
+### Remaining Connection to Main Proof
+To fully eliminate the `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom,
+we need to prove that any correct TM satisfies the planted world hypotheses:
+- The planted world is not refuted
+- All other worlds are refuted
+- No duplicate refutations
+
+This can be established from semantic properties of the planted instance.
 -/
 
 end LStar.StructuralOWF.Foundations
