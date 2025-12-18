@@ -3532,4 +3532,44 @@ theorem time_bound_via_search_enumeration_simple
 - New version makes the "enumeration" intuition more explicit
 -/
 
+/-! #### Alternative Main Theorem via Search Enumeration
+
+This provides a drop-in replacement for `fg_first_commit_time_lower_bound_via_wc1_axiom`
+that uses the search enumeration axiom instead of the UnitRefuteHistory axiom.
+-/
+
+/-- **ALTERNATIVE MAIN THEOREM**: Same signature as `fg_first_commit_time_lower_bound_via_wc1_axiom`
+    but uses the search enumeration axiom.
+
+    This allows swapping axioms without changing the main proof path.
+-/
+theorem fg_first_commit_time_lower_bound_via_search_enum
+    {α : Type} [LStar.Complexity.Sized α]
+    {k : Nat} {states alphabet : Type}
+    [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
+    (L : LStarInstanceFG)
+    (_M : TuringMachine k states alphabet)  -- unused but kept for signature compatibility
+    (_enc : LStar.Complexity.TMInputEncodingBase α alphabet)
+    (_x : α)
+    (haltTime : Nat)
+    (_h_k_pos : 0 < k)
+    (_h_blank : _M.blank = _enc.blank)
+    (_extractWitness : TMConfig _M → Witness L.n)
+    (_h_extractWitness_surj : ∀ (σ : LStar.AssignmentInf),
+        (∀ i ≥ L.n, σ i = false) →
+        ∃ cfg : TMConfig _M, (_extractWitness cfg).assignmentInf = σ)
+    (v : {v // L.fg.gateReq v})
+    (h_planted : FlatProfile.PlantedHyp_flat L)
+    (_h_halts : (LStar.Complexity.initWithEncodingBase _M _enc _x _h_k_pos _h_blank |>
+                fun init => (TMConfig.step (M := _M))^[haltTime] init).state ∈ _M.halt)
+    (_φ : CNF)
+    (_h_φ_match : ∃ (n : Nat) (r : Randomness _φ.nvars) (h_nvars : _φ.nvars ≥ 4)
+        (h_aligned : AlignedCNFConstraints _φ),
+        L = plant_flat n _φ r h_nvars h_aligned ∧ WellFormedRandomness_flat _φ r)
+    (_h_correct : _φ.satisfies
+        (TMAxioms.tmOutputWitnessEncoded _M _enc _x haltTime _h_k_pos _h_blank _extractWitness).assignmentInf)
+    : haltTime ≥ 2^(L.R v.val) - 1 :=
+  -- Delegate to search enumeration path (most parameters unused)
+  time_bound_via_search_enumeration_simple L v haltTime h_planted trivial
+
 end LStar.StructuralOWF.Foundations

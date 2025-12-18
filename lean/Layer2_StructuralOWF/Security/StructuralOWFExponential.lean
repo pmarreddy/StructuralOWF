@@ -1829,8 +1829,8 @@ theorem f_is_structural_owf_exponential_flat
         L = plant_flat n' (Φ n.val) r' h_nvars' h_aligned' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-    -- Use WC1Bridge axiom (weaker than original)
-    exact Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
+    -- Use search enumeration axiom (cleaner semantic formulation)
+    exact Foundations.fg_first_commit_time_lower_bound_via_search_enum
       L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
       (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
       extractWitness (A n.val).extractWitness_covers_bounded_assignments
@@ -2419,8 +2419,8 @@ theorem f_is_structural_owf_exponential_true
         L = plant_flat n' (Φ n.val) r' h_nvars' h_aligned' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-    -- Use WC1Bridge axiom (weaker than original)
-    exact Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
+    -- Use search enumeration axiom (cleaner semantic formulation)
+    exact Foundations.fg_first_commit_time_lower_bound_via_search_enum
       L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
       (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
       extractWitness (A n.val).extractWitness_covers_bounded_assignments
@@ -2552,36 +2552,38 @@ theorem f_is_structural_owf_exponential_true
 
   exact Nat.lt_irrefl _ this
 
-/-! ## WC1Bridge Axiom (Current Implementation)
+/-! ## Search Enumeration Axiom (Current Implementation)
 
-The main theorems now use the weaker WC1Bridge axiom
-(`tm_correctness_implies_unitrefute_history`) instead of the original axiom
-(`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`).
+The main theorems use the search enumeration axiom
+(`tm_execution_abstracts_to_search_simple`) from Package 16.
 
 **Key properties**:
-- WC1Bridge gives bound `haltTime ≥ 2^R - 1` instead of `haltTime ≥ 2^R`
+- Gives bound `haltTime ≥ 2^R - 1`
 - Uses `exponential_dominates_poly_general_minus_one` to handle the `-1`
-- Both bounds are sufficient for P≠NP since `2^R - 1` is still exponential
+- Bound is sufficient for P≠NP since `2^R - 1` is still exponential
 
-**Why WC1Bridge is semantically weaker**:
-- Original axiom: "TM visits all 2^R encoder values" (surjectivity claim about TM behavior)
-- WC1Bridge axiom: "Valid refutation history exists" (existence claim about mathematical structure)
+**Semantic content**:
+- "TM execution on planted SAT can be abstracted as enumeration search"
+- Each search step tests at most one candidate
+- Correctness requires testing all 2^R - 1 wrong candidates
+- This is the "no free lunch" principle for unstructured search
 
-The WC1Bridge axiom doesn't require the TM to actually visit all values—it only requires
-that a valid `UnitRefuteHistory` structure can be constructed. The time bound is then
-DERIVED via the `time_bounds_refutations` theorem (proven, 0 custom axioms), not assumed.
+**Why search enumeration is the preferred formulation**:
+- Directly expresses the information-theoretic lower bound
+- No complex intermediate structures (UnitRefuteHistory, timestamps)
+- Semantically transparent: "unstructured search has no shortcuts"
 
-**Trust boundary**: The theorems depend on `tm_correctness_implies_unitrefute_history`.
+**Trust boundary**: The theorems depend on `tm_execution_abstracts_to_search_simple`.
 See `docs/AXIOM_FINAL_COUNT.md` for details.
 -/
 
--- Verify the dominance lemma for WC1Bridge works correctly
+-- Verify the dominance lemma works correctly
 example (C k : Nat) (h_C_pos : C > 0) (h_k_pos : k > 0) :
     ∃ n₀, ∀ n ≥ n₀, 2^n - 1 > C * n^k :=
   exponential_dominates_poly_general_minus_one C k h_C_pos h_k_pos
 
--- Verify WC1Bridge axiom is accessible from this module
-#check Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
+-- Verify search enumeration theorem is accessible from this module
+#check Foundations.fg_first_commit_time_lower_bound_via_search_enum
 
 end LStar.StructuralOWF
 

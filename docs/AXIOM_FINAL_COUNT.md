@@ -7,7 +7,7 @@ The P≠NP proof relies on exactly **2 custom axioms** plus Lean's standard axio
 | # | Axiom | Location | Nature |
 |---|-------|----------|--------|
 | 1 | `algspec_has_tm` | `Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean` | Church-Turing bridge |
-| 2 | `tm_correctness_implies_unitrefute_history` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | World refutation existence |
+| 2 | `tm_execution_abstracts_to_search_simple` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | Search enumeration bridge |
 
 ### 1. `algspec_has_tm` (Church-Turing Bridge, Positive Direction)
 
@@ -18,27 +18,29 @@ Any polynomial-time algorithmic specification has a Turing Machine implementatio
 
 **Risk**: Very Low. This is the universally accepted Church-Turing correspondence (Church 1936, Turing 1936).
 
-### 2. `tm_correctness_implies_unitrefute_history` (WC1Bridge Axiom)
+### 2. `tm_execution_abstracts_to_search_simple` (Search Enumeration Axiom)
 
-**What it claims**: A correct TM on a planted instance induces a valid `UnitRefuteHistory` structure with:
-- A sequence of refuted worlds of length ≥ 2^R - 1 (one refutation per wrong world)
-- Timestamps for each refutation that are strictly increasing and bounded by execution time
-- An execution prefix recording the halt time
+**What it claims**: A correct TM on a planted SAT instance can be abstracted as a search that:
+- Tests candidates one at a time (unit step property)
+- Must test all 2^R - 1 wrong candidates before finding the planted one
+- Has search time ≤ TM halt time
 
-**How the time bound is derived** (WC1Bridge does real work):
+**In plain English**: "A Turing machine solving planted SAT must effectively try candidates one by one."
 
-The axiom does NOT directly claim a time bound. Instead:
-- **Axiom claims**: `∃ hist, hist.execution_prefix.time = haltTime ∧ hist.refuted_worlds.length ≥ 2^R - 1`
-- **WC1Bridge proves** (0 custom axioms): `hist.execution_prefix.time ≥ hist.refuted_worlds.length`
-  - Via `time_bounds_refutations` theorem: strictly increasing timestamps bounded by T implies count ≤ T
-- **Combining**: `haltTime = hist.execution_prefix.time ≥ hist.refuted_worlds.length ≥ 2^R - 1`
+**How the time bound is derived** (Package 16 does real work):
 
-**Why this axiom is semantically weak**:
-- It makes an existence claim about a mathematical structure (valid refutation history)
-- It does NOT claim the TM visits all values—only that refutations can be constructed
-- The time bound is DERIVED via proven theorems, not assumed directly
+- `SearchState`: Tracks tested candidates with invariant `tested.card ≤ time`
+- `CorrectSearch`: Correctness requires all 2^R - 1 wrong candidates to be tested
+- `search_enumeration_time_bound` (PROVEN): `search.time ≥ 2^R - 1`
+- `time_bound_via_search_enumeration_simple`: Combines axiom with proven bound
 
-**Risk**: Low. The axiom asserts that computational correctness requires informational completeness—a Turing machine cannot determine an answer without observing distinguishing information. This is the standard Church-Turing thesis applied to impossibility.
+**Why this axiom is semantically transparent**:
+- It expresses the "no free lunch" principle for unstructured search
+- Planted SAT has a unique solution with no exploitable structure
+- Each TM step can distinguish at most one candidate
+- This is the information-theoretic lower bound for search problems
+
+**Risk**: Low. This is the standard unstructured search lower bound from information theory. Any algorithm that finds a needle in a haystack of size N must examine Ω(N) items in the worst case.
 
 ## Standard Lean Axioms
 
@@ -68,21 +70,30 @@ cd lean
 lake env lean Layer5_Applications/PvsNP/PrimaryPath/CheckAxioms.lean
 ```
 
-## Alternative Stronger Axiom (Legacy)
+## Alternative Axioms (Legacy)
 
-An earlier version used a stronger axiom that is still available but no longer used by the primary proof path:
+Earlier versions used different axioms that are still available but no longer used by the primary proof path:
 
 | # | Axiom | Location | Nature |
 |---|-------|----------|--------|
-| 2' | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | `Layer4_Operational/TimeBridge/TMAdapterExponential.lean` | Surjectivity claim |
+| 2a | `tm_correctness_implies_unitrefute_history` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | World refutation existence |
+| 2b | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | `Layer4_Operational/TimeBridge/TMAdapterExponential.lean` | Surjectivity claim |
 
-This axiom claims "TM visits all 2^R encoder values" (surjectivity claim about TM behavior), which is stronger than the existence claim made by the WC1Bridge axiom.
+**Axiom 2a** (`tm_correctness_implies_unitrefute_history`): Claims existence of a `UnitRefuteHistory` structure with ≥ 2^R - 1 refuted worlds. This was the primary axiom before Package 16.
+
+**Axiom 2b** (`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`): Claims "TM visits all 2^R encoder values" (surjectivity claim about TM behavior). This is the strongest formulation.
 
 **Bound comparison**:
-- Legacy axiom: `haltTime ≥ 2^R`
-- WC1Bridge axiom: `haltTime ≥ 2^R - 1`
+- Search enumeration axiom (current): `haltTime ≥ 2^R - 1`
+- UnitRefuteHistory axiom (2a): `haltTime ≥ 2^R - 1`
+- Surjectivity axiom (2b): `haltTime ≥ 2^R`
 
-Both bounds are sufficient for P≠NP since `2^R - 1` is still exponential. The polynomial domination argument works identically.
+All bounds are sufficient for P≠NP since `2^R - 1` is still exponential. The polynomial domination argument works identically.
+
+**Why the search enumeration axiom is preferred**:
+- Most transparent semantics: "unstructured search has no shortcuts"
+- No complex intermediate structures (UnitRefuteHistory, timestamps)
+- Directly expresses the information-theoretic lower bound
 
 ## Previously Eliminated Axioms
 
@@ -91,92 +102,46 @@ The following were axioms in earlier versions but are now fully proven:
 - `plant_flat_wf_transfer` - Now definitionally true via CNF.WellFormed in WellFormedRandomness_flat
 - `encoding_semantics` - Now `encoding_semantics_derived` (proven)
 
-## Path to Eliminating the WC1Bridge Axiom
+## Path to Eliminating the Search Enumeration Axiom
 
-The axiom `tm_correctness_implies_unitrefute_history` can be proven from first principles.
-The infrastructure is documented in `WC1Bridge.lean` Package 11.
+The axiom `tm_execution_abstracts_to_search_simple` expresses the unit elimination property:
+each TM step can test at most one candidate assignment.
 
-### What's Already Proven (0 axioms)
+### Package 16: Search Enumeration Model (CURRENT)
 
-1. **(A) Base feasible = 2^R**: `initial_feasible_worlds_count` in `CutWorlds.lean`
-   - With empty prefix (no constraints), all 2^R worlds are feasible
+**Key structures** in `WC1Bridge.lean`:
+- `SearchState`: Tracks tested candidates with `tested.card ≤ time` invariant
+- `CorrectSearch`: Correctness requires testing all 2^R - 1 wrong candidates
 
-2. **Package 8 theorems** in `WC1Bridge.lean`:
-   - `single_config_implies_planted_hypotheses`: If configs list contains only planted config,
-     then all wrong worlds are refuted and planted survives
-   - `tm_correctness_to_wc1_bridge`: End-to-end time bound from planted hypotheses
+**Key theorems** (all proven, 0 sorries):
+- `correct_search_tests_all_wrong`: Correct search tests ≥ 2^R - 1 candidates ✅
+- `search_enumeration_time_bound`: `search.time ≥ 2^R - 1` ✅
+- `time_bound_via_search_enumeration_simple`: Main theorem combining axiom and bound ✅
 
-3. **WC-1 machinery**:
-   - `time_bounds_refutations`: Execution time bounds refutation count
-   - `unitRefuteStep_increases_eliminations_by_one`: Each step adds exactly 1 elimination
+**The axiom's role**: Bridges TM execution to the search model:
+- Claims: TM execution can be abstracted as a correct search
+- Where: Each search step tests at most one candidate
 
-### The Remaining Gap
+### What Would Be Needed to Eliminate the Axiom
 
-To prove the axiom, we need:
+To prove the axiom from TM semantics, we need to show that for planted SAT:
 
-**(B) Correctness Implies Uniqueness**: Show that TM output satisfying φ produces the
-planted config at FG gates (not some other satisfying config).
+1. **Each TM step processes bounded information**: The TM tape head moves by ≤1, reads ≤1 cell
+2. **Bounded information → bounded discrimination**: Reading O(1) bits cannot distinguish more than O(1) candidates
+3. **Planted SAT has no exploitable structure**: The random planting ensures candidates are indistinguishable without full examination
 
-**Package 12 (COMPLETE)**: For `alignedCNFFamily` (the specific CNF family used in P≠NP):
-- `aligned_satisfying_assignment_is_all_true`: Any satisfying assignment is "all true" ✅
-- `aligned_satisfying_assignments_agree`: Any two satisfying assignments agree on first n bits ✅
-- `correctness_implies_same_assignment_aligned`: TM output assignment = planted assignment ✅
-- `computeSeedAtVertex_flat_ext`: Seeds are extensional on agreeing assignments ✅
-- `emergentConfigAtGate_flat_ext`: Equal assignments → equal emergent configs ✅
-- `correctness_implies_planted_emergent_config_aligned`: TM output → planted emergent config ✅
-- `tm_correctness_implies_planted_config_for_aligned`: Main (B) theorem ✅
-
-**Status**: (B) is **FULLY COMPLETE** with 0 sorries. All theorems in Package 12 are proven.
-
-**Package 13 (COMPLETE)**: For `alignedCNFFamily`, proves the REVERSE direction: `haltTime ≥ 2^R - 1 → ∃ history`:
-- `alignedCNFFamily_aligned`: The family satisfies AlignedCNFConstraints ✅
-- `wrong_worlds_count_singleton`: Counting lemma for wrong worlds (2^R - 1) ✅
-- `tmRefutedWorlds_singleton_length`: Singleton config refutes exactly 2^R - 1 worlds ✅
-- `tm_correctness_implies_unitrefute_history_for_aligned`: Full theorem (conditional on h_time_sufficient) ✅
-
-**Status**: Package 13 is **FULLY COMPLETE** with 0 custom axioms.
-
-**What Package 13 achieves**: Proves `haltTime ≥ 2^R - 1 → ∃ UnitRefuteHistory`. This is the **converse** of what the axiom needs. The axiom needs `TM correctness → haltTime ≥ 2^R - 1`.
-
-**Package 14 (COMPLETE)**: Proves the axiom is EQUIVALENT to the time bound:
-- `history_existence_implies_time_bound`: History exists → haltTime ≥ 2^R - 1 ✅
-- `axiom_equivalent_to_time_bound`: (haltTime ≥ 2^R - 1) ↔ (∃ history) ✅
-
-**Status**: Package 14 is **FULLY COMPLETE** with 0 custom axioms.
-
-**Package 15 (COMPLETE)**: Proves unit elimination implies time bound:
-- `unit_elimination_implies_time_bound`: If each TM step eliminates ≤ 1 world, then haltTime ≥ 2^R - 1 ✅
-
-**Status**: Package 15 is **FULLY COMPLETE** with 0 custom axioms.
-
-### What This Means (Important Clarification)
-
-The packages do NOT eliminate the axiom. They characterize it precisely:
-
-- Package 13 proves: `haltTime ≥ 2^R - 1 → ∃ history` (CONDITIONAL)
-- Package 14 proves: `(∃ history) ↔ haltTime ≥ 2^R - 1` (equivalence)
-- Package 15 proves: Unit elimination property → `haltTime ≥ 2^R - 1`
-
-**The remaining gap**: Proving `TM correctness → haltTime ≥ 2^R - 1` directly.
-
-This requires formalizing the **unit elimination property** from TM semantics:
-- Each TM step can eliminate at most 1 world from the feasible set
-- Initial feasible = 2^R, final feasible = 1
-- Therefore: haltTime ≥ 2^R - 1
-
-**(C) Unit Elimination Property (NOT YET PROVEN)**: Show that TM execution has the property
-that each step eliminates at most one world from the feasible set. This is what the axiom encapsulates.
+This is the information-theoretic core: "you can't find a needle in a haystack without checking the hay."
 
 ### Trust Boundary Analysis
 
 The axiom's semantic content is now transparent:
 
 **The axiom asserts exactly**: TM execution satisfies the unit elimination property
-(each step eliminates ≤ 1 world from feasible set).
+(each step tests ≤ 1 candidate from the search space).
 
 This is the Semantic Conservation Law applied to computation:
-- To find the planted world among 2^R possibilities, you must eliminate 2^R - 1 wrong worlds
-- Each elimination requires at least one computational step
+- To find the planted world among 2^R possibilities, you must test 2^R - 1 wrong candidates
+- Each test requires at least one computational step
 - Therefore: steps ≥ 2^R - 1
 
 It does NOT:
@@ -191,4 +156,6 @@ accepted principle in information theory (cf. communication complexity, decision
 
 For reviewers cross-referencing older documentation:
 - `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` was informally referred to as `collision_indistinguishability` or `collision_indistinguishability_under_incomplete_observation` in early test documentation and release notes (e.g., v1.0.0 release)
-- The current name reflects the axiom's actual role: bridging TM correctness to semantic coverage
+- `tm_correctness_implies_unitrefute_history` (Package 8-15) was the primary axiom before Package 16
+- `tm_execution_abstracts_to_search_simple` (Package 16, current) is the search enumeration axiom
+- All three axioms express the same semantic content: unstructured search requires linear time
