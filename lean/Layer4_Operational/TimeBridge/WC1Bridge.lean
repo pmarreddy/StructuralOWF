@@ -3015,4 +3015,295 @@ This is exactly what `tm_correctness_implies_unitrefute_history` encapsulates.
 This is the Semantic Conservation Law: information flow is bounded by computation steps.
 -/
 
+/-! ### Package 16: Unit Elimination from TM Semantics
+
+**GOAL**: Eliminate the axiom `tm_correctness_implies_unitrefute_history` by proving
+the time bound directly from TM execution semantics.
+
+**Key definitions**:
+1. `worldsConsistentWithConfigs`: Worlds matching observed config values
+2. `RefuteEventAtTime`: When a world first becomes inconsistent
+3. Unit step property: At most one world becomes inconsistent per time step
+
+**Strategy**:
+- Define `RefuteEventAtTime t ω` = "ω was consistent at t-1 but inconsistent at t"
+- Prove uniqueness: at most one ω has RefuteEventAtTime t (Lemma 1')
+- Prove coverage: every wrong world has some refutation time (Lemma 2')
+- Combine via pigeonhole: haltTime ≥ 2^R - 1
+-/
+
+/-- **Worlds consistent with a list of observed configs**.
+
+    A world ω is consistent with observed configs if, for every observed
+    (node v, config c), the world's assignment at v equals c.
+
+    **Type note**: We use `PSigma` for the config list because that's what
+    `ExecutionPrefixReal.computedConfigs` uses.
+-/
+def worldsConsistentWithConfigs
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (configs : List (@PSigma (Fin L.dag.n) (fun v => Fin (2^(L.R v)))))
+    : Finset (CutWorld L C) :=
+  Finset.univ.filter fun ω =>
+    configs.all fun ⟨v, cfg⟩ =>
+      -- If v is in the cut, check consistency; otherwise ignore
+      if h : v ∈ C then
+        ω.assignment v h = cfg
+      else
+        true
+
+/-- **Worlds consistent with execution prefix**.
+
+    Wrapper that extracts computed configs from the execution prefix.
+-/
+def worldsConsistentWithPrefix
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (π : ExecutionPrefixReal L)
+    : Finset (CutWorld L C) :=
+  worldsConsistentWithConfigs L C π.computedConfigs
+
+/-- **Empty configs → all worlds consistent**.
+
+    With no observations, all 2^R worlds are consistent.
+-/
+theorem worldsConsistentWithConfigs_nil
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    : worldsConsistentWithConfigs L C [] = Finset.univ := by
+  unfold worldsConsistentWithConfigs
+  simp only [List.all_nil, Finset.filter_true_of_mem, implies_true]
+
+/-- **Adding a config can only shrink the consistent set**.
+
+    Monotonicity: more observations → fewer consistent worlds.
+-/
+theorem worldsConsistentWithConfigs_subset_of_suffix
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (configs1 configs2 : List (@PSigma (Fin L.dag.n) (fun v => Fin (2^(L.R v)))))
+    (h_suffix : configs1 <:+ configs2)
+    : worldsConsistentWithConfigs L C configs2 ⊆ worldsConsistentWithConfigs L C configs1 := by
+  intro ω h_ω
+  unfold worldsConsistentWithConfigs at *
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and] at *
+  rw [List.all_eq_true] at *
+  intro cfg h_cfg
+  apply h_ω
+  exact h_suffix.mem h_cfg
+
+/-- **Singleton membership helper**. -/
+theorem singleton_mem_eq (L : LStarInstanceFG) (v : Fin L.dag.n) (C : Finset (Fin L.dag.n))
+    (h_singleton : C = {v}) (w : Fin L.dag.n) (h_w : w ∈ C) : w = v := by
+  rw [h_singleton] at h_w
+  exact Finset.mem_singleton.mp h_w
+
+/-- **Singleton cut: consistent worlds for single observed config**.
+
+    For singleton C = {v}, if we observe config `c` at v, then only worlds
+    with assignment v = c remain consistent.
+-/
+theorem worldsConsistentWithConfigs_singleton_observed
+    (L : LStarInstanceFG)
+    (v : Fin L.dag.n)
+    (C : Finset (Fin L.dag.n))
+    (h_singleton : C = {v})
+    (cfg : Fin (2^(L.R v)))
+    (h_v_in : v ∈ C)
+    : worldsConsistentWithConfigs L C [⟨v, cfg⟩] =
+      Finset.univ.filter (fun ω : CutWorld L C => ω.assignment v h_v_in = cfg) := by
+  unfold worldsConsistentWithConfigs
+  ext ω
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and, List.all_cons, List.all_nil,
+             Bool.and_true]
+  constructor
+  · intro h
+    simp only [h_v_in, ↓reduceDIte, decide_eq_true_eq] at h
+    exact h
+  · intro h
+    simp only [h_v_in, ↓reduceDIte, decide_eq_true_eq]
+    exact h
+
+/-- **Consistent worlds card for singleton cut with observed config**.
+
+    After observing config `c` at singleton gate v, exactly 1 world remains consistent.
+-/
+theorem worldsConsistentWithConfigs_singleton_card_one
+    (L : LStarInstanceFG)
+    (v : Fin L.dag.n)
+    (C : Finset (Fin L.dag.n))
+    (h_singleton : C = {v})
+    (cfg : Fin (2^(L.R v)))
+    : (worldsConsistentWithConfigs L C [⟨v, cfg⟩]).card = 1 := by
+  have h_v_in : v ∈ C := by rw [h_singleton]; exact Finset.mem_singleton_self v
+  rw [worldsConsistentWithConfigs_singleton_observed L v C h_singleton cfg h_v_in]
+  -- The filter selects exactly one world (the one with assignment = cfg)
+  -- Build the unique world with this config
+  let ω_unique : CutWorld L C := ⟨fun w h_w =>
+    have h_w_eq_v : w = v := singleton_mem_eq L v C h_singleton w h_w
+    h_w_eq_v ▸ cfg⟩
+  -- Show this is the unique element
+  convert Finset.card_singleton ω_unique
+  ext ω
+  simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
+  constructor
+  · intro h_cfg_eq
+    -- ω.assignment v h_v_in = cfg means ω = ω_unique
+    apply CutWorld.ext
+    intro w h_w
+    have h_w_eq_v : w = v := singleton_mem_eq L v C h_singleton w h_w
+    subst h_w_eq_v
+    simp only [ω_unique]
+    exact h_cfg_eq
+  · intro h_eq
+    subst h_eq
+    simp only [ω_unique]
+
+/-! #### RefuteEventAtTime Predicate
+
+**DEFINITION**: World ω has a "refute event at time t" when:
+- At time t-1, ω was consistent with observations (or t = 0)
+- At time t, ω becomes inconsistent with observations
+
+This captures the moment when the TM's execution first rules out world ω.
+-/
+
+/-- **Refute event at time t**: World ω first becomes inconsistent at time t.
+
+    **Definition**:
+    - If t = 0: ω is not consistent with trace 0
+    - If t > 0: ω was consistent with trace (t-1) but not with trace t
+
+    This captures the "moment of refutation" for each world.
+
+    **trace**: A function from time to execution prefix state, modeling
+    the TM's cumulative observations at each time step.
+-/
+def RefuteEventAtTime
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (trace : Nat → ExecutionPrefixReal L)
+    (t : Nat)
+    (ω : CutWorld L C) : Prop :=
+  ω ∉ worldsConsistentWithPrefix L C (trace t) ∧
+  (t = 0 ∨ ω ∈ worldsConsistentWithPrefix L C (trace (t - 1)))
+
+/-- **Refutation time exists for inconsistent worlds**.
+
+    If ω is inconsistent at time T, then there exists some t ≤ T
+    when ω first became inconsistent.
+-/
+theorem refutation_time_exists
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (trace : Nat → ExecutionPrefixReal L)
+    (T : Nat)
+    (ω : CutWorld L C)
+    (h_inconsistent : ω ∉ worldsConsistentWithPrefix L C (trace T))
+    : ∃ t ≤ T, RefuteEventAtTime L C trace t ω := by
+  -- Use strong induction on T
+  induction T with
+  | zero =>
+    -- At T = 0, the refutation time is 0
+    use 0
+    constructor
+    · exact Nat.le_refl 0
+    · constructor
+      · exact h_inconsistent
+      · left; rfl
+  | succ T ih =>
+    -- Either ω was already inconsistent at T, or it becomes inconsistent at T+1
+    by_cases h_at_T : ω ∈ worldsConsistentWithPrefix L C (trace T)
+    · -- ω was consistent at T but inconsistent at T+1
+      -- So the refutation happens at T+1
+      use T + 1
+      constructor
+      · exact Nat.le_refl (T + 1)
+      · constructor
+        · exact h_inconsistent
+        · right
+          simp only [Nat.add_sub_cancel]
+          exact h_at_T
+    · -- ω was already inconsistent at T
+      obtain ⟨t, h_t_le, h_refute⟩ := ih h_at_T
+      use t
+      constructor
+      · exact Nat.le_succ_of_le h_t_le
+      · exact h_refute
+
+/-- **Monotone trace**: configs only grow over time.
+
+    A trace is monotone if for all t, (trace t).computedConfigs is a suffix of
+    (trace (t+1)).computedConfigs.
+-/
+def TraceMonotone (L : LStarInstanceFG) (trace : Nat → ExecutionPrefixReal L) : Prop :=
+  ∀ t, (trace t).computedConfigs <:+ (trace (t + 1)).computedConfigs
+
+/-- **Monotone trace implies consistent worlds shrink**.
+
+    If the trace is monotone, then consistent worlds can only decrease over time.
+-/
+theorem monotone_trace_consistent_shrink
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (trace : Nat → ExecutionPrefixReal L)
+    (h_mono : TraceMonotone L trace)
+    (t₁ t₂ : Nat)
+    (h_le : t₁ ≤ t₂)
+    : worldsConsistentWithPrefix L C (trace t₂) ⊆ worldsConsistentWithPrefix L C (trace t₁) := by
+  -- Induction on t₂ - t₁
+  induction t₂, h_le using Nat.le_induction with
+  | base => exact Finset.Subset.refl _
+  | succ t₂ _ ih =>
+    -- trace t₂ configs <:+ trace (t₂ + 1) configs
+    have h_suffix := h_mono t₂
+    have h_step : worldsConsistentWithPrefix L C (trace (t₂ + 1)) ⊆
+                  worldsConsistentWithPrefix L C (trace t₂) := by
+      unfold worldsConsistentWithPrefix
+      exact worldsConsistentWithConfigs_subset_of_suffix L C _ _ h_suffix
+    exact Finset.Subset.trans h_step ih
+
+/-- **Refutation time is unique** (under monotone trace).
+
+    If ω has a refute event at both t₁ and t₂, then t₁ = t₂.
+
+    **Key insight**: The "first becomes inconsistent" property is unique
+    when observations only grow (monotone trace).
+-/
+theorem refutation_time_unique
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (trace : Nat → ExecutionPrefixReal L)
+    (h_mono : TraceMonotone L trace)
+    (t₁ t₂ : Nat)
+    (ω : CutWorld L C)
+    (h₁ : RefuteEventAtTime L C trace t₁ ω)
+    (h₂ : RefuteEventAtTime L C trace t₂ ω)
+    : t₁ = t₂ := by
+  -- Suppose t₁ < t₂ (or t₂ < t₁), derive contradiction
+  by_contra h_ne
+  wlog h_lt : t₁ < t₂ with h_sym
+  · -- Handle t₂ < t₁ case by symmetry
+    push_neg at h_ne h_lt
+    have h_lt' : t₂ < t₁ := Nat.lt_of_le_of_ne h_lt (Ne.symm h_ne)
+    exact h_sym L C trace h_mono t₂ t₁ ω h₂ h₁ (Ne.symm h_ne) h_lt'
+  -- Now t₁ < t₂
+  obtain ⟨h₁_not_in, h₁_was_in⟩ := h₁
+  obtain ⟨h₂_not_in, h₂_was_in⟩ := h₂
+  -- Since t₁ < t₂, we have t₂ > 0, so h₂_was_in gives ω ∈ consistent(t₂ - 1)
+  have h_t2_pos : t₂ > 0 := Nat.lt_of_le_of_lt (Nat.zero_le t₁) h_lt
+  have h_t2_ne_zero : t₂ ≠ 0 := Nat.ne_of_gt h_t2_pos
+  cases h₂_was_in with
+  | inl h_t2_zero => exact h_t2_ne_zero h_t2_zero
+  | inr h_in_prev =>
+    -- ω ∈ consistent(t₂ - 1) and t₁ ≤ t₂ - 1
+    have h_t1_le_pred : t₁ ≤ t₂ - 1 := Nat.lt_succ_iff.mp (by omega : t₁ < t₂ - 1 + 1)
+    -- By monotonicity: consistent(t₂ - 1) ⊆ consistent(t₁)
+    have h_shrink := monotone_trace_consistent_shrink L C trace h_mono t₁ (t₂ - 1) h_t1_le_pred
+    -- So ω ∈ consistent(t₁)
+    have h_in_t1 : ω ∈ worldsConsistentWithPrefix L C (trace t₁) := h_shrink h_in_prev
+    -- But h₁_not_in says ω ∉ consistent(t₁)
+    exact h₁_not_in h_in_t1
+
 end LStar.StructuralOWF.Foundations
