@@ -1,5 +1,6 @@
 import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
 import Layer5_Applications.PvsNP.PrimaryPath.OWFExistence
+import Layer5_Applications.PvsNP.PrimaryPath.UniformPPTEmbedding
 import Layer5_Applications.PvsNP.ComplexityClasses.Encoding.BitstringOWF
 
 /-! # Main Theorems: P ≠ NP
@@ -94,34 +95,39 @@ theorem P_ne_NP_complete :
     (¬PeqNP_classical) ∧ (∃ (L : Lang (List Bool)), InNP L ∧ ¬InP L) :=
   ⟨P_ne_NP, explicit_NP_not_P_witness⟩
 
-/-! ## OWF Existence (Family-Quantified Cryptographic Form)
+/-! ## OWF Existence (Cryptographic Form)
 
-This section exports the OWF existence theorem in textbook form:
-`∃ Φ, IsOneWayPlantFlat Φ`
+This section exports the OWF existence theorem in two forms:
 
-**Standard Definition** (Goldreich/Katz-Lindell):
-- Preconditions: CNF family well-formedness
-- Security: ∀ uniform PPT adversary A, Pr[A inverts] ≤ negl(n)
+**Form 1 (Family-Quantified)**: `∃ Φ, IsOneWayPlantFlat Φ`
+- `SecurityProperty` quantifies over adversary families with poly bounds
 
-**This Development**:
-- `SecurityProperty` quantifies over adversary families `A : Nat → StructuralOWFAdversary (Φ n).nvars`
-  with a uniform polynomial-bounds constraint (non-uniform family quantifier).
-- The informal embedding “uniform PPT ⊆ such families” is plausible but NOT mechanized here.
+**Form 2 (Textbook)**: `∃ Φ prec, TextbookOWFSecurity Φ prec`
+- Standard textbook definition: ∀ uniform PPT A, Pr[A inverts] ≤ negl(n)
+- `UniformPPTEmbedding.lean` proves `SecurityProperty → TextbookOWFSecurity`
 
 **Trust Boundary**: 1 custom axiom (subset of P≠NP's 2 axioms).
 -/
 
 open LStar.StructuralOWF.OWFExistence
+open LStar.StructuralOWF.UniformEmbedding
 
-/-- **OWF Existence**: There exists a CNF family with one-way plant_flat.
+/-- **OWF Existence (Family Form)**: There exists a CNF family with one-way plant_flat.
 
-    Exports the repo's OWF-existence statement `∃ Φ, IsOneWayPlantFlat Φ`.
-    Note: `IsOneWayPlantFlat`/`SecurityProperty` use a family-quantified adversary model;
-    the connection to textbook “single uniform PPT” is not mechanized here (see OWFExistence.lean docs).
+    Uses family-quantified `SecurityProperty`.
     Uses 1 custom axiom (tm_correctness_implies_realizesAllValuesFrom_flat_encoded). -/
 theorem OWF_exists_main : ∃ Φ : LStar.StructuralOWF.Theorems.CNFFamily,
     IsOneWayPlantFlat Φ :=
   OWF_exists
+
+/-- **OWF Existence (Textbook Form)**: There exists Φ with textbook OWF security.
+
+    Standard form: "∃ f, ∀ uniform PPT A, Pr[A inverts f] ≤ negl(n)"
+    Proven via `security_implies_textbook` from `UniformPPTEmbedding.lean`. -/
+theorem OWF_exists_textbook_main :
+    ∃ (Φ : LStar.StructuralOWF.Theorems.CNFFamily) (prec : CNFPreconditions Φ),
+      TextbookOWFSecurity Φ prec :=
+  OWF_exists_textbook
 
 /-! ## Axiom Audit -/
 
@@ -136,5 +142,6 @@ theorem OWF_exists_main : ∃ Φ : LStar.StructuralOWF.Theorems.CNFFamily,
 
 -- OWF existence (1 custom axiom)
 #print axioms OWF_exists_main
+#print axioms OWF_exists_textbook_main
 
 end MainTheorems
