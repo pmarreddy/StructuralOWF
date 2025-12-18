@@ -49,9 +49,9 @@ In Layer 4, TimeBridge translates TM steps to information cost.
 What are the assumptions? Is there a gap between operational
 semantics and information flow?
 
-The collision_indistinguishability axiom bounds information extraction
-under incomplete observation. Is this a standard formulation?
-What would a counterexample look like?
+The tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom
+states that correctness requires exhaustive exploration. Is this
+a standard formulation? What would a counterexample look like?
 ```
 
 ---

@@ -3955,15 +3955,13 @@ Axioms should be POSITIVE statements about L*, not NEGATIVE statements about bar
 | Axiom | Type | Trust Level | Justification |
 |-------|------|-------------|---------------|
 | algspec_has_tm | Church-Turing | Foundational | Standard CT thesis instantiation |
-| plant_flat_wf_transfer | Structural | Minimal | Addresses proof assistant mechanics |
-| fg_lossless_encoding | Information | Minimal | Basic bitstring round-trip |
-| collision_indistinguishability | Semantic | Foundational | Keyedness/pigeonhole application |
+| tm_correctness_implies_realizesAllValuesFrom_flat_encoded | Semantic | Foundational | Keyedness/pigeonhole application |
+
+**Note**: `plant_flat_wf_transfer` and `fg_lossless_encoding` were previously axioms but are now proven theorems.
 
 **Questions**:
 - [ ] Is algspec_has_tm standard CT?
-- [ ] Is plant_flat_wf_transfer purely structural?
-- [ ] Is fg_lossless_encoding trivially true?
-- [ ] Is collision_indistinguishability counting-based?
+- [ ] Is tm_correctness_implies_realizesAllValuesFrom_flat_encoded counting-based?
 
 **Pass Criteria**: All axioms are standard CS/info-theory principles.
 
@@ -4066,13 +4064,13 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 
 ### Phase 4: Trust Boundary (Category 10.19)
 - [ ] Verify axiom 1 (algspec_has_tm) is barrier-safe (10.19.1)
-- [ ] Verify axiom 2 (plant_flat_wf_transfer) is barrier-safe (10.19.2)
-- [ ] Verify axiom 3 (fg_lossless_encoding) is barrier-safe (10.19.3)
-- [ ] Verify axiom 4 (collision_indistinguishability) is barrier-safe (10.19.4)
-- [ ] Verify exactly 4 custom axioms (10.19.5)
+- [ ] Verify axiom 2 (tm_correctness_implies_realizesAllValuesFrom_flat_encoded) is barrier-safe (10.19.2)
+- [ ] Verify exactly 2 custom axioms (10.19.5)
 - [ ] Verify axiom independence from barriers (10.19.6)
 - [ ] Complete axiom trust assessment (10.19.7)
 - [ ] Verify P≠NP theorem location (10.19.8)
+
+**Note**: plant_flat_wf_transfer and fg_lossless_encoding are now proven theorems (not axioms).
 
 ---
 
@@ -4129,7 +4127,7 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 - **Layer4_Operational/RWA/**: Information attribution
   - RWADeterminism.lean: Determinism proofs (line 42+)
 - **Layer4_Operational/TimeBridge/**: Time-to-information bridge
-  - TMAdapterExponential.lean (line 297): collision_indistinguishability axiom
+  - TMAdapterExponential.lean (line 2132): tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom
 - **Layer1_Construction/Properties/**: A1-A5 properties
   - A1_Hermeticity.lean: Address isolation
   - A2_Injectivity.lean: Seed injectivity
@@ -4163,7 +4161,7 @@ Avoiding one doesn't automatically avoid others.
 |---------|-----------------|----------------------|---------------------|
 | Relativization | Non-relativizing structure | Seed-locking, Hermeticity (A1) | algspec_has_tm: no oracle |
 | Natural Proofs | Sparse, instance-specific | Plant generator density, metadata | All axioms: instance-specific |
-| Algebrization | Combinatorial counting | Fintype.card, discrete constraints | collision_indistinguishability: counting-based |
+| Algebrization | Combinatorial counting | Fintype.card, discrete constraints | tm_correctness_implies_realizesAllValuesFrom_flat_encoded: counting-based |
 
 ### Known Triple-Escape Example
 

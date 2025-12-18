@@ -1563,9 +1563,10 @@ lake env lean -c 'import Layer1_Construction.Properties.A3_Emergence; #print axi
 
 **Questions**:
 - [ ] Any axioms for no-inference claims?
-- [ ] Is fg_lossless_encoding involved here?
-- [ ] Is collision_indistinguishability involved?
+- [ ] Is tm_correctness_implies_realizesAllValuesFrom_flat_encoded involved?
 - [ ] Are these axioms justified?
+
+**Note**: fg_lossless_encoding is now a proven theorem (not an axiom).
 
 **Pass Criteria**: No-inference claims use justified axioms only.
 
@@ -1946,7 +1947,7 @@ cd lean && lake env lean -c 'import Layer3_InformationBounds.WorldCommit.WorldCo
 - [ ] Is parity-based elimination analyzed?
 - [ ] Does knowing "parity wrong" give any useful info?
 - [ ] Is information gain exactly 1 bit?
-- [ ] Connection to collision_indistinguishability axiom?
+- [ ] Connection to tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom?
 
 **Pass Criteria**: Parity provably limits elimination to 1 bit.
 
@@ -2056,7 +2057,7 @@ cd lean && lake env lean -c 'import Layer3_InformationBounds.WorldCommit.WorldCo
 
 **Questions**:
 - [ ] What axioms does CDT/WorldCommit use?
-- [ ] Is collision_indistinguishability involved?
+- [ ] Is tm_correctness_implies_realizesAllValuesFrom_flat_encoded involved?
 - [ ] Are all axioms justified?
 - [ ] Is CDT derived or assumed?
 
@@ -3034,9 +3035,9 @@ grep -rn "paradigm\|Paradigm\|adapter\|Adapter" lean/Layer*/*.lean
 | Axiom | Barrier(s) Affected | Why Needed |
 |-------|---------------------|------------|
 | `algspec_has_tm` | All | Church-Turing bridge for TM semantics |
-| `plant_flat_wf_transfer` | Storage | CNF well-formedness for planted instances |
-| `fg_lossless_encoding` | Resolution | A3 emergence bit extraction |
-| `collision_indistinguishability_...` | Resolution | OAP non-inferability (keyedness bound) |
+| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | Resolution | OAP non-inferability (keyedness bound) |
+
+**Note**: Previously there were 4 axioms. `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proven theorems (see README).
 
 ---
 

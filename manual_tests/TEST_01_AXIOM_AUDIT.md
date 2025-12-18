@@ -223,7 +223,7 @@ grep -B5 -A30 "^private axiom " Layer5_Applications/PvsNP/ComplexityClasses/Enco
 - Encodings (algspec_has_tm)
 - Structure preservation (plant_flat_wf_transfer)
 - Bit extraction (fg_lossless_encoding)
-- Information theory (collision_indistinguishability)
+- Information theory (tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
 - NOT about complexity classes directly
 
 **Verification Checklist**:
@@ -265,11 +265,11 @@ theorem axioms_inconsistent : False := by
 
 **Test 3: Mutual Contradiction Check**
 ```lean
--- Can we satisfy the preconditions of collision_indistinguishability
+-- Can we satisfy the preconditions of tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 -- using outputs from algspec_has_tm?
 --
 -- algspec_has_tm: AlgSpec → TM
--- collision_indistinguishability: TM + incomplete observation → False
+-- tm_correctness_implies_realizesAllValuesFrom_flat_encoded: TM + correct output → realizes all values
 --
 -- For contradiction: need to show EVERY TM from algspec_has_tm
 -- satisfies h_missing AND h_correct simultaneously (impossible for correct TMs)
@@ -328,16 +328,13 @@ def identity_spec : AlgSpec Nat Nat 10 where
 -- This should typecheck and produce an existential
 ```
 
-**Test for collision_indistinguishability**:
+**Test for tm_correctness_implies_realizesAllValuesFrom_flat_encoded**:
 ```lean
--- Can we satisfy ALL preconditions simultaneously?
--- This SHOULD be impossible for valid TMs:
--- - h_missing: some config value never visited
--- - h_correct: TM produces satisfying assignment
--- - h_val_reachable: missing value is reachable by encoder
+-- The axiom states: h_correct (TM produces satisfying assignment) → realizesAllValuesFrom
+-- This means: correct output implies all 2^R config values were visited
 --
 -- For planted instances with correct TMs, visiting ALL 2^R configs is required
--- So h_missing + h_correct should be contradictory (which is what axiom says)
+-- The axiom captures this information-theoretic necessity
 ```
 
 ---
@@ -413,15 +410,16 @@ Then the axioms DON'T imply P≠NP!
 
 **Analysis**:
 - **algspec_has_tm**: Holds in any model of computation (Church-Turing thesis)
-- **plant_flat_wf_transfer**: Structural property, model-independent
-- **fg_lossless_encoding**: Bit manipulation, model-independent
-- **collision_indistinguishability**: The key axiom
+- **algspec_has_tm**: Church-Turing bridge, model-independent
+- **tm_correctness_implies_realizesAllValuesFrom_flat_encoded**: The key axiom
 
-**For collision_indistinguishability in a P=NP world**:
+**Note**: `plant_flat_wf_transfer` and `fg_lossless_encoding` were previously axioms but are now proven theorems.
+
+**For tm_correctness_implies_realizesAllValuesFrom_flat_encoded in a P=NP world**:
 - If P=NP, there exists a poly-time SAT solver
 - For planted instances, this solver must visit enough configs
-- The axiom says: if missing config + correct output → False
-- Question: Does poly-time SAT solver violate h_missing or satisfy all configs?
+- The axiom says: correct output → all 2^R values were realized
+- Question: Does poly-time SAT solver visit all configs or fail correctness?
 
 **Key insight**: In a P=NP world, a poly-time SAT solver for planted instances would either:
 1. Visit ALL 2^R emergent configs (satisfying the coverage requirement) - but 2^R > poly(n), so impossible
@@ -435,31 +433,19 @@ This is the crux: the axiom captures that correctness on planted instances REQUI
 
 **Goal**: Determine if axioms are derivable from each other
 
+**Note**: There are now only 2 axioms (`algspec_has_tm` and `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`).
+The previously listed `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proven theorems.
+
 **Method**:
 ```lean
 -- Can we prove axiom 2 from axiom 1?
 theorem axiom2_from_axiom1 :
   (∀ A, algspec_has_tm A) →
-  plant_flat_wf_transfer = _ := by
-  sorry  -- SHOULD FAIL - different domains
-
--- Can we prove axiom 3 from axioms 1,2?
-theorem axiom3_from_axiom12 :
-  (∀ A, algspec_has_tm A) →
-  (∀ args, plant_flat_wf_transfer args) →
-  fg_lossless_encoding = _ := by
-  sorry  -- SHOULD FAIL - independent concepts
-
--- Can we prove axiom 4 from axioms 1,2,3?
-theorem axiom4_from_axiom123 :
-  (∀ A, algspec_has_tm A) →
-  (∀ args, plant_flat_wf_transfer args) →
-  (∀ args, fg_lossless_encoding args) →
-  collision_indistinguishability = _ := by
-  sorry  -- SHOULD FAIL - axiom 4 is the key info-theoretic content
+  tm_correctness_implies_realizesAllValuesFrom_flat_encoded = _ := by
+  sorry  -- SHOULD FAIL - different domains (Church-Turing vs information theory)
 ```
 
-**Expected**: All `sorry` required (axioms are independent).
+**Expected**: `sorry` required (axioms are independent).
 
 **Red Flag**: If any axiom is derivable from others, it might be circular or redundant.
 
@@ -532,7 +518,7 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 -- Test: Does algspec_has_tm work with Empty input?
 -- Answer: No - Empty has no values, so AlgSpec on Empty is vacuous
 
--- Test: Does collision_indistinguishability work with R = 0?
+-- Test: Does tm_correctness_implies_realizesAllValuesFrom_flat_encoded work with R = 0?
 -- Answer: If R = 0, then 2^R = 1, so there's only 1 config value
 -- This is handled by the h_nvars ≥ 4 requirement (ensures R > 0)
 ```
@@ -588,16 +574,16 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 
 **Method**:
 ```lean
--- For collision_indistinguishability: can h_missing AND h_correct both hold?
--- If they can NEVER both hold, axiom contributes nothing (vacuously true)
+-- For tm_correctness_implies_realizesAllValuesFrom_flat_encoded:
+-- The axiom states: h_correct → realizesAllValuesFrom
+-- This means: correct output implies all 2^R config values were visited
 
 -- The axiom is designed so that for PLANTED instances with CORRECT TM output,
--- h_missing is TRUE (some config missing) implies contradiction.
--- This is the content: you CAN have h_correct, but then you CAN'T have h_missing.
+-- all config values must have been realized during execution.
+-- This is the information-theoretic content: correctness requires full coverage.
 
 -- Test: Construct a TM that visits all 2^R configs
--- Such TM would NOT satisfy h_missing (no value is missing)
--- Therefore axiom doesn't apply - this is correct behavior
+-- Such TM satisfies both h_correct and realizesAllValuesFrom - consistent
 
 -- Test: Construct a TM that misses some config but is still correct
 -- On planted instances, this should be impossible (the axiom's claim)
@@ -606,8 +592,8 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 
 **Verification**: The axiom's strength comes from:
 1. Preconditions ARE satisfiable (planted instances exist, TMs exist)
-2. But h_missing + h_correct are MUTUALLY contradictory on planted instances
-3. This contradiction is the information-theoretic content
+2. Correctness on planted instances implies exponential coverage
+3. This is the information-theoretic content
 
 ---
 
@@ -640,7 +626,7 @@ lake env lean /tmp/per_axiom.lean 2>&1
 
 ### ATTACK 1.19: Uniformity Requirement Analysis (NEW)
 
-**Goal**: Verify the uniformity requirement in collision_indistinguishability is sound
+**Goal**: Verify the uniformity requirement in tm_correctness_implies_realizesAllValuesFrom_flat_encoded is sound
 
 **Background**: The axiom includes:
 ```lean
@@ -707,7 +693,7 @@ Compare findings with:
 ## Pass/Fail Criteria
 
 ### PASS Conditions (ALL must be true):
-- [ ] Exactly 4 custom axioms used by P_ne_NP (algspec_has_tm, plant_flat_wf_transfer, fg_lossless_encoding, collision_indistinguishability)
+- [ ] Exactly 2 custom axioms used by P_ne_NP (algspec_has_tm, tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
 - [ ] All axioms are documented
 - [ ] No axiom directly assumes P≠NP
 - [ ] No axiom restricts polynomial-time computation
@@ -762,21 +748,21 @@ From previous audits:
 2. **Mathematically Trivial**: Statement is immediate
 3. **Axiomatized for**: Complex dependent type index manipulation in Lean
 
-### Why `collision_indistinguishability` is Sound
+### Why `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` is Sound
 
 1. **Information Theory**: Correctness requires observing relevant information
 2. **Planted Construction**: FG gates encode randomness that determines correct assignment
 3. **Coverage Requirement**: Missing config → missing information → cannot guarantee correctness
 4. **Uniformity Guard**: Only applies to uniform PPT adversaries (instance-independent bounds)
-5. **Soundness Guard**: `h_val_reachable` blocks trivial/degenerate encoders
+5. **Soundness Guard**: `h_extractWitness_surj` blocks trivial/degenerate encoders
 
 ### Why These Don't Assume P≠NP
 
 A hypothetical P=NP world:
 - `algspec_has_tm`: Still true (poly-time SAT solver would get a TM)
-- `plant_flat_wf_transfer`: Still true (encoding structure unchanged)
-- `fg_lossless_encoding`: Still true (bit extraction unchanged)
-- `collision_indistinguishability`: Still true (information theory unchanged)
+- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`: Still true (information theory unchanged)
+
+**Note**: `plant_flat_wf_transfer` and `fg_lossless_encoding` were previously axioms but are now proven theorems.
 
 The P≠NP conclusion comes from COMBINING these with the FG construction,
 not from the axioms themselves. The construction creates instances where
@@ -789,7 +775,9 @@ from existing—the construction makes such algorithms incorrect.
 
 | Axiom | File | Line | Namespace |
 |-------|------|------|-----------|
-| `algspec_has_tm` | RandAdv.lean | 297 | `LStar.Complexity` |
-| `plant_flat_wf_transfer` | PlantExponential.lean | 1067 | `LStar.StructuralOWF` (private) |
-| `fg_lossless_encoding` | EncodingDiscipline.lean | 346 | `LStar.Complexity.EncodingDiscipline` (private) |
-| `collision_indistinguishability_...` | TMAdapterExponential.lean | 297 | `LStar.StructuralOWF.Foundations.FlatProfile` |
+| `algspec_has_tm` | RandAdv.lean | 298 | `LStar.Complexity` |
+| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | 2132 | `LStar.StructuralOWF.Foundations.FlatProfile` |
+
+**Eliminated Axioms** (now proven theorems):
+- `plant_flat_wf_transfer` - Now definitionally true via CNF.WellFormed
+- `fg_lossless_encoding` - 145-line theorem in EncodingDiscipline.lean

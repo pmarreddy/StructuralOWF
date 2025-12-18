@@ -189,7 +189,7 @@ theorem oracle_attack :
   ∃ O : Oracle,
     (∀ n φ r h_nvars h_wf, InP_oracle O (fun L => L = plant_flat n φ r h_nvars)) ∧
     (algspec_has_tm still holds with O) ∧
-    (collision_indistinguishability... still holds with O) := by
+    (tm_correctness_implies_realizesAllValuesFrom_flat_encoded still holds with O) := by
   sorry
 
 -- Key question: Does proof relativize?
@@ -992,10 +992,10 @@ For each attack:
    - Breaking the OWF → FP≠FNP → P≠NP chain
 
 2. **Where are the weak points?**
-   - The 2 axiom boundaries (algspec_has_tm, collision_indistinguishability)
+   - The 2 axiom boundaries (algspec_has_tm, tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
    - Encoding choices (TMEncoding, emergent bit encoding)
    - Type parameters (Sized instances, Fintype instances)
-   - The uniformity requirement in collision_indistinguishability
+   - The uniformity requirement in tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 
 3. **What assumptions are implicit?**
    - Uniformity (no advice) - enforced by h_uniform_bound
@@ -1231,10 +1231,10 @@ theorem attack_injectivity : Function.Injective bad_injection := by
   2. Information-theoretic bounds (do NOT relativize!)
   3. Specific construction (plant_flat, FG gates)
 
-- Key insight: The collision_indistinguishability axiom encodes an information-theoretic claim:
-  - "Incomplete observation cannot determine correct parity"
+- Key insight: The tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom encodes an information-theoretic claim:
+  - "Correctness requires exhaustive coverage of all 2^R configurations"
   - This is NOT about what oracles can compute
-  - It's about what information is PRESENT in incomplete traces
+  - It's about what information is REQUIRED for correctness
 
 **Conclusion**: The core bound does NOT relativize because it's information-theoretic. An oracle that "gives away" the planted assignment would break the axiom's premise (no longer incomplete observation).
 

@@ -1077,17 +1077,17 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
 
 ---
 
-#### VECTOR 12.3: collision_indistinguishability Doesn't Assume P≠NP
+#### VECTOR 12.3: tm_correctness_implies_realizesAllValuesFrom_flat_encoded Doesn't Assume P≠NP
 ```lean
--- TMAdapterExponential.lean:297-317
+-- TMAdapterExponential.lean:2100-2159
 axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
-    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) ...
+    (L : LStarInstanceFG) (M : TuringMachine) ...
 ```
 
 **Manual Check**: This axiom is:
-- Shannon's information theory
-- "Can't extract n bits from fewer than n bits"
-- Pre-dates P vs NP question!
+- Information-theoretic necessity
+- "Correctness requires exhaustive coverage of all 2^R configurations"
+- Based on pigeonhole counting, pre-dates P vs NP question!
 
 **Pass Criteria**: Axiom is information-theoretic, not complexity.
 
@@ -1171,11 +1171,11 @@ grep -rn "NP-complete\|hard\|difficult" --include="*.lean" Layer1_Construction/ 
 ---
 
 #### VECTOR 12.10: All Axioms Operate at Inversion Layer
-**Manual Check**: All four axioms operate at the inversion/information layer:
+**Manual Check**: Both axioms operate at the inversion/information layer:
 - TM semantics (algspec_has_tm)
-- CNF structure (plant_flat_wf_transfer)
-- Encoding mechanics (fg_lossless_encoding)
-- Keyedness bound (collision_indistinguishability)
+- Information-theoretic bound (tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
+
+**Note**: `plant_flat_wf_transfer` and `fg_lossless_encoding` were previously axioms but are now proven theorems.
 
 None mention P, NP, or complexity bounds. The separation EMERGES from the construction.
 

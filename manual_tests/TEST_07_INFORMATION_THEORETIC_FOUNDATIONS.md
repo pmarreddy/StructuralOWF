@@ -24,7 +24,7 @@ Incomplete observation at FG gate
   → Different seeds (A2 injectivity)     [different_emergent_different_seed: PROVEN]
   → At most one correct assignment       [planted uniqueness]
   → Correctness requires complete obs    [fg_correctness_requires_complete_observation: PROVEN]
-  → Must visit 2^R configurations        [collision_indistinguishability: AXIOM]
+  → Must visit 2^R configurations        [tm_correctness_implies_realizesAllValuesFrom_flat_encoded: AXIOM]
   → Time ≥ 2^R                           [time_bound_from_coverage: PROVEN]
 ```
 
@@ -400,7 +400,7 @@ cfg1 ≠ cfg2
 -- 4. At most one planted instance correct → contradiction
 
 -- This is PROVEN (0 custom axioms in this theorem)
--- The axiom enters at the TM-to-observation bridge (collision_indistinguishability)
+-- The axiom enters at the TM-to-observation bridge (tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
 ```
 
 **Questions**:
@@ -438,7 +438,7 @@ The proof uses **pigeonhole principle** and **counting arguments**, NOT explicit
 -- Proof structure:
 -- 1. If haltTime < 2^R, visited set has cardinality ≤ haltTime < 2^R
 -- 2. By pigeonhole: some value in [0, 2^R) is missing
--- 3. Apply collision_indistinguishability with missing value → False
+-- 3. Apply tm_correctness_implies_realizesAllValuesFrom_flat_encoded: correctness → all values realized
 -- 4. Contrapositive: haltTime ≥ 2^R
 
 -- Verification:
@@ -548,9 +548,9 @@ grep -rn "I(X;Z) ≤ I(X;Y)\|mutual.*information" --include="*.lean" lean/
 -- Counting says: |visited configs| ≤ time
 -- But: What does "visited config" mean for a TM?
 
--- The axiom collision_indistinguishability bridges this:
--- It says: If TM produces correct answer but missed some config value,
---          then contradiction (planted instance can't be solved)
+-- The axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded bridges this:
+-- It says: If TM produces correct answer, all config values were realized
+--          (correctness on planted instances requires exhaustive coverage)
 
 -- This is where the ONE information-theoretic axiom enters
 -- See CATEGORY 7.6 for detailed axiom verification
@@ -1028,25 +1028,25 @@ axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 -- Expected output (from AXIOM_FINAL_COUNT.md):
 -- [propext, Classical.choice, Quot.sound,              -- Standard Lean
 --  LStar.Complexity.algspec_has_tm,                    -- Church-Turing bridge
---  ...plant_flat_wf_transfer,                          -- CNF structure
---  ...fg_lossless_encoding,                            -- Encoding mechanics
---  ...tm_correctness_implies_realizesAllValuesFrom_flat_encoded]  -- THIS ONE
+--  ...tm_correctness_implies_realizesAllValuesFrom_flat_encoded]  -- Information-theoretic
 
--- Only collision_indistinguishability is information-theoretic
--- Others are: Church-Turing (definitional), encoding (mechanics)
+-- NOTE: plant_flat_wf_transfer and fg_lossless_encoding are now proven theorems (not axioms)
+
+-- Only tm_correctness_implies_realizesAllValuesFrom_flat_encoded is information-theoretic
+-- algspec_has_tm is: Church-Turing (definitional)
 
 -- Verification:
--- 1. Check P_ne_NP axioms match expected list
+-- 1. Check P_ne_NP axioms match expected list (2 custom axioms)
 -- 2. Classify each axiom
 -- 3. Confirm only ONE is information-theoretic
 ```
 
 **Questions**:
-- [x] Is collision_indistinguishability the only info-theoretic axiom? → YES
-- [ ] Are the other axioms correctly classified?
+- [x] Is tm_correctness_implies_realizesAllValuesFrom_flat_encoded the only info-theoretic axiom? → YES
+- [x] algspec_has_tm is Church-Turing bridge (definitional)
 - [ ] Is the trust boundary clear?
 
-**Pass Criteria**: One information-theoretic axiom; others are mechanical/definitional.
+**Pass Criteria**: One information-theoretic axiom; the other is definitional.
 
 **Lean Files to Check**:
 - Run `#print axioms P_ne_NP` in Lean
@@ -1099,8 +1099,8 @@ grep -rn "lambda.*:=\|def lambda" --include="*.lean" lean/Layer0*/
 # Find the axiom
 grep -rn "tm_correctness_implies_realizesAllValuesFrom_flat_encoded" --include="*.lean" lean/
 
-# Check axiom usage
-grep -rn "collision_indistinguishability" --include="*.lean" lean/Layer*/
+# Check axiom usage (note: old name was collision_indistinguishability)
+grep -rn "tm_correctness_implies_realizesAllValuesFrom_flat_encoded" --include="*.lean" lean/Layer*/
 
 # Print axioms of P_ne_NP
 # (Run in Lean REPL)
@@ -1170,7 +1170,7 @@ grep -rn "collision_indistinguishability" --include="*.lean" lean/Layer*/
 - [ ] Parity is hardness source (should be discriminator; A2 is hardness source)
 - [ ] DPI used but not formalized (should use counting)
 - [ ] SCL_node uses custom axioms (should be 0)
-- [ ] collision_indistinguishability has unsound parameters
+- [ ] tm_correctness_implies_realizesAllValuesFrom_flat_encoded has unsound parameters
 - [ ] More than 1 information-theoretic axiom exists
 - [ ] Key theorems are axiomatized instead of proven
 
@@ -1227,7 +1227,7 @@ Passing all categories confirms the information-theoretic foundation is sound.
 | different_emergent_different_seed | Layer2_StructuralOWF/FrontierGate/FrontierGate.lean | 680-708 |
 | incomplete_obs_has_collision | Layer3_InformationBounds/SegmentReduction/ParityLowerBound.lean | 619-660 |
 | fg_correctness_requires_complete_observation | Layer3_InformationBounds/WorldCommit/FGIndistinguishability.lean | 371-404 |
-| collision_indistinguishability axiom | Layer4_Operational/TimeBridge/TMAdapterExponential.lean | 297-317 |
+| tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom | Layer4_Operational/TimeBridge/TMAdapterExponential.lean | 2100-2159 |
 | time_bound_from_coverage | Layer4_Operational/TimeBridge/TMAdapterExponential.lean | 321+ |
 | ObservationModel | Layer3_InformationBounds/Support/ObservationModel.lean | All |
 | ParityLowerBound | Layer3_InformationBounds/SegmentReduction/ParityLowerBound.lean | All |

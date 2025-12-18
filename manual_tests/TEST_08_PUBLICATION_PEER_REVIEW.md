@@ -171,7 +171,7 @@ def PeqNP_classical : Prop :=
 
 2. Layer 3-4: Information bounds + TM bridge
    → `SCL_node` (SCLNode.lean:297) - per-node bound
-   → `collision_indistinguishability_...` - TM coverage requirement
+   → `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` - TM coverage requirement
 
 3. Layer 5: OWFBridge proving chain
    → `parity_owf_implies_fpnefnp` (StructuralOWFBridge.lean)
@@ -201,7 +201,7 @@ def PeqNP_classical : Prop :=
 -- Expected output includes exactly these 2 custom axioms plus standard Lean:
 -- [propext, Classical.choice, Quot.sound,
 --  LStar.Complexity.algspec_has_tm,
---  LStar.StructuralOWF.Foundations.FlatProfile.collision_indistinguishability_...]
+--  LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded]
 
 -- Check:
 -- 1. Same names and meanings? Verify against docs/AXIOM_FINAL_COUNT.md
@@ -213,8 +213,8 @@ def PeqNP_classical : Prop :=
 **Axiom Source Locations**:
 | # | Axiom | File | Line |
 |---|-------|------|------|
-| 1 | `algspec_has_tm` | RandAdv.lean | 297 |
-| 2 | `collision_indistinguishability_...` | TMAdapterExponential.lean | 297 |
+| 1 | `algspec_has_tm` | RandAdv.lean | 298 |
+| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | 2132 |
 
 ---
 
@@ -494,7 +494,7 @@ See docs/AXIOM_FINAL_COUNT.md for authoritative documentation.
 
 1. **Uniform model enforced**:
    - RandAdv structure requires fixed constants C, k for ALL inputs
-   - `collision_indistinguishability_...` axiom has uniformity requirement:
+   - `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom has uniformity requirement:
      `h_uniform_bound : haltTime ≤ C_uniform * (L.n + 1) ^ k_uniform`
    - This blocks non-uniform "lucky TMs" that need different C, k per instance
 
@@ -933,7 +933,7 @@ Passing this test means the paper is ready for peer review submission.
 | # | Axiom | Location | Nature | Risk |
 |---|-------|----------|--------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean:297 | Church-Turing bridge | Very Low |
-| 2 | `collision_indistinguishability_...` | TMAdapterExponential.lean:297 | Semantic bound | Low |
+| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:2132 | Semantic bound | Low |
 
 **Previously Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding`: 145-line theorem (EncodingDiscipline.lean:344-489)
