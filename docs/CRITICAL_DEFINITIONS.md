@@ -3088,45 +3088,49 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 39. **CNFPreconditions** - OWF preconditions bundle (9 structural requirements)
 40. **SecurityProperty** - OWF security: ∀ poly-bounded families A, Pr[invert] ≤ negl(n) (VARIANT - uses families)
 41. **IsOneWayPlantFlat** - OWF predicate (VARIANT of Goldreich/Katz-Lindell, implies textbook via UniformPPTEmbedding)
+42. **UniformOWFAdversary** - Uniform PPT adversary: family with same TM (HEq) and same bounds
+43. **TextbookOWFSecurity** - Textbook OWF security: ∀ uniform PPT A, Pr[invert] ≤ negl(n)
 
 **Crypto Theorems** (derived, not definitions):
 - **plant_flat_lambdaBase_eq_nvars** - THEOREM: Exponential profile achieves λ ≥ n
 - **plant_flat_R_eq_nvars** - THEOREM: FG gate has R = nvars
-- **OWF_exists** - THEOREM: OWF existence (witness: alignedCNFFamily)
+- **OWF_exists** - THEOREM: OWF existence, family form (witness: alignedCNFFamily)
+- **OWF_exists_textbook** - THEOREM: OWF existence, textbook form
+- **security_implies_textbook** - THEOREM: SecurityProperty → TextbookOWFSecurity
 
 **Operational Foundation** (11 definitions + 1 theorem):
-43. **FrontierGateConfig** - FG gate configuration (information bottleneck wiring)
-44. **LStarInstanceFG** - FG-equipped instance (extends LStarInstanceFull + FG config)
-45. **NodeDataFull** - L* → NodeData bridge (enables SCL application)
-46. **ExecutionPrefix** - Observation-based execution model (info theory bridge)
-47. **refutationCount** - Segment reduction result (exponential time bound!)
-48. **Observation** - Partial/complete observation model (info-theoretic foundation)
-49. **AlgorithmState** - Abstract computational state (model-agnostic)
-50. **WitnessFinder** - Abstract witness-finding algorithm (Theorem 8.A foundation)
-51. **TrackedRun** - Execution trace structure (states → segments → configs mapping)
-52. **RevealedBit** - Single bit revelation (ExecutionPrefixReal component)
-53. **ValidExecutionPrefix_flat** - TM → ExecutionPrefix validation predicate
+44. **FrontierGateConfig** - FG gate configuration (information bottleneck wiring)
+45. **LStarInstanceFG** - FG-equipped instance (extends LStarInstanceFull + FG config)
+46. **NodeDataFull** - L* → NodeData bridge (enables SCL application)
+47. **ExecutionPrefix** - Observation-based execution model (info theory bridge)
+48. **refutationCount** - Segment reduction result (exponential time bound!)
+49. **Observation** - Partial/complete observation model (info-theoretic foundation)
+50. **AlgorithmState** - Abstract computational state (model-agnostic)
+51. **WitnessFinder** - Abstract witness-finding algorithm (Theorem 8.A foundation)
+52. **TrackedRun** - Execution trace structure (states → segments → configs mapping)
+53. **RevealedBit** - Single bit revelation (ExecutionPrefixReal component)
+54. **ValidExecutionPrefix_flat** - TM → ExecutionPrefix validation predicate
 
 **Operational Theorem** (derived, not definition):
 - **observations_le_time** - THEOREM: observations ≤ time (TM time accounting)
 
 **Supporting Infrastructure** (13 additional definitions - proof fails without):
 
-54. **CNF** - 3-SAT problem definition (NP-complete core)
-55. **WellFormed** - Witness extraction enabler (security-critical)
-56. **Seed** - Finite encoding type (SCL cardinality)
-57. **DAG** - Computation dependency graph (A5 property)
-58. **CutWorld** - World semantics (WC-1 theorem)
-59. **ConfigSpace** - Configuration type (info-theoretic bounds)
-60. **TuringMachine** - Machine specification (Church-Turing)
-61. **TMConfig** - Configuration state (operational semantics)
-62. **RandAdv** - Abstract PPT (complexity classes infrastructure)
-63. **negligible_parametric** - Cryptographic negligibility
-64. **Witness** - SAT witness + FG verification data (extraction target)
-65. **extractWitness** - TM output → Witness decoder (PPTAdversary field)
-66. **LStarInstanceFull** - Base instance (supports critical LStarInstanceFG)
+55. **CNF** - 3-SAT problem definition (NP-complete core)
+56. **WellFormed** - Witness extraction enabler (security-critical)
+57. **Seed** - Finite encoding type (SCL cardinality)
+58. **DAG** - Computation dependency graph (A5 property)
+59. **CutWorld** - World semantics (WC-1 theorem)
+60. **ConfigSpace** - Configuration type (info-theoretic bounds)
+61. **TuringMachine** - Machine specification (Church-Turing)
+62. **TMConfig** - Configuration state (operational semantics)
+63. **RandAdv** - Abstract PPT (complexity classes infrastructure)
+64. **negligible_parametric** - Cryptographic negligibility
+65. **Witness** - SAT witness + FG verification data (extraction target)
+66. **extractWitness** - TM output → Witness decoder (PPTAdversary field)
+67. **LStarInstanceFull** - Base instance (supports critical LStarInstanceFG)
 
-**Grand Total**: 66 definitions + 4 theorems (53 core definitions + 13 supporting definitions + 4 derived theorems)
+**Grand Total**: 68 definitions + 6 theorems (55 core definitions + 13 supporting definitions + 6 derived theorems)
 
 **Theoretical Foundations**:
 - Information theory (Hartley, Shannon)
