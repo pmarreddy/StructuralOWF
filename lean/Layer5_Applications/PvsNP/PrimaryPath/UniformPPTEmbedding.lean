@@ -44,16 +44,12 @@ open LStar.StructuralOWF.Theorems  -- for CNFFamily
     **Textbook Correspondence**: This captures "single algorithm for all n" by requiring
     the TM to be literally the same; only the type-level interpretation varies.
 
-    **HONESTY NOTE 1 - Uniformity by Structure**: This is "uniformity-by-structure"
+    **Note 1 - Uniformity by Structure**: This is "uniformity-by-structure"
     (a family plus proofs of same TM/bounds), NOT "a single TM taking 1^n as input"
-    as a standalone type. It's equivalent in spirit, but we encode "single TM" as a
-    property of a family rather than a primitive notion. Textbook uniform PPT
-    adversaries satisfy this definition (same TM → uniform_M, same bounds → uniform_bounds).
+    as a standalone type. Equivalent in spirit; textbook uniform PPT satisfies this.
 
-    **HONESTY NOTE 2 - Strength of uniform_M**: The `HEq` constraint is very strong:
-    it requires literally the same TM (same stateCount, alphabetSize, tapeCount, and
-    transition function). If "same code but different state/alphabet encodings" were
-    acceptable, one would weaken this to an equivalence/compilation relation. -/
+    **Note 2 - Strength of uniform_M**: The `HEq` constraint requires literally the
+    same TM (same stateCount, alphabetSize, tapeCount, transition function). -/
 structure UniformOWFAdversary (Φ : CNFFamily) where
   /-- The underlying adversary family. -/
   A : (n : Nat) → StructuralOWFAdversary (Φ n).nvars

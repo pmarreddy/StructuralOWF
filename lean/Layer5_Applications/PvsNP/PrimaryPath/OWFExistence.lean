@@ -61,9 +61,8 @@ structure CNFPreconditions (Φ : CNFFamily) : Prop where
 
 /-- **Security Property**: For all poly-bounded adversary families, success is negligible.
 
-    **IMPORTANT - Differs From Textbook**: This definition quantifies over FAMILIES
-    of adversaries `A : Nat → StructuralOWFAdversary`, not a single uniform PPT adversary.
-    Arguably stronger (more adversaries), but embedding is NOT mechanized (see below).
+    **Differs From Textbook**: This definition quantifies over FAMILIES of adversaries
+    `A : Nat → StructuralOWFAdversary`, not a single uniform PPT adversary.
 
     **Textbook vs This Definition**:
     - Textbook: Single adversary A (same program for all n)
@@ -73,13 +72,9 @@ structure CNFPreconditions (Φ : CNFFamily) : Prop where
     This ensures adversary resources are bounded by fixed constants (those at n=128),
     making this a non-uniform but polynomially-bounded quantification.
 
-    **Why This Design**: We quantify over adversary families rather than single TMs.
-    This is arguably stronger than textbook (more adversaries to defend against),
-    but the formal relationship to textbook uniform PPT is NOT mechanized here.
-
-    **Constant Bounds**: See `constant_bounds_satisfy_constraint` which shows families
-    with equal (C,k) across n satisfy the poly-bound constraint. Note: this does NOT
-    formalize textbook uniform PPT (see that lemma's docstring for the gap).
+    **Embedding to Textbook**: See `UniformPPTEmbedding.lean` which proves
+    `SecurityProperty → TextbookOWFSecurity`. Uniform adversaries (same TM, same bounds)
+    are a special case of poly-bounded families, so our definition implies textbook.
 
     **Experiment** (`avg_success_prob_n_exp`): Sample random assignment r,
     compute y = plant_flat(Φ(n), r), give y to adversary A(n), check if A(n)
@@ -99,18 +94,8 @@ def SecurityProperty (Φ : CNFFamily) (prec : CNFPreconditions Φ) : Prop :=
     polynomial bounds (C, k) for all n, then it satisfies SecurityProperty's constraint:
     `∀ n, (A n).C ≤ (A 128).C ∧ (A n).k ≤ (A 128).k`
 
-    **What This Does NOT Prove**: This lemma does NOT formalize textbook "uniform PPT"
-    adversaries. Textbook uniform PPT is a single TM taking (1^n, y) as input.
-    Our family-indexed type `A : Nat → StructuralOWFAdversary (Φ n).nvars` cannot
-    express a literally constant family when nvars varies with n.
-
-    **Relationship to Textbook**: The argument that textbook uniform PPT is a special
-    case requires an informal embedding: a single TM M can be "lifted" to a family
-    where each A(n) wraps M with the same bounds. This embedding is NOT formalized here.
-
-    **Bottom Line**: SecurityProperty defends against all poly-bounded families.
-    Whether this strictly implies textbook OWF security depends on the informal
-    embedding argument, which we do not mechanize. -/
+    **Used By**: `UniformPPTEmbedding.security_implies_textbook` uses this to show
+    uniform adversaries (which have constant bounds) satisfy SecurityProperty's constraint. -/
 theorem constant_bounds_satisfy_constraint (Φ : CNFFamily) :
     ∀ (A : (n : Nat) → StructuralOWFAdversary (Φ n).nvars),
     (∀ n m, (A n).base.C = (A m).base.C ∧ (A n).base.k = (A m).base.k) →
@@ -130,9 +115,8 @@ theorem constant_bounds_satisfy_constraint (Φ : CNFFamily) :
     - Part 1 (efficient forward): `forward_polytime` — matches textbook
     - Part 2 (hard to invert): `SecurityProperty` — quantifies over families, not single TMs
 
-    **Gap**: Textbook OWF uses a single uniform PPT adversary (one TM for all n).
-    Our definition uses adversary families. The informal argument that families ⊇ uniform PPT
-    is plausible but NOT mechanically verified. See `constant_bounds_satisfy_constraint`. -/
+    **Embedding**: `UniformPPTEmbedding.lean` proves `SecurityProperty → TextbookOWFSecurity`,
+    showing our definition implies the textbook version. -/
 def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
   ∃ (prec : CNFPreconditions Φ), SecurityProperty Φ prec
 

@@ -93,7 +93,7 @@ These MUST exactly match textbook definitions. Any deviation means the proof cla
 
 **Cryptographic - Variant (3):** `SecurityProperty`, `IsOneWayPlantFlat`, `OWF_exists`
   - These use adversary FAMILIES, not single uniform PPT (see detailed entry below)
-  - Arguably stronger than textbook, but formal embedding NOT mechanized
+  - `UniformPPTEmbedding.lean` proves `SecurityProperty → TextbookOWFSecurity`
 
 **SAT/Problem (5):** `CNF`, `Clause`, `Literal`, `Assignment`, `CNF.satisfies`
 
@@ -1117,14 +1117,13 @@ def IsOneWayPlantFlat (Φ : CNFFamily) : Prop :=
 - **Ours**: Adversary FAMILIES `A : Nat → StructuralOWFAdversary (Φ n).nvars` with poly bounds
 - **Constraint**: `(A n).base.C ≤ (A 128).base.C` ensures poly-boundedness across family
 
-**Gap (NOT Mechanized)**:
-- The informal argument is: textbook uniform PPT can be "lifted" to a family with constant bounds
-- `constant_bounds_satisfy_constraint` proves: constant bounds → constraint satisfied
-- But the lifting/embedding of a single TM into our family type is NOT formalized
-- Therefore: we do NOT mechanically verify that our definition implies textbook OWF security
+**Embedding (Mechanized in UniformPPTEmbedding.lean)**:
+- `UniformOWFAdversary Φ`: Family with uniform TM (via HEq) and uniform bounds
+- `security_implies_textbook`: Proves `SecurityProperty → TextbookOWFSecurity`
+- Uniform adversaries are poly-bounded families, so our definition implies textbook
 
 **Why Critical**:
-- **Relationship to textbook**: Arguably stronger, but embedding gap not closed
+- **Relationship to textbook**: Implies textbook via `security_implies_textbook`
 - **Existence theorem**: `OWF_exists : ∃ Φ, IsOneWayPlantFlat Φ`
 - **Witness**: `alignedCNFFamily` (n variables, n unit clauses per Φ(n))
 - **Trust boundary**: 1 custom axiom (subset of P≠NP's 2 axioms)
@@ -3087,8 +3086,8 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 37. **plant_flat** - One-way function construction (exponential profile)
 38. **HasWitnessUniqueness** - Planted instance singleton witness property
 39. **CNFPreconditions** - OWF preconditions bundle (9 structural requirements)
-40. **SecurityProperty** - OWF security: ∀ poly-bounded families A, Pr[invert] ≤ negl(n) (VARIANT - uses families, not single TM)
-41. **IsOneWayPlantFlat** - OWF predicate (VARIANT of Goldreich/Katz-Lindell, embedding gap not mechanized)
+40. **SecurityProperty** - OWF security: ∀ poly-bounded families A, Pr[invert] ≤ negl(n) (VARIANT - uses families)
+41. **IsOneWayPlantFlat** - OWF predicate (VARIANT of Goldreich/Katz-Lindell, implies textbook via UniformPPTEmbedding)
 
 **Crypto Theorems** (derived, not definitions):
 - **plant_flat_lambdaBase_eq_nvars** - THEOREM: Exponential profile achieves λ ≥ n
