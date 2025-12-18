@@ -1285,11 +1285,405 @@ theorem planted_config_refutes_all_wrong_worlds
     (h_feasible_univ : feasible = Finset.univ)
     : let violators := violatorsOf L C feasible (CutConstraint.ConfigMatch v h_v_in cfg_planted)
       violators.card = 2^(L.R v) - 1 := by
-  -- Proof sketch:
-  -- 1. For singleton cut C = {v}, |CutWorld L C| = 2^(L.R v)
-  -- 2. Exactly one world has config cfg_planted (by singleton_cut_world_determined_by_config)
-  -- 3. violatorsOf filters out the one world with cfg_planted
-  -- 4. Therefore violators.card = 2^(L.R v) - 1
-  sorry
+  -- Step 1: Reduce let and substitute feasible = univ
+  simp only []
+  rw [h_feasible_univ]
+  unfold violatorsOf
+
+  -- Step 2: Compute |CutWorld L C| = 2^(L.R v) for singleton cut
+  have h_card_univ : (Finset.univ : Finset (CutWorld L C)).card = 2^(L.R v) := by
+    rw [Finset.card_univ, Fintype.card_congr (cutWorldEquiv L C)]
+    have h_fin_card : ∀ w : C, Fintype.card (Fin (2^(L.R w.val))) = 2^(L.R w.val) := fun w =>
+      Fintype.card_fin (2^(L.R w.val))
+    trans (2 ^ (∑ w : C, L.R w.val))
+    · convert CutProduct.card_pi_eq_pow_sum (fun w : C => Fin (2^(L.R w.val))) (fun w => L.R w.val) h_fin_card
+    · congr 1
+      have h_eq : (∑ w : C, L.R w.val) = C.sum (fun w => L.R w) := Finset.sum_attach C (fun w => L.R w)
+      rw [h_eq, h_singleton, Finset.sum_singleton]
+
+  -- Step 3: Show the filter removes exactly one world (the one with cfg_planted)
+  -- violators = {ω | ¬ω.assignment v h_v_in = cfg_planted}
+  -- non-violators = {ω | ω.assignment v h_v_in = cfg_planted} has exactly 1 element
+
+  -- Build the unique world with cfg_planted
+  let ω_planted : CutWorld L C := piToCutWorld L C (fun ⟨w, hw⟩ =>
+    if h : w = v then
+      h ▸ cfg_planted
+    else
+      ⟨0, Nat.pow_pos (by omega : 0 < 2)⟩)
+
+  have h_planted_cfg : ω_planted.assignment v h_v_in = cfg_planted := by
+    simp only [ω_planted, piToCutWorld]
+    simp only [dite_eq_ite, ↓reduceIte]
+
+  -- Any world with cfg_planted equals ω_planted (uniqueness)
+  have h_unique : ∀ ω : CutWorld L C, ω.assignment v h_v_in = cfg_planted → ω = ω_planted := by
+    intro ω h_ω_cfg
+    apply singleton_cut_world_determined_by_config L C v h_v_in h_singleton
+    rw [h_ω_cfg, h_planted_cfg]
+
+  -- The set of worlds satisfying ConfigMatch is exactly {ω_planted}
+  have h_satisfiers_singleton : Finset.univ.filter (fun ω =>
+      decide ((CutConstraint.ConfigMatch v h_v_in cfg_planted).Satisfies ω)) = {ω_planted} := by
+    ext ω
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton,
+               decide_eq_true_iff, CutConstraint.Satisfies]
+    constructor
+    · exact h_unique ω
+    · intro h_eq; rw [h_eq]; exact h_planted_cfg
+
+  -- violators = univ \ satisfiers = univ \ {ω_planted}
+  have h_violators_eq : Finset.univ.filter (fun ω =>
+      decide (¬(CutConstraint.ConfigMatch v h_v_in cfg_planted).Satisfies ω)) =
+      Finset.univ \ {ω_planted} := by
+    ext ω
+    constructor
+    · intro h_in
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and, decide_eq_true_iff,
+                 CutConstraint.Satisfies] at h_in
+      simp only [Finset.mem_sdiff, Finset.mem_univ, Finset.mem_singleton, true_and]
+      intro h_eq
+      rw [h_eq] at h_in
+      exact h_in h_planted_cfg
+    · intro h_in
+      simp only [Finset.mem_sdiff, Finset.mem_univ, Finset.mem_singleton, true_and] at h_in
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and, decide_eq_true_iff,
+                 CutConstraint.Satisfies]
+      intro h_cfg_eq
+      exact h_in (h_unique ω h_cfg_eq)
+
+  -- Step 4: Compute cardinality
+  rw [h_violators_eq]
+  have h_inter : ({ω_planted} : Finset (CutWorld L C)) ∩ Finset.univ = {ω_planted} := by
+    simp only [Finset.inter_univ]
+  rw [Finset.card_sdiff, h_inter, Finset.card_singleton, h_card_univ]
+
+/-! ### Package 8: TM Correctness → Planted World Hypotheses Bridge
+
+These theorems establish that TM correctness (outputting a satisfying assignment)
+combined with complete exploration (visiting all configs) implies the planted
+world hypotheses needed for `tm_time_lower_bound_via_WC1Bridge`.
+
+**Key insight**: This is the final piece needed to eliminate the
+`tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom.
+
+**Connection to axiom elimination**:
+The current axiom asserts that correctness → complete exploration.
+The WC-1 bridge shows that complete exploration → time bound.
+Package 8 provides the hypotheses that complete the chain:
+  TM correctness → planted world hypotheses → WC-1 time bound
+
+**Architecture**:
+```
+TM correct output
+    ↓
+Defines planted world ω_planted (from final config)
+    ↓
+All explored configs refute wrong worlds
+    ↓
+h_all_others_in_refuted: ∀ ω ≠ ω_planted, ω ∈ refuted
+h_planted_not_in_refuted: ω_planted ∉ refuted
+    ↓
+tm_time_lower_bound_via_WC1Bridge → time ≥ 2^R - 1
+```
+-/
+
+/-- **Build planted world from planted config**.
+
+    Given a singleton cut C = {v} and the planted configuration cfg_planted,
+    construct the unique CutWorld whose assignment at v equals cfg_planted.
+-/
+def buildPlantedWorld
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (h_singleton : C = {v})
+    (cfg_planted : Fin (2^(L.R v)))
+    : CutWorld L C :=
+  piToCutWorld L C (fun ⟨w, hw⟩ =>
+    if h : w = v then
+      h ▸ cfg_planted
+    else
+      ⟨0, Nat.pow_pos (by omega : 0 < 2)⟩)
+
+/-- **Planted world has correct config**.
+
+    The world built from cfg_planted has assignment v h_v_in = cfg_planted.
+-/
+theorem buildPlantedWorld_has_config
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (h_singleton : C = {v})
+    (cfg_planted : Fin (2^(L.R v)))
+    : (buildPlantedWorld L C v h_v_in h_singleton cfg_planted).assignment v h_v_in = cfg_planted := by
+  simp only [buildPlantedWorld, piToCutWorld]
+  simp only [dite_eq_ite, ↓reduceIte]
+
+/-- **World is planted iff it has planted config**.
+
+    For singleton cuts, a world equals ω_planted iff it has the planted config.
+-/
+theorem world_eq_planted_iff_has_config
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (h_singleton : C = {v})
+    (cfg_planted : Fin (2^(L.R v)))
+    (ω : CutWorld L C)
+    : ω = buildPlantedWorld L C v h_v_in h_singleton cfg_planted ↔
+      ω.assignment v h_v_in = cfg_planted := by
+  constructor
+  · intro h_eq
+    rw [h_eq]
+    exact buildPlantedWorld_has_config L C v h_v_in h_singleton cfg_planted
+  · intro h_cfg_eq
+    apply singleton_cut_world_determined_by_config L C v h_v_in h_singleton
+    rw [h_cfg_eq, buildPlantedWorld_has_config]
+
+/-- **World satisfying config is not a violator**.
+
+    If ω.assignment v = cfg, then ω is NOT in violatorsOf for ConfigMatch(v, cfg).
+-/
+theorem satisfying_world_not_violator
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (cfg : Fin (2^(L.R v)))
+    (feasible : Finset (CutWorld L C))
+    (ω : CutWorld L C)
+    (h_satisfies : ω.assignment v h_v_in = cfg)
+    : ω ∉ violatorsOf L C feasible (CutConstraint.ConfigMatch v h_v_in cfg) := by
+  unfold violatorsOf
+  simp only [Finset.mem_filter, not_and]
+  intro _
+  simp only [decide_eq_true_iff, not_not]
+  unfold CutConstraint.Satisfies
+  exact h_satisfies
+
+/-- **Planted world not in extractViolatorsForConfig when config matches**.
+
+    If config.fst = v and the cast of config.snd equals cfg_planted, then
+    ω_planted is not in extractViolatorsForConfig for this config.
+
+    Note: We use dependent cast (h ▸ config.snd) to handle the type difference
+    between Fin (2^(L.R config.fst)) and Fin (2^(L.R v)).
+-/
+theorem planted_not_in_extractViolators
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (h_singleton : C = {v})
+    (cfg_planted : Fin (2^(L.R v)))
+    (base_constraints : List (CutConstraint L C))
+    (accumulated_refutes : List (CutWorld L C))
+    (config : (w : Fin L.dag.n) ×' Fin (2 ^ L.R w))
+    (h_config_match : (h : config.fst = v) → h ▸ config.snd = cfg_planted)
+    : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉
+      extractViolatorsForConfig L C base_constraints accumulated_refutes config := by
+  unfold extractViolatorsForConfig
+  match config with
+  | ⟨w, cfg⟩ =>
+    simp only
+    -- Case 1: w ∉ C → returns [] → ω_planted ∉ []
+    by_cases h_w_in : w ∈ C
+    · -- Case 2: w ∈ C → need to show ω_planted ∉ violators_set.toList
+      simp only [h_w_in, ↓reduceDIte, Finset.mem_toList]
+      -- For singleton cut, w ∈ C implies w = v
+      have h_w_eq_v : w = v := by
+        rw [h_singleton] at h_w_in
+        exact Finset.mem_singleton.mp h_w_in
+      -- Use h_config_match: since w = v, cast of cfg equals cfg_planted
+      have h_cfg_eq : h_w_eq_v ▸ cfg = cfg_planted := h_config_match h_w_eq_v
+      -- Substitute w with v in the goal (but preserve the variable names)
+      cases h_w_eq_v
+      -- Now w = v, so cfg : Fin (2^(L.R v)) and h_cfg_eq : cfg = cfg_planted
+      simp only [eq_rec_constant] at h_cfg_eq
+      cases h_cfg_eq
+      -- Now cfg = cfg_planted
+      -- ω_planted satisfies ConfigMatch(v, h_w_in, cfg_planted)
+      have h_planted_cfg := buildPlantedWorld_has_config L C v h_v_in h_singleton cfg_planted
+      -- Show ω_planted ∉ violatorsOf
+      have h_proof_irrel : h_v_in = h_w_in := Subsingleton.elim _ _
+      rw [h_proof_irrel] at h_planted_cfg
+      exact satisfying_world_not_violator L C v h_w_in cfg_planted _ _ h_planted_cfg
+    · -- w ∉ C → empty list
+      simp only [h_w_in, ↓reduceDIte, List.not_mem_nil, not_false_eq_true]
+
+/-- **Planted world not in buildRefutedWorlds.aux when all configs match**.
+
+    Induction lemma: if all configs at v have their cast equal to cfg_planted,
+    then ω_planted is never added to accumulated_refutes during aux recursion.
+-/
+theorem planted_not_in_buildRefutedWorlds_aux
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (h_singleton : C = {v})
+    (cfg_planted : Fin (2^(L.R v)))
+    (base_constraints : List (CutConstraint L C))
+    (accumulated_refutes : List (CutWorld L C))
+    (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
+    (h_only_planted : ∀ c ∈ configs, (h : c.fst = v) → h ▸ c.snd = cfg_planted)
+    (h_not_in_acc : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ accumulated_refutes)
+    : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉
+      buildRefutedWorlds.aux L C base_constraints accumulated_refutes configs := by
+  set ω_planted := buildPlantedWorld L C v h_v_in h_singleton cfg_planted with h_ω_def
+  induction configs generalizing accumulated_refutes with
+  | nil =>
+    simp only [buildRefutedWorlds.aux]
+    exact h_not_in_acc
+  | cons config rest ih =>
+    simp only [buildRefutedWorlds.aux]
+    -- After processing config, we have accumulated_refutes ++ new_violators
+    -- By ih, ω_planted ∉ aux for rest (with updated accumulator)
+    -- We need: ω_planted ∉ accumulated_refutes ++ new_violators
+    apply ih
+    · intro c h_c_in h_c_v
+      exact h_only_planted c (List.mem_cons_of_mem config h_c_in) h_c_v
+    · simp only [List.mem_append, not_or]
+      constructor
+      · exact h_not_in_acc
+      · -- Build the hypothesis for the config
+        have h_config_in_list : config ∈ config :: rest := by
+          exact List.mem_cons.mpr (Or.inl rfl)
+        have h_config_match : (h : config.fst = v) → h ▸ config.snd = cfg_planted := fun h =>
+          h_only_planted config h_config_in_list h
+        -- ω_planted is defined via set, so we need to use the definition directly
+        show buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉
+          extractViolatorsForConfig L C base_constraints accumulated_refutes config
+        exact planted_not_in_extractViolators L C v h_v_in h_singleton cfg_planted
+          base_constraints accumulated_refutes config h_config_match
+
+/-- **Single config observation refutes all wrong worlds**.
+
+    When the TM outputs a single configuration cfg_planted, this observation
+    refutes all 2^R - 1 worlds with different configs. The planted world
+    (the unique world with cfg_planted) survives.
+
+    **Key insight**: The configs list represents the TM's "commitment" to what
+    the correct config is. If the list contains ONLY cfg_planted (possibly
+    repeated), then:
+    1. All worlds with config ≠ cfg_planted are refuted
+    2. The planted world survives (it satisfies the ConfigMatch constraint)
+
+    **Correct model**: A correct TM converges on the planted config. It may
+    explore multiple paths, but its final commitment is to cfg_planted.
+    The refutation count equals 2^R - 1 (all wrong worlds).
+-/
+theorem single_config_implies_planted_hypotheses
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (h_singleton : C = {v})
+    (cfg_planted : Fin (2^(L.R v)))
+    (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
+    -- Hypothesis: The configs list contains ONLY the planted config at v
+    -- (configs may have entries for other gates, but at v, only cfg_planted appears)
+    -- Using dependent cast to handle type difference
+    (h_only_planted_at_v : ∀ c ∈ configs, (h : c.fst = v) → h ▸ c.snd = cfg_planted)
+    -- Hypothesis: The planted config IS in the list (so wrong worlds get refuted)
+    (h_planted_in_list : ⟨v, cfg_planted⟩ ∈ configs)
+    : let ω_planted := buildPlantedWorld L C v h_v_in h_singleton cfg_planted
+      -- All worlds with wrong configs are refuted
+      (∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L C configs) ∧
+      -- The planted world is NOT refuted
+      (ω_planted ∉ tmRefutedWorlds L C configs) := by
+  set ω_planted := buildPlantedWorld L C v h_v_in h_singleton cfg_planted with h_ω_def
+
+  constructor
+  -- Part 1: All wrong worlds are refuted
+  · intro ω h_ne_planted
+    -- ω ≠ ω_planted, so ω has a different config at v
+    have h_diff_cfg : ω.assignment v h_v_in ≠ cfg_planted := by
+      intro h_eq
+      apply h_ne_planted
+      rw [world_eq_planted_iff_has_config L C v h_v_in h_singleton cfg_planted]
+      exact h_eq
+
+    -- ω is refuted when cfg_planted is observed (because ω has different config)
+    -- We need to show ω ∈ buildRefutedWorlds L C configs
+
+    -- Key insight: When cfg_planted is first observed, ω is in the current feasible
+    -- set (since it satisfies all prior constraints which are all cfg_planted).
+    -- And ω violates ConfigMatch(v, cfg_planted) because ω.assignment ≠ cfg_planted.
+    -- So ω is added to refuted_worlds.
+
+    -- This requires analyzing buildRefutedWorlds.aux behavior with induction.
+    -- For now, we prove this by showing ω is in violatorsOf when cfg_planted is processed.
+
+    -- Lemma: wrong_world_in_violators already shows ω ∈ violatorsOf for cfg_planted
+    -- when ω is in the feasible set. The key is showing ω is feasible at that point.
+
+    -- Since all prior configs are also cfg_planted (by h_only_planted_at_v),
+    -- and ω satisfies ConfigMatch(v, cfg_planted) for... wait, ω does NOT satisfy it!
+    -- ω.assignment v ≠ cfg_planted, so ω violates ConfigMatch(v, cfg_planted).
+
+    -- So when the FIRST cfg_planted is observed, ω is in univ (all feasible initially),
+    -- and ω violates the constraint, so ω is added to refuted_worlds.
+
+    -- We need to prove: if configs contains ⟨v, cfg_planted⟩ and ω.assignment v ≠ cfg_planted,
+    -- then ω ∈ buildRefutedWorlds L C configs.
+
+    -- For simplicity, we use the fact that with empty base_constraints and empty
+    -- initial accumulator, the first processing of cfg_planted adds all violators.
+    unfold tmRefutedWorlds buildRefutedWorlds
+
+    -- We need a lemma: world in violatorsOf at first observation is in aux result.
+    -- This is complex, so we admit for now and mark as TODO.
+    sorry
+
+  -- Part 2: The planted world is NOT refuted
+  · -- Use the induction lemma we proved above
+    unfold tmRefutedWorlds buildRefutedWorlds
+    -- ω_planted is defined via set, so we need to use the definition directly
+    show buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ buildRefutedWorlds.aux L C [] [] configs
+    apply planted_not_in_buildRefutedWorlds_aux L C v h_v_in h_singleton cfg_planted [] []
+    · exact h_only_planted_at_v
+    · simp only [List.not_mem_nil, not_false_eq_true]
+
+/-- **Main bridge theorem**: Single config observation provides WC-1 time bound.
+
+    When the TM commits to cfg_planted as the correct configuration:
+    - All other worlds are refuted (by violating ConfigMatch)
+    - The planted world survives
+    - Time bound ≥ 2^R - 1 (from WC-1)
+
+    **Hypothesis h_only_planted_at_v**: The configs list contains only cfg_planted at v.
+    This models a correct TM that converges on the planted configuration.
+
+    **Hypothesis h_planted_in_list**: cfg_planted appears at least once.
+    This ensures wrong worlds are actually refuted.
+
+    **Usage**: This provides the WC-1 time bound when we can show that
+    a correct TM commits to a single configuration (the planted one).
+-/
+theorem tm_correctness_to_wc1_bridge
+    (L : LStarInstanceFG)
+    (v : Fin L.dag.n)
+    (C : Finset (Fin L.dag.n))
+    (h_v_in : v ∈ C)
+    (h_singleton : C = {v})
+    (h_positive_R : ∀ w ∈ C, L.R w > 0)
+    (cfg_planted : Fin (2^(L.R v)))
+    (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
+    (haltTime : Nat)
+    (h_time_bound : haltTime ≥ (tmRefutedWorlds L C configs).length)
+    -- Using dependent cast to handle type difference
+    (h_only_planted_at_v : ∀ c ∈ configs, (h : c.fst = v) → h ▸ c.snd = cfg_planted)
+    (h_planted_in_list : ⟨v, cfg_planted⟩ ∈ configs)
+    (h_nodup : (tmRefutedWorlds L C configs).Nodup)
+    : haltTime ≥ 2 ^ (L.R v) - 1 := by
+  -- Build planted world
+  let ω_planted := buildPlantedWorld L C v h_v_in h_singleton cfg_planted
+
+  -- Get planted hypotheses from single config observation
+  have ⟨h_all_refuted, h_planted_not_refuted⟩ :=
+    single_config_implies_planted_hypotheses L C v h_v_in h_singleton cfg_planted configs
+      h_only_planted_at_v h_planted_in_list
+
+  -- Apply WC-1 time bound
+  exact tm_time_lower_bound_via_WC1Bridge L v C h_singleton configs haltTime h_positive_R
+    h_time_bound ω_planted h_planted_not_refuted h_all_refuted h_nodup
 
 end LStar.StructuralOWF.Foundations
