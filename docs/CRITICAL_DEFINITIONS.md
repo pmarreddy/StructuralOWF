@@ -78,13 +78,13 @@
 
 ## Definition Verification Summary
 
-### Category A: External Interface `[STANDARD-REQUIRED]` — 23 definitions
+### Category A: External Interface `[STANDARD-REQUIRED]` — 21 definitions
 
 These MUST exactly match textbook definitions. Any deviation means the proof claims something other than "P≠NP".
 
-**Complexity Classes (9):**
+**Complexity Classes (7):**
 - Core: `InP`, `InNP`, `InFP`, `InFNP`, `PeqNP_classical`
-- Variants: `InNP_Logical`, `Lang`, `Reduces`
+- Support: `Lang`
 - Parametric bridge: `PeqNP_parametric`
 
 **Computation Model (3):** `TuringMachine`, `TMConfig`, `DeterministicRun`
@@ -602,36 +602,9 @@ def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
 **Why Critical**:
 - **OWF security**: Extractor verification requires InNP (witness extraction)
 - **Primary NP**: Used by ParametricBitstringBridge for P≠NP goal
-- **vs InNP_Logical**: This has TIME + WITNESS SIZE bounds (complexity), InNP_Logical is logical only
 - **Textbook alignment**: Matches standard NP definitions (Sipser §7.3, Arora-Barak §2.3)
 
 **Theory**: NP (Cook 1971) - nondeterministic polynomial time
-
----
-
-**Definition**: `InNP_Logical` (Layer5_Applications/PvsNP/ComplexityClasses/NPDefs.lean)
-
-```lean
-structure VerifierCert {α : Type} (L : Lang α) where
-  β : Type                           -- Witness type
-  V : α → β → Prop                   -- Verifier relation
-  spec : ∀ x, L x ↔ ∃ w : β, V x w   -- Correctness
-
-def InNP_Logical {α : Type} (L : Lang α) : Prop := Nonempty (VerifierCert L)
-```
-
-**Mathematical Object**: NP (logical/extensional, no resource bounds)
-- **Witness existence**: ∃ witness type β + verifier relation V
-- **No time bounds**: Abstract verification (no polynomial constraint)
-- **No witness size bounds**: No polynomial bound on witness size
-- **Nonempty wrapper**: Equivalent to ∃ cert, uses Nonempty for universe polymorphism
-
-**Why Exists**:
-- **Abstract reasoning**: Used for logical NP membership proofs (e.g., `LStar_in_NP`)
-- **vs InNP**: InNP has explicit poly bounds (complexity-theoretic), InNP_Logical is extensional only
-- **Bridge**: Complexity proofs use InNP; structural proofs use InNP_Logical
-
-**Theory**: Logical characterization of NP (witness-based definition, Sipser §7.3)
 
 ---
 
@@ -645,21 +618,6 @@ abbrev Lang (α : Type u) := α → Prop
 - **Bitstring instance**: `Lang (List Bool)` = languages over `{0,1}*` (Sipser's domain)
 
 **Why Standard**: This is the standard proof-assistant encoding of languages. When α = List Bool, it exactly matches Sipser's definition of languages as subsets of `{0,1}*`.
-
----
-
-**Definition**: `Reduces` (Layer5_Applications/PvsNP/ComplexityClasses/NPDefs.lean)
-```lean
-def Reduces {α : Type u} {γ : Type u} (A : Lang α) (B : Lang γ) : Prop :=
-  ∃ f : α → γ, ∀ x, A x ↔ B (f x)
-```
-
-**Mathematical Object**: Many-one (Karp) reduction (Sipser Def 7.27, Karp 1972)
-- **Biconditional**: `A x ↔ B (f x)` — both soundness AND completeness required
-- **Soundness**: x ∈ A → f(x) ∈ B
-- **Completeness**: f(x) ∈ B → x ∈ A
-
-**Why Standard**: This is the standard Karp reduction. The biconditional ensures both directions, which is required for NP-completeness proofs (reducing FROM a known NP-complete problem requires completeness).
 
 ---
 
@@ -2678,23 +2636,21 @@ See `TuringMachineSemantics.lean` and paper §11.4 for detailed documentation.
 
 **Two categories of definitions require different verification:**
 
-#### Category A: External Interface Definitions `[STANDARD-REQUIRED]` — 23 definitions
+#### Category A: External Interface Definitions `[STANDARD-REQUIRED]` — 21 definitions
 
 These definitions determine **what the theorem claims**. They MUST exactly match textbook definitions — otherwise the proof proves something other than "P≠NP" in the standard sense.
 
-**Complexity Classes (9):**
+**Complexity Classes (7):**
 
 | Definition | Must Match | Reference | ☐ |
 |------------|-----------|-----------|---|
 | `InP` | Polynomial-time decidable | Sipser Def 7.12, Arora-Barak Def 1.7 | |
 | `InNP` | Poly-time verifiable witness | Sipser Def 7.19, Arora-Barak Def 2.1 | |
-| `InNP_Logical` | Logical NP characterization | Arora-Barak §2.1 | |
 | `InFP` | Poly-time computable function | Johnson 1974, Papadimitriou 1994 | |
 | `InFNP` | Poly-bounded, poly-verifiable relation | Megiddo-Papadimitriou 1991 | |
 | `PeqNP_classical` | Standard P=NP statement | Sipser §7.4, Arora-Barak §2.3 | |
 | `PeqNP_parametric` | Parametric P=NP bridge | Internal (must reduce to classical) | |
 | `Lang` | Language (set of strings) | Sipser Def 3.5 | |
-| `Reduces` | Many-one (Karp) reduction | Karp 1972, Sipser Def 7.27 | |
 
 **Computation Model (3):**
 
@@ -3087,40 +3043,39 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 16. **satisfies_A3** - A3 property verification (emergence certification)
 17. **build3SATReductionDAG** - DAG construction (3-SAT → L*)
 
-**Standard Complexity Classes** (5 definitions):
+**Standard Complexity Classes** (4 definitions):
 18. **InP** - P membership (polynomial-time decision)
 19. **InNP** - NP membership (CRITICAL for OWF witness verification!)
-20. **InNP_Logical** - NP membership (logical/extensional, no resource bounds)
-21. **InFP** - FP membership (polynomial-time functions)
-22. **InFNP** - FNP membership (polynomial-time verifiable relations)
+20. **InFP** - FP membership (polynomial-time functions)
+21. **InFNP** - FNP membership (polynomial-time verifiable relations)
 
 **Parametric Complexity Classes** (3 definitions):
-23. **InFP_parametric** - Parametric FP families (uniform polynomial-time)
-24. **InFNP_parametric** - Parametric FNP families (uniform verifiable relations)
-25. **FPneFNP_parametric** - Parametric FP≠FNP separation (OWF bridge)
+22. **InFP_parametric** - Parametric FP families (uniform polynomial-time)
+23. **InFNP_parametric** - Parametric FNP families (uniform verifiable relations)
+24. **FPneFNP_parametric** - Parametric FP≠FNP separation (OWF bridge)
 
 **Bitstring Parametric Classes** (4 definitions - PRIMARY PATH):
-26. **InFP_parametric_bits** - Bitstring FP (zero-axiom bridge)
-27. **InFNP_parametric_bits** - Bitstring FNP (explicit witness construction)
-28. **FPneFNP_parametric_bits** - Bitstring FP≠FNP (main theorem input)
-29. **PeqNP_parametric** - Parametric P=NP definition (contrapositive → P≠NP)
+25. **InFP_parametric_bits** - Bitstring FP (zero-axiom bridge)
+26. **InFNP_parametric_bits** - Bitstring FNP (explicit witness construction)
+27. **FPneFNP_parametric_bits** - Bitstring FP≠FNP (main theorem input)
+28. **PeqNP_parametric** - Parametric P=NP definition (contrapositive → P≠NP)
 
 **Bitstring Interface** (4 definitions - paper §10.6):
-30. **encodeBits** - Structured instance → {0,1}* encoding (proven injective)
-31. **PrefixLangSigma** - Prefix-extension witness (structured form)
-32. **PrefixLangBits** - Prefix-extension witness over {0,1}* (main theorem witness)
-33. **owf_bits** - Bitstring OWF interface: w ↦ encodeBits(plant_flat(bitsToRandomness_exp(w)))
+29. **encodeBits** - Structured instance → {0,1}* encoding (proven injective)
+30. **PrefixLangSigma** - Prefix-extension witness (structured form)
+31. **PrefixLangBits** - Prefix-extension witness over {0,1}* (main theorem witness)
+32. **owf_bits** - Bitstring OWF interface: w ↦ encodeBits(plant_flat(bitsToRandomness_exp(w)))
 
 **Crypto & Information Bottleneck** (9 definitions + 3 theorems):
-34. **PPTAdversary** - Uniform polynomial-time model (TM + polynomial bounds)
-35. **localParity** - XOR fold (GF(2) arithmetic creating bottleneck)
-36. **fgDigestBit** - Digest bit wrapper (parity → Bool)
-37. **WellFormedRandomness** - Circularity breaking (non-circular OWF verification)
-38. **plant_flat** - One-way function construction (exponential profile)
-39. **HasWitnessUniqueness** - Planted instance singleton witness property
-40. **CNFPreconditions** - OWF preconditions bundle (9 structural requirements)
-41. **SecurityProperty** - OWF security: ∀ PPT A, Pr[invert] ≤ negl(n)
-42. **IsOneWayPlantFlat** - Standard OWF predicate (Goldreich/Katz-Lindell form)
+33. **PPTAdversary** - Uniform polynomial-time model (TM + polynomial bounds)
+34. **localParity** - XOR fold (GF(2) arithmetic creating bottleneck)
+35. **fgDigestBit** - Digest bit wrapper (parity → Bool)
+36. **WellFormedRandomness** - Circularity breaking (non-circular OWF verification)
+37. **plant_flat** - One-way function construction (exponential profile)
+38. **HasWitnessUniqueness** - Planted instance singleton witness property
+39. **CNFPreconditions** - OWF preconditions bundle (9 structural requirements)
+40. **SecurityProperty** - OWF security: ∀ PPT A, Pr[invert] ≤ negl(n)
+41. **IsOneWayPlantFlat** - Standard OWF predicate (Goldreich/Katz-Lindell form)
 
 **Crypto Theorems** (derived, not definitions):
 - **plant_flat_lambdaBase_eq_nvars** - THEOREM: Exponential profile achieves λ ≥ n

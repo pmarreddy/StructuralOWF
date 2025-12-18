@@ -530,7 +530,7 @@ def prefixLang (n : Nat) : Lang (PrefixInput (α n) (wlen n)) :=
 - NOT any claim about generic NP languages
 
 **Contrast with LStarNP.lean:**
-- LStarNP.lean proves `LStar_in_NP : InNP_Logical LStarLang` (logical NP, no resource bounds)
+- LStarNP.lean proves `LStar_has_witness_structure : HasWitnessStructure LStarLang` (no resource bounds)
 - This theorem proves `InNP`-style membership (with poly time/witness bounds)
 - P≠NP bridge uses THIS theorem as a tool, instantiated with L*'s specific R
 

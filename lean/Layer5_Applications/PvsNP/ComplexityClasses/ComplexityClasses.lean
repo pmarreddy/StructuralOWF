@@ -72,7 +72,7 @@ def InFNP {α β : Type} [Sized α] [Sized β] (R : α → β → Prop) : Prop :
 
 This matches standard NP definitions (Sipser §7.3, Arora-Barak §2.1).
 
-**Note**: For abstract reasoning without resource bounds, use `InNP_Logical` (NPDefs.lean).
+**Note**: For abstract reasoning without resource bounds, use `HasWitnessStructure` (NPDefs.lean).
 -/
 def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
   ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T)
@@ -82,15 +82,14 @@ def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
     (∀ p : α × β, V.time_bound (size p) ≤ C_time * (size p + 1) ^ k_time) ∧
     (∀ x, L x ↔ ∃ y : β, V.run ⟨0, V.coins_pos⟩ (x, y) = true)
 
-/-- **P ⊆ NP (Logical)**: Every polynomial-time decidable language is in NP_Logical.
+/-- **P ⊆ HasWitnessStructure**: Every P language has witness structure.
 
 **Proof**: Use trivial witness (Unit). The P decider becomes the verifier
 that ignores the witness.
 
-**Note**: This proves P ⊆ InNP_Logical (logical NP without resource bounds).
-For P ⊆ InNP (with poly bounds), construct verifier RandAdv explicitly.
+**Note**: For P ⊆ InNP (with poly bounds), construct verifier RandAdv explicitly.
 -/
-theorem p_subset_np_logical {α : Type} [Sized α] (L : Lang α) (h : InP L) : InNP_Logical L := by
+theorem p_has_witness_structure {α : Type} [Sized α] (L : Lang α) (h : InP L) : HasWitnessStructure L := by
   obtain ⟨T, A, h_det, h_correct⟩ := h
   refine ⟨⟨Unit, fun x _ => A.run ⟨0, A.coins_pos⟩ x = true, ?_⟩⟩
   intro x

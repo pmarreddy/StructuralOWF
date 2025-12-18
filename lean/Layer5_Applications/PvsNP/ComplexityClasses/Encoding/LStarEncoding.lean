@@ -20,7 +20,7 @@ import Layer5_Applications.PvsNP.ComplexityClasses.Sized
 import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFSizedInstances
 import Layer5_Applications.PvsNP.ComplexityClasses.BitEncoding
 import Layer5_Applications.PvsNP.ComplexityClasses.TMEncoding
-import Layer5_Applications.PvsNP.ComplexityClasses.NPDefs  -- For Lang, InNP_Logical, VerifierCert
+import Layer5_Applications.PvsNP.ComplexityClasses.NPDefs  -- For Lang, HasWitnessStructure, VerifierCert
 import Layer5_Applications.PvsNP.ComplexityClasses.AlgSpec  -- For AlgSpec
 import Layer5_Applications.PvsNP.ComplexityClasses.RandAdv  -- For RandAdv, algspec_has_tm
 import Layer5_Applications.PvsNP.ComplexityClasses.ComplexityClasses  -- For InNP
@@ -1967,14 +1967,13 @@ theorem LStarVerifier_correct (bs : List Bool) :
     simp only [LStarLanguageLang, LStarLanguage, Set.mem_setOf_eq, IsYesInstance]
     exact ⟨L, h_enc, W, h_digests⟩
 
-/-- L* (as a bitstring language) is in NP (logical, no resource bounds).
+/-- L* (as a bitstring language) has witness structure (no resource bounds).
 
     **Certificate**: `Σ L : LStarInstanceFG, Witness L.n` (structure + witness)
     **Verifier**: Check encoding match + digest correctness
 
-    **Note**: This is the logical NP membership (InNP_Logical). For complexity-theoretic
-    NP with poly bounds, see `LStarLanguageLang_in_NP` below. -/
-theorem LStarLanguageLang_in_NP_Logical : LStar.Complexity.InNP_Logical LStarLanguageLang := by
+    For complexity-theoretic NP with poly bounds, see `LStarLanguageLang_in_NP` below. -/
+theorem LStarLanguageLang_has_witness_structure : LStar.Complexity.HasWitnessStructure LStarLanguageLang := by
   -- Construct VerifierCert
   refine ⟨⟨LStarCertificate, LStarVerifier, ?_⟩⟩
   -- Prove spec: ∀ bs, LStarLanguageLang bs ↔ ∃ cert, LStarVerifier bs cert
@@ -1984,7 +1983,7 @@ theorem LStarLanguageLang_in_NP_Logical : LStar.Complexity.InNP_Logical LStarLan
 #print axioms LStarCertificate
 #print axioms LStarVerifier
 #print axioms LStarVerifier_correct
-#print axioms LStarLanguageLang_in_NP_Logical
+#print axioms LStarLanguageLang_has_witness_structure
 
 /-! ## L* in NP with Polynomial-Time Verifier (InNP)
 

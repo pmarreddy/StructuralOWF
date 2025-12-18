@@ -8,10 +8,9 @@ import Layer1_Construction.Core.InstanceOps
 import Infrastructure.Witness.VerifiedWitness
 import Layer3_InformationBounds.Randomness.RanksCore
 
-/-! ## LStarNP: L* ∈ NP Membership Proof (Logical NP)
+/-! ## LStarNP: L* Has Witness Structure
 
-**IMPORTANT**: This file proves `LStar_in_NP : InNP_Logical LStarLang`, where `InNP_Logical` is the
-**logical/extensional NP** definition with NO resource bounds (NPDefs.lean).
+**Purpose**: Proves `LStar_has_witness_structure : HasWitnessStructure LStarLang`.
 
 **What this proves:**
 - ✅ L* has witness type `Witness`
@@ -19,8 +18,8 @@ import Layer3_InformationBounds.Randomness.RanksCore
 - ✅ Correctness: `L x ↔ ∃ w, LStarVerifier L w`
 
 **What this does NOT prove:**
-- ❌ Polynomial-time verification (not part of `InNP_Logical` definition)
-- ❌ Polynomial witness size bounds (not part of `InNP_Logical` definition)
+- ❌ Polynomial-time verification (not part of `HasWitnessStructure`)
+- ❌ Polynomial witness size bounds (not part of `HasWitnessStructure`)
 - ❌ `InNP` membership (complexity-theoretic NP with resource bounds)
 
 **Design Choice - Generic FNP→NP Tool (Instantiated with L*):**
@@ -196,17 +195,17 @@ def LStarCanonicalVerifier (L : LStarInstanceFG) (W : Witness L.n)
   -- Satisfiability: decoded φ (using consistent seeds) must be satisfied
   LStarVerifier L W profile
 
-/-- **Logical NP Membership**: `LStarLang ∈ InNP_Logical` (extensional, no resource bounds).
+/-- **L* has witness structure** (witness type + verifier relation, no resource bounds).
 
-This proves L* has the **structure** of an NP language (witness type + verifier relation)
-but does NOT prove polynomial resource bounds (time/witness size).
+This proves L* has a witness/verifier structure but does NOT prove polynomial
+resource bounds (time/witness size).
 
 **NOT used directly in P≠NP proof** - see file header for generic parametric approach.
 
 For complexity-theoretic NP with resource bounds, see:
 - `InNP` definition (ComplexityClasses.lean)
 - `prefixLang_in_np_parametric` (ParametricBitstringBridge.lean) -/
-theorem LStar_in_NP : InNP_Logical LStarLang := by
+theorem LStar_has_witness_structure : HasWitnessStructure LStarLang := by
   refine ⟨?cert⟩
   -- Use Sigma type to bundle n with witness, since VerifierCert needs a fixed Type
   refine ⟨Σ n, Witness n, fun L ⟨n, W⟩ =>
