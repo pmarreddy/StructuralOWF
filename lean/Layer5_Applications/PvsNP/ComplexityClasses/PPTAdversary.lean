@@ -46,9 +46,13 @@ open Sized
     **Definition**: A PPT-style adversary here is a deterministic TM that takes an *explicit* coin choice
     (from a finite set) together with the input, and runs in uniform polynomial time in the input size.
 
-    This matches the standard “coin-fixing” view of probabilistic algorithms: fixing the random tape yields
+    This matches the standard "coin-fixing" view of probabilistic algorithms: fixing the random tape yields
     a deterministic computation. The difference from textbook PPT is that `num_coins` is a *single constant*
     (not required to grow polynomially with input size).
+
+    **Textbook Equivalence**: For OWF security, we use adversary *families* indexed by n where each
+    member can have different coin counts. `UniformPPTEmbedding.lean` proves this implies textbook
+    security (`SecurityProperty → TextbookOWFSecurity`), so no generality is lost.
 
     1. Finite coin space (for coin-fixing arguments)
     2. **Uniform** polynomial time bound (constants C,k work for ALL n)

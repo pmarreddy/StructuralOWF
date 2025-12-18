@@ -17,7 +17,7 @@
 > | Category | Count | Verification |
 > |----------|-------|--------------|
 > | **A: External Interface** `[STANDARD-REQUIRED]` | 21 | Must exactly match textbook definitions |
-> | **B: Internal Machinery** `[COHERENT-REQUIRED]` | 40 | Must be coherent with underlying theory |
+> | **B: Internal Machinery** `[COHERENT-REQUIRED]` | 41 | Must be coherent with underlying theory |
 >
 > **Category A errors** → Proof proves "P≠NP" for non-standard definition (claim misleading)
 > **Category B errors** → Internal machinery flawed (proof unsound)
@@ -29,8 +29,8 @@
 ## Table of Contents
 
 ### Definition Verification Summary
-- [Category A: External Interface](#category-a-external-interface-standard-required--23-definitions) — 23 definitions `[STANDARD-REQUIRED]`
-- [Category B: Internal Machinery](#category-b-internal-machinery-coherent-required--40-definitions) — 40 definitions `[COHERENT-REQUIRED]`
+- [Category A: External Interface](#category-a-external-interface-standard-required--21-definitions) — 21 definitions `[STANDARD-REQUIRED]`
+- [Category B: Internal Machinery](#category-b-internal-machinery-coherent-required--41-definitions) — 41 definitions `[COHERENT-REQUIRED]`
 
 ### Part I: Core Definitions
 *46 definitions forming the logical kernel — proof collapses without these*
@@ -47,8 +47,8 @@
 - [§ 6. Logical Dependencies](#-6-logical-dependencies)
 - [§ 7. Theoretical Alignment](#-7-theoretical-alignment)
   - [§ 7.5 Reviewer Verification Checklist](#75-reviewer-verification-checklist) ⬅ **START HERE**
-    - Category A: External Interface `[STANDARD-REQUIRED]` — 23 definitions
-    - Category B: Internal Machinery `[COHERENT-REQUIRED]` — 40 definitions
+    - Category A: External Interface `[STANDARD-REQUIRED]` — 21 definitions
+    - Category B: Internal Machinery `[COHERENT-REQUIRED]` — 41 definitions
   - [§ 7.6 Critical Bridge Theorems](#76-critical-bridge-theorems) ⬅ **AUDIT RESPONSE**
 - [§ 8. Sensitivity Analysis](#-8-sensitivity-analysis)
 - [§ 9. Design Philosophy](#-9-design-philosophy)
@@ -97,7 +97,7 @@ These MUST exactly match textbook definitions. Any deviation means the proof cla
 
 **SAT/Problem (5):** `CNF`, `Clause`, `Literal`, `Assignment`, `CNF.satisfies`
 
-### Category B: Internal Machinery `[COHERENT-REQUIRED]` — 40 definitions
+### Category B: Internal Machinery `[COHERENT-REQUIRED]` — 41 definitions
 
 These are novel constructs. They must be coherent with underlying theory, not match a standard.
 
@@ -123,7 +123,7 @@ These are novel constructs. They must be coherent with underlying theory, not ma
 - Segments: `PreFinalAgreement`, `EffectiveResidual`
 - State: `AlgorithmState`
 
-**Operational Semantics / Layer 4 (6):**
+**Operational Semantics / Layer 4 (7):**
 - Execution: `ExecutionPrefix`, `TrackedRun`, `WitnessFinder`
 - Realization: `realizesAllValues`, `KeyednessProperty`
 - Encoding: `encodeSeed`, `decodeSeed`
@@ -547,6 +547,8 @@ structure PPTAdversary (α β γ : Type) [Sized α] [Sized β] where
 - **Encoding bridge**: `encoding` connects abstract types α,β to TM tape representation
 - **Halting guarantee**: `halts` field (separate from `poly`) certifies TM termination
 - **Correctness**: `run_correct` proves TM execution matches abstract `run` function
+
+**Design Choice (Fixed-Coin Space)**: The `num_coins` field is a *single constant* per adversary structure, not a function of input size. This differs from textbook PPT where random tape length grows as poly(n). This matches the "coin-fixing" view of probabilistic algorithms: fixing the random tape yields deterministic computation. For OWF security analysis, the proof uses adversary *families* `A : Nat → StructuralOWFAdversary` indexed by security parameter n, where each member can have different coin counts. `UniformPPTEmbedding.lean` proves this implies textbook security.
 
 **Why Critical**:
 - **Church-Turing realization**: TM is part of structure (not axiomatic encoding)
@@ -2633,9 +2635,11 @@ Theorem chain:
 See `TuringMachineSemantics.lean` and paper §11.4 for detailed documentation.
 
 ### 7.2 Complexity Theory
-- **PPTAdversary**: Standard uniform polynomial-time model (Cobham-Edmonds 1965)
+- **PPTAdversary**: Uniform polynomial-time model with fixed-coin space (see design note below)
 - **InP/InNP**: Exact match to Sipser, Arora-Barak textbook definitions
 - **InFP/InFNP**: Standard search complexity (Johnson 1974, Papadimitriou 1994)
+
+**PPTAdversary Design Note**: The `num_coins : Nat` field is a *single constant* per adversary, not polynomially growing with input size. This differs from textbook PPT where random bits grow as poly(n). For OWF security, we use adversary *families* indexed by n, where each `(A n)` can have different coin counts, recovering the needed flexibility. See `UniformPPTEmbedding.lean` for the textbook equivalence proof.
 
 ### 7.3 Cryptography
 - **plant_flat**: Standard OWF definition (Diffie-Hellman 1976, Yao 1982)
@@ -2678,10 +2682,12 @@ These definitions determine **what the theorem claims**. They MUST exactly match
 
 | Definition | Must Match | Reference | ☐ |
 |------------|-----------|-----------|---|
-| `PPTAdversary` | Uniform probabilistic poly-time | Goldreich Def 2.2.7, Katz-Lindell | |
+| `PPTAdversary` | Uniform poly-time (fixed-coin variant*) | Goldreich Def 2.2.7, Katz-Lindell | |
 | `RandAdv` | Randomized algorithm structure | Goldreich §2.2 | |
 | `negligible` | ∀c ∃N ∀n≥N: ε(n) ≤ 1/n^c | Goldreich Def 2.2.2 | |
 | OWF security | Pr[invert] ≤ negl(n) for all PPT | Goldreich Def 2.4.1 | |
+
+*PPTAdversary uses fixed `num_coins` per structure (coin-fixing view). For OWF security, families indexed by n provide varying coins. See §2.1 and §7.2 design notes.
 
 **Problem Definitions — SAT (5):**
 
