@@ -1399,6 +1399,8 @@ To ground the abstract principles of §§2.1-2.4, we now present a complete work
 - Understand why maintaining fewer than 2^λ artifacts causes collisions → errors
 - Preview how this gap scales to n^(Ω(log n)) or 2^(Θ(n)) for full L\* (32× artifact separation from 2^5 = 32 required states; ~19× operational ratio detailed in §2.6.4)
 
+**Note on scope:** This toy instance demonstrates A1-A5 behavior with simplified concrete functions (Enc, F_overlay). It is not an element of the formal structured instance type X\* (Definition 6.9.1), which includes additional components—GREQ, PathOf, S(P), salts, Φ̃—that the toy omits for clarity. The core mechanism (keyedness → collision → SCL) is identical; §2.6.5 maps explicitly from toy to full construction.
+
 ##### 2.6.1 The Instance
 
 **DAG Structure:**
