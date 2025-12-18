@@ -489,19 +489,21 @@ noncomputable def tmExecutionToHistory
 #print axioms eliminations_to_time
 #print axioms tmExecutionToHistory
 
-/-! ## TM Adapter Lemmas (REMAINING WORK)
+/-! ## TM Adapter Lemmas (COMPLETE!)
 
-The theorems above are proven with 0 custom axioms. To use them to replace the
-current axiom `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`, we need
-adapter lemmas that construct a valid `UnitRefuteHistory` from TM execution.
+The theorems above are proven with 0 custom axioms. The following lemmas connect
+TM execution to the WC-1 framework, providing an axiom-free path to time bounds.
 
-**Work Packages**:
-1. Define `tmRefutedWorlds` - extract refuted worlds from TM trace
-2. Prove `tmRefutedWorlds_refuted_were_feasible` - the core invariant (MAIN GAP)
-3. Prove elimination lower bound from planted correctness
-4. Conclude time bound via `eliminations_to_time`
+**Work Packages** (all completed):
+1. ✅ `tmRefutedWorlds` - extract refuted worlds from TM trace
+2. ✅ `tmRefutedWorlds_refuted_were_feasible` - the core invariant (PROVEN)
+3. ✅ `elimination_lower_bound` - from planted correctness
+4. ✅ `tm_time_lower_bound_via_WC1Bridge` - concludes time bound via `eliminations_to_time`
+5. ✅ `single_config_implies_planted_hypotheses` - TM correctness → planted world hypotheses
+6. ✅ `tm_correctness_to_wc1_bridge` - final bridge theorem
 
-**Status**: These are stubs with `sorry`. Completing them eliminates the axiom.
+**Status**: ALL THEOREMS PROVEN (0 custom axioms). This provides an axiom-free
+alternative path for the time bound derivation.
 -/
 
 /-! ### Package 1: Empty Base Prefix -/
@@ -1555,6 +1557,173 @@ theorem planted_not_in_buildRefutedWorlds_aux
         exact planted_not_in_extractViolators L C v h_v_in h_singleton cfg_planted
           base_constraints accumulated_refutes config h_config_match
 
+/-- **Accumulator monotonicity**: Elements in accumulator stay in final result. -/
+theorem buildRefutedWorlds_aux_accumulator_monotone
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (base_constraints : List (CutConstraint L C))
+    (accumulated_refutes : List (CutWorld L C))
+    (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
+    (ω : CutWorld L C)
+    (h_in_acc : ω ∈ accumulated_refutes)
+    : ω ∈ buildRefutedWorlds.aux L C base_constraints accumulated_refutes configs := by
+  induction configs generalizing accumulated_refutes with
+  | nil =>
+    simp only [buildRefutedWorlds.aux]
+    exact h_in_acc
+  | cons config rest ih =>
+    simp only [buildRefutedWorlds.aux]
+    apply ih
+    simp only [List.mem_append]
+    exact Or.inl h_in_acc
+
+/-- **Violators at first observation are captured**.
+
+    If ω violates the first config in the list (when starting from empty accumulator
+    and universal feasible set), then ω is in the final result.
+-/
+theorem violator_at_first_observation_in_result
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (config : (w : Fin L.dag.n) ×' Fin (2 ^ L.R w))
+    (rest : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
+    (ω : CutWorld L C)
+    (h_violator : ω ∈ extractViolatorsForConfig L C [] [] config)
+    : ω ∈ buildRefutedWorlds.aux L C [] [] (config :: rest) := by
+  simp only [buildRefutedWorlds.aux]
+  -- After processing config, accumulator = [] ++ extractViolatorsForConfig = extractViolatorsForConfig
+  apply buildRefutedWorlds_aux_accumulator_monotone
+  simp only [List.nil_append]
+  exact h_violator
+
+/-- **Wrong world is in extractViolatorsForConfig for planted config**.
+
+    If ω.assignment v ≠ cfg_planted and v ∈ C, then ω is extracted as a violator
+    when processing ⟨v, cfg_planted⟩ with empty base constraints and accumulator.
+-/
+theorem wrong_world_in_extractViolators
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (cfg_planted : Fin (2^(L.R v)))
+    (ω : CutWorld L C)
+    (h_wrong_cfg : ω.assignment v h_v_in ≠ cfg_planted)
+    : ω ∈ extractViolatorsForConfig L C [] [] ⟨v, cfg_planted⟩ := by
+  unfold extractViolatorsForConfig
+  simp only [h_v_in, ↓reduceDIte, Finset.mem_toList]
+  -- Need to show ω ∈ violatorsOf L C (FeasibleUnder []) (ConfigMatch v h_v_in cfg_planted)
+  -- FeasibleUnder [] = Finset.univ (all worlds feasible)
+  unfold violatorsOf
+  simp only [Finset.mem_filter, decide_eq_true_iff]
+  constructor
+  · -- ω ∈ FeasibleUnder [] (with empty base constraints and empty accumulator)
+    unfold NormalForm.FeasibleUnder
+    simp only [List.nil_append, List.map_nil, Finset.mem_filter, Finset.mem_univ, true_and]
+    rfl  -- [].all _ = true
+  · -- ¬ ConfigMatch.Satisfies ω
+    unfold CutConstraint.Satisfies
+    exact h_wrong_cfg
+
+/-- **Generalized: wrong world eventually refuted (with empty base constraints)**.
+
+    For any accumulator state, if ω ∉ accumulator and ⟨v, cfg_planted⟩ ∈ remaining configs,
+    then ω ∈ aux result. Key insight: either ω is added when some config is processed
+    (possibly before reaching cfg_planted), or ω is added when cfg_planted is processed.
+
+    NOTE: This version is specialized to base_constraints = [] for simplicity.
+-/
+theorem wrong_world_eventually_refuted_aux
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (cfg_planted : Fin (2^(L.R v)))
+    (accumulated_refutes : List (CutWorld L C))
+    (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
+    (ω : CutWorld L C)
+    (h_wrong_cfg : ω.assignment v h_v_in ≠ cfg_planted)
+    (h_planted_in_list : ⟨v, cfg_planted⟩ ∈ configs)
+    : ω ∈ buildRefutedWorlds.aux L C [] accumulated_refutes configs := by
+  -- Either ω is already in accumulator, or it will be added when some config is processed
+  by_cases h_in_acc : ω ∈ accumulated_refutes
+  · -- ω already in accumulator → stays in result
+    exact buildRefutedWorlds_aux_accumulator_monotone L C [] accumulated_refutes configs ω h_in_acc
+  · -- ω not in accumulator → will be added when some config is processed
+    induction configs generalizing accumulated_refutes with
+    | nil =>
+      simp only [List.not_mem_nil] at h_planted_in_list
+    | cons config rest ih =>
+      simp only [buildRefutedWorlds.aux]
+      -- Check if config = ⟨v, cfg_planted⟩
+      by_cases h_eq : config = ⟨v, cfg_planted⟩
+      · -- config = ⟨v, cfg_planted⟩
+        -- ω violates this config (since ω.assignment v ≠ cfg_planted)
+        subst h_eq
+        -- Key: ω is feasible iff ω ∉ accumulated_refutes (for UnitRefute constraints)
+        -- Since h_in_acc : ω ∉ accumulated_refutes, ω is feasible
+
+        -- ω ∈ extractViolatorsForConfig
+        have h_in_violators : ω ∈ extractViolatorsForConfig L C [] accumulated_refutes ⟨v, cfg_planted⟩ := by
+          unfold extractViolatorsForConfig
+          simp only [h_v_in, ↓reduceDIte, Finset.mem_toList]
+          unfold violatorsOf
+          simp only [Finset.mem_filter, decide_eq_true_iff]
+          constructor
+          · -- ω ∈ FeasibleUnder ([] ++ accumulated_refutes.map UnitRefute)
+            unfold NormalForm.FeasibleUnder
+            simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+            rw [List.all_eq_true]
+            intro constraint h_constraint_in
+            simp only [List.nil_append, List.mem_map] at h_constraint_in
+            -- constraint = UnitRefute ω' for some ω' ∈ accumulated_refutes
+            obtain ⟨ω', h_ω'_in, h_eq⟩ := h_constraint_in
+            simp only [decide_eq_true_iff]
+            subst h_eq  -- substitute constraint = UnitRefute ω'
+            -- Goal now: ω ≠ ω'
+            intro h_eq'
+            rw [h_eq'] at h_in_acc
+            exact h_in_acc h_ω'_in
+          · -- ¬ ConfigMatch.Satisfies ω
+            unfold CutConstraint.Satisfies
+            exact h_wrong_cfg
+
+        apply buildRefutedWorlds_aux_accumulator_monotone
+        simp only [List.mem_append]
+        exact Or.inr h_in_violators
+
+      · -- config ≠ ⟨v, cfg_planted⟩, so ⟨v, cfg_planted⟩ ∈ rest
+        have h_in_rest : ⟨v, cfg_planted⟩ ∈ rest := by
+          cases h_planted_in_list with
+          | head => exact absurd rfl h_eq
+          | tail _ h => exact h
+
+        -- Apply IH with updated accumulator
+        let new_acc := accumulated_refutes ++ extractViolatorsForConfig L C [] accumulated_refutes config
+
+        by_cases h_in_new : ω ∈ new_acc
+        · -- ω is in new accumulator (was added as violator for config)
+          apply buildRefutedWorlds_aux_accumulator_monotone
+          exact h_in_new
+        · -- ω not in new accumulator, use IH
+          exact ih new_acc h_in_rest h_in_new
+
+/-- **Wrong world is in buildRefutedWorlds when planted config is in list**.
+
+    If ⟨v, cfg_planted⟩ ∈ configs and ω.assignment v ≠ cfg_planted,
+    then ω ∈ buildRefutedWorlds L C configs.
+-/
+theorem wrong_world_in_buildRefutedWorlds
+    (L : LStarInstanceFG)
+    (C : Finset (Fin L.dag.n))
+    (v : Fin L.dag.n) (h_v_in : v ∈ C)
+    (cfg_planted : Fin (2^(L.R v)))
+    (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
+    (ω : CutWorld L C)
+    (h_wrong_cfg : ω.assignment v h_v_in ≠ cfg_planted)
+    (h_planted_in_list : ⟨v, cfg_planted⟩ ∈ configs)
+    : ω ∈ buildRefutedWorlds L C configs := by
+  unfold buildRefutedWorlds
+  exact wrong_world_eventually_refuted_aux L C v h_v_in cfg_planted [] configs ω h_wrong_cfg h_planted_in_list
+
 /-- **Single config observation refutes all wrong worlds**.
 
     When the TM outputs a single configuration cfg_planted, this observation
@@ -1627,11 +1796,10 @@ theorem single_config_implies_planted_hypotheses
 
     -- For simplicity, we use the fact that with empty base_constraints and empty
     -- initial accumulator, the first processing of cfg_planted adds all violators.
-    unfold tmRefutedWorlds buildRefutedWorlds
+    unfold tmRefutedWorlds
 
-    -- We need a lemma: world in violatorsOf at first observation is in aux result.
-    -- This is complex, so we admit for now and mark as TODO.
-    sorry
+    -- Use our proven lemma: wrong_world_in_buildRefutedWorlds
+    exact wrong_world_in_buildRefutedWorlds L C v h_v_in cfg_planted configs ω h_diff_cfg h_planted_in_list
 
   -- Part 2: The planted world is NOT refuted
   · -- Use the induction lemma we proved above
