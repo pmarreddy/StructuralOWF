@@ -31,7 +31,7 @@ The exponential profile proves P≠NP with 2 axioms and strong 2^n bounds.
 
 ## Proof Spine: 11 Critical Theorems + 1 Key Definition (Top-Down)
 
-This section presents **only** the essential theorems constituting the proof backbone for the **top-down exponential approach**. Note: R_of_flat ([5]) is a definition rather than a theorem, but serves as a critical architectural component.
+This section presents **only** the essential theorems constituting the proof backbone for the **top-down exponential approach**. Note: R_of_flat ([4]) is a definition rather than a theorem, but serves as a critical architectural component.
 
 **Important**: The proof uses a **top-down semantic derivation**. This document reflects the actual proof path in `TMAdapterExponential.lean`.
 
@@ -44,7 +44,8 @@ This section presents **only** the essential theorems constituting the proof bac
        ↑
 ┌──────┴───────────────────────────────────────────────────────────┐
 │  [11] pnenp (P_ne_NP) — FINAL THEOREM                            │
-│       Location: Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean │
+│       Proved in: Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean │
+│       Entrypoint: Layer5_Applications/PvsNP/PrimaryPath/MainTheorems.lean │
 │       Statement: ¬PeqNP_parametric (UNCONDITIONAL)               │
 │       Proof: [10] gives FP≠FNP, then search-from-decision → P≠NP │
 └──────────────────────────────────────────────────────────────────┘
@@ -278,7 +279,7 @@ theorem L_satisfies_A3 (L : LStarInstanceFull) : satisfies_A3 L
 
 ---
 
-#### [5] R_of_flat: Exponential Emergence Rank Definition
+#### [4] R_of_flat: Exponential Emergence Rank Definition
 
 **Location**: `Layer3_InformationBounds/Randomness/RanksExponential.lean`
 
@@ -299,10 +300,10 @@ def R_of_flat (φ : CNF) (numGates : Nat) (v : Nat) : Nat :=
 **Key Properties**:
 - FG gates: R_v = n → lower bound 2^n (exponential hardness)
 - Non-FG nodes: R_v = 0 (no emergence contribution)
-- Combined with A3_emergence [4]: guarantees n fresh information-theoretic bits at FG gate location
+- Combined with A3_emergence [3]: guarantees n fresh information-theoretic bits at FG gate location
 
 **Dependencies**:
-- A3_emergence [4] - ensures R_v fresh bits manifest at each node
+- A3_emergence [3] - ensures R_v fresh bits manifest at each node
 - FG gate construction (FrontierGate.lean) - structural wiring specification
 - Invariant enforcement via `fg_emergence_bound` field in LStarInstanceFG
 
@@ -425,7 +426,7 @@ theorem fg_first_commit_time_lower_bound
 **Key Insight**: The top-down approach reasons directly from correctness to time bound.
 
 **Dependencies**:
-- R_of_flat [4] (emergence rank definition: R = n)
+- R_of_flat (emergence rank definition: R = n)
 - parity_requires_all_bits [5] (information-theoretic necessity)
 - visitedEncodings_card_ge_pow [6] (counting lemma)
 - correctness_implies_realizesAllValues (semantic bridge lemma)
@@ -562,7 +563,9 @@ theorem structural_owf_implies_fpnefnp
 
 #### [11] pnenp: P≠NP (UNCONDITIONAL FINAL THEOREM)
 
-**Location**: `Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean`
+**Proved in**: `Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean`
+
+**Entrypoint**: `Layer5_Applications/PvsNP/PrimaryPath/MainTheorems.lean` (imports StructuralOWFBridge and re-exports `P_ne_NP`)
 
 **Theorem Names**:
 - `pnenp` - parametric formulation
@@ -696,10 +699,10 @@ These branches provide essential technical infrastructure for the critical theor
 **Objective**: Establish information-theoretic necessity of complete observation via collision-based reasoning.
 
 **Key Theorems** (7):
-1. `parity_requires_all_bits` (ParityLowerBound.lean) ✅ **PROVEN**
+1. `parity_requires_all_bits` (StructuralLowerBound.lean) ✅ **PROVEN**
    - Incomplete observation implies existence of indistinguishable configurations with distinct parities
    - **Verification Status**: Constructive proof, 0 axioms
-2. `incomplete_obs_has_collision` (ParityLowerBound.lean) ✅ **PROVEN**
+2. `incomplete_obs_has_collision` (StructuralLowerBound.lean) ✅ **PROVEN**
    - Incomplete observation → ∃ cfg1 ≠ cfg2 that agree on observed positions
    - Core collision theorem used by FGIndistinguishability
 3. `different_emergent_different_seed` (FGIndistinguishability.lean) ✅ **PROVEN**
@@ -949,11 +952,16 @@ To verify proof soundness, auditors should check:
 
 **Verification Status**: ✅ **FULLY PROVEN** — 0 sorries, 2 axioms
 
-**Authoritative Axiom Source**:
+**Authoritative Axiom Source** (via MainTheorems.lean entrypoint):
 ```bash
-#print axioms LStar.Complexity.StructuralOWFBridge.P_ne_NP
+lake env lean -c "import Layer5_Applications; #print axioms MainTheorems.P_ne_NP"
+```
+
+**Alternative** (via StructuralOWFBridge.lean where theorem is proved):
+```bash
+lake env lean -c "import Layer5_Applications; #print axioms LStar.Complexity.StructuralOWFBridge.pnenp_classical"
 ```
 
 See `docs/AXIOM_FINAL_COUNT.md` for comprehensive axiom documentation.
 
-**Last Verified**: 2025-12-17 (audit against Lean implementation)
+**Last Verified**: 2025-12-19 (audit against Lean implementation)

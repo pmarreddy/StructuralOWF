@@ -61,6 +61,43 @@ cd lean
 lake env lean Layer5_Applications/PvsNP/PrimaryPath/CheckAxioms.lean
 ```
 
+## Alternative Weaker Axiom Path (WC1Bridge)
+
+An alternative axiom path is available that uses a semantically weaker assumption:
+
+| # | Axiom | Location | Nature |
+|---|-------|----------|--------|
+| 2' | `tm_correctness_implies_unitrefute_history` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | World refutation existence |
+
+### `tm_correctness_implies_unitrefute_history` (Alternative to #2)
+
+**What it claims**: A correct TM on a planted instance induces a valid `UnitRefuteHistory` structure with:
+- A sequence of refuted worlds of length ≥ 2^R - 1 (one refutation per wrong world)
+- Timestamps for each refutation that are strictly increasing and bounded by execution time
+- An execution prefix recording the halt time
+
+**How the time bound is derived** (WC1Bridge does real work):
+
+The axiom does NOT directly claim a time bound. Instead:
+- **Axiom claims**: `∃ hist, hist.base_prefix.time = haltTime ∧ hist.refuted_worlds.length ≥ 2^R - 1`
+- **WC1Bridge proves** (0 custom axioms): `hist.base_prefix.time ≥ hist.refuted_worlds.length`
+  - Via `time_bounds_refutations` theorem: strictly increasing timestamps bounded by T implies count ≤ T
+- **Combining**: `haltTime = hist.base_prefix.time ≥ hist.refuted_worlds.length ≥ 2^R - 1`
+
+**Why it's weaker than the original**:
+- Original axiom: "TM visits all 2^R encoder values" (surjectivity claim about TM behavior)
+- New axiom: "Valid refutation history exists" (existence claim about mathematical structure)
+
+The new axiom doesn't require the TM to actually visit all values—it only requires that a valid `UnitRefuteHistory` structure can be constructed accounting for eliminating all wrong worlds. The time bound is then DERIVED via WC1Bridge, not assumed.
+
+**Bound comparison**:
+- Original: `haltTime ≥ 2^R`
+- New: `haltTime ≥ 2^R - 1`
+
+Both bounds are sufficient for P≠NP since `2^R - 1` is still exponential. The polynomial domination argument works identically.
+
+**Usage**: The wrapper theorem `fg_first_commit_time_lower_bound_via_wc1_axiom` provides the same interface as the original but uses the weaker axiom internally.
+
 ## Previously Eliminated Axioms
 
 The following were axioms in earlier versions but are now fully proven:

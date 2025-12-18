@@ -10,6 +10,7 @@ import Layer3_InformationBounds.Randomness.RanksExponential
 import Layer3_InformationBounds.Keyedness.NoBackdoorTheorem
 import Layer4_Operational.TuringMachine.TMAxioms
 import Layer4_Operational.TimeBridge.TMAdapterExponential
+import Layer4_Operational.TimeBridge.WC1Bridge
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.Analysis.Complex.ExponentialBounds
@@ -291,6 +292,38 @@ theorem exponential_dominates_poly_general
     _ = n * n^k := by ring
     _ > C * n^k := Nat.mul_lt_mul_of_pos_right h_n_gt_C h_nk_pos
 
+/-- Dominance lemma for WC1Bridge: `2^n - 1 > C * n^k` for sufficiently large n.
+
+This is the key lemma for using the weaker WC1Bridge axiom which gives bound `2^R - 1`
+instead of `2^R`. Since `2^n` dominates `C * n^k + 1` for large n, we get `2^n - 1 > C * n^k`.
+
+**Proof**: From `exponential_dominates_poly_general`, we get `2^n > (C+1) * n^k` for n ≥ n₀.
+Since `(C+1) * n^k = C * n^k + n^k ≥ C * n^k + 1` for n ≥ 1, we have `2^n > C * n^k + 1`,
+i.e., `2^n - 1 ≥ C * n^k`. For the strict inequality, we need `2^n ≥ C * n^k + 2`,
+which holds for n ≥ 2 since `2^n > (C+1) * n^k` and `n^k ≥ 1`. -/
+theorem exponential_dominates_poly_general_minus_one
+    (C k : Nat) (h_C_pos : C > 0) (h_k_pos : k > 0) :
+    ∃ n₀, ∀ n ≥ n₀, 2^n - 1 > C * n^k := by
+  -- Get threshold where 2^n > (C+1) * n^k
+  obtain ⟨n₀', h⟩ := exponential_dominates_poly_general (C + 1) k (by omega) h_k_pos
+  -- Need n ≥ 2 for strict inequality
+  use max n₀' 2
+  intro n hn
+  have hn₀ : n ≥ n₀' := Nat.le_trans (Nat.le_max_left _ _) hn
+  have hn2 : n ≥ 2 := Nat.le_trans (Nat.le_max_right _ _) hn
+  -- 2^n > (C+1) * n^k = C * n^k + n^k
+  have h_dom : 2^n > (C + 1) * n^k := h n hn₀
+  -- n^k ≥ 1 since n ≥ 2 > 0
+  have h_nk_pos : n^k ≥ 1 := Nat.one_le_pow k n (by omega)
+  -- (C+1) * n^k = C * n^k + n^k ≥ C * n^k + 1
+  have h_sum : (C + 1) * n^k = C * n^k + n^k := by ring
+  -- 2^n > C * n^k + n^k ≥ C * n^k + 1
+  have h_inter : 2^n > C * n^k + 1 := by
+    calc 2^n > (C + 1) * n^k := h_dom
+      _ = C * n^k + n^k := h_sum
+      _ ≥ C * n^k + 1 := by omega
+  -- 2^n ≥ C * n^k + 2, so 2^n - 1 ≥ C * n^k + 1 > C * n^k
+  omega
 
 /-
 Alternative approach using fixed threshold bounds.
@@ -2559,6 +2592,46 @@ theorem f_is_structural_owf_exponential_true
 
   exact Nat.lt_irrefl _ this
 
+/-! ## WC1Bridge Alternative Path
+
+The following documentation describes how to use the weaker WC1Bridge axiom
+(`tm_correctness_implies_unitrefute_history`) instead of the original axiom
+(`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`).
+
+**Key differences**:
+- WC1Bridge gives bound `haltTime ≥ 2^R - 1` instead of `haltTime ≥ 2^R`
+- Uses `exponential_dominates_poly_general_minus_one` to handle the `-1`
+- Both bounds are sufficient for P≠NP since `2^R - 1` is still exponential
+
+**How to use WC1Bridge in the main theorems**:
+
+To convert `f_is_structural_owf_exponential_flat` or `f_is_structural_owf_exponential_true`
+to use the weaker WC1Bridge axiom, make these changes:
+
+1. Replace the call to `Foundations.FlatProfile.fg_first_commit_time_lower_bound_encoded`
+   with `Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom`
+
+2. Change the dominance threshold computation to use `exponential_dominates_poly_general_minus_one`
+   instead of `exponential_dominates_poly_general`
+
+3. Update the contradiction derivation to use `2^nvars - 1` instead of `2^nvars`
+
+The core reasoning is identical - both `2^n` and `2^n - 1` are exponential and dominate
+any polynomial for sufficiently large n.
+
+**Trust boundary**: These changes would make the theorems depend on
+`tm_correctness_implies_unitrefute_history` which is semantically weaker than the
+original axiom. See `docs/AXIOM_FINAL_COUNT.md` for details.
+-/
+
+-- Verify the dominance lemma for WC1Bridge works correctly
+example (C k : Nat) (h_C_pos : C > 0) (h_k_pos : k > 0) :
+    ∃ n₀, ∀ n ≥ n₀, 2^n - 1 > C * n^k :=
+  exponential_dominates_poly_general_minus_one C k h_C_pos h_k_pos
+
+-- Verify WC1Bridge axiom is accessible from this module
+#check Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
+
 end LStar.StructuralOWF
 
 /-! ## Axiom Verification
@@ -2579,3 +2652,6 @@ All construction theorems and exponential dominance lemmas are proven.
 
 -- Main OWF theorem (exponential profile)
 #print axioms LStar.StructuralOWF.f_is_structural_owf_exponential_flat
+
+-- WC1Bridge support lemma (proven, 0 custom axioms)
+#print axioms LStar.StructuralOWF.exponential_dominates_poly_general_minus_one
