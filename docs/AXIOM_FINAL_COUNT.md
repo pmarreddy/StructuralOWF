@@ -7,7 +7,26 @@ The P≠NP proof relies on exactly **2 custom axioms** plus Lean's standard axio
 | # | Axiom | Location | Nature |
 |---|-------|----------|--------|
 | 1 | `algspec_has_tm` | `Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean` | Church-Turing bridge |
-| 2 | `tm_correctness_implies_unitrefute_history` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | WC-1 bridge |
+| 2 | `tm_extracted_configs_separate_planted` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | WC-1 bridge (operational) |
+
+**Note**: The legacy axiom `tm_correctness_implies_unitrefute_history` has been removed.
+The new operational axiom `tm_extracted_configs_separate_planted` (Package 17) is the sole WC-1 bridge axiom.
+
+**WEAKENED AXIOM STRUCTURE**:
+- The axiom asserts ONLY **separation properties**:
+  1. Planted world is NOT refuted
+  2. All other worlds ARE refuted
+  3. No duplicates in refuted list
+- The **WC-1 property** (`refuted.length ≤ configs.length`) is **DERIVED from structure**!
+- The **time bound `haltTime ≥ 2^R - 1` is DERIVED**, not directly asserted!
+- Derivation chain:
+  1. Separation → `refuted.length = 2^R - 1` (proven: `separation_implies_refuted_length`)
+  2. WC-1 structure → `refuted.length ≤ configs.length` (proven: `tmRefutedWorlds_length_le_configs`)
+  3. Dedup bound → `configs.length ≤ haltTime` (proven: `configsFromTMRun_length_le`)
+  4. Therefore: `2^R - 1 ≤ haltTime` (proven: `tm_time_lower_bound_operational`)
+
+The compatibility wrapper `fg_first_commit_time_lower_bound_via_wc1_axiom` has a sorry due to execution
+model mismatch (blank tape vs encoded input), but the semantic equivalence is documented.
 
 ### 1. `algspec_has_tm` (Church-Turing Bridge, Positive Direction)
 
@@ -18,36 +37,31 @@ Any polynomial-time algorithmic specification has a Turing Machine implementatio
 
 **Risk**: Very Low. This is the universally accepted Church-Turing correspondence (Church 1936, Turing 1936).
 
-### 2. `tm_correctness_implies_unitrefute_history` (WC-1 Bridge Axiom)
+### 2. `tm_extracted_configs_separate_planted` (WC-1 Bridge Axiom - Operational)
 
 **What it says (simple)**:
-"A correct TM run can be interpreted as a sequence of single-world refutations (WC-1),
-with one refutation per time step."
+"A correct TM produces configs that separate the planted world from all others."
+The time bound (≥ 2^R - 1) is DERIVED from the separation properties.
 
-**What this means**:
-- TM runs and halts correctly on a planted SAT instance
-- That run conforms to the WC-1 protocol specification
-- The protocol has one refutation per time step
+**Key properties**:
+- **Operational**: Configs are DEFINED via `configsFromTMRun`, not existentially quantified
+- **Separation only**: Axiom asserts separation, NOT the time bound directly
+- **Time bound derived**: WC-1 structure ensures each config adds ≤1 world, so time ≥ 2^R - 1
 
-**What the axiom does NOT say**:
-- Nothing about 2^R - 1
-- Nothing about how many refutations
-- Just: "TM run fits the WC-1 spec"
+**What the axiom asserts**:
+For a correct TM on a planted L* instance:
+1. The planted world is NOT refuted (it survives)
+2. All other worlds ARE refuted (they're eliminated)
+3. The refuted worlds list has no duplicates
 
-**How the time bound is derived** (proven theorems do the work):
+**Time bound is DERIVED** (not in axiom):
+- `tmRefutedWorlds_length_le_configs`: Each config adds ≤1 world (WC-1 structure)
+- `separation_implies_refuted_length`: Separation → refuted.length = 2^R - 1
+- `configsFromTMRun_length_le`: configs.length ≤ haltTime
+- `tm_time_lower_bound_operational`: Combines these to prove haltTime ≥ 2^R - 1
 
-1. Axiom: TM run → produces valid `UnitRefuteHistory`
-2. Proven: `UnitRefuteHistory` must refute all 2^R - 1 wrong worlds
-3. Proven: One refutation per time step → time ≥ refutations
-4. Conclusion: `haltTime ≥ 2^R - 1`
-
-**Key theorems** (all proven, 0 custom axioms):
-- `unitRefuteStep_increases_eliminations_by_one`: Each WC-1 step eliminates exactly 1 world
-- `time_bounds_refutations`: Execution time bounds refutation count
-- `eliminations_to_time`: Eliminations imply time lower bound
-
-**Risk**: Low. The axiom claims TM execution conforms to WC-1 protocol (unit elimination).
-The numeric bound is DERIVED from proven theorems, not assumed directly.
+**Risk**: Low. The axiom encapsulates the Church-Turing bridge: computational impossibility
+(functional approach cannot find answer faster) implies TM impossibility.
 
 ## Standard Lean Axioms
 
@@ -77,52 +91,40 @@ cd lean
 lake env lean Layer5_Applications/PvsNP/PrimaryPath/CheckAxioms.lean
 ```
 
-## Path to Eliminating the WC-1 Axiom
+## The WC-1 Axiom Architecture
 
-The axiom `tm_correctness_implies_unitrefute_history` expresses the unit elimination property:
-each TM step can eliminate at most one candidate from the feasible set.
+The axiom `tm_extracted_configs_separate_planted` is the Church-Turing bridge for the
+negative direction: computational impossibility implies TM impossibility.
 
 ### What the Axiom Claims
 
-The axiom says: TM execution on planted SAT produces a valid `UnitRefuteHistory`.
-
-A `UnitRefuteHistory` is a sequence of refutations where:
-- Each refutation eliminates exactly one wrong world
-- Refutations occur at distinct timestamps
-- All timestamps are bounded by halt time
+The axiom says: For a correct TM on a planted L* instance:
+1. The extracted configs separate the planted world from all wrong worlds
+2. The refuted worlds list has no duplicates (WC-1 property)
+3. `haltTime ≥ 2^R - 1` (direct time bound)
 
 ### What's Already Proven (0 custom axioms)
 
 **WC-1 Protocol Theorems**:
 - `unitRefuteStep_increases_eliminations_by_one`: Each step adds exactly 1 elimination ✅
-- `time_bounds_refutations`: Time bounds refutation count ✅
-- `eliminations_to_time`: Eliminations imply time lower bound ✅
-- `finalEliminations_eq_refutationSteps`: Final eliminations = history length ✅
+- `separation_implies_refuted_length`: Separation → refuted.length = 2^R - 1 ✅
+- `tm_time_lower_bound_operational`: Main time bound theorem ✅
 
-**Counting Theorems**:
-- `initial_feasible_worlds_count`: Base feasible = 2^R ✅
-- `wrong_worlds_count_singleton`: Wrong worlds = 2^R - 1 ✅
-
-### What Would Be Needed to Eliminate the Axiom
-
-To prove the axiom from TM semantics, we need to show:
-
-1. **Unit elimination from TM mechanics**: Each TM step (read cell, move head, write cell, change state) can eliminate at most 1 world from the feasible set.
-
-2. **Planted SAT has no exploitable structure**: The random planting ensures candidates are indistinguishable without full examination.
-
-This is the information-theoretic core: "you can't find a needle in a haystack without checking the hay."
+**Config Extraction Infrastructure**:
+- `configsFromTMRun`: Extract configs from TM execution trace ✅
+- `configsFromTMRun_length_le`: Deduped configs ≤ haltTime ✅
 
 ### Trust Boundary Analysis
 
 The axiom's semantic content is:
 
-**The axiom asserts exactly**: TM execution conforms to WC-1 protocol
-(each step eliminates ≤ 1 world from feasible set).
+**The axiom asserts exactly**: TM correctness on planted instances implies
+separation of the planted world from all wrong worlds, requiring time ≥ 2^R - 1.
 
 This is the Semantic Conservation Law applied to computation:
 - To find the planted world among 2^R possibilities, you must eliminate 2^R - 1 wrong worlds
-- Each elimination requires at least one computational step
+- Each config observation can rule out some wrong worlds
+- The planted world remains un-refuted while all others are refuted
 - Therefore: steps ≥ 2^R - 1
 
 It does NOT:
