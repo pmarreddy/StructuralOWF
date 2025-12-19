@@ -249,6 +249,31 @@ noncomputable instance cutWorldOrd (L : LStarInstanceFG) (C : Finset (Fin L.dag.
     let idx2 := enum.findIdx (· == ω2)
     compare idx1 idx2
 
+/-! ## Linear Order on CutWorld (for Canonical Selection)
+
+**PURPOSE**: Provide a total order for canonical element selection from sets.
+
+**WHY NEEDED**: `extractViolatorsForConfig` needs to pick a CANONICAL violator
+(the least one) to enable provable coverage: after m steps, exactly m distinct
+worlds are refuted. Using `List.head?` on `Finset.toList` picks an arbitrary
+element, but using `Finset.min'` with this order picks the canonical minimum.
+
+**CONSTRUCTION**: Use Fintype enumeration index as the ordering key.
+Every CutWorld maps to a unique index in {0, ..., card-1} via the Fintype
+enumeration, and we order by this index.
+-/
+
+/-- **Canonical index of a CutWorld via Fintype.equivFin**.
+    This is a bijection from CutWorld to Fin (Fintype.card), which has a natural linear order. -/
+noncomputable def cutWorldToFin (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) :
+    CutWorld L C → Fin (Fintype.card (CutWorld L C)) :=
+  Fintype.equivFin (CutWorld L C)
+
+noncomputable instance cutWorldLinearOrder (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) :
+    LinearOrder (CutWorld L C) :=
+  -- Use Fintype.equivFin to transfer linear order from Fin n
+  LinearOrder.lift' (cutWorldToFin L C) (Fintype.equivFin (CutWorld L C)).injective
+
 /-! ## Feasible Worlds
 
 **DEFINITION**: The set of worlds consistent with current observations.

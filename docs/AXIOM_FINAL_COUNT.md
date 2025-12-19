@@ -108,6 +108,22 @@ The axiom says: For a correct TM on a planted L* instance:
 - `configsFromTMRun`: Extract configs from TM execution trace ✅
 - `configsFromTMRun_length_le`: Deduped configs ≤ haltTime ✅
 
+**Property 2 Derivability** (verified):
+- `coverage_all_wrong_worlds_refuted_aux`: Inductive coverage lemma ✅
+- `derive_all_wrong_worlds_refuted`: Property 2 follows from time bound ✅
+
+### Property 2 Derivation Verified
+
+The theorem `derive_all_wrong_worlds_refuted` proves that Property 2 ("all wrong worlds are
+refuted") can be **derived** from simpler preconditions:
+
+1. All configs have the planted value: `∀ c ∈ configs, c = ⟨v, cfg_planted⟩`
+2. Enough configs (time bound): `configs.length ≥ 2^(L.R v) - 1`
+
+This means the axiom could theoretically be restructured to assert these simpler conditions
+instead of Property 2, and Property 2 would become a theorem. The current formulation is
+preferred because it directly asserts the semantic separation properties.
+
 ### Trust Boundary Analysis
 
 The axiom's semantic content is:
