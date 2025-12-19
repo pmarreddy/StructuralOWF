@@ -104,7 +104,7 @@ The proof relies on only **2 custom axioms**:
 | Axiom | Nature | Risk |
 |-------|--------|------|
 | `algspec_has_tm` | Church-Turing bridge | Very Low |
-| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | Church-Turing impossibility bridge | Low |
+| `tm_extracted_configs_separate_planted` | WC-1 separation bridge | Low |
 
 ### Axiom Details
 
@@ -113,17 +113,10 @@ The proof relies on only **2 custom axioms**:
    - Preserves polynomial constants C and k
    - Universally accepted CS principle (Church 1936, Turing 1936)
 
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (Church-Turing Impossibility Bridge)
-   - Core principle: TMs compute functions; functional impossibility implies computational impossibility
-   - Proven (0 axioms): No function can determine correct parity from incomplete observation
-   - Bridge: TMs cannot bypass this information-theoretic limit
-   - Risk: Low — rejecting this requires TMs to have capabilities beyond function evaluation
-
-### Previously Eliminated Axioms
-
-The following were axioms in earlier versions but are now **fully proven**:
-- `fg_lossless_encoding` → 145-line theorem (EncodingDiscipline.lean)
-- `encoding_semantics` → Now `encoding_semantics_derived` (proven)
+2. **`tm_extracted_configs_separate_planted`** (WC-1 Bridge)
+   - Asserts separation properties: planted world survives, all others refuted, no duplicates
+   - Time bound `haltTime ≥ 2^R - 1` is derived from separation via counting
+   - Encapsulates the principle that distinguishing 2^R possibilities requires ≥ 2^R - 1 observations
 
 ## Building
 

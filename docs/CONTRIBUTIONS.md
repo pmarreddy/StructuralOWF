@@ -124,12 +124,10 @@ See **§1** of the paper for the full development of this perspective.
 | Compilation | ✅ Full build passes |
 
 ### The 2 Custom Axioms (Trust Boundary)
-1. **`algspec_has_tm`** (Church-Turing Bridge, Positive): Any algorithmic specification has a Turing machine implementation
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (Church-Turing Bridge, Negative): Functional impossibility implies computational impossibility — TMs cannot bypass proven information-theoretic limits
+1. **`algspec_has_tm`** — Church-Turing bridge
+2. **`tm_extracted_configs_separate_planted`** — WC-1 separation bridge (time bound derived)
 
-Note: `fg_lossless_encoding` was previously an axiom but is now fully proven (145-line theorem). See `docs/AXIOM_FINAL_COUNT.md` for details.
-
-Both axioms are standard computer science / information-theory principles, not novel assumptions. The proof also uses Lean's standard foundation axioms (propext, Classical.choice, Quot.sound), which are universally accepted in formalized mathematics.
+Both are standard CS/information-theory principles. See `docs/AXIOM_FINAL_COUNT.md`.
 
 ### Falsification Criteria
 
@@ -364,10 +362,11 @@ Standard academic citation norms apply. If you publish work substantially derive
 - Is the Structural OWF construction sound?
 - Are the 15 cryptographic primitives correctly derived from L* Structural OWF?
 
-**The 2 Custom Axioms** (`algspec_has_tm`, `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`)
+**The 2 Custom Axioms** (`algspec_has_tm`, `tm_extracted_configs_separate_planted`)
 - Are these truly standard principles?
 - Could any be encoding non-trivial assumptions?
 - Are they necessary, or could they be proven?
+- Note: `tm_extracted_configs_separate_planted` only asserts separation; time bound is DERIVED
 
 ### Suggested Review Path
 ```

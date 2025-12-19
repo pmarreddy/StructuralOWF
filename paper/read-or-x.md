@@ -18,7 +18,7 @@ Any uniform PPT inverter 𝓘 succeeding with non‑negligible probability can b
 
 **Significance and Barrier Circumvention.** The approach shifts from analyzing algorithm behavior within specific computational models to analyzing what problem structure requires for correctness. The Semantic Conservation Law **articulates a common pattern** across diverse lower bound techniques—decision trees, communication complexity, pebbling games, branching programs/OBDDs, resolution, backtracking, dynamic programming, streaming—as structural parallels exhibiting configuration‑space incompressibility. This work **formalizes the TM observation paradigm** (bits observed = q, configs visited = 2^Φ) in Lean, bridging SCL to information theory and enabling unconditional complexity bounds. The other paradigm correspondences are conceptual (see §11.4 for precise status). The framework derives bounds from structural correctness requirements rather than algorithm‑specific analyses, using pigeonhole counting and information-theoretic conservation laws—not barrier‑sensitive techniques like relativization or natural proofs. (See §11.4 for complete paradigm catalog and formalization status.)
 
-**Machine Verification.** Complete formalization in Lean 4: approximately 90,000 lines across 90+ publication-ready files with minimal trust boundary (two operational axioms). The axioms are: (1) `algspec_has_tm`—a Church-Turing bridge asserting any polynomial-time algorithmic specification has a TM implementation; and (2) `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`—an execution-semantic impossibility bridge asserting that if a TM outputs a correct witness for a planted instance, then its run supplies enough information to cover the full 2^R emergent-value space (formalized as `realizesAllValuesFrom` for the emergent-value encoder). The underlying indistinguishability/collision facts under the observation interface are proven; the axiom is the explicit step that imports that functional impossibility into a statement about concrete TM runs. Axiom audits via `#print axioms` provide complete transparency. The Lean code is the authoritative proof; this paper provides mathematical intuition and proof narrative.
+**Machine Verification.** Complete formalization in Lean 4: approximately 90,000 lines across 90+ publication-ready files with minimal trust boundary (two operational axioms). The axioms are: (1) `algspec_has_tm`—a Church-Turing bridge asserting any polynomial-time algorithmic specification has a TM implementation; and (2) `tm_extracted_configs_separate_planted`—a WC-1 bridge asserting that if a TM outputs a correct witness for a planted instance, then its extracted configs **separate** the planted world from all other worlds (planted survives, others refuted, no duplicates). The key innovation: the **time bound `haltTime ≥ 2^R - 1` is DERIVED** from separation properties, not directly asserted. Derivation: separation implies refuted.length = 2^R - 1, WC-1 structure implies refuted.length ≤ configs.length ≤ haltTime. Axiom audits via `#print axioms` provide complete transparency. The Lean code is the authoritative proof; this paper provides mathematical intuition and proof narrative.
 
 **Model Scope.** Classical uniform model: deterministic k-tape Turing machines with constant tapes and alphabet. Randomized PPT adversaries handled by coin-fixing (Yao); all bounds apply per fixed run. Results apply to uniform classical models.
 
@@ -117,15 +117,11 @@ Execute `#print axioms <theorem_name>` at each step to verify trust boundary.
 
 **Approach B: Trust Boundary Audit** (verify axiom usage):
 1. Start: `StructuralOWFExponential.lean` (uses 2 axioms)
-2. Verify Axiom 1: `algspec_has_tm` (Church-Turing bridge, positive—any AlgSpec has TM implementation)
-3. Verify Axiom 2: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Church-Turing bridge, negative—functional impossibility implies computational impossibility)
-4. Conclusion: 2 axioms total, both are Church-Turing correspondence (low risk)
+2. Verify Axiom 1: `algspec_has_tm` (Church-Turing bridge—any AlgSpec has TM implementation)
+3. Verify Axiom 2: `tm_extracted_configs_separate_planted` (WC-1 bridge—separation properties; time bound derived)
+4. Conclusion: 2 axioms total, minimal trust boundary
 
-**Proven Theorems** (formerly axioms, eliminated 2025-12-08):
-- `fg_lossless_encoding` — Now fully proven (145-line theorem in EncodingDiscipline.lean)
-- `plant_flat_wf_transfer` — Eliminated by including WellFormed in WellFormedRandomness_flat
-
-**Axiom Layer Note**: Both axioms are Church-Turing bridges (TM-function correspondence)—neither mentions P, NP, or complexity bounds. The separation emerges from the construction, not the axioms.
+**Axiom Design**: Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly. The separation emerges from the construction, and the time bound is derived from counting.
 
 **Approach C: Layer-by-Layer Verification** (systematic architecture):
 Layer 0 (Foundations) → Layer 1 (Construction) → Layer 3 (Information Bounds)
@@ -5654,7 +5650,7 @@ For any r′ ∈ D(φ) with f(r′) = x*, the extractor Ext(r′, x*) produces a
 - *Proven (0 axioms)*: No function can determine correct parity from incomplete observation. Incomplete observation implies indistinguishable configurations with different parities (`parity_lower_bound_at_fg_gate`).
 - *Church-Turing bridge*: TMs compute functions. They have no capabilities beyond function evaluation, so they cannot bypass proven information-theoretic limits.
 
-**Formalization note (Axiomatized Bridge).** The Lean formalization axiomatizes this connection via `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean): TMs cannot bypass the proven functional impossibility. This is the standard Church-Turing thesis applied to impossibility—rejecting it would require asserting TMs have capabilities beyond function evaluation. The formalization's trust boundary consists of two Church-Turing bridges: (1) algorithms have TM implementations, and (2) TMs cannot bypass information-theoretic limits.
+**Formalization note (WC-1 Bridge).** The Lean formalization axiomatizes this connection via `tm_extracted_configs_separate_planted` (WC1Bridge.lean): TM correctness implies **separation** of the planted world from all others. The time bound `haltTime ≥ 2^R - 1` is **DERIVED** from separation properties (proven: `separation_implies_refuted_length`, `tmRefutedWorlds_length_le_configs`, `tm_time_lower_bound_operational`). This is weaker than directly asserting a time bound—the axiom only claims separation, and counting derives the bound. The formalization's trust boundary consists of: (1) `algspec_has_tm`—algorithms have TM implementations, and (2) `tm_extracted_configs_separate_planted`—TM correctness implies world separation.
 
 **Lemma 9.DOM (Domain-Constrained Inversion).**
 For any r′ ∈ D(φ) with f(r′) = x*, the assignment r′.assignment satisfies φ. That is, successful inversion implies SAT-solving.

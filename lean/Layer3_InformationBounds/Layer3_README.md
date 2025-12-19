@@ -272,7 +272,7 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 
 **Remaining Axioms** (Semantic → Operational bridges, Layer 4):
 - **algspec_has_tm**: Church-Turing bridge
-- **tm_correctness_implies_realizesAllValuesFrom_flat_encoded**: Semantic bridge
+- **tm_extracted_configs_separate_planted**: WC-1 bridge (separation axiom; time bound DERIVED)
 
 **All core information-theoretic theorems are proven** (no axioms in Layer 3 itself).
 

@@ -495,7 +495,7 @@ encodeSeed_hash : ParentHistory → EmergentBits → Seed  (collision-resistant 
 3. **Transparent**: No black-box cryptography (full formalization)
 4. **Sufficient**: Don't need cryptographic strength - just injectivity for keyedness
 
-**Tradeoff**: Deterministic encoding is "weaker" than hash (predictable), but **stronger** for formalization (provable without crypto axioms).
+**Tradeoff**: Deterministic encoding is predictable (unlike hash), but preferable for formalization (provable without crypto axioms).
 
 ### Why Full-Rank Matrices Instead of Random Matrices?
 

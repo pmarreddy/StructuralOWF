@@ -348,16 +348,11 @@ theorem f_is_parity_owf_exponential_true : ...
 ## Trust Boundary
 
 ### Axiom Summary (2 axioms total)
-1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean) - Info-theoretic + uniform PPT bound
-   - Requires uniform polynomial bounds (blocks non-uniform "lucky TMs" and exponential-time strategies like "parity pruning")
-   - **Paper vs. Lean**: The paper (§10.1.1 OAP Non-Inferability, Lemma 10.1.1-NI) proves this result from first principles using a two-instance argument. The Lean formalization axiomatizes it due to mechanization challenges. See `OAPLocalFlip.lean` for XOR local flip lemmas and `ParityLowerBound.lean` for the proven information-theoretic content.
+1. `algspec_has_tm` (RandAdv.lean) — Church-Turing bridge
+2. `tm_extracted_configs_separate_planted` (WC1Bridge.lean) — WC-1 separation bridge
+   - Asserts separation properties; time bound `≥ 2^R - 1` derived via counting
 
-**Proven Theorems** (eliminated from axiom count):
-- `fg_lossless_encoding` (EncodingDiscipline.lean:344-489) - PROVEN (145 LOC theorem, A3 emergence encoding roundtrip)
-- `exp_dominates_poly_strict` (Probability.lean) - PROVEN (exponential dominance 2^n > C·n^k)
-
-**Axiom Layer Note**: All axioms operate at the inversion/information layer (TM semantics, encoding mechanics, keyedness/pigeonhole)—none mention P, NP, or complexity bounds. The separation emerges from the construction, not the axioms.
+Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly.
 
 ### Proven Theorems (No Axioms)
 

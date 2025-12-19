@@ -2842,23 +2842,15 @@ theorem P_ne_NP_complete :
 - **Rationale**: Impossible to construct invalid instances (proof by construction)
 
 ### 9.3 Definitional vs Axiomatic
-- **Eliminated axioms**:
-  - Church-Turing → definitional via PPTAdversary structure
-  - Uniformity → structural fields C, k in PPTAdversary
-  - Parity commitment → proven via gateLocalFun theorems
-  - encoding_semantics → now proven as theorem
-  - tm_overhead → removed from codebase
-- **Remaining axioms** (2 total):
-  - `algspec_has_tm` (Church-Turing bridge + garbage separation) — RandAdv.lean
-  - `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Keyedness bound + uniform PPT) — TMAdapterExponential.lean
-    - Requires `h_extractWitness_surj` surjectivity constraint
-    - Requires planted hypothesis and CNF satisfiability
-    - Blocks non-uniform "lucky TMs" via uniform polynomial bounds
-    - Blocks exponential-time strategies (correctness forces 2^R exploration)
-- **Eliminated axioms** (2025-12-08):
-  - `plant_flat_wf_transfer` — WellFormed now part of WellFormedRandomness_flat definition
-  - `fg_lossless_encoding` — Now proven (theorem in EncodingDiscipline.lean)
-- **Rationale**: Minimize trust surface
+- **Definitional** (no axioms required):
+  - Church-Turing — definitional via PPTAdversary structure
+  - Uniformity — structural fields C, k in PPTAdversary
+  - Parity commitment — proven via gateLocalFun theorems
+  - Encoding semantics — proven as theorem
+- **Axioms** (2 total):
+  - `algspec_has_tm` — Church-Turing bridge (RandAdv.lean)
+  - `tm_extracted_configs_separate_planted` — WC-1 separation bridge (WC1Bridge.lean)
+- **Design**: Time bound derived from separation properties, not directly asserted
 
 ---
 
@@ -3148,14 +3140,8 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 - Linear algebra (Galois, finite fields)
 
 **Trust Boundary**: 2 axioms (verified via `#print axioms P_ne_NP`)
-1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge + garbage separation
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean) - Keyedness bound + uniform PPT (correctness forces 2^R exploration)
-
-**Eliminated axioms** (2025-12-08):
-- `plant_flat_wf_transfer` → WellFormed now part of WellFormedRandomness_flat definition
-- `fg_lossless_encoding` → Now proven (theorem in EncodingDiscipline.lean)
-- `encoding_semantics` → Now proven as `encoding_semantics_derived` theorem
-- `tm_overhead` → Removed from codebase entirely
+1. `algspec_has_tm` (RandAdv.lean) — Church-Turing bridge
+2. `tm_extracted_configs_separate_planted` (WC1Bridge.lean) — WC-1 separation bridge
 
 **Coherence**: All definitions match textbook formulations in their respective fields.
 

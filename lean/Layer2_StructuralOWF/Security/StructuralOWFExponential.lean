@@ -174,29 +174,12 @@ Same principle: Plant_flat is triple-locked OWF
 **Trust Boundary: 2 Axioms** (verified via `#print axioms P_ne_NP`)
 
 **Axioms** (2 total):
-1. **`algspec_has_tm`** (RandAdv.lean) - **SHARED**
-   - Church-Turing bridge: AlgSpec → TM with encoding discipline
-   - Type: Foundational CS principle (very low risk)
+1. **`algspec_has_tm`** (RandAdv.lean) — Church-Turing bridge
+2. **`tm_extracted_configs_separate_planted`** (WC1Bridge.lean) — WC-1 separation bridge
+   - Asserts separation: planted survives, others refuted, no duplicates
+   - Time bound `≥ 2^R - 1` derived from separation via counting
 
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (TMAdapterExponential.lean) - **EXPONENTIAL ONLY**
-   - Execution-semantic bridge: for planted instances, *correct TM output* implies the run realizes all `2^R` FG emergent values
-   - Type: TM-to-visitation bridge (not a statement about `Observation.configsAgree`)
-
-**Note (2025-12)**: Time lower bound uses `fg_first_commit_time_lower_bound_encoded` which
-gets encoder boundedness from proven `tmEmergentEncoder_bounded` theorem.
-
-**Eliminated Axioms** (2025-12-08):
-- `plant_flat_wf_transfer` - CNF well-formedness now part of WellFormedRandomness_flat definition
-- `fg_lossless_encoding` - Now proven (145-line theorem in EncodingDiscipline.lean:344-489)
-
-**Trust Boundary**:
-- **Exponential** (this file): 2 axioms, bound 2^{Ω(n)}
-
-Uses `qp_dominates_poly` (proven, 0 custom axioms) and `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` execution bridge.
-
-**Axiom Layer Note**: Both axioms operate at the inversion/information layer
-(TM semantics, Shannon's theorem)—neither mentions P, NP, or
-complexity bounds. The separation emerges from the construction, not the axioms.
+Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds.
 
 **Key Theorems**: planted_hardness_by_construction, f_is_structural_owf_exponential_flat
 
@@ -294,8 +277,8 @@ theorem exponential_dominates_poly_general
 
 /-- Dominance lemma for WC1Bridge: `2^n - 1 > C * n^k` for sufficiently large n.
 
-This is the key lemma for using the weaker WC1Bridge axiom which gives bound `2^R - 1`
-instead of `2^R`. Since `2^n` dominates `C * n^k + 1` for large n, we get `2^n - 1 > C * n^k`.
+This is the key lemma for the WC1Bridge axiom which gives bound `2^R - 1`.
+Since `2^n` dominates `C * n^k + 1` for large n, we get `2^n - 1 > C * n^k`.
 
 **Proof**: From `exponential_dominates_poly_general`, we get `2^n > (C+1) * n^k` for n ≥ n₀.
 Since `(C+1) * n^k = C * n^k + n^k ≥ C * n^k + 1` for n ≥ 1, we have `2^n > C * n^k + 1`,
@@ -1625,7 +1608,7 @@ theorem f_is_structural_owf_exponential_flat
   have h_planted_inst : ∃ n' φ' r' h_nvars h_aligned, L = plant_flat n' φ' r' h_nvars h_aligned ∧ WellFormedRandomness_flat φ' r' := by
     refine ⟨n.val, (Φ n.val), r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-  -- Lower bound: Prove haltTime ≥ 2^R - 1 using WC1Bridge (weaker axiom)
+  -- Lower bound: Prove haltTime ≥ 2^R - 1 using WC1Bridge
   have h_hyp2 : haltTime ≥ 2^(L.R v_fg.val) - 1 := by
     -- Define singleton cut for this FG gate
     let C : Finset (Fin L.dag.n) := {v_fg.val}
@@ -2248,7 +2231,7 @@ theorem f_is_structural_owf_exponential_true
   have h_planted_inst : ∃ n' φ' r' h_nvars h_aligned, L = plant_flat n' φ' r' h_nvars h_aligned ∧ WellFormedRandomness_flat φ' r' := by
     refine ⟨n.val, (Φ n.val), r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-  -- Lower bound: haltTime ≥ 2^R - 1 using WC1Bridge (weaker axiom)
+  -- Lower bound: haltTime ≥ 2^R - 1 using WC1Bridge
   have h_hyp2 : haltTime ≥ 2^(L.R v_fg.val) - 1 := by
     let C : Finset (Fin L.dag.n) := {v_fg.val}
 
@@ -2552,27 +2535,18 @@ theorem f_is_structural_owf_exponential_true
 
   exact Nat.lt_irrefl _ this
 
-/-! ## WC-1 Bridge Axiom (Current Implementation)
+/-! ## WC-1 Bridge Axiom
 
-The main theorems use the WC-1 bridge axiom (`tm_correctness_implies_unitrefute_history`).
+The WC-1 bridge axiom `tm_extracted_configs_separate_planted` asserts:
+- Planted world survives (not refuted)
+- All other worlds are refuted
+- No duplicates in refuted list
 
-**What the axiom says (simple)**:
-"A correct TM run can be interpreted as a sequence of single-world refutations (WC-1),
-with one refutation per time step."
-
-**How it works**:
-1. Axiom: TM run → produces valid UnitRefuteHistory
-2. Proven: UnitRefuteHistory must refute all 2^R - 1 wrong worlds
-3. Proven: One refutation per time step → time ≥ refutations
-4. Conclusion: haltTime ≥ 2^R - 1
-
-**Key properties**:
-- Uses `exponential_dominates_poly_general_minus_one` to handle the `-1`
-- Bound is sufficient for P≠NP since `2^R - 1` is still exponential
-
-**Trust boundary**: The axiom claims TM execution conforms to WC-1 protocol.
-The time bound is DERIVED from proven theorems, not assumed.
-See `docs/AXIOM_FINAL_COUNT.md` for details.
+**Time bound derivation** (proven, not axiomatic):
+1. `separation_implies_refuted_length`: separation → refuted.length = 2^R - 1
+2. `tmRefutedWorlds_length_le_configs`: refuted.length ≤ configs.length
+3. `configsFromTMRun_length_le`: configs.length ≤ haltTime
+4. `tm_time_lower_bound_operational`: haltTime ≥ 2^R - 1
 -/
 
 -- Verify the dominance lemma works correctly

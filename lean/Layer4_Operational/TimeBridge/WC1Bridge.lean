@@ -2888,7 +2888,9 @@ noncomputable def allConfigsFromTMRunFrom
     (haltTime : Nat)
     : List ((w : Fin L.dag.n) ×' Fin (2^(L.R w))) :=
   (List.range haltTime).map fun t =>
-    configObservationAtFrom M L v φ h_nvars_pos numGates extractWitness h_L_planted init t
+    -- Include the halting configuration at time `haltTime` (used by `h_correct`)
+    -- by sampling times `1, 2, ..., haltTime` (i.e. `t+1` for `t ∈ [0, haltTime)`).
+    configObservationAtFrom M L v φ h_nvars_pos numGates extractWitness h_L_planted init (t + 1)
 
 /-- **Extract unique config observations from TM run (generalized)** (deduped).
 
@@ -2913,7 +2915,7 @@ noncomputable def configsFromTMRunFrom
 
 /-- **Extract all config observations from TM run**.
 
-    Collects the config observed at vertex v at each time step from 0 to haltTime-1.
+    Collects the config observed at vertex v at each time step from 1 to haltTime.
     Returns the full list (including duplicates).
 -/
 noncomputable def allConfigsFromTMRun
@@ -2931,7 +2933,8 @@ noncomputable def allConfigsFromTMRun
     (haltTime : Nat)
     : List ((w : Fin L.dag.n) ×' Fin (2^(L.R w))) :=
   (List.range haltTime).map fun t =>
-    configObservationAt M L v φ h_nvars_pos numGates extractWitness h_L_planted t
+    -- Sample times `1, 2, ..., haltTime` so the halting-time witness is included.
+    configObservationAt M L v φ h_nvars_pos numGates extractWitness h_L_planted (t + 1)
 
 /-- **Extract unique config observations from TM run** (deduped).
 
@@ -3351,48 +3354,19 @@ theorem fg_first_commit_time_lower_bound_via_wc1_axiom
   exact tm_time_lower_bound_operational (plant_flat n φ r h_nvars h_aligned) M v.val v.property h_R_pos φ h_nvars_pos 1
     extractWitness' h_surj' init haltTime h_L_planted h_halts h_correct'
 
-/-! #### Package 17 Summary
+/-! #### WC-1 Bridge Summary
 
-**What we proved** (theorems, 0 custom axioms):
-- `configObservationAtFrom`: Config observation with arbitrary initial config ✅
-- `allConfigsFromTMRunFrom`: All configs extraction with arbitrary initial config ✅
-- `configsFromTMRunFrom`: Deduped configs extraction with arbitrary initial config ✅
-- `allConfigsFromTMRun_length`: All configs list has length = haltTime ✅
-- `configsFromTMRun_length_le`: Deduped configs ≤ haltTime ✅
-- `extractViolatorsForConfig_length_le_feasible_card`: Violators bounded ✅
-- `accumulated_not_feasible`: Accumulated elements are not feasible ✅
-- `extractViolatorsForConfig_disjoint_accumulated`: Violators disjoint from accumulated ✅
-- `buildRefutedWorlds_aux_nodup_from_empty`: Result from empty accumulated is Nodup ✅
-- `buildRefutedWorlds_aux_length_le_card_from_empty`: Length bound from empty accumulated ✅
-- `buildRefutedWorlds_aux_length_le_card`: General length bound ✅
-- `tmRefutedWorlds_length_le_card`: Main refuted worlds length bound ✅
-- `separation_implies_refuted_length`: Separation → refuted.length = 2^R - 1 ✅
-- `tm_time_lower_bound_operational`: **Time bound DERIVED from WC-1 + separation** ✅
+**Axiom** (`tm_extracted_configs_separate_planted`):
+- Asserts separation: planted survives, all others refuted, no duplicates
+- Takes arbitrary initial configuration
+- Configs defined via `configsFromTMRunFrom`
 
-**The WEAKENED axiom** (`tm_extracted_configs_separate_planted`):
-- Takes arbitrary initial configuration (generalized from blank tape)
-- Takes DEFINED configs (via `configsFromTMRunFrom`), not existential
-- **Asserts separation properties** (planted not refuted, all others refuted, nodup)
-- **Time bound is DERIVED** via WC-1 structure + separation!
+**Time bound derivation** (proven):
+1. `separation_implies_refuted_length`: separation → refuted.length = 2^R - 1
+2. `tmRefutedWorlds_length_le_configs`: refuted.length ≤ configs.length ≤ haltTime
+3. `tm_time_lower_bound_operational`: haltTime ≥ 2^R - 1
 
-**Derivation chain for time bound**:
-1. Separation → refuted.length = 2^R - 1 (proven: `separation_implies_refuted_length`)
-2. WC-1 → refuted.length ≤ haltTime (from axiom)
-3. Therefore: 2^R - 1 ≤ haltTime (proven: `tm_time_lower_bound_operational`)
-
-**Why this is weaker**: The original axiom directly asserted `haltTime ≥ 2^R - 1`.
-The new axiom only asserts the WC-1 property (`refuted.length ≤ haltTime`),
-and the time bound is derived from WC-1 + separation properties.
-
-**Generalized axiom** (`tm_extracted_configs_separate_planted`):
-- Takes arbitrary initial configuration (not just blank tape)
-- Enables use with encoded-input execution model
-- Interface wrapper `fg_first_commit_time_lower_bound_via_wc1_axiom` is now fully proven
-
-**Trust boundary**: 1 axiom (operational, WEAKENED)
-- `tm_extracted_configs_separate_planted`
-
-**Previous axiom** (`tm_correctness_implies_unitrefute_history`) has been removed.
+**Trust boundary**: 1 axiom (`tm_extracted_configs_separate_planted`)
 -/
 
 #print axioms tm_time_lower_bound_operational

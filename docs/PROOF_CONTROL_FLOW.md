@@ -430,9 +430,9 @@ theorem fg_first_commit_time_lower_bound
 - parity_requires_all_bits [5] (information-theoretic necessity)
 - visitedEncodings_card_ge_pow [6] (counting lemma)
 - correctness_implies_realizesAllValues (semantic bridge lemma)
-- [AXIOM] tm_correctness_implies_realizesAllValuesFrom_flat_encoded (Church–Turing bridge, negative: functional impossibility → TM impossibility)
+- [AXIOM] tm_extracted_configs_separate_planted (WC-1 bridge: separation axiom; time bound is DERIVED)
 
-**Axiomatic Content**: 1 (tm_correctness_implies_realizesAllValuesFrom_flat_encoded - see Axiom 2/2 below)
+**Axiomatic Content**: 1 (tm_extracted_configs_separate_planted - see Axiom 2/2 below)
 
 **Paper Reference**: §9 "Time bound derivation", §7.4 "Operational semantics bridge"
 
@@ -511,10 +511,10 @@ theorem f_is_structural_owf_exponential_flat
 **Dependencies**:
 - Randomness.assignment [8] (witness extraction via field access)
 - fg_first_commit_time_lower_bound_encoded [7] (exponential time lower bound)
-- [AXIOM] tm_correctness_implies_realizesAllValuesFrom_flat_encoded (Church–Turing bridge, negative: functional impossibility → TM impossibility)
+- [AXIOM] tm_extracted_configs_separate_planted (WC-1 bridge: separation axiom; time bound is DERIVED)
 - [AXIOM] algspec_has_tm (Church-Turing equivalence)
 
-**Axiomatic Content**: 2 (algspec_has_tm, tm_correctness_implies_realizesAllValuesFrom_flat_encoded - see Axiom Summary)
+**Axiomatic Content**: 2 (algspec_has_tm, tm_extracted_configs_separate_planted - see Axiom Summary)
 
 **Paper Reference**: §9 "OWF security proof", §9.2 "Contradiction derivation"
 
@@ -606,7 +606,7 @@ theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical
 - alignedCNFFamily (concrete satisfiable CNF family)
 - f_is_structural_owf_exponential_flat [9] (used internally by [10])
 
-**Axiomatic Content**: 2 (inherited from [9]: algspec_has_tm, tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
+**Axiomatic Content**: 2 (inherited from [9]: algspec_has_tm, tm_extracted_configs_separate_planted)
 
 **Paper Reference**: §10 "Main theorem", §10.3 Theorem 10.B "P ≠ NP (unconditional)"
 
@@ -833,102 +833,26 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
 
 ---
 
-### Proven Theorem: A3 Emergence Encoding (Formerly Axiom 2)
+### Axiom 2/2: WC-1 Separation Bridge
 
-**Name**: `fg_lossless_encoding` (private theorem)
+**Name**: `tm_extracted_configs_separate_planted`
 
-**Location**: `Layer5_Applications/PvsNP/ComplexityClasses/EncodingDiscipline.lean:344-489`
+**Location**: `Layer4_Operational/TimeBridge/WC1Bridge.lean`
 
-**Status**: **FULLY PROVEN** (145 lines, eliminated as axiom on 2025-12-08)
+**Statement**: For planted L* instances, if a TM correctly solves the instance, the extracted configs separate the planted world from all others.
 
-**Statement**: For FG gates, `extractEmergentBits` recovers the original assignment bits. This is an encoding roundtrip property.
+**Key Properties**:
+1. Planted world is NOT refuted
+2. All other worlds ARE refuted
+3. No duplicates in refuted list
 
-**Formal Signature**:
-```lean
-private theorem fg_lossless_encoding
-    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat)
-    (gateIndex : Nat) (h_gate_valid : gateIndex < numGates)
-    ... -- additional validity constraints
-    (σ : Assignment) :
-    extractEmergentBits seed R h_cap =
-    Vector.ofFn (fun j : Fin R => if R > 0 then σ (R - 1 - j.val) else false)
-```
-
-**Proof Structure**:
-1. Prove seedWidth = R for FG gates via `seedWidth_eq_R_for_fg_gate_flat`
-2. Prove parentBits = 0 (FG parents are in variable layer with seedWidth = 0)
-3. Show seed = encodeSeed with emergent_bits via `computeSeedAtVertex_flat` unfolding
-4. Prove bit-level equality via `Vector.get_append_right` and index arithmetic
-5. Complete by Vector extensionality
-
-**Used By**: `a3_emergence_realizability` theorem (encoder surjectivity for time bound)
-
----
-
-### Axiom 2/2: TM Correctness Implies Complete Exploration
-
-**Name**: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`
-
-**Location**: `Layer4_Operational/TimeBridge/TMAdapterExponential.lean`
-
-**Statement**: For planted L* instances with FG wiring, if a TM correctly solves the planted instance, then it must realize all 2^R emergent configuration values during execution. This bridges the abstract information-theoretic necessity (collision-based hardness) to concrete TM execution semantics.
-
-**Formal Signature**:
-```lean
-axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
-    {α : Type} [LStar.Complexity.Sized α]
-    (L : LStarInstanceFG)
-    (M : TuringMachine k states alphabet)
-    (enc : LStar.Complexity.TMInputEncodingBase α alphabet)
-    (x : α)
-    (haltTime : Nat)
-    (h_k_pos : 0 < k)
-    (h_blank : M.blank = enc.blank)
-    (extractWitness : TMConfig M → Witness L.n)
-    -- Surjectivity constraint: extractWitness can produce any assignment with support ≤ L.n
-    (h_extractWitness_surj : ∀ (σ : LStar.AssignmentInf),
-        (∀ i ≥ L.n, σ i = false) →
-        ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
-    (v : {v // L.fg.gateReq v})
-    (h_planted : PlantedHyp_flat L)
-    (h_halts : ...)  -- TM halts in accept state
-    (φ : CNF)
-    (h_φ_match : ∃ (n : Nat) (r : Randomness φ.nvars) ..., L = plant_flat n φ r ...)
-    (h_correct : φ.satisfies (TMAxioms.tmOutputWitnessEncoded M enc x haltTime ...).assignmentInf)
-    : realizesAllValuesFrom M L v (tmEmergentEncoder L M v extractWitness h_planted) haltTime
-        (LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank)
-```
-
-**Nature**: Semantic bridge axiom. The collision lower bound is PROVEN in `parity_requires_all_bits` and `incomplete_obs_has_collision` (0 axioms); this axiom applies that result to TM execution semantics. The key insight: correctness requires distinguishing all 2^R emergent configurations → must visit all of them.
-
-**Surjectivity Requirement**: The `h_extractWitness_surj` parameter ensures `extractWitness` is a genuine tape decoder (not a constant function). Without this, an attacker could trivially satisfy `h_correct` while only visiting 1 configuration.
+**Time Bound Derivation** (proven):
+- `separation_implies_refuted_length`: separation → `refuted.length = 2^R - 1`
+- `tmRefutedWorlds_length_le_configs`: `refuted.length ≤ configs.length`
+- `configsFromTMRun_length_le`: `configs.length ≤ haltTime`
+- `tm_time_lower_bound_operational`: `haltTime ≥ 2^R - 1`
 
 **Used By**: [7] TM time bound, [9] OWF security
-
----
-
-### Eliminated: CNF Well-Formedness Transfer (Formerly Axiom)
-
-**Name**: `plant_flat_wf_transfer` (private) — **ELIMINATED** (2025-12-08)
-
-**Location**: Was in `Layer2_StructuralOWF/Plant/PlantExponential.lean`
-
-**Status**: **ELIMINATED** — CNF.WellFormed is now part of `WellFormedRandomness_flat` definition.
-
-**How Eliminated**: The axiom claimed that well-formedness transfers between CNFs producing the same L* instance. This is now handled by including `CNF.WellFormed` directly in the `WellFormedRandomness_flat` predicate:
-
-```lean
--- Before (required axiom):
-def WellFormedRandomness_flat (φ : CNF) (r : Randomness) : Prop :=
-  φ.satisfies r.assignment ∧ φ.clauses.length ≥ numGates ∧ ...
-
--- After (no axiom needed):
-def WellFormedRandomness_flat (φ : CNF) (r : Randomness) : Prop :=
-  φ.WellFormed ∧  -- NEW: CNF well-formedness is now part of the definition
-  φ.satisfies r.assignment ∧ φ.clauses.length ≥ numGates ∧ ...
-```
-
-**Why this works**: Well-formedness is a property of the CNF family (Φ n), not of individual randomness values. The theorem hypotheses already provide `h_wf_literals : ∀ n, CNF.WellFormed (Φ n)`. By including WellFormed in the randomness filter predicate, any planted instance automatically has well-formed CNF.
 
 ---
 

@@ -115,7 +115,7 @@ open LStar.StructuralOWF.UniformEmbedding
 /-- **OWF Existence (Family Form)**: There exists a CNF family with one-way plant_flat.
 
     Uses family-quantified `SecurityProperty`.
-    Uses 1 custom axiom (tm_correctness_implies_realizesAllValuesFrom_flat_encoded). -/
+    Uses 1 custom axiom (`tm_extracted_configs_separate_planted`; time bound DERIVED). -/
 theorem OWF_exists_main : ∃ Φ : LStar.StructuralOWF.Theorems.CNFFamily,
     IsOneWayPlantFlat Φ :=
   OWF_exists

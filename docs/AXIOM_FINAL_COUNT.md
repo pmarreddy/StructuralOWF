@@ -7,26 +7,20 @@ The P≠NP proof relies on exactly **2 custom axioms** plus Lean's standard axio
 | # | Axiom | Location | Nature |
 |---|-------|----------|--------|
 | 1 | `algspec_has_tm` | `Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean` | Church-Turing bridge |
-| 2 | `tm_extracted_configs_separate_planted` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | WC-1 bridge (operational) |
+| 2 | `tm_extracted_configs_separate_planted` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | WC-1 separation bridge |
 
-**Note**: The legacy axiom `tm_correctness_implies_unitrefute_history` has been removed.
-The new operational axiom `tm_extracted_configs_separate_planted` (Package 17) is the sole WC-1 bridge axiom.
+## Axiom Structure
 
-**WEAKENED AXIOM STRUCTURE**:
-- The axiom asserts ONLY **separation properties**:
-  1. Planted world is NOT refuted
-  2. All other worlds ARE refuted
-  3. No duplicates in refuted list
-- The **WC-1 property** (`refuted.length ≤ configs.length`) is **DERIVED from structure**!
-- The **time bound `haltTime ≥ 2^R - 1` is DERIVED**, not directly asserted!
-- Derivation chain:
-  1. Separation → `refuted.length = 2^R - 1` (proven: `separation_implies_refuted_length`)
-  2. WC-1 structure → `refuted.length ≤ configs.length` (proven: `tmRefutedWorlds_length_le_configs`)
-  3. Dedup bound → `configs.length ≤ haltTime` (proven: `configsFromTMRun_length_le`)
-  4. Therefore: `2^R - 1 ≤ haltTime` (proven: `tm_time_lower_bound_operational`)
+The WC-1 bridge axiom asserts only **separation properties**:
+1. Planted world is NOT refuted
+2. All other worlds ARE refuted
+3. No duplicates in refuted list
 
-The compatibility wrapper `fg_first_commit_time_lower_bound_via_wc1_axiom` has a sorry due to execution
-model mismatch (blank tape vs encoded input), but the semantic equivalence is documented.
+The **time bound `haltTime ≥ 2^R - 1` is derived**, not directly asserted:
+1. Separation → `refuted.length = 2^R - 1` (proven: `separation_implies_refuted_length`)
+2. WC-1 structure → `refuted.length ≤ configs.length` (proven: `tmRefutedWorlds_length_le_configs`)
+3. Dedup bound → `configs.length ≤ haltTime` (proven: `configsFromTMRun_length_le`)
+4. Conclusion: `2^R - 1 ≤ haltTime` (proven: `tm_time_lower_bound_operational`)
 
 ### 1. `algspec_has_tm` (Church-Turing Bridge, Positive Direction)
 

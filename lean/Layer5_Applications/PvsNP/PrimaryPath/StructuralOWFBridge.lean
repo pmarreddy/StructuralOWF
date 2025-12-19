@@ -1880,7 +1880,7 @@ theorem structural_owf_inversion_not_in_fp
   -- (by R = n_test in exponential profile). Correct inversion on all of them
   -- requires distinguishing all 2^n_test cases.
 
-  -- By A2 injectivity (tm_correctness_implies_realizesAllValuesFrom_flat_encoded),
+  -- By WC-1 bridge (tm_extracted_configs_separate_planted),
   -- any algorithm with incomplete observation (< n bits) cannot distinguish all configs.
   -- Polynomial time gives at most poly(n) observations (state space).
   -- For n = n_test ≥ n₀_exp: poly(n_test) < 2^n_test (exponential dominance).
@@ -3171,21 +3171,11 @@ Main result: ¬PeqNP_parametric (P ≠ NP in the parametric formulation).
 1. OWF construction (Layers 0-4) proves FP≠FNP via information-theoretic bounds
 2. FP≠FNP → ¬P=NP (by fpnefnp_implies_not_peqnp from ParametricBitstringBridge)
 
-**Trust Boundary**: 2 custom axioms
-1. `algspec_has_tm` (Church–Turing bridge: AlgSpec → RandAdv + encoding discipline)
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Information-theoretic)
+**Trust Boundary**: 2 axioms
+1. `algspec_has_tm` — Church-Turing bridge
+2. `tm_extracted_configs_separate_planted` — WC-1 separation bridge
 
-**Proven Theorems** (formerly axioms):
-- `a3_emergence_realizability` uses proven `fg_lossless_encoding` theorem
-- `fg_lossless_encoding` (EncodingDiscipline.lean:344-489) — 145-line theorem
-
-**Axiom Classification**:
-- Axiom 1: Definitional (Church–Turing thesis + encoding conventions)
-- Axiom 2: Information theory (Shannon's theorem)
-
-**Axiom Layer Note**: Both axioms operate at the inversion/information layer
-(TM semantics, Shannon's theorem)—neither mentions P, NP, or
-complexity bounds. The separation emerges from the construction, not the axioms.
+Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds.
 
 **Derived Theorems** (not axioms):
 - `encoding_zero_default`: Zero sentinel property (PROVEN from algspec_has_tm)

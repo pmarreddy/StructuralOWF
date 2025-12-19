@@ -49,9 +49,9 @@ In Layer 4, TimeBridge translates TM steps to information cost.
 What are the assumptions? Is there a gap between operational
 semantics and information flow?
 
-The tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom
-is framed as a Church-Turing bridge: functional impossibility implies
-computational impossibility. Is this standard? What would reject it?
+The tm_extracted_configs_separate_planted axiom (WC-1 bridge) asserts
+only separation properties; the time bound is DERIVED from the separation.
+Is this structure cleaner than directly asserting time bounds?
 ```
 
 ---

@@ -638,18 +638,17 @@ Excellent formalization:
 - Address hermeticity (Sigma type)
 
 ### 9.3 Definitional vs Axiomatic
-**Eliminated axioms** (documented):
-- Church-Turing → definitional via PPTAdversary
-- Uniformity → structural fields C, k
-- Parity commitment → proven via gateLocalFun
-- encoding_semantics → now proven
-- tm_overhead → removed
-- plant_flat_wf_transfer → part of definition
-- fg_lossless_encoding → 145-line proof
+**Definitional** (no axioms required):
+- Church-Turing — definitional via PPTAdversary
+- Uniformity — structural fields C, k
+- Parity commitment — proven via gateLocalFun
+- Encoding semantics — proven as theorem
+- CNF well-formedness — part of WellFormedRandomness_flat definition
+- Emergence encoding — 145-line proof
 
-**Remaining axioms** (2 total):
+**Axioms** (2 total):
 1. `algspec_has_tm` — Church-Turing bridge (positive: algorithms → TMs)
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` — Church-Turing bridge (negative: functional impossibility → computational impossibility)
+2. `tm_extracted_configs_separate_planted` — WC-1 bridge (separation axiom; time bound DERIVED)
 
 ---
 
@@ -736,7 +735,7 @@ All 49 auxiliary definitions reviewed — standard implementations:
 
 **2 Axioms** — Minimal and reasonable:
 1. `algspec_has_tm` — Church-Turing thesis
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` — Church-Turing bridge (negative direction) / core execution-semantic impossibility bridge
+2. `tm_extracted_configs_separate_planted` — WC-1 bridge (separation axiom; time bound DERIVED)
 
 ---
 

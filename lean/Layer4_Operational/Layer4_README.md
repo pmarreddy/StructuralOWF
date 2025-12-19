@@ -133,21 +133,20 @@ axiom church_turing_with_poly_simulation :
 
 **Status**: 1 axiom (shared across both profiles).
 
-#### Axiom 2: Church-Turing Impossibility Bridge
+#### Axiom 2: WC-1 Separation Bridge
 
-**Exponential Profile** (TMAdapterExponential.lean):
+**WC-1 Bridge** (WC1Bridge.lean):
 ```lean
-axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded :
-  -- Functional impossibility → Computational impossibility
+axiom tm_extracted_configs_separate_planted :
+  -- TM correctness → separation of planted world from all others
+  -- Time bound ≥ 2^R - 1 is DERIVED from separation properties
 ```
 
-**Core principle**: TMs compute functions; they cannot bypass information-theoretic limits.
+**Core principle**: Separation properties (planted survives, others refuted) imply time bound.
 
-**What's proven** (0 axioms): No function can determine correct parity from incomplete observation.
+**What the axiom asserts**: TM correctness implies separation of worlds.
 
-**What's assumed**: TMs are bound by this limit (standard Church-Turing correspondence).
-
-**Status**: 1 axiom.
+**What's derived** (proven): `haltTime ≥ 2^R - 1` via counting.
 
 #### Theorems 3-5: Proven Properties
 
@@ -333,19 +332,22 @@ time ≥ 2^R
 - Length: Moderate
 - Benefit: Operational axiom is straightforward to verify (could be proven)
 
-**Path 2: Realizability / TMAdapter Route** (CURRENTLY ACTIVE)
-- Theorem: `exponential_time_lower_bound_via_Realizability`
-- Strategy: Correctness → (Church–Turing impossibility bridge) → run supplies full 2^R distinguishability → Time
-- Axiom: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (Church–Turing, negative direction)
+**Path 2: WC-1 Bridge Route** (CURRENTLY ACTIVE)
+- Theorem: `tm_time_lower_bound_operational`
+- Strategy: Correctness → separation → refuted.length = 2^R - 1 → time ≥ 2^R - 1
+- Axiom: `tm_extracted_configs_separate_planted` (WC-1 bridge: separation only)
 - Proof chain:
   ```
-  fg_first_commit_time_lower_bound_sub_one (TMAdapter.lean)
-    ↓ correct output → run supplies full 2^R distinguishability
-  visitedEncodings_card_ge_pow (TuringMachineSemantics.lean - PROVEN)
-    ↓ visited 2^R configs → visitedStates ≥ 2^R
-  Therefore: haltTime ≥ 2^R ✓
+  tm_extracted_configs_separate_planted (WC1Bridge.lean - AXIOM)
+    ↓ correctness → separation of planted from all other worlds
+  separation_implies_refuted_length (PROVEN)
+    ↓ separation → refuted.length = 2^R - 1
+  tmRefutedWorlds_length_le_configs (PROVEN)
+    ↓ refuted.length ≤ configs.length ≤ haltTime
+  tm_time_lower_bound_operational (PROVEN)
+    ↓ Therefore: haltTime ≥ 2^R - 1 ✓
   ```
-- Length: Moderate
+- Length: Moderate (time bound is DERIVED, not axiomatic)
 - Benefit: Direct semantic argument, shorter proof chain
 
 **Unified Theorem**:
@@ -641,19 +643,15 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 ## Trust Boundary
 
-### Axiom Summary (Full Chain)
+### Axiom Summary
 
-**2 axioms total** (both are Church-Turing bridges):
-1. **`algspec_has_tm`** (RandAdv.lean) - Church-Turing bridge (positive): algorithms → TMs exist
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`** (TMAdapterExponential.lean) - Church-Turing bridge (negative): functional impossibility → computational impossibility
-   - **Proven**: No function can determine correct parity from incomplete observation
-   - **Assumed**: TMs cannot bypass this information-theoretic limit
+**2 axioms total**:
+1. **`algspec_has_tm`** (RandAdv.lean) — Church-Turing bridge: algorithms have TM implementations
+2. **`tm_extracted_configs_separate_planted`** (WC1Bridge.lean) — WC-1 separation bridge
+   - Asserts separation: planted survives, others refuted, no duplicates
+   - Time bound `haltTime ≥ 2^R - 1` derived from separation via counting
 
-**Proven Theorems** (eliminated from axiom count):
-- **`fg_lossless_encoding`** (EncodingDiscipline.lean:344-489) - PROVEN (145 LOC theorem, A3 emergence encoding roundtrip)
-- **`exp_dominates_poly_strict`** (Probability.lean) - PROVEN (exponential dominance 2^n > C·n^k)
-
-**Axiom Layer Note**: All axioms operate at the inversion/information layer (TM semantics, encoding mechanics, keyedness/pigeonhole)—none mention P, NP, or complexity bounds. The separation emerges from the construction, not the axioms.
+Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly.
 
 ### What's Proven
 
@@ -686,9 +684,9 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 - fg_lossless_encoding (now PROVEN in EncodingDiscipline.lean:344-489, 145 LOC)
 - Many TM-specific axioms (now proven)
 
-**After refactoring**: 2 axioms total (both Church-Turing bridges)
+**After refactoring**: 2 axioms total
 - algspec_has_tm (positive: algorithms → TMs)
-- tm_correctness_implies_realizesAllValuesFrom_flat_encoded (negative: functional impossibility → computational impossibility)
+- tm_extracted_configs_separate_planted (WC-1 bridge: separation axiom; time bound DERIVED)
 
 **Reduction**: 85%+ axiom elimination.
 
@@ -723,7 +721,7 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
    - LocalEncoder abstraction (visitedEncodings_card_ge_pow)
    - Trust boundary: 0 axioms
 
-### TimeBridge/ (1 file)
+### TimeBridge/ (2 files)
 
 1. **TMAdapterExponential.lean** (~2000 lines)
    - Exponential profile adapter (R=n)
@@ -731,8 +729,12 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
    - simpleCanonicalPlantedPrefix_flat: Constructive prefix builder
    - tmToWitnessFinder implementation
    - tm_proves_keyed_visitation_exponential
-   - Requires h_tm_exhaustive_search hypothesis
-   - Trust boundary: 1 axiom (tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
+
+2. **WC1Bridge.lean** (~3400 lines)
+   - WC-1 bridge implementation
+   - `tm_extracted_configs_separate_planted` axiom (separation properties)
+   - Time bound derivation: `tm_time_lower_bound_operational` (PROVEN)
+   - Trust boundary: 1 axiom (separation only; time bound DERIVED)
 
 ### ExecutionSemantics/ (2 files, 24 axiom audits total)
 

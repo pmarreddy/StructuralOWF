@@ -180,18 +180,9 @@ This is EXACTLY the P vs NP asymmetry:
 2. **Uniform search-from-decision** - Bit-by-bit witness recovery (zero axioms)
 3. **FP≠FNP → P≠NP bridge** - Complete proof using bitstring infrastructure
 
-**Trust Boundary**: 2 axioms (foundation only, zero bridge axioms)
-- **algspec_has_tm** (RandAdv.lean) - Church-Turing: AlgSpec → TM implementation
-- **tm_correctness_implies_realizesAllValuesFrom_flat_encoded** (TMAdapterExponential.lean) - Exhaustive exploration
-
-**Eliminated Axioms** (2025-12-08):
-- `fg_lossless_encoding` — Now proven (145-line theorem in EncodingDiscipline.lean)
-- `encoding_semantics` — Now proven as theorem
-- `tm_overhead` — Removed from codebase
-
-**Axiom Reduction Achievement**: 90% reduction (10-20 typical → 2 axioms) via constructive approach
-
-**Alternative Path**: OWFImpliesFPneFNP.lean + FPFNPEquiv.lean (modular, type-generic, same rigor)
+**Trust Boundary**: 2 axioms
+- **algspec_has_tm** (RandAdv.lean) — Church-Turing bridge
+- **tm_extracted_configs_separate_planted** (WC1Bridge.lean) — WC-1 separation bridge
 
 ---
 

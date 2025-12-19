@@ -175,7 +175,7 @@ literally a single TM taking 1^n as input. This is morally equivalent for the se
 ### Trust Boundary
 
 **1 custom axiom** (strict subset of P≠NP's 2 axioms):
-- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` — keyedness bound
+- `tm_extracted_configs_separate_planted` — WC-1 bridge (separation axiom; time bound DERIVED)
 
 OWF existence does NOT require the AlgSpec→TM bridge axiom (`algspec_has_tm`).
 
@@ -295,43 +295,32 @@ Zero-knowledge proofs:
 
 ## Trust Boundary
 
-**Total**: 2 custom axioms (all low-risk, standard CS/math principles)
+**Total**: 2 custom axioms
 
-### Axiom Audit Output (Actual)
+### Axiom Audit Output
 ```
 'P_ne_NP' depends on axioms:
   [propext, Classical.choice, Quot.sound,    ← Standard Lean
    algspec_has_tm,                           ← Church-Turing bridge
-   tm_correctness_implies_realizesAllValuesFrom_flat_encoded]  ← Info-theoretic
+   tm_extracted_configs_separate_planted]    ← WC-1 separation bridge
 ```
 
-### The 2 Axioms (Exponential Profile)
+### The 2 Axioms
 
-| # | Axiom | File | What It Says | Risk |
-|---|-------|------|--------------|------|
-| 1 | `algspec_has_tm` | RandAdv.lean | Any AlgSpec has a TM implementation (Church-Turing thesis) | Very Low |
-| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | Church-Turing bridge (negative: functional impossibility → TM impossibility) | Low |
+| # | Axiom | File | Nature | Risk |
+|---|-------|------|--------|------|
+| 1 | `algspec_has_tm` | RandAdv.lean | Church-Turing bridge | Very Low |
+| 2 | `tm_extracted_configs_separate_planted` | WC1Bridge.lean | WC-1 separation bridge | Low |
 
-### Why Each is an Axiom
+### Axiom Details
 
-1. **`algspec_has_tm`**: Church-Turing thesis — any algorithm can be implemented by a TM. Universally accepted.
+1. **`algspec_has_tm`**: Church-Turing thesis — any algorithm has a TM implementation.
 
-2. **`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`**: Church-Turing bridge (negative direction) — imports the proven observation/indistinguishability impossibility into a claim about concrete TM runs (formalized as `realizesAllValuesFrom` for the emergent encoder).
-   - **Paper vs. Lean**: The paper (§10.1.1 OAP Non-Inferability, Lemma 10.1.1-NI) proves this from first principles via a two-instance argument. The Lean formalization axiomatizes it due to mechanization challenges (dependent type indices, seed chain degrees of freedom). The core counting argument is proven in `ParityLowerBound.lean`. See `OAPLocalFlip.lean` for XOR local flip lemmas.
+2. **`tm_extracted_configs_separate_planted`**: WC-1 bridge — asserts separation properties:
+   - Planted world survives, all others refuted, no duplicates
+   - Time bound `≥ 2^R - 1` derived from separation via counting
 
-### Proven Theorem (Formerly Axiom)
-
-**`fg_lossless_encoding`** (EncodingDiscipline.lean:344-489): A3 emergence encoding roundtrip.
-Now a **fully proven theorem** (145 lines). Uses `seedWidth_eq_R_for_fg_gate_flat`, Vector extensionality,
-and index arithmetic to prove `extractEmergentBits` recovers encoded emergent bits.
-
-### Layer 5 Contribution
-
-Layer 5 adds **ZERO new axioms**. All 2 axioms come from Layers 4-5 foundations:
-- `algspec_has_tm` (RandAdv.lean - Layer 5)
-- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean - Layer 4)
-
-**Verification**: `lake build Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge` shows NO `sorryAx`
+Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly.
 
 ---
 

@@ -26,8 +26,9 @@ abstract complexity-theoretic framework.
 
 **Axioms**:
 1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge
-2. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean)
-   Church–Turing bridge (negative direction): imports the proven observation/indistinguishability impossibility into a statement about concrete TM runs (formalized as `realizesAllValuesFrom`).
+2. `tm_extracted_configs_separate_planted` (WC1Bridge.lean)
+   WC-1 bridge: asserts separation properties (planted survives, others refuted, no duplicates).
+   Time bound `≥ 2^R - 1` is DERIVED from separation, not directly asserted.
 
 **Proven Theorem** (eliminated from axiom count):
 - `exp_dominates_poly_strict` (Probability.lean) - Exponential dominance 2^n > C·n^k
@@ -577,9 +578,8 @@ theorem plant_equality_tm_exists
 - `plant_equality_tm_exists` - TM existence via Church-Turing bridge
 
 **Axiomatic Components** (other files):
-- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean)
+- `tm_extracted_configs_separate_planted` (WC1Bridge.lean) - WC-1 bridge (separation axiom)
 - `algspec_has_tm` (RandAdv.lean)
-- `encoding_semantics` (OWFBridge.lean)
 
 **Proven Components** (Layers 0-3):
 - SCL framework (0 axioms)

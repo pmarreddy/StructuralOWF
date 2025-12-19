@@ -21,7 +21,8 @@ A function f is one-way if:
 and n unit clauses (one positive literal per variable). Simple structure,
 but sufficient to instantiate the OWF construction.
 
-**Trust Boundary**: 1 custom axiom (`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`).
+**Trust Boundary**: 1 custom axiom (`tm_extracted_configs_separate_planted`).
+Time bound is DERIVED from separation properties.
 This is a strict subset of P≠NP's 2 axioms — OWF doesn't need the AlgSpec→TM bridge.
 -/
 
