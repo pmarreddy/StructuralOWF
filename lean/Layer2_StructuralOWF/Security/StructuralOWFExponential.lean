@@ -1817,30 +1817,17 @@ theorem f_is_structural_owf_exponential_flat
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
     -- Use WC-1 derivation: L*-encoding fields from adversary → time bound
-    -- The adversary's L*-encoding fields provide the encoding structure.
     -- R > 0 follows from h_R_eq_nvars (defined outside this block)
     have h_R_pos : L.R v_fg.val > 0 := by simp [h_R_eq_nvars]; omega
-    -- Bridge: Use lstar_halts + halt_persists to show halting at proof's haltTime
-    -- lstar_halts provides: ∃ haltTime_axiom, (∀ cfg, halts at haltTime_axiom) ∧ haltTime_axiom ≤ PPT bound
-    -- Since proof's haltTime = PPT bound ≥ haltTime_axiom, we use halt_persists
-    have h_halts_lstar : ((TMConfig.step (M := (A n.val).base.M))^[haltTime]
-        ((A n.val).lstar_initForPlanting L v_fg.val v_fg.property 0)).state ∈ (A n.val).base.M.halt := by
-      -- Extract axiom's haltTime from lstar_halts
-      obtain ⟨haltTime_axiom, h_halts_all, h_bound⟩ := (A n.val).lstar_halts L v_fg.val v_fg.property
-      -- haltTime_axiom ≤ (A n.val).base.C * (Sized.size L + 1)^(A n.val).base.k = haltTime
-      have h_le : haltTime_axiom ≤ haltTime := h_bound
-      -- At haltTime_axiom, TM halts for cfg = 0
-      have h_halts_at_axiom := h_halts_all 0
-      -- Rewrite haltTime using (diff + axiom) order for correct iterate_add composition
-      have h_diff : haltTime = (haltTime - haltTime_axiom) + haltTime_axiom := by omega
-      rw [h_diff]
-      -- step^[a + b] = step^[a] ∘ step^[b], so step^[diff + axiom] cfg = step^[diff] (step^[axiom] cfg)
-      rw [Function.iterate_add]
-      simp only [Function.comp_apply]
-      -- At step^[haltTime_axiom], we're halted. halt_persists keeps us halted.
-      exact Foundations.halt_persists (A n.val).base.M _ (haltTime - haltTime_axiom) h_halts_at_axiom
-    exact Foundations.fg_first_commit_time_lower_bound_from_adversary
-      L (A n.val) v_fg h_R_pos 0 haltTime h_halts_lstar
+    -- NEW: Use simplified fg_first_commit_time_lower_bound_from_adversary
+    -- It directly returns: A.lstar_haltTime ≥ 2^R - 1
+    have h_lstar_lower : (A n.val).lstar_haltTime L v_fg.val v_fg.property ≥ 2^(L.R v_fg.val) - 1 :=
+      Foundations.fg_first_commit_time_lower_bound_from_adversary L (A n.val) v_fg h_R_pos 0
+    -- Get upper bound from lstar_halts: lstar_haltTime ≤ haltTime
+    have h_lstar_upper : (A n.val).lstar_haltTime L v_fg.val v_fg.property ≤ haltTime :=
+      ((A n.val).lstar_halts L v_fg.val v_fg.property).2
+    -- Combine: 2^R - 1 ≤ lstar_haltTime ≤ haltTime
+    exact Nat.le_trans h_lstar_lower h_lstar_upper
 
   -- Upper bound: Polynomial time from PPT adversary
   -- The adversary's uniform time bound provides haltTime ≤ C_uniform * L.n ^ k_uniform
@@ -2428,25 +2415,15 @@ theorem f_is_structural_owf_exponential_true
     -- Use WC-1 derivation: L*-encoding fields from adversary → time bound
     -- R > 0 follows from h_R_eq_nvars (defined outside this block)
     have h_R_pos : L.R v_fg.val > 0 := by simp [h_R_eq_nvars]; omega
-    -- Bridge: Use lstar_halts + halt_persists to show halting at proof's haltTime
-    have h_halts_lstar : ((TMConfig.step (M := (A n.val).base.M))^[haltTime]
-        ((A n.val).lstar_initForPlanting L v_fg.val v_fg.property 0)).state ∈ (A n.val).base.M.halt := by
-      -- Extract axiom's haltTime from lstar_halts
-      obtain ⟨haltTime_axiom, h_halts_all, h_bound⟩ := (A n.val).lstar_halts L v_fg.val v_fg.property
-      -- haltTime_axiom ≤ (A n.val).base.C * (Sized.size L + 1)^(A n.val).base.k = haltTime
-      have h_le : haltTime_axiom ≤ haltTime := h_bound
-      -- At haltTime_axiom, TM halts for cfg = 0
-      have h_halts_at_axiom := h_halts_all 0
-      -- Rewrite haltTime using (diff + axiom) order for correct iterate_add composition
-      have h_diff : haltTime = (haltTime - haltTime_axiom) + haltTime_axiom := by omega
-      rw [h_diff]
-      -- step^[a + b] = step^[a] ∘ step^[b], so step^[diff + axiom] cfg = step^[diff] (step^[axiom] cfg)
-      rw [Function.iterate_add]
-      simp only [Function.comp_apply]
-      -- At step^[haltTime_axiom], we're halted. halt_persists keeps us halted.
-      exact Foundations.halt_persists (A n.val).base.M _ (haltTime - haltTime_axiom) h_halts_at_axiom
-    exact Foundations.fg_first_commit_time_lower_bound_from_adversary
-      L (A n.val) v_fg h_R_pos 0 haltTime h_halts_lstar
+    -- NEW: Use simplified fg_first_commit_time_lower_bound_from_adversary
+    -- It directly returns: A.lstar_haltTime ≥ 2^R - 1
+    have h_lstar_lower : (A n.val).lstar_haltTime L v_fg.val v_fg.property ≥ 2^(L.R v_fg.val) - 1 :=
+      Foundations.fg_first_commit_time_lower_bound_from_adversary L (A n.val) v_fg h_R_pos 0
+    -- Get upper bound from lstar_halts: lstar_haltTime ≤ haltTime
+    have h_lstar_upper : (A n.val).lstar_haltTime L v_fg.val v_fg.property ≤ haltTime :=
+      ((A n.val).lstar_halts L v_fg.val v_fg.property).2
+    -- Combine: 2^R - 1 ≤ lstar_haltTime ≤ haltTime
+    exact Nat.le_trans h_lstar_lower h_lstar_upper
 
   -- Upper bound
   have h_L_n_eq : L.n = (Φ n.val).nvars := by

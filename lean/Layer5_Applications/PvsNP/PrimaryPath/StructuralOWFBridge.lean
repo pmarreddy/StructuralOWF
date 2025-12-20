@@ -1311,13 +1311,14 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
     (h_format_sep : EncodingDiscipline.FormatSeparated_exp M (adapterInputEncoding_exp M) M.h_blank_consistent)
     (h_surj : Function.Surjective M.encoding.output.decode)
     -- L* encoding structure from algspec_has_tm_lstar_sigma
-    -- Structure: ∃ init extract haltTime, Replanting ∧ (∀ t, WorstCase) ∧ (∀ cfg, halts) ∧ haltTime ≤ poly
+    -- Structure: ∃ init extract haltTime, Replanting ∧ WorstCase(haltTime) ∧ (∀ cfg, halts) ∧ haltTime ≤ poly
+    -- NOTE: WorstCase is now at haltTime only; ∀ t version is derived via derive_worst_case_all_t
     (h_lstar_encoding : ∀ (L : LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
       ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
         (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
         (haltTime : Nat),
         ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
-        (∀ t, WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting t) ∧
+        WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting haltTime ∧
         (∀ cfg : Fin (2^(L.R v)), ((TMConfig.step (M := M.M))^[haltTime] (initForPlanting cfg)).state ∈ M.M.halt) ∧
         haltTime ≤ M.C * (Sized.size L + 1) ^ M.k) :
     LStar.Complexity.StructuralOWFAdversary nvars := by
@@ -1470,35 +1471,41 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         let h_props := Classical.choose_spec h_enc''
         -- h_props : Replanting ∧ WorstCase ∧ Halts, h_props.1 = ReplantingSimulation
         convert h_props.1 using 2 <;> simp only [dif_pos h_fg]
-      lstar_worst_case := fun L v h_fg haltTime => by
+      -- NEW: lstar_haltTime exposes the specific haltTime from the axiom
+      lstar_haltTime := fun L v h_fg =>
+        let h_enc := h_lstar_encoding L v h_fg
+        let h_enc' := Classical.choose_spec h_enc
+        let h_enc'' := Classical.choose_spec h_enc'
+        Classical.choose h_enc''  -- The haltTime from the axiom
+      lstar_worst_case := fun L v h_fg => by
         let h_enc := h_lstar_encoding L v h_fg
         let h_enc' := Classical.choose_spec h_enc
         let h_enc'' := Classical.choose_spec h_enc'
         let h_props := Classical.choose_spec h_enc''
-        -- h_props.2.1 = ∀ t, WorstCaseCorrectOnLStar t
-        convert h_props.2.1 haltTime using 2 <;> simp only [dif_pos h_fg]
+        -- h_props.2.1 = WorstCaseCorrectOnLStar at axiomHaltTime
+        -- This directly provides what we need since lstar_haltTime = axiomHaltTime by construction
+        convert h_props.2.1 using 2 <;> simp only [dif_pos h_fg]
       lstar_halts := fun L v h_fg => by
         -- Extract haltTime and properties from h_lstar_encoding
         let h_enc := h_lstar_encoding L v h_fg
         let h_enc' := Classical.choose_spec h_enc
         let h_enc'' := Classical.choose_spec h_enc'
-        let haltTime := Classical.choose h_enc''
         let h_props := Classical.choose_spec h_enc''
         -- h_props.2.2.1 = ∀ cfg, halts at haltTime
         -- h_props.2.2.2 = haltTime ≤ M.C * (size L + 1)^M.k
-        use haltTime
+        -- lstar_haltTime L v h_fg = Classical.choose h_enc'' by construction
         constructor
-        · -- Halting property
+        · -- Halting property at lstar_haltTime
           intro cfg
           have h_halts := h_props.2.2.1 cfg
           -- Need to show: lstar_initForPlanting uses same initForPlanting from axiom
           convert h_halts using 2
-        · -- Polynomial bound: need haltTime ≤ base.C * (size L + 1)^base.k
+        · -- Polynomial bound: need lstar_haltTime ≤ base.C * (size L + 1)^base.k
           -- where base.C = M.C * 2^M.k and base.k = M.k
           -- Axiom gives: haltTime ≤ M.C * (size L + 1)^M.k
           -- Since 2^M.k ≥ 1, we have M.C * (size L + 1)^M.k ≤ (M.C * 2^M.k) * (size L + 1)^M.k
           have h_bound := h_props.2.2.2
-          calc haltTime
+          calc Classical.choose h_enc''
               ≤ M.C * (Sized.size L + 1) ^ M.k := h_bound
             _ ≤ (M.C * 2^M.k) * (Sized.size L + 1) ^ M.k := by
                 have h_C_pos : M.C > 0 := M.h_C_pos
@@ -1794,7 +1801,7 @@ theorem structural_owf_inversion_not_in_fp
   -- The AlgSpec M_fp from InFP gives a TM realization via the extended Church-Turing axiom
   -- This provides both standard RandAdv properties AND L* encoding structure
   have h_tm_exists := algspec_has_tm_lstar_sigma M_fp
-  obtain ⟨M_randadv, h_run_eq, h_C_eq, h_k_eq, h_surj, h_default_ne, h_default_zero, h_lstar_encoding⟩ := h_tm_exists
+  obtain ⟨M_randadv, h_run_eq, h_surj, h_default_ne, h_default_zero, h_lstar_encoding⟩ := h_tm_exists
 
   -- The RandAdv M_randadv implements f_family with the same polynomial bounds
   -- From h_correct_fp: M_fp.run correctly computes f_family

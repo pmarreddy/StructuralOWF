@@ -228,43 +228,53 @@ structure StructuralOWFAdversary (nvars : Nat) where
         (lstar_extractConfigAtV L v)
         (lstar_initForPlanting L v h_fg)
 
+  /-- **L*-ENCODING: haltTime**: Specific halting time for each (L, v) pair.
+
+      **Statement**: Provides the concrete halting time for the TM on planted L* instances.
+
+      **Purpose**: Exposes the haltTime from the axiom so that lstar_worst_case and
+      lstar_halts can both reference the same specific time.
+
+      **Trust Boundary**: 0 axioms (from algspec_has_tm_lstar_sigma axiom) -/
+  lstar_haltTime : (L : LStarInstanceFG) → (v : Fin L.dag.n) → L.fg.gateReq v → Nat
+
   /-- **L*-ENCODING: WorstCaseCorrectOnLStar**: TM outputs correct config for all plantings.
 
-      **Statement**: For any planted config cfg at frontier gate v, after haltTime steps,
+      **Statement**: For any planted config cfg at frontier gate v, after lstar_haltTime steps,
       the TM's extracted config equals cfg.
 
       **Purpose**: Proves the TM is correct on ALL L* instances with ALL plantings.
       Combined with ReplantingSimulation, this enables the time lower bound proof.
 
       **Formalization**: For all cfg : Fin (2^(L.R v)):
-        let finalState := step^[haltTime] (initForPlanting cfg)
+        let finalState := step^[lstar_haltTime L v h_fg] (initForPlanting cfg)
         extractConfigAtV finalState = cfg
+
+      **Note**: WorstCaseCorrect for t ≤ lstar_haltTime is DERIVABLE via derive_worst_case_all_t
+      from WorstCaseCorrect at lstar_haltTime + ReplantingSimulation.
 
       **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
   lstar_worst_case : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
-      (haltTime : Nat) →
       WorstCaseCorrectOnLStar L base.M v
         (lstar_extractConfigAtV L v)
         (lstar_initForPlanting L v h_fg)
-        haltTime
+        (lstar_haltTime L v h_fg)
 
-  /-- **L*-ENCODING: Halting**: TM halts at poly time for planted configs.
+  /-- **L*-ENCODING: Halting**: TM halts at lstar_haltTime for planted configs.
 
-      **Statement**: For each (L, v) with frontier gate, there exists a haltTime
-      bounded by the PPT time (C * (size L + 1)^k) such that the TM halts for
-      all planted configs.
+      **Statement**: For each (L, v) with frontier gate, the TM halts at lstar_haltTime
+      for all planted configs, and lstar_haltTime is bounded by the PPT time.
 
-      **Purpose**: Enables the time lower bound proof by providing a concrete
-      halting time. Combined with halt_persists, this shows halting at any later time.
+      **Purpose**: Enables the time lower bound proof by providing halting at a
+      concrete time. Combined with halt_persists, this shows halting at any later time.
 
       **Usage**: StructuralOWFExponential uses this to prove h_halts_lstar.
 
       **Trust Boundary**: 0 axioms (from algspec_has_tm_lstar_sigma axiom) -/
   lstar_halts : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
-      ∃ (haltTime : Nat),
-        (∀ cfg : Fin (2^(L.R v)),
-          ((TMConfig.step (M := base.M))^[haltTime] (lstar_initForPlanting L v h_fg cfg)).state ∈ base.M.halt) ∧
-        haltTime ≤ base.C * (Sized.size L + 1) ^ base.k
+      (∀ cfg : Fin (2^(L.R v)),
+        ((TMConfig.step (M := base.M))^[lstar_haltTime L v h_fg] (lstar_initForPlanting L v h_fg cfg)).state ∈ base.M.halt) ∧
+      lstar_haltTime L v h_fg ≤ base.C * (Sized.size L + 1) ^ base.k
 
 /-- Extract the TM from an OWF adversary. -/
 abbrev StructuralOWFAdversary.M {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.M

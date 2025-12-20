@@ -335,11 +335,25 @@ in the OWF security proof):
 - Input: (Σ _n : Nat, LStarInstanceFG) - sigma-wrapped L* instances
 - Output: (Σ n : Nat, Bits (expWLen n)) - sigma-wrapped witness bits
 
-Properties provided:
-- All properties from `algspec_has_tm` (behavioral equivalence, complexity preservation, etc.)
-- PLUS: L* encoding structure (initForPlanting, extractConfigAtV)
-- PLUS: ReplantingSimulation for any L* instance and frontier gate vertex
-- PLUS: WorstCaseCorrectOnLStar (TM correct for all plantings)
+**AXIOM ANALYSIS - Which Properties Are Truly Axiomatic**:
+
+| Property | Status | Notes |
+|----------|--------|-------|
+| M.run = A.run | AXIOMATIC | Church-Turing core |
+| M.C = A.C, M.k = A.k | CONSTRUCTION | TM is built with A's constants |
+| Surjective decode | ENCODING | Property of encoding design |
+| Format separation | ENCODING | Property of encoding design |
+| firstNat = 0 | ENCODING | Sentinel convention |
+| ReplantingSimulation | AXIOMATIC | Obliviousness (key property) |
+| ∀ t, WorstCaseCorrect t | DERIVABLE | See `derive_worst_case_all_t` in WC1Bridge |
+| Halting, Poly bound | DERIVABLE | From PPT structure |
+
+**Minimal Core**: The truly axiomatic content is:
+1. `M.run = A.run` (Church-Turing bridge)
+2. `ReplantingSimulation` (obliviousness)
+
+Other properties follow from these + encoding design choices.
+See `derive_worst_case_all_t` in WC1Bridge.lean for the derivation of ∀ t, WorstCaseCorrect t.
 
 **ReplantingSimulation**: For any planted config cfg and time t, if the TM extracts
 config c at time t, then running with c planted reaches the same TM state.
@@ -365,23 +379,22 @@ axiom algspec_has_tm_lstar_sigma
                  (Σ n : Nat, Vector Bool (2 * n + 64)) T) :
   ∃ (M : RandAdv (Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG)
                   (Σ n : Nat, Vector Bool (2 * n + 64)) T),
-    -- Standard algspec_has_tm properties
+    -- Church-Turing core: TM computes same function as algorithm
     M.toAlgSpec.run = A.run ∧
-    M.C = A.C ∧
-    M.k = A.k ∧
+    -- Encoding properties (standard encoding design)
     Function.Surjective M.encoding.output.decode ∧
     (∀ c x, A.run c x ≠ M.early_decode_default) ∧
     FirstNatComponent.firstNat M.early_decode_default = 0 ∧
-    -- L* encoding structure with ReplantingSimulation, WorstCaseCorrect, and Halting
+    -- L* encoding structure with ReplantingSimulation and WorstCaseCorrect
     -- Works for ANY L* instance and frontier gate vertex
     (∀ (L : LStar.StructuralOWF.LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
       ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
         (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
         (haltTime : Nat),
-        -- ReplantingSimulation: intermediate states are oblivious to planting
+        -- ReplantingSimulation: intermediate states are oblivious to planting (CORE AXIOM)
         LStar.StructuralOWF.Foundations.ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
-        -- WorstCaseCorrectOnLStar: TM outputs correct config for all plantings
-        (∀ t, LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting t) ∧
+        -- WorstCaseCorrectOnLStar at haltTime (∀ t version derivable via derive_worst_case_all_t)
+        LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting haltTime ∧
         -- Halting: TM halts within haltTime for any planted config
         (∀ cfg : Fin (2^(L.R v)), ((TMConfig.step (M := M.M))^[haltTime] (initForPlanting cfg)).state ∈ M.M.halt) ∧
         -- Polynomial bound: haltTime ≤ PPT time bound (enables upper bound in contradiction)

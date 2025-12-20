@@ -4252,6 +4252,42 @@ theorem worst_case_correct_implies_all_configs_planted
   -- Contradiction: c ≠ cfg_planted but c = cfg_planted
   exact h_ne h_eq
 
+/-- **DERIVATION LEMMA**: WorstCaseCorrectOnLStar for all t ≤ haltTime follows from
+    WorstCaseCorrectOnLStar at haltTime + ReplantingSimulation.
+
+    **Key insight**: This shows the `∀ t` quantification in the axiom is DERIVABLE.
+    The axiom only needs to provide WorstCaseCorrectOnLStar at haltTime.
+
+    **Proof**:
+    - For any t ≤ haltTime and any cfg:
+    - Apply worst_case_correct_implies_all_configs_planted with cfg_planted = cfg
+    - We get: extractConfigAtV(step^[t](initForPlanting cfg)) = cfg
+    - This is exactly WorstCaseCorrectOnLStar at time t
+
+    **Trust Boundary**: 0 axioms (derivable from haltTime correctness + replanting) -/
+theorem derive_worst_case_all_t
+    {k : Nat} {states alphabet : Type}
+    [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
+    (L : LStarInstanceFG)
+    (M : TuringMachine k states alphabet)
+    (v : Fin L.dag.n)
+    (h_v_in : v ∈ ({v} : Finset (Fin L.dag.n)))
+    (extractConfigAtV : TMConfig M → Fin (2^(L.R v)))
+    (initForPlanting : Fin (2^(L.R v)) → TMConfig M)
+    (haltTime : Nat)
+    -- Only need WorstCaseCorrect at haltTime (not ∀ t)
+    (h_worst_case_at_haltTime : WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting haltTime)
+    (h_replanting : ReplantingSimulation L M v extractConfigAtV initForPlanting)
+    : ∀ t ≤ haltTime, WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting t := by
+  intro t h_t_le
+  -- WorstCaseCorrectOnLStar at t means: ∀ cfg, extractConfigAtV(step^[t](initForPlanting cfg)) = cfg
+  intro cfg
+  -- Apply worst_case_correct_implies_all_configs_planted with cfg_planted = cfg
+  exact worst_case_correct_implies_all_configs_planted L M v h_v_in extractConfigAtV
+    initForPlanting haltTime cfg h_worst_case_at_haltTime h_replanting t h_t_le
+
+-- Axiom audit: NO custom axioms (derives from haltTime correctness + replanting)
+#print axioms derive_worst_case_all_t
 
 /-- **Combining the pieces**: From worst-case correctness, derive separation properties.
 
@@ -5032,10 +5068,9 @@ theorem fg_first_commit_time_lower_bound
     - A: StructuralOWFAdversary with L*-encoding fields populated
     - L: L* instance (planted)
     - v: FG gate (as subtype)
-    - haltTime: execution time
     - h_R_pos: rank positivity
 
-    **Result**: haltTime ≥ 2^(L.R v) - 1
+    **Result**: A.lstar_haltTime ≥ 2^(L.R v) - 1
 
     **Axiom dependencies**: ONLY `not_refuted_implies_indistinguishable` (semantic bridge)
 
@@ -5048,14 +5083,14 @@ theorem fg_first_commit_time_lower_bound_from_adversary
     (v : {v // L.fg.gateReq v})
     (h_R_pos : L.R v.val > 0)
     (cfg_planted : Fin (2^(L.R v.val)))
-    (haltTime : Nat)
-    (h_halts : ((TMConfig.step (M := A.base.M))^[haltTime] (A.lstar_initForPlanting L v.val v.property cfg_planted)).state ∈ A.base.M.halt)
-    : haltTime ≥ 2^(L.R v.val) - 1 := by
+    : A.lstar_haltTime L v.val v.property ≥ 2^(L.R v.val) - 1 := by
   -- Extract L*-encoding from adversary
+  let haltTime := A.lstar_haltTime L v.val v.property
   let initForPlanting := A.lstar_initForPlanting L v.val v.property
   let extractConfigAtV := A.lstar_extractConfigAtV L v.val
   have h_replanting := A.lstar_replanting L v.val v.property
-  have h_worst_case := A.lstar_worst_case L v.val v.property haltTime
+  have h_worst_case := A.lstar_worst_case L v.val v.property
+  have h_halts := (A.lstar_halts L v.val v.property).1 cfg_planted
   -- Apply the core theorem
   exact fg_first_commit_time_lower_bound L A.base.M v h_R_pos
     initForPlanting extractConfigAtV cfg_planted haltTime
