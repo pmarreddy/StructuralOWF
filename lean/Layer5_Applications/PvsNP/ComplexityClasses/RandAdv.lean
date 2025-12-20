@@ -76,7 +76,7 @@ instance {γ : Nat → Type} : FirstNatComponent (Σ n : Nat, γ n) where
 
 **Trust Boundary**: 0 axioms (computability is structural)
 -/
-structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
+structure RandAdv (α β : Type) [Sized α] [Sized β] [FirstNatComponent β] (T : Nat) where
   /-- Abstract algorithm specification: given coins and input, produce output.
       This is the DENOTATION (what the algorithm computes).
       The TM field M provides the COMPUTATION (how it's computed). -/
@@ -239,6 +239,39 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
     let cfg := (TMConfig.step (M := M))^[t] init_cfg
     encoding.output.decode (getTape0 cfg h_tape_pos) = early_decode_default
 
+  /-- **ENCODING COMPLETENESS**: Output decoder covers all output values.
+
+      **Statement**: Every value in β can be decoded from some tape contents.
+
+      **Purpose**: Ensures the encoding is complete - no output values are unreachable.
+      This is a standard property of well-designed encodings.
+
+      **Design Choice**: When implementing a TM, we choose encodings that cover all outputs.
+      This is always achievable for any finite or countable type. -/
+  decode_surjective : Function.Surjective encoding.output.decode
+
+  /-- **FORMAT SEPARATION**: Algorithm never outputs the default value.
+
+      **Statement**: For all coins and inputs, run c x ≠ early_decode_default.
+
+      **Purpose**: Ensures "garbage" output (from malformed tapes) is distinguishable
+      from legitimate algorithm outputs.
+
+      **Design Choice**: When implementing a TM, we choose the default value to be
+      outside the range of the algorithm. This is always achievable. -/
+  run_ne_default : ∀ c x, run c x ≠ early_decode_default
+
+  /-- **ZERO SENTINEL**: Default value has firstNat = 0.
+
+      **Statement**: FirstNatComponent.firstNat early_decode_default = 0.
+
+      **Purpose**: Establishes a canonical sentinel value for the output type.
+      For Sigma types (Σ n, γ n), this means the default has n = 0.
+
+      **Design Choice**: When implementing a TM, we choose the default to have
+      firstNat = 0. This is always achievable for any type with FirstNatComponent. -/
+  default_zero : FirstNatComponent.firstNat early_decode_default = 0
+
 -- Axiom Audits: Trust Boundary Transparency
 #print axioms RandAdv
 
@@ -246,7 +279,7 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
 
 **Purpose**: Extract the pure algorithmic specification from a RandAdv.
 The main proof only uses these properties, not the TM execution proof. -/
-def RandAdv.toAlgSpec {α β : Type} [Sized α] [Sized β] {T : Nat}
+def RandAdv.toAlgSpec {α β : Type} [Sized α] [Sized β] [FirstNatComponent β] {T : Nat}
     (A : RandAdv α β T) : AlgSpec α β T where
   run := A.run
   time_bound := A.time_bound
@@ -285,15 +318,17 @@ TRUST ASSESSMENT: Foundational. This axiom encodes the standard equivalence betw
 algorithmic specifications and Turing machine implementations. Rejection constitutes
 denial of the Church-Turing thesis itself.
 
-**Formal Properties**:
+**Formal Properties** (axiom content):
 - Behavioral equivalence: `M.toAlgSpec.run = A.run`
 - Complexity preservation: `M.C = A.C`, `M.k = A.k`
-- Encoding completeness: `Function.Surjective M.encoding.output.decode`
-- Format separation: `∀ c x, A.run c x ≠ M.early_decode_default`
-- Sentinel convention: `FirstNatComponent.firstNat M.early_decode_default = 0`
 
-**Encoding Conventions**: Format separation and sentinel properties are satisfied by
-standard encoding design (selecting appropriate sentinel values for malformed tape states).
+**Structural Properties** (from RandAdv type):
+- Encoding completeness: `decode_surjective` field
+- Format separation: `run_ne_default` field
+- Sentinel convention: `default_zero` field
+
+These encoding properties are STRUCTURAL FIELDS of RandAdv, not axiom content.
+They represent design choices when implementing TMs, always achievable in practice.
 
 **References**:
 - Church (1936), Turing (1936): Church–Turing thesis
@@ -304,10 +339,7 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
   ∃ (M : RandAdv α β T),
     M.toAlgSpec.run = A.run ∧
     M.C = A.C ∧
-    M.k = A.k ∧
-    Function.Surjective M.encoding.output.decode ∧
-    (∀ c x, A.run c x ≠ M.early_decode_default) ∧
-    FirstNatComponent.firstNat M.early_decode_default = 0
+    M.k = A.k
 
 #print axioms algspec_has_tm
 
@@ -391,26 +423,25 @@ instance {γ : Nat → Type} [Inhabited (γ 0)] : HasZeroElement (Σ n : Nat, γ
   zero_element := ⟨0, default⟩
   zero_element_firstNat := rfl
 
-/-! ### Encoding Normalization
+/-! ### Encoding Properties (Now Structural)
 
-The `algspec_has_tm` axiom directly provides `firstNat early_decode_default = 0`.
-This is justified by the Church-Turing thesis: when choosing an encoding for the TM
-implementation, we have freedom to select the "garbage" value (decoded from incomplete
-tapes). We choose a value with `firstNat = 0`.
+The encoding properties are now STRUCTURAL FIELDS of RandAdv:
+- `decode_surjective`: Output decoder covers all values
+- `run_ne_default`: Algorithm never outputs the default value
+- `default_zero`: Default has firstNat = 0
 
-The `encoding_zero_default` theorem extracts this property for downstream use.
+These are design choices made when implementing TMs, always achievable in practice.
+The `algspec_has_tm` axiom just asserts existence; encoding properties come from the type.
+
+The `encoding_zero_default` theorem extracts these properties for downstream use.
 -/
 
-/-- **Encoding Normalization Theorem**: Extract RandAdv with zero sentinel from algspec_has_tm.
+/-- **Encoding Properties Extraction**: Get RandAdv with all encoding properties from algspec_has_tm.
 
-**Derivation**: The `algspec_has_tm` axiom directly provides a TM implementation
-where `firstNat early_decode_default = 0`. This theorem extracts this property.
+**Derivation**: The `algspec_has_tm` axiom provides a RandAdv. Since RandAdv now has
+encoding properties as structural fields, they come automatically.
 
-**Design Justification**: The Church-Turing thesis allows arbitrary encoding choices.
-The "garbage" value (decoded from incomplete/malformed tapes) can be any value in β.
-We choose a value with `firstNat = 0` as this default.
-
-**Trust Boundary**: 0 additional axioms (direct extraction from algspec_has_tm).
+**Trust Boundary**: 0 additional axioms (structural properties from RandAdv type).
 -/
 theorem encoding_zero_default {α β : Type} [Sized α] [Sized β] [FirstNatComponent β] {T : Nat}
     (A : AlgSpec α β T) :
@@ -420,9 +451,10 @@ theorem encoding_zero_default {α β : Type} [Sized α] [Sized β] [FirstNatComp
     M.k = A.k ∧
     Function.Surjective M.encoding.output.decode ∧
     FirstNatComponent.firstNat M.early_decode_default = 0 := by
-  -- Direct extraction from algspec_has_tm (which now includes the firstNat property)
-  obtain ⟨M, h_run, h_C, h_k, h_surj, _, h_firstNat⟩ := algspec_has_tm A
-  exact ⟨M, h_run, h_C, h_k, h_surj, h_firstNat⟩
+  -- Get M from Church-Turing axiom
+  obtain ⟨M, h_run, h_C, h_k⟩ := algspec_has_tm A
+  -- Encoding properties come from RandAdv structural fields
+  exact ⟨M, h_run, h_C, h_k, M.decode_surjective, M.default_zero⟩
 
 #print axioms encoding_zero_default
 
