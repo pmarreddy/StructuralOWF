@@ -3858,8 +3858,7 @@ This is the semantic justification for the indistinguishability bridge axiom.
     the actual encoding satisfies these properties.
 
     **Key Properties**:
-    1. `init_extraction`: Extracting from initial config gives the planted value
-    2. `replanting_simulation`: The No Backdoor property lifted to TM level
+    1. `replanting_simulation`: The No Backdoor property lifted to TM level
 
     **Why this is the right abstraction**:
     - L* reveals planted config only through FG gate observations (No Backdoor theorem)
@@ -3876,9 +3875,7 @@ structure LStarTMEncoding
   initForPlanting : Fin (2^(L.R v)) → TMConfig M
   /-- How to extract the current config observation at vertex v -/
   extractConfigAtV : TMConfig M → Fin (2^(L.R v))
-  /-- Property 1: Extraction of initial config = the planting (roundtrip) -/
-  init_extraction : ∀ cfg, extractConfigAtV (initForPlanting cfg) = cfg
-  /-- Property 2: Replanting Simulation (No Backdoor at TM level)
+  /-- Replanting Simulation (No Backdoor at TM level)
       If TM extracts config c at time t, then planting c produces the same state.
       This captures: TM's state depends only on what it has "observed" -/
   replanting_simulation : ∀ (cfg_planted : Fin (2^(L.R v))) (t : Nat),
@@ -4046,18 +4043,17 @@ axiom not_refuted_implies_indistinguishable
     (L : LStarInstanceFG)
     (M : TuringMachine k states alphabet)
     (v : Fin L.dag.n)
-    (extractConfigAtV : TMConfig M → Fin (2^(L.R v)))
-    (initForPlanting : Fin (2^(L.R v)) → TMConfig M)
+    (enc : LStarTMEncoding L M v)
     (haltTime : Nat)
     (cfg_planted : Fin (2^(L.R v)))
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     -- KEY: configs must be the actual TM run trace, not arbitrary
     (h_configs_def : configs = (List.range haltTime).map (fun t =>
-        ⟨v, extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted))⟩))
+        ⟨v, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
     (h_v_in : v ∈ ({v} : Finset (Fin L.dag.n)))
     (ω' : CutWorld L {v})
     (h_not_refuted : ω' ∉ tmRefutedWorlds L {v} configs)
-    : TMIndistinguishable L M v extractConfigAtV initForPlanting haltTime
+    : TMIndistinguishable L M v enc.extractConfigAtV enc.initForPlanting haltTime
         (ω'.assignment v h_v_in) cfg_planted
 
 /-- **THEOREM**: From indistinguishability bridge + worst-case correctness → all wrong refuted.
@@ -4080,18 +4076,17 @@ theorem indistinguishability_implies_all_wrong_refuted
     (L : LStarInstanceFG)
     (M : TuringMachine k states alphabet)
     (v : Fin L.dag.n)
-    (extractConfigAtV : TMConfig M → Fin (2^(L.R v)))
-    (initForPlanting : Fin (2^(L.R v)) → TMConfig M)
+    (enc : LStarTMEncoding L M v)
     (haltTime : Nat)
     (cfg_planted : Fin (2^(L.R v)))
     (h_v_in : v ∈ ({v} : Finset (Fin L.dag.n)))
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     -- KEY: configs must be actual TM trace (required by bridge axiom)
     (h_configs_def : configs = (List.range haltTime).map (fun t =>
-        ⟨v, extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted))⟩))
+        ⟨v, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
     -- Worst-case correctness: TM outputs correct config for ANY planting
     -- TRUE because initForPlanting(cfg) creates L*(cfg) with φ(cfg)
-    (h_wc : WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting haltTime)
+    (h_wc : WorstCaseCorrectOnLStar L M v enc.extractConfigAtV enc.initForPlanting haltTime)
     -- ω_planted is the world with cfg_planted at v
     (ω_planted : CutWorld L {v})
     (h_ω_planted_def : ω_planted.assignment v h_v_in = cfg_planted)
@@ -4101,26 +4096,26 @@ theorem indistinguishability_implies_all_wrong_refuted
   by_contra h_not_in
   -- By bridge axiom: ω is indistinguishable from planted
   -- Note: h_configs_def anchors configs to actual TM trace
-  have h_indist := not_refuted_implies_indistinguishable L M v extractConfigAtV initForPlanting
-                     haltTime cfg_planted configs h_configs_def h_v_in ω h_not_in
+  have h_indist := not_refuted_implies_indistinguishable L M v enc
+                       haltTime cfg_planted configs h_configs_def h_v_in ω h_not_in
   -- Unfold TMIndistinguishable: output(plant cfg_ω) = output(plant cfg_planted)
   unfold TMIndistinguishable at h_indist
   -- By worst-case correctness for (ω.assignment v h_v_in)
   -- This is TRUE because initForPlanting creates L*(cfg) with φ(cfg)
-  have h_wc_ω : extractConfigAtV ((TMConfig.step (M := M))^[haltTime]
-      (initForPlanting (ω.assignment v h_v_in))) = ω.assignment v h_v_in :=
+  have h_wc_ω : enc.extractConfigAtV ((TMConfig.step (M := M))^[haltTime]
+      (enc.initForPlanting (ω.assignment v h_v_in))) = ω.assignment v h_v_in :=
     h_wc (ω.assignment v h_v_in)
   -- By worst-case correctness for cfg_planted
-  have h_wc_planted : extractConfigAtV ((TMConfig.step (M := M))^[haltTime]
-      (initForPlanting cfg_planted)) = cfg_planted :=
+  have h_wc_planted : enc.extractConfigAtV ((TMConfig.step (M := M))^[haltTime]
+      (enc.initForPlanting cfg_planted)) = cfg_planted :=
     h_wc cfg_planted
   -- Chain: ω.assignment = output(plant ω.assignment) = output(plant cfg_planted) = cfg_planted
   have h_cfg_eq : ω.assignment v h_v_in = cfg_planted := by
     calc ω.assignment v h_v_in
-        = extractConfigAtV ((TMConfig.step (M := M))^[haltTime]
-            (initForPlanting (ω.assignment v h_v_in))) := h_wc_ω.symm
-      _ = extractConfigAtV ((TMConfig.step (M := M))^[haltTime]
-            (initForPlanting cfg_planted)) := h_indist
+        = enc.extractConfigAtV ((TMConfig.step (M := M))^[haltTime]
+            (enc.initForPlanting (ω.assignment v h_v_in))) := h_wc_ω.symm
+      _ = enc.extractConfigAtV ((TMConfig.step (M := M))^[haltTime]
+            (enc.initForPlanting cfg_planted)) := h_indist
       _ = cfg_planted := h_wc_planted
   -- So ω.assignment v h_v_in = cfg_planted = ω_planted.assignment v h_v_in
   have h_assign_eq : ω.assignment v h_v_in = ω_planted.assignment v h_v_in := by
@@ -4379,18 +4374,16 @@ theorem tm_time_lower_bound_via_indistinguishability
     (M : TuringMachine k states alphabet)
     (v : Fin L.dag.n)
     (h_R_pos : L.R v > 0)
-    (extractConfigAtV : TMConfig M → Fin (2^(L.R v)))
-    (initForPlanting : Fin (2^(L.R v)) → TMConfig M)
+    (enc : LStarTMEncoding L M v)
     (haltTime : Nat)
     (cfg_planted : Fin (2^(L.R v)))
     (h_v_in : v ∈ ({v} : Finset (Fin L.dag.n)))
     -- Key hypotheses (replaces h_correct)
-    (h_wc : WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting haltTime)
-    (h_replanting : ReplantingSimulation L M v extractConfigAtV initForPlanting)
+    (h_wc : WorstCaseCorrectOnLStar L M v enc.extractConfigAtV enc.initForPlanting haltTime)
     -- Configs from actual TM run
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     (h_configs_def : configs = (List.range haltTime).map (fun t =>
-        ⟨v, extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted))⟩))
+        ⟨v, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
     : haltTime ≥ 2^(L.R v) - 1 := by
   let C : Finset (Fin L.dag.n) := {v}
   let ω_planted := buildPlantedWorld L C v h_v_in rfl cfg_planted
@@ -4404,8 +4397,8 @@ theorem tm_time_lower_bound_via_indistinguishability
     rw [← h_cfg_eq]
     congr 1
     have h_t_le : t ≤ haltTime := Nat.le_of_lt h_t_lt
-    exact worst_case_correct_implies_all_configs_planted L M v h_v_in extractConfigAtV
-      initForPlanting haltTime cfg_planted h_wc h_replanting t h_t_le
+    exact worst_case_correct_implies_all_configs_planted L M v h_v_in enc.extractConfigAtV
+      enc.initForPlanting haltTime cfg_planted h_wc enc.replanting_simulation t h_t_le
 
   -- Step 2: Property 1 - planted not refuted (from all configs = planted)
   have h_planted_not : ω_planted ∉ tmRefutedWorlds L C configs :=
@@ -4416,7 +4409,7 @@ theorem tm_time_lower_bound_via_indistinguishability
   have h_ω_planted_def : ω_planted.assignment v h_v_in = cfg_planted :=
     buildPlantedWorld_has_config L C v h_v_in rfl cfg_planted
   have h_all_others : ∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L C configs :=
-    indistinguishability_implies_all_wrong_refuted L M v extractConfigAtV initForPlanting
+    indistinguishability_implies_all_wrong_refuted L M v enc
       haltTime cfg_planted h_v_in configs h_configs_def h_wc ω_planted h_ω_planted_def
 
   -- Step 4: Property 3 - no duplicates (structural from WC-1)
@@ -4471,8 +4464,8 @@ theorem tm_time_lower_bound_for_adversary
   have h_configs_def : configs = (List.range adv.haltTime).map mkConfig := rfl
   -- Apply the core theorem with adversary's fields
   exact tm_time_lower_bound_via_indistinguishability L adv.M v h_R_pos
-    adv.enc.extractConfigAtV adv.enc.initForPlanting adv.haltTime adv.cfg_planted
-    (Finset.mem_singleton_self v) adv.h_worst_case adv.enc.replanting_simulation
+    adv.enc adv.haltTime adv.cfg_planted
+    (Finset.mem_singleton_self v) adv.h_worst_case
     configs h_configs_def
 
 #print axioms tm_time_lower_bound_for_adversary
@@ -5001,18 +4994,16 @@ theorem fg_first_commit_time_lower_bound_via_indistinguishability
     (v : Fin L.dag.n)
     (h_v_fg : L.fg.gateReq v)
     (h_R_pos : L.R v > 0)
-    (extractConfigAtV : TMConfig M → Fin (2^(L.R v)))
-    (initForPlanting : Fin (2^(L.R v)) → TMConfig M)
+    (enc : LStarTMEncoding L M v)
     (haltTime : Nat)
     (cfg_planted : Fin (2^(L.R v)))
-    (h_wc : WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting haltTime)
-    (h_replanting : ReplantingSimulation L M v extractConfigAtV initForPlanting)
-    (h_halts : ((TMConfig.step (M := M))^[haltTime] (initForPlanting cfg_planted)).state ∈ M.halt)
+    (h_wc : WorstCaseCorrectOnLStar L M v enc.extractConfigAtV enc.initForPlanting haltTime)
+    (h_halts : ((TMConfig.step (M := M))^[haltTime] (enc.initForPlanting cfg_planted)).state ∈ M.halt)
     : haltTime ≥ 2^(L.R v) - 1 :=
-  tm_time_lower_bound_via_indistinguishability L M v h_R_pos extractConfigAtV
-    initForPlanting haltTime cfg_planted (Finset.mem_singleton_self v) h_wc h_replanting
+  tm_time_lower_bound_via_indistinguishability L M v h_R_pos enc
+    haltTime cfg_planted (Finset.mem_singleton_self v) h_wc
     ((List.range haltTime).map (fun t =>
-      ⟨v, extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted))⟩))
+      ⟨v, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
     rfl
 
 /-- **Interface for StructuralOWFExponential.lean** (Layer2 compatibility).
@@ -5039,21 +5030,19 @@ theorem fg_first_commit_time_lower_bound
     (v : {v // L.fg.gateReq v})
     (h_R_pos : L.R v.val > 0)
     -- Encoding structure (previously derived from axiom)
-    (initForPlanting : Fin (2^(L.R v.val)) → TMConfig M)
-    (extractConfigAtV : TMConfig M → Fin (2^(L.R v.val)))
+    (enc : LStarTMEncoding L M v.val)
     (cfg_planted : Fin (2^(L.R v.val)))
     (haltTime : Nat)
     -- Properties (previously derived from axiom)
-    (h_worst_case : WorstCaseCorrectOnLStar L M v.val extractConfigAtV initForPlanting haltTime)
-    (h_replanting : ReplantingSimulation L M v.val extractConfigAtV initForPlanting)
-    (h_halts : ((TMConfig.step (M := M))^[haltTime] (initForPlanting cfg_planted)).state ∈ M.halt)
+    (h_worst_case : WorstCaseCorrectOnLStar L M v.val enc.extractConfigAtV enc.initForPlanting haltTime)
+    (h_halts : ((TMConfig.step (M := M))^[haltTime] (enc.initForPlanting cfg_planted)).state ∈ M.halt)
     : haltTime ≥ 2^(L.R v.val) - 1 :=
   -- Direct application of the core theorem
   tm_time_lower_bound_via_indistinguishability L M v.val h_R_pos
-    extractConfigAtV initForPlanting haltTime cfg_planted
-    (Finset.mem_singleton_self v.val) h_worst_case h_replanting
+    enc haltTime cfg_planted
+    (Finset.mem_singleton_self v.val) h_worst_case
     ((List.range haltTime).map (fun t =>
-      ⟨v.val, extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted))⟩))
+      ⟨v.val, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
     rfl
 
 #print axioms fg_first_commit_time_lower_bound
@@ -5091,10 +5080,14 @@ theorem fg_first_commit_time_lower_bound_from_adversary
   have h_replanting := A.lstar_replanting L v.val v.property
   have h_worst_case := A.lstar_worst_case L v.val v.property
   have h_halts := (A.lstar_halts L v.val v.property).1 cfg_planted
+  let enc : LStarTMEncoding L A.base.M v.val :=
+    { initForPlanting := initForPlanting
+      extractConfigAtV := extractConfigAtV
+      replanting_simulation := h_replanting }
   -- Apply the core theorem
   exact fg_first_commit_time_lower_bound L A.base.M v h_R_pos
-    initForPlanting extractConfigAtV cfg_planted haltTime
-    h_worst_case h_replanting h_halts
+    enc cfg_planted haltTime
+    h_worst_case h_halts
 
 #print axioms fg_first_commit_time_lower_bound_from_adversary
 -- Should show: ONLY not_refuted_implies_indistinguishable

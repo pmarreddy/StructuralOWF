@@ -1547,9 +1547,9 @@ theorem f_is_structural_owf_exponential_flat
   let h_C_pos_time := h_C_uni_pos
   let h_k_pos_time := h_k_uni_pos
 
-  -- Use (A n.val).base.C and (A n.val).base.k directly for haltTime (matches PPTAdversary.halts signature)
-  -- Uses size L (dag size) to match OWFAdversary.halts_encoded semantics
-  let haltTime := (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k
+  -- Use (A n.val).base.C and (A n.val).base.k directly for haltTime
+  -- Uses sigma-wrapped size to match lstar_haltTime semantics
+  let haltTime := (A n.val).base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ (A n.val).base.k
   have h_tm_time_pos : haltTime > 0 := by
     apply Nat.mul_pos (A n.val).base.h_C_pos
     apply Nat.pow_pos
@@ -1823,11 +1823,9 @@ theorem f_is_structural_owf_exponential_flat
     -- It directly returns: A.lstar_haltTime ≥ 2^R - 1
     have h_lstar_lower : (A n.val).lstar_haltTime L v_fg.val v_fg.property ≥ 2^(L.R v_fg.val) - 1 :=
       Foundations.fg_first_commit_time_lower_bound_from_adversary L (A n.val) v_fg h_R_pos 0
-    -- Get upper bound from lstar_halts: lstar_haltTime ≤ haltTime
-    have h_lstar_upper : (A n.val).lstar_haltTime L v_fg.val v_fg.property ≤ haltTime :=
-      ((A n.val).lstar_halts L v_fg.val v_fg.property).2
-    -- Combine: 2^R - 1 ≤ lstar_haltTime ≤ haltTime
-    exact Nat.le_trans h_lstar_lower h_lstar_upper
+    -- lstar_haltTime = haltTime (both are C * (size ⟨nvars, L⟩ + 1)^k)
+    -- So: 2^R - 1 ≤ lstar_haltTime = haltTime
+    exact h_lstar_lower
 
   -- Upper bound: Polynomial time from PPT adversary
   -- The adversary's uniform time bound provides haltTime ≤ C_uniform * L.n ^ k_uniform
@@ -2193,7 +2191,7 @@ theorem f_is_structural_owf_exponential_true
   let h_C_pos_time := h_C_uni_pos
   let h_k_pos_time := h_k_uni_pos
 
-  let haltTime := (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k
+  let haltTime := (A n.val).base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ (A n.val).base.k
   have h_tm_time_pos : haltTime > 0 := by
     apply Nat.mul_pos (A n.val).base.h_C_pos
     apply Nat.pow_pos
@@ -2203,7 +2201,7 @@ theorem f_is_structural_owf_exponential_true
 
   have h_success_for_bridge : (Φ n.val).satisfies (A_inv L).assignmentInf := h_inv_sat
 
-  have h_time_bound_encoded : haltTime ≥ (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := le_refl _
+  have h_time_bound_encoded : haltTime ≥ (A n.val).base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ (A n.val).base.k := le_refl _
 
   have h_tm_correct : (Φ n.val).satisfies (Foundations.TMAxioms.tmOutputWitnessEncoded (A n.val).base.M
       (A n.val).base.encoding.input (c_bar, L) haltTime (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
@@ -2419,11 +2417,9 @@ theorem f_is_structural_owf_exponential_true
     -- It directly returns: A.lstar_haltTime ≥ 2^R - 1
     have h_lstar_lower : (A n.val).lstar_haltTime L v_fg.val v_fg.property ≥ 2^(L.R v_fg.val) - 1 :=
       Foundations.fg_first_commit_time_lower_bound_from_adversary L (A n.val) v_fg h_R_pos 0
-    -- Get upper bound from lstar_halts: lstar_haltTime ≤ haltTime
-    have h_lstar_upper : (A n.val).lstar_haltTime L v_fg.val v_fg.property ≤ haltTime :=
-      ((A n.val).lstar_halts L v_fg.val v_fg.property).2
-    -- Combine: 2^R - 1 ≤ lstar_haltTime ≤ haltTime
-    exact Nat.le_trans h_lstar_lower h_lstar_upper
+    -- lstar_haltTime = haltTime (both are C * (size ⟨nvars, L⟩ + 1)^k)
+    -- So: 2^R - 1 ≤ lstar_haltTime = haltTime
+    exact h_lstar_lower
 
   -- Upper bound
   have h_L_n_eq : L.n = (Φ n.val).nvars := by

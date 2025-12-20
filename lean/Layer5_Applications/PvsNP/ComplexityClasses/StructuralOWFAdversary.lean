@@ -318,7 +318,7 @@ abbrev StructuralOWFAdversary.coins_pos {nvars : Nat} (A : StructuralOWFAdversar
 
     **Purpose**: Provides the concrete halting time for the TM on planted L* instances.
     This is now COMPUTED from the PPT structure, not axiom-provided.
-    Uses sigma-wrapped size to match the actual encoding.
+    Uses sigma-wrapped size to match algspec_has_lstar_structure semantics.
 
     **Trust Boundary**: 0 axioms (derived from PPT structure) -/
 abbrev StructuralOWFAdversary.lstar_haltTime {nvars : Nat} (A : StructuralOWFAdversary nvars)
@@ -328,12 +328,13 @@ abbrev StructuralOWFAdversary.lstar_haltTime {nvars : Nat} (A : StructuralOWFAdv
 /-- **L*-ENCODING: Halting** (derived): TM halts at lstar_haltTime for planted configs.
 
     **Statement**: For each (L, v) with frontier gate, the TM halts at the PPT bound
-    for all planted configs, and the bound is trivially polynomial.
+    for all planted configs, and the bound is polynomial.
 
-    **Derivation**: From encoding coherence + base.halts:
+    **Derivation**: From encoding coherence + base.halts + halt_persists:
     1. lstar_encoding_coherence: initForPlanting cfg = initWithEncodingBase (coins, L)
     2. base.halts: TM halts at C * (size L + 1)^k from initWithEncodingBase
-    3. Therefore: TM halts at the sigma-wrapped time bound from initForPlanting
+    3. halt_persists: halting at smaller time → halting at larger time
+    4. lstar_haltTime ≥ base_time (since size ⟨n, L⟩ ≥ size L)
 
     **Trust Boundary**: 0 axioms (derived from encoding coherence + PPT halts) -/
 theorem StructuralOWFAdversary.lstar_halts {nvars : Nat} (A : StructuralOWFAdversary nvars)
@@ -342,22 +343,18 @@ theorem StructuralOWFAdversary.lstar_halts {nvars : Nat} (A : StructuralOWFAdver
       ((TMConfig.step (M := A.base.M))^[A.lstar_haltTime L v h_fg] (A.lstar_initForPlanting L v h_fg cfg)).state ∈ A.base.M.halt) ∧
     A.lstar_haltTime L v h_fg ≤ A.base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ A.base.k := by
   constructor
-  · -- Halting: derived from encoding coherence + base.halts
+  · -- Halting: derived from encoding coherence + base.halts + halt_persists
     intro cfg
     -- Step 1: Rewrite initForPlanting using encoding coherence
     have h_coherence := A.lstar_encoding_coherence L v h_fg cfg
     rw [h_coherence]
-    -- Step 2: Apply base.halts (PPT halting guarantee)
-    -- base.halts : ∀ (c : Fin base.num_coins) (L : LStarInstanceFG), halts at C * (size L + 1)^k
-    -- lstar_haltTime uses sigma-wrapped size which is ≥ size L
-    -- Since halt states are absorbing (halt_persists), halting at smaller time implies halting at larger time
+    -- Step 2: Apply base.halts (PPT halting guarantee at smaller time)
     let base_time := A.base.C * (Sized.size L + 1) ^ A.base.k
     have h_halts_base : ((TMConfig.step (M := A.base.M))^[base_time]
         (initWithEncodingBase A.base.M A.base.encoding.input
           (A.lstar_coinsFor L v h_fg cfg, L) A.base.h_tape_pos A.base.h_blank_consistent)).state ∈ A.base.M.halt :=
       A.base.halts (A.lstar_coinsFor L v h_fg cfg) L
-    -- Need to show lstar_haltTime ≥ base_time to apply halt_persists
-    -- This follows from size ⟨n, L⟩ ≥ size L
+    -- Step 3: Show lstar_haltTime ≥ base_time
     have h_time_le : base_time ≤ A.lstar_haltTime L v h_fg := by
       simp only [lstar_haltTime, base_time]
       apply Nat.mul_le_mul_left
@@ -366,12 +363,14 @@ theorem StructuralOWFAdversary.lstar_halts {nvars : Nat} (A : StructuralOWFAdver
       -- size ⟨n, L⟩ = n + 1 + size L ≥ size L
       simp only [Sized.size, sizedSigma, sizedNat]
       omega
-    -- Apply halt_persists
-    have h_diff := A.lstar_haltTime L v h_fg - base_time
-    have h_eq : A.lstar_haltTime L v h_fg = base_time + h_diff := by omega
+    -- Step 4: Apply halt_persists to extend halting to lstar_haltTime
+    let h_diff := A.lstar_haltTime L v h_fg - base_time
+    have h_eq : A.lstar_haltTime L v h_fg = h_diff + base_time := by
+      simp only [h_diff]
+      exact (Nat.sub_add_cancel h_time_le).symm
     rw [h_eq, Function.iterate_add_apply]
     exact halt_persists A.base.M _ h_diff h_halts_base
-  · -- Polynomial bound: trivially reflexive since lstar_haltTime = C * (size ⟨...⟩ + 1)^k
+  · -- Polynomial bound: lstar_haltTime = C * (size ⟨...⟩ + 1)^k (reflexive)
     rfl
 
 -- Axiom Audits
