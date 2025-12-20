@@ -5006,7 +5006,7 @@ theorem fg_first_commit_time_lower_bound_via_indistinguishability
 
     This replaces the deprecated `tm_extracted_configs_separate_planted` axiom.
 -/
-theorem fg_first_commit_time_lower_bound_via_wc1_axiom
+theorem fg_first_commit_time_lower_bound
     {α : Type} [LStar.Complexity.Sized α]
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
@@ -5088,7 +5088,7 @@ theorem fg_first_commit_time_lower_bound_via_wc1_axiom
 /-! #### Connection to Main P≠NP Proof
 
 The main P≠NP proof uses the indistinguishability chain via
-`fg_first_commit_time_lower_bound_via_wc1_axiom`, which internally uses:
+`fg_first_commit_time_lower_bound`, which internally uses:
 1. `tm_replanting_structure_exists` - structural bridge (provides encoding structure)
 2. `not_refuted_implies_indistinguishable` - semantic bridge (indistinguishability)
 
@@ -5127,7 +5127,7 @@ Uses 2 bridge axioms:
 
 Interface theorems:
 - `fg_first_commit_time_lower_bound_via_indistinguishability` (internal)
-- `fg_first_commit_time_lower_bound_via_wc1_axiom` (main P≠NP interface)
+- `fg_first_commit_time_lower_bound` (main P≠NP interface)
 -/
 
 -- Bridge axiom 1: Indistinguishability (semantic)
@@ -5152,7 +5152,7 @@ Uses both bridge axioms:
 - `tm_replanting_structure_exists` (structural)
 -/
 
-#print axioms fg_first_commit_time_lower_bound_via_wc1_axiom
+#print axioms fg_first_commit_time_lower_bound
 
 -- Supporting lemmas: should have NO custom axioms
 #print axioms worst_case_correct_implies_all_configs_planted

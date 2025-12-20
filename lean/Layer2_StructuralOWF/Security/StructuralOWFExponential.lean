@@ -1813,7 +1813,7 @@ theorem f_is_structural_owf_exponential_flat
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
     -- Use WC-1 bridge axiom: TM run → UnitRefuteHistory → time bound
-    exact Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
+    exact Foundations.fg_first_commit_time_lower_bound
       L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
       (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
       extractWitness (A n.val).extractWitness_covers_bounded_assignments
@@ -2403,7 +2403,7 @@ theorem f_is_structural_owf_exponential_true
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
     -- Use WC-1 bridge axiom: TM run → UnitRefuteHistory → time bound
-    exact Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
+    exact Foundations.fg_first_commit_time_lower_bound
       L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
       (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
       extractWitness (A n.val).extractWitness_covers_bounded_assignments
@@ -2555,7 +2555,7 @@ example (C k : Nat) (h_C_pos : C > 0) (h_k_pos : k > 0) :
   exponential_dominates_poly_general_minus_one C k h_C_pos h_k_pos
 
 -- Verify WC-1 bridge theorem is accessible from this module
-#check Foundations.fg_first_commit_time_lower_bound_via_wc1_axiom
+#check Foundations.fg_first_commit_time_lower_bound
 
 end LStar.StructuralOWF
 
