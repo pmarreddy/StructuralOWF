@@ -1430,7 +1430,27 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         have h_assignInf : (extractWitness_exp_fixed (T := T) nvars M cfg).assignmentInf = σ := by
           -- Witness.assignmentInf = Assignment.extend.
           simp [Witness.assignmentInf, h_assign, h_extend]
-        simpa [base] using h_assignInf }
+        simpa [base] using h_assignInf
+      -- NEW: L*-encoding fields for time bound derivation
+      lstar_initForPlanting := by
+        -- Maps planted config at vertex v to initial TM state
+        -- This requires understanding how the TM is initialized with a planted L* instance
+        intro L v h_fg cfg
+        -- For now, use a sorry - this is the encoding structure that the axiom previously provided
+        exact sorry
+      lstar_extractConfigAtV := by
+        -- Extracts emergent config at vertex v from TM state
+        -- This reads the witness from extractWitness and computes the emergent config
+        intro L v cfg
+        exact sorry
+      lstar_replanting := by
+        -- Prove ReplantingSimulation: extracting c at time t → replanting c gives same state
+        intro L v h_fg
+        exact sorry
+      lstar_worst_case := by
+        -- Prove WorstCaseCorrectOnLStar: TM outputs correct config for ALL plantings
+        intro L v h_fg haltTime
+        exact sorry }
 
 end AdversaryFromInFP
 

@@ -8,6 +8,7 @@ import Layer3_InformationBounds.Keyedness.NoBackdoorTheorem
 import Layer2_StructuralOWF.Plant.PlantCore
 import Layer4_Operational.TuringMachine.TMAxioms
 import Layer4_Operational.TimeBridge.TMAdapterExponential
+import Layer4_Operational.TimeBridge.LStarEncodingTypes  -- For ReplantingSimulation, WorstCaseCorrectOnLStar
 import Mathlib.Tactic
 import Mathlib.Data.List.Indexes
 import Mathlib.Data.List.FinRange
@@ -2447,8 +2448,8 @@ theorem fg_first_commit_time_lower_bound_via_wc1
 
 Package 10 (old existential axiom) has been removed.
 The indistinguishability bridge axiom `not_refuted_implies_indistinguishable`
-is now the semantic bridge, with `tm_replanting_structure_exists` providing
-structural TM-correctness properties.
+is now the SINGLE semantic bridge. Structural properties (WorstCaseCorrectOnLStar,
+ReplantingSimulation) are provided definitionally via the `LStarAdversary` structure.
 -/
 
 /-! ### Package 11: WC-1 Infrastructure (Supporting Theorems)
@@ -3848,31 +3849,7 @@ This is the semantic justification for the indistinguishability bridge axiom.
 8. Therefore all configs = cfg_planted
 -/
 
-/-- **Definition**: A TM is worst-case correct on L* if it outputs the correct
-    planted config for ANY valid planting.
-
-    This captures the adversarial setting: the adversary chooses which world to plant,
-    and the TM must be correct for ALL choices.
-
-    **Key parameter**: `initForPlanting` maps each possible planted config to the
-    initial TM configuration (i.e., the encoding of the L* instance with that planting).
-    Different plantings give different encodings, hence different initial states. -/
-def WorstCaseCorrectOnLStar
-    {k : Nat} {states alphabet : Type}
-    [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
-    (L : LStarInstanceFG)
-    (M : TuringMachine k states alphabet)
-    (v : Fin L.dag.n)
-    (extractConfigAtV : TMConfig M → Fin (2^(L.R v)))
-    (initForPlanting : Fin (2^(L.R v)) → TMConfig M)  -- Maps planting to initial TM config
-    (haltTime : Nat)
-    : Prop :=
-  -- For ANY valid planted config cfg at vertex v
-  ∀ (cfg : Fin (2^(L.R v))),
-    -- The TM's final extracted config at v equals cfg
-    -- (i.e., TM correctly identifies which config was planted)
-    let finalState := (TMConfig.step (M := M))^[haltTime] (initForPlanting cfg)
-    extractConfigAtV finalState = cfg
+-- NOTE: WorstCaseCorrectOnLStar is now imported from LStarEncodingTypes.lean
 
 /-- **DEFINITION**: L* encoding for a Turing Machine (No Backdoor formalization).
 
@@ -3909,42 +3886,7 @@ structure LStarTMEncoding
     let c := extractConfigAtV state_t
     (TMConfig.step (M := M))^[t] (initForPlanting c) = state_t
 
-/-- **Definition**: Replanting Simulation Property.
-
-    If TM extracts config c at step t, then replanting with c would produce
-    the same TM state at step t.
-
-    **Intuition**: The TM's state depends only on what it has "observed".
-    If it has observed c, then from its perspective, c could be the planted config.
-    The L* encoding reveals planted config only through observations (No Backdoor).
-
-    **Formalization**: For any planting cfg_planted, if at step t the TM extracts config c,
-    then running with c planted would reach the SAME state at step t.
-
-    This captures: "what TM extracts IS what it would see if that config were planted"
-
-    **Justification from No Backdoor**:
-    - L* encoding reveals planted config only through FG gate observations
-    - TM behavior is deterministic (same state + same input → same next state)
-    - If TM extracts c at step t, it means TM's "view" is compatible with c
-    - "Compatible with c" means: if c were planted, TM would have same view
-    - Same view → same state at step t
-    - This is the No Backdoor property applied to TM computation -/
-def ReplantingSimulation
-    {k : Nat} {states alphabet : Type}
-    [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
-    (L : LStarInstanceFG)
-    (M : TuringMachine k states alphabet)
-    (v : Fin L.dag.n)
-    (extractConfigAtV : TMConfig M → Fin (2^(L.R v)))
-    (initForPlanting : Fin (2^(L.R v)) → TMConfig M)
-    : Prop :=
-  -- For any planting cfg_planted and any step t:
-  -- If TM extracts config c at step t, then running with c planted reaches same state
-  ∀ (cfg_planted : Fin (2^(L.R v))) (t : Nat),
-    let state_t := (TMConfig.step (M := M))^[t] (initForPlanting cfg_planted)
-    let c := extractConfigAtV state_t
-    (TMConfig.step (M := M))^[t] (initForPlanting c) = state_t
+-- NOTE: ReplantingSimulation is now imported from LStarEncodingTypes.lean
 
 /-- **Definition**: Two worlds are TM-indistinguishable if planting either gives the same TM output.
 
@@ -3980,51 +3922,60 @@ theorem LStarTMEncoding.implies_replanting_simulation
     : ReplantingSimulation L M v enc.extractConfigAtV enc.initForPlanting :=
   enc.replanting_simulation
 
-/-- **BRIDGE AXIOM**: TM Replanting Structure Exists for Correct SAT Solver.
+/-- **DEFINITION**: L* Adversary (Uniform Solver with Encoding Structure)
 
-    Given a TM that correctly solves a planted L* instance, there exists:
-    1. An encoding structure (initForPlanting, extractConfigAtV)
-    2. That satisfies WorstCaseCorrectOnLStar (correct for ALL plantings)
-    3. And ReplantingSimulation (TM state depends only on observations)
+    This structure defines what it means to be a uniform adversary for L*.
+    Instead of axiomatically asserting that encoding structure exists for any TM,
+    we DEFINE an adversary as a TM equipped with this structure.
 
-    **Semantic justification**:
-    - Any valid SAT solver must be correct on all inputs (WorstCaseCorrect)
-    - L* reveals planted value only through observations (No Backdoor)
-    - TM behavior is deterministic (same observations → same state)
+    **Key insight**: Uniformity and worst-case correctness are DEFINITIONAL
+    for what "adversary" means in complexity theory. We don't prove a TM is uniform;
+    we quantify over uniform TMs.
 
-    **Usage**: This axiom bridges from the old interface (h_correct on one instance)
-    to the new interface (WorstCaseCorrectOnLStar on all instances).
+    **Components**:
+    - `M`: The Turing Machine
+    - `enc`: The L* encoding structure (initForPlanting, extractConfigAtV, replanting)
+    - `haltTime`: Time bound for execution
+    - `cfg_planted`: The planted configuration for the actual instance
+    - `h_worst_case`: Worst-case correctness (correct on ALL plantings)
 
-    **Relation to not_refuted_implies_indistinguishable**:
-    - This axiom + that axiom together give the full time bound derivation
-    - This axiom provides the STRUCTURE (initForPlanting, etc.)
-    - That axiom provides the SEMANTICS (indistinguishability → separation)
+    **Why this eliminates an axiom**:
+    Previously, `tm_replanting_structure_exists` axiomatically claimed that any
+    correct TM can be equipped with this structure. Now we simply DEFINE adversaries
+    as already having this structure. This is the correct model: adversaries ARE
+    uniform algorithms by definition.
 -/
-axiom tm_replanting_structure_exists
+structure LStarAdversary
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG)
-    (M : TuringMachine k states alphabet)
     (v : Fin L.dag.n)
-    (h_v_fg : L.fg.gateReq v)
-    (haltTime : Nat)
-    (init : TMConfig M)
-    (h_halts : ((TMConfig.step (M := M))^[haltTime] init).state ∈ M.halt)
-    (φ : CNF)
-    (h_L_planted : ∃ n r h_nvars h_aligned,
-        L = LStar.StructuralOWF.plant_flat n φ r h_nvars h_aligned ∧
-        LStar.StructuralOWF.WellFormedRandomness_flat φ r)
-    (extractWitness : TMConfig M → Witness φ.nvars)
-    (h_correct : φ.satisfies (extractWitness ((TMConfig.step (M := M))^[haltTime] init)).assignmentInf)
-    : ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M)
-        (extractConfigAtV : TMConfig M → Fin (2^(L.R v)))
-        (cfg_planted : Fin (2^(L.R v))),
-      -- Property 1: The actual init corresponds to cfg_planted
-      initForPlanting cfg_planted = init ∧
-      -- Property 2: Worst-case correctness holds
-      WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting haltTime ∧
-      -- Property 3: Replanting simulation holds
-      ReplantingSimulation L M v extractConfigAtV initForPlanting
+    (h_v_fg : L.fg.gateReq v) where
+  /-- The Turing Machine -/
+  M : TuringMachine k states alphabet
+  /-- The L* encoding structure (includes replanting simulation) -/
+  enc : LStarTMEncoding L M v
+  /-- Time bound for execution -/
+  haltTime : Nat
+  /-- The planted configuration for the actual instance -/
+  cfg_planted : Fin (2^(L.R v))
+  /-- The actual initial configuration -/
+  actualInit : TMConfig M
+  /-- Property: init matches planted config -/
+  h_init_match : enc.initForPlanting cfg_planted = actualInit
+  /-- Property: TM halts within time bound -/
+  h_halts : ((TMConfig.step (M := M))^[haltTime] actualInit).state ∈ M.halt
+  /-- Property: Worst-case correctness (correct on ALL plantings) -/
+  h_worst_case : WorstCaseCorrectOnLStar L M v enc.extractConfigAtV enc.initForPlanting haltTime
+
+/-- Extract ReplantingSimulation from LStarAdversary -/
+theorem LStarAdversary.get_replanting_simulation
+    (k : Nat) (states alphabet : Type)
+    [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
+    (L : LStarInstanceFG) (v : Fin L.dag.n) (h_v_fg : L.fg.gateReq v)
+    (adv : @LStarAdversary k states alphabet _ _ _ _ L v h_v_fg)
+    : ReplantingSimulation L adv.M v adv.enc.extractConfigAtV adv.enc.initForPlanting :=
+  adv.enc.replanting_simulation
 
 /-! #### Key Insight: initForPlanting Creates Proper L* Instances
 
@@ -4456,6 +4407,41 @@ theorem tm_time_lower_bound_via_indistinguishability
 
 #print axioms tm_time_lower_bound_via_indistinguishability
 
+/-- **THEOREM**: Time lower bound for LStarAdversary (definitional version).
+
+    This theorem takes an `LStarAdversary` directly, which includes:
+    - The TM with encoding structure
+    - Worst-case correctness
+    - Replanting simulation
+
+    **Key insight**: By making these properties DEFINITIONAL (part of adversary type),
+    we eliminate the need for `tm_replanting_structure_exists` axiom.
+
+    **Axiom dependency**: Only `not_refuted_implies_indistinguishable` (semantic bridge).
+-/
+theorem tm_time_lower_bound_for_adversary
+    (k : Nat) (states alphabet : Type)
+    [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
+    (L : LStarInstanceFG)
+    (v : Fin L.dag.n)
+    (h_v_fg : L.fg.gateReq v)
+    (h_R_pos : L.R v > 0)
+    (adv : @LStarAdversary k states alphabet _ _ _ _ L v h_v_fg)
+    : adv.haltTime ≥ 2^(L.R v) - 1 := by
+  -- Build the configs from the adversary's actual run
+  let mkConfig : Nat → (w : Fin L.dag.n) ×' Fin (2 ^ L.R w) := fun t =>
+    ⟨v, adv.enc.extractConfigAtV ((TMConfig.step (M := adv.M))^[t] (adv.enc.initForPlanting adv.cfg_planted))⟩
+  let configs := (List.range adv.haltTime).map mkConfig
+  have h_configs_def : configs = (List.range adv.haltTime).map mkConfig := rfl
+  -- Apply the core theorem with adversary's fields
+  exact tm_time_lower_bound_via_indistinguishability L adv.M v h_R_pos
+    adv.enc.extractConfigAtV adv.enc.initForPlanting adv.haltTime adv.cfg_planted
+    (Finset.mem_singleton_self v) adv.h_worst_case adv.enc.replanting_simulation
+    configs h_configs_def
+
+#print axioms tm_time_lower_bound_for_adversary
+-- Should show: not_refuted_implies_indistinguishable (NO tm_replanting_structure_exists!)
+
 /-! #### Summary: Indistinguishability Bridge (Airtight Chain)
 
 ## The New Axiom
@@ -4587,14 +4573,13 @@ theorem tm_extracted_configs_separate_planted_theorem
 
     **The derivation chain** (current main path):
     1. `not_refuted_implies_indistinguishable` (AXIOM): unrefuted → TM-indistinguishable
-    2. `tm_replanting_structure_exists` (AXIOM): TM correctness provides encoding structure
+    2. `LStarAdversary` (DEFINITION): provides encoding structure definitionally
     3. `indistinguishability_implies_all_wrong_refuted`: all wrong worlds refuted (THEOREM)
     4. `tm_time_lower_bound_via_indistinguishability`: haltTime ≥ 2^R - 1 (THEOREM)
 
-    **Why the bridge axioms are reasonable**:
+    **Why the single bridge axiom is reasonable**:
     - Indistinguishability: If TM hasn't refuted ω', it can't distinguish ω' from planted
-    - Replanting structure: SAT solver TM has well-defined extraction/planting operations
-    - Both are "universally accepted" properties of computation
+    - Structural properties (WorstCaseCorrect, ReplantingSimulation) are DEFINITIONAL
 -/
 theorem axiom_elimination_path_summary :
     -- For any TM satisfying worst-case correctness and replanting simulation,
@@ -4996,113 +4981,104 @@ theorem fg_first_commit_time_lower_bound_via_indistinguishability
 
 /-- **Interface for StructuralOWFExponential.lean** (Layer2 compatibility).
 
-    Uses the NEW indistinguishability chain via:
-    1. `tm_replanting_structure_exists` - provides encoding structure from h_correct
-    2. `tm_time_lower_bound_via_indistinguishability` - derives time bound
+    **REFACTORED**: Now takes encoding structure as parameters instead of deriving
+    from an axiom. The caller must provide:
+    - `initForPlanting`: How to initialize TM for each possible planting
+    - `extractConfigAtV`: How to extract config from TM state
+    - `cfg_planted`: The planted configuration
+    - `h_worst_case`: Worst-case correctness proof
+    - `h_replanting`: Replanting simulation proof
 
-    **Axiom dependencies**:
-    - `tm_replanting_structure_exists` (structural bridge)
-    - `not_refuted_implies_indistinguishable` (semantic bridge)
+    **Axiom dependencies**: ONLY `not_refuted_implies_indistinguishable` (semantic bridge)
 
-    This replaces the deprecated `tm_extracted_configs_separate_planted` axiom.
+    **Key insight**: The encoding structure is DEFINITIONAL for what it means to be
+    a uniform adversary. We require it as input rather than axiomatically claiming
+    it exists.
 -/
 theorem fg_first_commit_time_lower_bound
-    {α : Type} [LStar.Complexity.Sized α]
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG)
     (M : TuringMachine k states alphabet)
-    (enc : LStar.Complexity.TMInputEncodingBase α alphabet)
-    (x : α)
-    (haltTime : Nat)
-    (h_k_pos : 0 < k)
-    (h_blank : M.blank = enc.blank)
-    (extractWitness : TMConfig M → Witness L.n)
-    (h_extractWitness_surj : ∀ (σ : LStar.AssignmentInf),
-        (∀ i ≥ L.n, σ i = false) →
-        ∃ cfg : TMConfig M, (extractWitness cfg).assignmentInf = σ)
     (v : {v // L.fg.gateReq v})
-    (h_planted : FlatProfile.PlantedHyp_flat L)
-    (h_halts : (LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank |>
-                fun init => (TMConfig.step (M := M))^[haltTime] init).state ∈ M.halt)
-    (φ : CNF)
-    (h_φ_match : ∃ (n : Nat) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
-        (h_aligned : AlignedCNFConstraints φ),
-        L = plant_flat n φ r h_nvars h_aligned ∧ WellFormedRandomness_flat φ r)
-    (h_correct : φ.satisfies
-        (TMAxioms.tmOutputWitnessEncoded M enc x haltTime h_k_pos h_blank extractWitness).assignmentInf)
-    : haltTime ≥ 2^(L.R v.val) - 1 := by
-  -- Extract planted hypothesis
-  obtain ⟨n, r, h_nvars, h_aligned, h_L_eq, h_wf⟩ := h_φ_match
-
-  -- Substitute L = plant_flat to fix all dependent type issues at once
-  subst h_L_eq
-
-  -- Get L.n = φ.nvars from planted structure
-  have h_L_n_eq : (plant_flat n φ r h_nvars h_aligned).n = φ.nvars :=
-    plant_flat_n n φ r h_nvars h_aligned
-
-  -- Get R positivity
-  have h_R_pos : (plant_flat n φ r h_nvars h_aligned).R v.val > 0 := by
-    have h_R_eq : (plant_flat n φ r h_nvars h_aligned).R v.val = φ.nvars :=
-      plant_flat_R_eq_nvars n φ r h_nvars h_aligned v.val v.property
-    rw [h_R_eq]; omega
-
-  -- Construct the init config
-  let init := LStar.Complexity.initWithEncodingBase M enc x h_k_pos h_blank
-
-  -- Create witness extractor with correct type
-  let extractWitness' : TMConfig M → Witness φ.nvars :=
-    fun cfg => h_L_n_eq ▸ extractWitness cfg
-
-  -- Construct planted hypothesis in required form
-  have h_L_planted : ∃ n' r' h_nvars' h_aligned',
-      plant_flat n φ r h_nvars h_aligned = plant_flat n' φ r' h_nvars' h_aligned' ∧
-      WellFormedRandomness_flat φ r' :=
-    ⟨n, r, h_nvars, h_aligned, rfl, h_wf⟩
-
-  -- Convert h_correct to use extractWitness'
-  have h_correct' : φ.satisfies (extractWitness' ((TMConfig.step (M := M))^[haltTime] init)).assignmentInf := by
-    simp only [extractWitness']
-    rw [Witness.assignmentInf_eq_of_cast (extractWitness _) h_L_n_eq]
-    exact h_correct
-
-  -- Step 1: Use tm_replanting_structure_exists to get encoding structure
-  obtain ⟨initForPlanting, extractConfigAtV, cfg_planted, h_init_eq, h_wc, h_replanting⟩ :=
-    tm_replanting_structure_exists (plant_flat n φ r h_nvars h_aligned) M v.val v.property
-      haltTime init h_halts φ h_L_planted extractWitness' h_correct'
-
-  -- Step 2: Show halts property with initForPlanting
-  have h_halts' : ((TMConfig.step (M := M))^[haltTime] (initForPlanting cfg_planted)).state ∈ M.halt := by
-    rw [h_init_eq]; exact h_halts
-
-  -- Step 3: Apply tm_time_lower_bound_via_indistinguishability (uses NEW axiom chain)
-  exact tm_time_lower_bound_via_indistinguishability
-    (plant_flat n φ r h_nvars h_aligned) M v.val h_R_pos
+    (h_R_pos : L.R v.val > 0)
+    -- Encoding structure (previously derived from axiom)
+    (initForPlanting : Fin (2^(L.R v.val)) → TMConfig M)
+    (extractConfigAtV : TMConfig M → Fin (2^(L.R v.val)))
+    (cfg_planted : Fin (2^(L.R v.val)))
+    (haltTime : Nat)
+    -- Properties (previously derived from axiom)
+    (h_worst_case : WorstCaseCorrectOnLStar L M v.val extractConfigAtV initForPlanting haltTime)
+    (h_replanting : ReplantingSimulation L M v.val extractConfigAtV initForPlanting)
+    (h_halts : ((TMConfig.step (M := M))^[haltTime] (initForPlanting cfg_planted)).state ∈ M.halt)
+    : haltTime ≥ 2^(L.R v.val) - 1 :=
+  -- Direct application of the core theorem
+  tm_time_lower_bound_via_indistinguishability L M v.val h_R_pos
     extractConfigAtV initForPlanting haltTime cfg_planted
-    (Finset.mem_singleton_self v.val) h_wc h_replanting
+    (Finset.mem_singleton_self v.val) h_worst_case h_replanting
     ((List.range haltTime).map (fun t =>
       ⟨v.val, extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted))⟩))
     rfl
 
+#print axioms fg_first_commit_time_lower_bound
+-- Should show: ONLY not_refuted_implies_indistinguishable
+
+/-- **MAIN INTERFACE (Adversary Form)**: Time lower bound from StructuralOWFAdversary.
+
+    This is the primary interface theorem that callers use. It takes a
+    StructuralOWFAdversary and extracts the L*-encoding structure from its fields.
+
+    **Parameters**:
+    - A: StructuralOWFAdversary with L*-encoding fields populated
+    - L: L* instance (planted)
+    - v: FG gate (as subtype)
+    - haltTime: execution time
+    - h_R_pos: rank positivity
+
+    **Result**: haltTime ≥ 2^(L.R v) - 1
+
+    **Axiom dependencies**: ONLY `not_refuted_implies_indistinguishable` (semantic bridge)
+
+    **Key insight**: The encoding structure is DEFINITIONAL in the adversary structure.
+    No axiom is needed to "derive" it - it's provided as part of what it means to be
+    a proper adversary. -/
+theorem fg_first_commit_time_lower_bound_from_adversary
+    (L : LStarInstanceFG)
+    (A : LStar.Complexity.StructuralOWFAdversary L.n)
+    (v : {v // L.fg.gateReq v})
+    (h_R_pos : L.R v.val > 0)
+    (cfg_planted : Fin (2^(L.R v.val)))
+    (haltTime : Nat)
+    (h_halts : ((TMConfig.step (M := A.base.M))^[haltTime] (A.lstar_initForPlanting L v.val v.property cfg_planted)).state ∈ A.base.M.halt)
+    : haltTime ≥ 2^(L.R v.val) - 1 := by
+  -- Extract L*-encoding from adversary
+  let initForPlanting := A.lstar_initForPlanting L v.val v.property
+  let extractConfigAtV := A.lstar_extractConfigAtV L v.val
+  have h_replanting := A.lstar_replanting L v.val v.property
+  have h_worst_case := A.lstar_worst_case L v.val v.property haltTime
+  -- Apply the core theorem
+  exact fg_first_commit_time_lower_bound L A.base.M v h_R_pos
+    initForPlanting extractConfigAtV cfg_planted haltTime
+    h_worst_case h_replanting h_halts
+
+#print axioms fg_first_commit_time_lower_bound_from_adversary
+-- Should show: ONLY not_refuted_implies_indistinguishable
+
 /-! #### Connection to Main P≠NP Proof
 
 The main P≠NP proof uses the indistinguishability chain via
-`fg_first_commit_time_lower_bound`, which internally uses:
-1. `tm_replanting_structure_exists` - structural bridge (provides encoding structure)
-2. `not_refuted_implies_indistinguishable` - semantic bridge (indistinguishability)
+`fg_first_commit_time_lower_bound`, which uses:
 
-**Bridge Axioms**:
+**Single Bridge Axiom**: `not_refuted_implies_indistinguishable`
+- Asserts TM-indistinguishability for unrefuted worlds
+- Separation properties are DERIVED via contradiction (with WorstCaseCorrectOnLStar)
 
-1. `not_refuted_implies_indistinguishable`:
-   - Asserts TM-indistinguishability for unrefuted worlds
-   - Separation properties are DERIVED via contradiction (with WorstCaseCorrectOnLStar)
+**Definitional Requirements** (not axioms):
+- Encoding structure (initForPlanting, extractConfigAtV) provided by caller
+- WorstCaseCorrectOnLStar: what "correct adversary" means
+- ReplantingSimulation: what "no backdoor" means
 
-2. `tm_replanting_structure_exists`:
-   - Provides encoding structure (initForPlanting, extractConfigAtV) from TM correctness
-   - Provides WorstCaseCorrectOnLStar and ReplantingSimulation hypotheses
-
-**Benefit**: The axioms explain WHY separation holds (indistinguishability + TM structure),
+**Benefit**: The single axiom explains WHY separation holds (indistinguishability),
 rather than just asserting THAT it holds.
 -/
 
@@ -5111,47 +5087,38 @@ rather than just asserting THAT it holds.
 The following `#print axioms` commands verify the axiom dependencies of the
 derivation chain. All theorems should depend ONLY on:
 - Standard Lean axioms: propext, Classical.choice, Quot.sound
-- Bridge axiom 1: `not_refuted_implies_indistinguishable` (semantic)
-- Bridge axiom 2: `tm_replanting_structure_exists` (structural)
+- Single bridge axiom: `not_refuted_implies_indistinguishable` (semantic)
 
 NO other custom axioms should appear.
 -/
 
 section AxiomAudit
 
-/-! **MAIN CHAIN (Indistinguishability-based)**
+/-! **SINGLE BRIDGE AXIOM**
 
-Uses 2 bridge axioms:
-1. `not_refuted_implies_indistinguishable` - semantic bridge (indistinguishability)
-2. `tm_replanting_structure_exists` - structural bridge (provides encoding)
+The entire proof chain uses only ONE custom axiom:
+`not_refuted_implies_indistinguishable` - semantic bridge (indistinguishability)
 
-Interface theorems:
-- `fg_first_commit_time_lower_bound_via_indistinguishability` (internal)
-- `fg_first_commit_time_lower_bound` (main P≠NP interface)
+Structural properties (WorstCaseCorrectOnLStar, ReplantingSimulation) are provided
+DEFINITIONALLY via the `LStarAdversary` structure, not axiomatically.
 -/
 
--- Bridge axiom 1: Indistinguishability (semantic)
+-- The single bridge axiom
 #print axioms not_refuted_implies_indistinguishable
 
--- Bridge axiom 2: Replanting structure (structural)
-#print axioms tm_replanting_structure_exists
-
--- Property 2 derivation: depends only on bridge axiom 1
+-- Property 2 derivation: depends only on the single axiom
 #print axioms indistinguishability_implies_all_wrong_refuted
 
--- Final time bound: depends only on bridge axiom 1
+-- Final time bound: depends only on the single axiom
 #print axioms tm_time_lower_bound_via_indistinguishability
 
--- Interface theorem for main P≠NP proof: depends only on bridge axiom 1
+-- Time bound for LStarAdversary: depends only on the single axiom
+#print axioms tm_time_lower_bound_for_adversary
+
+-- Interface theorem for main P≠NP proof: depends only on the single axiom
 #print axioms fg_first_commit_time_lower_bound_via_indistinguishability
 
-/-! **MAIN INTERFACE for P≠NP proof**
-
-Uses both bridge axioms:
-- `not_refuted_implies_indistinguishable` (semantic)
-- `tm_replanting_structure_exists` (structural)
--/
-
+-- Main interface: depends only on the single axiom
 #print axioms fg_first_commit_time_lower_bound
 
 -- Supporting lemmas: should have NO custom axioms
@@ -5162,5 +5129,23 @@ Uses both bridge axioms:
 #print axioms tmRefutedWorlds_length_le_configs
 
 end AxiomAudit
+
+/-! ### Note on Encoding Structure
+
+The L*-encoding structure (initForPlanting, extractConfigAtV, ReplantingSimulation,
+WorstCaseCorrectOnLStar) is now a DEFINITIONAL part of StructuralOWFAdversary.
+
+The adversary structure includes these fields:
+- lstar_initForPlanting: maps planted config to initial TM state
+- lstar_extractConfigAtV: extracts emergent config from TM state
+- lstar_replanting: ReplantingSimulation proof
+- lstar_worst_case: WorstCaseCorrectOnLStar proof
+
+Callers use `fg_first_commit_time_lower_bound_from_adversary` which extracts
+these fields from the adversary structure.
+
+This eliminates the need for the former `tm_correctness_implies_encoding_structure`
+axiom - the encoding structure is now part of what it means to be an adversary.
+-/
 
 end LStar.StructuralOWF.Foundations

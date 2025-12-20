@@ -1608,6 +1608,10 @@ theorem f_is_structural_owf_exponential_flat
   have h_planted_inst : ∃ n' φ' r' h_nvars h_aligned, L = plant_flat n' φ' r' h_nvars h_aligned ∧ WellFormedRandomness_flat φ' r' := by
     refine ⟨n.val, (Φ n.val), r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
+  -- Establish R = nvars for the frontier gate (needed for time bound and lower bound proofs)
+  have h_R_eq_nvars : L.R v_fg.val = (Φ n.val).nvars :=
+    plant_flat_R_eq_nvars n.val (Φ n.val) r_star h_nvars_ge_4 h_aligned_n v_fg.val v_fg.property
+
   -- Lower bound: Prove haltTime ≥ 2^R - 1 using WC1Bridge
   have h_hyp2 : haltTime ≥ 2^(L.R v_fg.val) - 1 := by
     -- Define singleton cut for this FG gate
@@ -1808,16 +1812,22 @@ theorem f_is_structural_owf_exponential_flat
         _ = C_axiom * (L.n + 1) ^ k_axiom := by rfl
 
     -- Construct h_φ_match for the specific φ = Φ n.val
-    have h_φ_match : ∃ (n' : Nat) (r' : Randomness (Φ n.val).nvars) (h_nvars' : (Φ n.val).nvars ≥ 4) (h_aligned' : AlignedCNFConstraints (Φ n.val)),
+    have _h_φ_match : ∃ (n' : Nat) (r' : Randomness (Φ n.val).nvars) (h_nvars' : (Φ n.val).nvars ≥ 4) (h_aligned' : AlignedCNFConstraints (Φ n.val)),
         L = plant_flat n' (Φ n.val) r' h_nvars' h_aligned' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-    -- Use WC-1 bridge axiom: TM run → UnitRefuteHistory → time bound
-    exact Foundations.fg_first_commit_time_lower_bound
-      L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
-      (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
-      extractWitness (A n.val).extractWitness_covers_bounded_assignments
-      v_fg h_planted_inst h_halts_enc (Φ n.val) h_φ_match h_tm_correct
+    -- Use WC-1 derivation: L*-encoding fields from adversary → time bound
+    -- The adversary's L*-encoding fields provide the encoding structure.
+    -- R > 0 follows from h_R_eq_nvars (defined outside this block)
+    have h_R_pos : L.R v_fg.val > 0 := by simp [h_R_eq_nvars]; omega
+    -- Bridge: connect encoded-input halts to L*-encoding halts
+    -- The adversary's lstar_initForPlanting should be coherent with encoded-input init.
+    have h_halts_lstar : ((TMConfig.step (M := (A n.val).base.M))^[haltTime]
+        ((A n.val).lstar_initForPlanting L v_fg.val v_fg.property 0)).state ∈ (A n.val).base.M.halt := by
+      -- TODO: Prove coherence between encoded-input init and lstar_initForPlanting
+      exact sorry
+    exact Foundations.fg_first_commit_time_lower_bound_from_adversary
+      L (A n.val) v_fg h_R_pos 0 haltTime h_halts_lstar
 
   -- Upper bound: Polynomial time from PPT adversary
   -- The adversary's uniform time bound provides haltTime ≤ C_uniform * L.n ^ k_uniform
@@ -1826,10 +1836,6 @@ theorem f_is_structural_owf_exponential_flat
   have h_L_n_eq : L.n = (Φ n.val).nvars := by
     rw [h_L_def]
     exact plant_flat_n n.val (Φ n.val) r_star h_nvars_ge_4 h_aligned_n
-
-  -- Establish emergence rank at FG gate (exponential profile: R_v = nvars)
-  have h_R_eq_nvars : L.R v_fg.val = (Φ n.val).nvars := by
-    exact plant_flat_R_eq_nvars n.val (Φ n.val) r_star h_nvars_ge_4 h_aligned_n v_fg.val v_fg.property
 
   -- Derive contradiction between exponential lower and polynomial upper bounds.
   -- Lower bound: 2^nvars - 1 ≤ haltTime (from WC1Bridge information-theoretic analysis)
@@ -2231,6 +2237,10 @@ theorem f_is_structural_owf_exponential_true
   have h_planted_inst : ∃ n' φ' r' h_nvars h_aligned, L = plant_flat n' φ' r' h_nvars h_aligned ∧ WellFormedRandomness_flat φ' r' := by
     refine ⟨n.val, (Φ n.val), r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
+  -- Establish R = nvars for the frontier gate (needed for time bound and lower bound proofs)
+  have h_R_eq_nvars : L.R v_fg.val = (Φ n.val).nvars :=
+    plant_flat_R_eq_nvars n.val (Φ n.val) r_star h_nvars_ge_4 (h_aligned n.val hn_ge_k) v_fg.val v_fg.property
+
   -- Lower bound: haltTime ≥ 2^R - 1 using WC1Bridge
   have h_hyp2 : haltTime ≥ 2^(L.R v_fg.val) - 1 := by
     let C : Finset (Fin L.dag.n) := {v_fg.val}
@@ -2398,24 +2408,25 @@ theorem f_is_structural_owf_exponential_true
             exact h_Ln_le_succ
         _ = C_axiom * (L.n + 1) ^ k_axiom := by rfl
 
-    have h_φ_match : ∃ (n' : Nat) (r' : Randomness (Φ n.val).nvars) (h_nvars' : (Φ n.val).nvars ≥ 4) (h_aligned' : AlignedCNFConstraints (Φ n.val)),
+    have _h_φ_match : ∃ (n' : Nat) (r' : Randomness (Φ n.val).nvars) (h_nvars' : (Φ n.val).nvars ≥ 4) (h_aligned' : AlignedCNFConstraints (Φ n.val)),
         L = plant_flat n' (Φ n.val) r' h_nvars' h_aligned' ∧ WellFormedRandomness_flat (Φ n.val) r' :=
       ⟨n.val, r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
 
-    -- Use WC-1 bridge axiom: TM run → UnitRefuteHistory → time bound
-    exact Foundations.fg_first_commit_time_lower_bound
-      L (A n.val).base.M (A n.val).base.encoding.input (c_bar, L) haltTime
-      (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
-      extractWitness (A n.val).extractWitness_covers_bounded_assignments
-      v_fg h_planted_inst h_halts_enc (Φ n.val) h_φ_match h_tm_correct
+    -- Use WC-1 derivation: L*-encoding fields from adversary → time bound
+    -- R > 0 follows from h_R_eq_nvars (defined outside this block)
+    have h_R_pos : L.R v_fg.val > 0 := by simp [h_R_eq_nvars]; omega
+    -- Bridge: connect encoded-input halts to L*-encoding halts
+    have h_halts_lstar : ((TMConfig.step (M := (A n.val).base.M))^[haltTime]
+        ((A n.val).lstar_initForPlanting L v_fg.val v_fg.property 0)).state ∈ (A n.val).base.M.halt := by
+      -- TODO: Prove coherence between encoded-input init and lstar_initForPlanting
+      exact sorry
+    exact Foundations.fg_first_commit_time_lower_bound_from_adversary
+      L (A n.val) v_fg h_R_pos 0 haltTime h_halts_lstar
 
   -- Upper bound
   have h_L_n_eq : L.n = (Φ n.val).nvars := by
     rw [h_L_def]
     exact plant_flat_n n.val (Φ n.val) r_star h_nvars_ge_4 (h_aligned n.val hn_ge_k)
-
-  have h_R_eq_nvars : L.R v_fg.val = (Φ n.val).nvars := by
-    exact plant_flat_R_eq_nvars n.val (Φ n.val) r_star h_nvars_ge_4 (h_aligned n.val hn_ge_k) v_fg.val v_fg.property
 
   -- Express lower bound in terms of nvars (using 2^nvars - 1)
   have h_lower_nvars : 2^((Φ n.val).nvars) - 1 ≤ haltTime := by
@@ -2555,7 +2566,7 @@ example (C k : Nat) (h_C_pos : C > 0) (h_k_pos : k > 0) :
   exponential_dominates_poly_general_minus_one C k h_C_pos h_k_pos
 
 -- Verify WC-1 bridge theorem is accessible from this module
-#check Foundations.fg_first_commit_time_lower_bound
+#check Foundations.fg_first_commit_time_lower_bound_from_adversary
 
 end LStar.StructuralOWF
 

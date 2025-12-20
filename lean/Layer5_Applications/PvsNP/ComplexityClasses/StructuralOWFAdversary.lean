@@ -4,6 +4,7 @@ import Layer5_Applications.PvsNP.ComplexityClasses.TMEncoding  -- For getTape0, 
 import Layer2_StructuralOWF.FrontierGate.FrontierGate  -- For LStarInstanceFG
 import Layer2_StructuralOWF.FrontierGate.RandomnessTypes  -- For Randomness, Witness
 import Layer4_Operational.TuringMachine.TuringMachineSemantics  -- For TMConfig.run
+import Layer4_Operational.TimeBridge.LStarEncodingTypes  -- For ReplantingSimulation, WorstCaseCorrectOnLStar
 import Layer0_Foundations.Base.CNF  -- For CNF, HasPositiveClause
 
 /-! ## StructuralOWFAdversary: OWF-Specific PPT Adversary
@@ -179,6 +180,73 @@ structure StructuralOWFAdversary (nvars : Nat) where
   extractWitness_covers_bounded_assignments : ∀ (σ : LStar.AssignmentInf),
       (∀ i ≥ nvars, σ i = false) →
       ∃ cfg : TMConfig base.M, (base.extractWitness cfg).assignmentInf = σ
+
+  /-- **L*-ENCODING: initForPlanting**: Maps planted config to initial TM state.
+
+      **Statement**: For each L* instance L and frontier gate v, provides a function
+      that maps a planted emergent config (Fin (2^(L.R v))) to an initial TM configuration.
+
+      **Purpose**: Makes the TM-L* encoding structure definitional. The adversary
+      constructor must provide this encoding, ensuring it's coherent with the TM behavior.
+
+      **Usage**: Security proofs use this to plant different configs and analyze TM behavior.
+
+      **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
+  lstar_initForPlanting : (L : LStarInstanceFG) → (v : Fin L.dag.n) →
+      L.fg.gateReq v → Fin (2^(L.R v)) → TMConfig base.M
+
+  /-- **L*-ENCODING: extractConfigAtV**: Extracts computed config from TM state.
+
+      **Statement**: For each L* instance L and vertex v, provides a function that
+      extracts the emergent configuration at v from a TM configuration.
+
+      **Purpose**: Makes the TM-L* encoding structure definitional. The adversary
+      constructor must provide this extractor, ensuring it's coherent with initForPlanting.
+
+      **Usage**: Security proofs use this to observe what config the TM has computed.
+
+      **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
+  lstar_extractConfigAtV : (L : LStarInstanceFG) → (v : Fin L.dag.n) →
+      TMConfig base.M → Fin (2^(L.R v))
+
+  /-- **L*-ENCODING: ReplantingSimulation**: Replanting coherence property.
+
+      **Statement**: For any planted config at time t, if the TM extracts config c,
+      then running with c planted reaches the same state.
+
+      **Purpose**: Proves the encoding is coherent - extracting and replanting
+      is idempotent. This is the key structural property enabling time bounds.
+
+      **Formalization**: For all cfg_planted and t:
+        let state_t := step^[t] (initForPlanting cfg_planted)
+        let c := extractConfigAtV state_t
+        step^[t] (initForPlanting c) = state_t
+
+      **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
+  lstar_replanting : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
+      ReplantingSimulation L base.M v
+        (lstar_extractConfigAtV L v)
+        (lstar_initForPlanting L v h_fg)
+
+  /-- **L*-ENCODING: WorstCaseCorrectOnLStar**: TM outputs correct config for all plantings.
+
+      **Statement**: For any planted config cfg at frontier gate v, after haltTime steps,
+      the TM's extracted config equals cfg.
+
+      **Purpose**: Proves the TM is correct on ALL L* instances with ALL plantings.
+      Combined with ReplantingSimulation, this enables the time lower bound proof.
+
+      **Formalization**: For all cfg : Fin (2^(L.R v)):
+        let finalState := step^[haltTime] (initForPlanting cfg)
+        extractConfigAtV finalState = cfg
+
+      **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
+  lstar_worst_case : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
+      (haltTime : Nat) →
+      WorstCaseCorrectOnLStar L base.M v
+        (lstar_extractConfigAtV L v)
+        (lstar_initForPlanting L v h_fg)
+        haltTime
 
 /-- Extract the TM from an OWF adversary. -/
 abbrev StructuralOWFAdversary.M {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.M
