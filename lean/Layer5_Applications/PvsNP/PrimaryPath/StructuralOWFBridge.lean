@@ -1310,7 +1310,7 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (expWLen n)) T)
     (h_format_sep : EncodingDiscipline.FormatSeparated_exp M (adapterInputEncoding_exp M) M.h_blank_consistent)
     (h_surj : Function.Surjective M.encoding.output.decode)
-    -- L* encoding structure from algspec_has_tm_lstar_sigma
+    -- L* encoding structure from algspec_has_lstar_structure
     -- Structure: ∃ init extract haltTime, Replanting ∧ WorstCase(haltTime) ∧ (∀ cfg, halts) ∧ haltTime ≤ poly
     -- NOTE: WorstCase is now at haltTime only; ∀ t version is derived via derive_worst_case_all_t
     (h_lstar_encoding : ∀ (L : LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
@@ -1442,7 +1442,7 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
           -- Witness.assignmentInf = Assignment.extend.
           simp [Witness.assignmentInf, h_assign, h_extend]
         simpa [base] using h_assignInf
-      -- NEW: L*-encoding fields from h_lstar_encoding (via algspec_has_tm_lstar_sigma)
+      -- NEW: L*-encoding fields from h_lstar_encoding (via algspec_has_lstar_structure)
       -- The axiom provides: ∃ init extract haltTime, Replanting ∧ WorstCase ∧ Halts
       lstar_initForPlanting := fun L v h_fg cfg =>
         -- initForPlanting = Classical.choose (h_lstar_encoding L v h_fg)
@@ -1797,11 +1797,11 @@ theorem structural_owf_inversion_not_in_fp
   -- Each step preserves polynomial time bounds. The adversary's success probability
   -- equals f_family's success rate, which is 1 by h_inverts.
 
-  -- Construct adversary family from InFP using algspec_has_tm_lstar_sigma
-  -- The AlgSpec M_fp from InFP gives a TM realization via the extended Church-Turing axiom
-  -- This provides both standard RandAdv properties AND L* encoding structure
-  have h_tm_exists := algspec_has_tm_lstar_sigma M_fp
-  obtain ⟨M_randadv, h_run_eq, h_surj, h_default_ne, h_default_zero, h_lstar_encoding⟩ := h_tm_exists
+  -- Construct adversary family from InFP using algspec_has_tm + algspec_has_lstar_structure
+  -- Step 1: Get TM from algspec_has_tm (with encoding properties)
+  obtain ⟨M_randadv, h_run_eq, _h_C_eq, _h_k_eq, h_surj, h_default_ne, h_default_zero⟩ := algspec_has_tm M_fp
+  -- Step 2: Get L* structure from algspec_has_lstar_structure
+  have h_lstar_encoding := algspec_has_lstar_structure M_randadv
 
   -- The RandAdv M_randadv implements f_family with the same polynomial bounds
   -- From h_correct_fp: M_fp.run correctly computes f_family

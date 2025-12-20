@@ -235,7 +235,7 @@ structure StructuralOWFAdversary (nvars : Nat) where
       **Purpose**: Exposes the haltTime from the axiom so that lstar_worst_case and
       lstar_halts can both reference the same specific time.
 
-      **Trust Boundary**: 0 axioms (from algspec_has_tm_lstar_sigma axiom) -/
+      **Trust Boundary**: 0 axioms (from algspec_has_lstar_structure axiom) -/
   lstar_haltTime : (L : LStarInstanceFG) → (v : Fin L.dag.n) → L.fg.gateReq v → Nat
 
   /-- **L*-ENCODING: WorstCaseCorrectOnLStar**: TM outputs correct config for all plantings.
@@ -270,7 +270,7 @@ structure StructuralOWFAdversary (nvars : Nat) where
 
       **Usage**: StructuralOWFExponential uses this to prove h_halts_lstar.
 
-      **Trust Boundary**: 0 axioms (from algspec_has_tm_lstar_sigma axiom) -/
+      **Trust Boundary**: 0 axioms (from algspec_has_lstar_structure axiom) -/
   lstar_halts : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
       (∀ cfg : Fin (2^(L.R v)),
         ((TMConfig.step (M := base.M))^[lstar_haltTime L v h_fg] (lstar_initForPlanting L v h_fg cfg)).state ∈ base.M.halt) ∧
