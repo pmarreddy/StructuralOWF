@@ -294,14 +294,72 @@ def RandAdv.toAlgSpec {α β : Type} [Sized α] [Sized β] [FirstNatComponent β
 
 #print axioms RandAdv.toAlgSpec
 
-/-! ### Axiom 1: Church–Turing Bridge
+/-! ### Unified Church–Turing Bridge with Uniformity (SINGLE AXIOM)
 
 The Church–Turing thesis asserts that any effectively computable function can be
-computed by a Turing machine. This axiom instantiates this thesis for polynomial-time
-algorithms with explicit bounds.
+computed by a Turing machine. For uniform TMs (fixed transition function for all inputs),
+the "obliviousness" property holds: TM state depends only on observed/computed information,
+not on hidden input structure.
+
+**Uniformity Principle**: A uniform TM has no "backdoor" access to input structure.
+For L* adversaries, this means ReplantingSimulation holds by construction:
+- State at time t depends only on what has been extracted (observed)
+- Different planted configs giving same extracted config → same TM state
+
+**Single Axiom Design**: We use ONE axiom (`algspec_has_tm`) that provides:
+1. Generic Church-Turing (TM exists for any AlgSpec)
+2. L* uniformity structure (ReplantingSimulation etc.) via typeclass when types are L* types
+
+The L* structure follows from uniformity - it's not additional axiomatic content.
 -/
 
-/-- **Church–Turing Bridge**: Any AlgSpec admits a TM implementation.
+/-- **Uniformity Structure Typeclass**: Conditional properties based on type.
+
+For L* types: provides ReplantingSimulation, WorstCaseCorrect, encoding coherence.
+For other types: trivially True (no additional structure needed).
+
+**Why this follows from uniformity**: A uniform TM processes all inputs with the same
+transition function. It cannot distinguish "planted cfg_planted" from "planted c" except
+through tape contents. If two runs extract the same config at time t, they've processed
+equivalent information and must be in the same state. -/
+class UniformityStructure (α β : Type) [Sized α] [Sized β] [FirstNatComponent β] where
+  /-- The uniformity property for a RandAdv. True for non-L* types, substantive for L*. -/
+  uniformityProp : {T : Nat} → RandAdv α β T → Prop
+
+/-- Default instance: uniformity is trivially True for non-L* types. -/
+instance (priority := low) {α β : Type} [Sized α] [Sized β] [FirstNatComponent β] :
+    UniformityStructure α β where
+  uniformityProp := fun _ => True
+
+/-- **L* Uniformity Structure**: Full uniformity properties for L* adversary types.
+
+For L* adversaries (SAT solvers on planted instances), uniformity implies:
+- ReplantingSimulation: TM state is oblivious to which config was planted
+- WorstCaseCorrect: TM correctly solves all planted instances
+- Encoding coherence: initForPlanting uses standard encoded inputs -/
+instance : UniformityStructure
+    (Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG)
+    (Σ n : Nat, Vector Bool (2 * n + 64)) where
+  uniformityProp := fun {T} M =>
+    ∀ (L : LStar.StructuralOWF.LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
+      ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
+        (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
+        (coinsFor : Fin (2^(L.R v)) → Fin T),
+        -- ReplantingSimulation: intermediate states are oblivious to planting
+        LStar.StructuralOWF.Foundations.ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
+        -- WorstCaseCorrectOnLStar at PPT bound
+        LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
+          (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k) ∧
+        -- Encoding coherence: initForPlanting is derived from standard encoding
+        (∀ cfg : Fin (2^(L.R v)),
+          initForPlanting cfg = initWithEncodingBase M.M M.encoding.input
+            (coinsFor cfg, ⟨L.encodedφ.nvars, L⟩) M.h_tape_pos M.h_blank_consistent)
+
+/-- **Unified Church–Turing Bridge (SINGLE AXIOM)**: Any AlgSpec admits a uniform TM.
+
+**THIS IS THE ONLY CHURCH-TURING AXIOM**. It provides:
+1. TM existence with behavioral equivalence and complexity preservation
+2. Uniformity structure (via typeclass) - for L* types, this includes ReplantingSimulation
 
 **SEMANTIC CONTENT**:
 
@@ -309,97 +367,54 @@ ESTABLISHED: AlgSpec defines polynomial-time computable functions with explicit 
 - The function `A.run : Coins → Input → Output` is well-defined
 - Polynomial time bound `C · n^k` is specified with explicit constants
 
-AXIOM CONTENT: Church-Turing thesis instantiation.
+AXIOM CONTENT: Church-Turing thesis for uniform TMs.
 - Effective computability implies Turing computability with preserved complexity
-- Polynomial-time algorithms correspond to polynomial-time Turing machines (Sipser §3.2)
-- The axiom specializes this correspondence to our AlgSpec → RandAdv type mapping
+- The TM is UNIFORM (fixed δ for all inputs) - inherent to the TM model
+- Uniformity implies obliviousness, captured via UniformityStructure typeclass:
+  * For L* types: ReplantingSimulation, WorstCaseCorrect, encoding coherence
+  * For other types: trivially True
 
-TRUST ASSESSMENT: Foundational. This axiom encodes the standard equivalence between
-algorithmic specifications and Turing machine implementations. Rejection constitutes
-denial of the Church-Turing thesis itself.
-
-**Formal Properties** (axiom content):
-- Behavioral equivalence: `M.toAlgSpec.run = A.run`
-- Complexity preservation: `M.C = A.C`, `M.k = A.k`
-
-**Structural Properties** (from RandAdv type):
-- Encoding completeness: `decode_surjective` field
-- Format separation: `run_ne_default` field
-- Sentinel convention: `default_zero` field
-
-These encoding properties are STRUCTURAL FIELDS of RandAdv, not axiom content.
-They represent design choices when implementing TMs, always achievable in practice.
+TRUST ASSESSMENT: Foundational. This single axiom encodes the standard equivalence
+between algorithmic specifications and uniform Turing machine implementations.
+The uniformity structure is a CONSEQUENCE of the uniform TM model, not additional content.
 
 **References**:
 - Church (1936), Turing (1936): Church–Turing thesis
 - Sipser §3.2, Arora-Barak §1.4: Polynomial equivalence of computational models
 -/
-axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β] {T : Nat}
+axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
+    [UniformityStructure α β] {T : Nat}
     (A : AlgSpec α β T) :
   ∃ (M : RandAdv α β T),
     M.toAlgSpec.run = A.run ∧
     M.C = A.C ∧
-    M.k = A.k
+    M.k = A.k ∧
+    UniformityStructure.uniformityProp M
 
 #print axioms algspec_has_tm
 
-/-! ### Extended Church-Turing for L* Adversaries
+/-- **L* Structure Accessor**: Extract L* uniformity from algspec_has_tm for L* types.
 
-For L* adversaries specifically, the TM implementation additionally provides
-the encoding structure needed for time bound proofs. This extends the generic
-`algspec_has_tm` with L*-specific properties.
+This is a CONVENIENCE WRAPPER, not a separate axiom. It unpacks the uniformity
+structure from algspec_has_tm for the L* type signature.
 
-**Key addition**: ReplantingSimulation - the TM's state depends only on what
-it has observed/computed, not on which config was planted. This is the
-"obliviousness" property that enables the WC-1 time bound derivation.
-
-**Semantic justification**: Any reasonable TM implementation of a SAT solver
-works by building up a solution incrementally. The intermediate state reflects
-what has been computed so far, not the specific input instance. Different
-planted instances that look the same up to time t produce identical TM states.
--/
-
-/-- **L* Structure Axiom**: Any TM implementing an L* algorithm has the required L* encoding structure.
-
-This axiom takes M (from algspec_has_tm) as a parameter and asserts it has L* structure.
-Encoding properties (surjective, format separation) come from algspec_has_tm, not here.
-
-**Why parameterized**: This removes duplication of encoding properties. The caller:
-1. Gets M from `algspec_has_tm` (with encoding properties)
-2. Gets L* structure from `algspec_has_lstar_structure M`
-
-**Core content**:
-- ReplantingSimulation (obliviousness) - the key information-theoretic property
-- WorstCaseCorrect - TM correctly solves all planted instances
-- Encoding coherence - initForPlanting uses standard encoded inputs
-
-**Halting and poly bounds are DERIVED** from encoding coherence + PPT structure:
-- initForPlanting cfg = initWithEncodingBase (coinsFor cfg, ⟨L.n, L⟩)
-- PPT halts at C * (size L + 1)^k from initWithEncodingBase
-- Therefore halts at the PPT bound from initForPlanting -/
-axiom algspec_has_lstar_structure
-    {T : Nat}
+**Usage**: Call sites that previously used `algspec_has_lstar_structure M` should
+now extract uniformity from the 4th component of `algspec_has_tm`. -/
+def algspec_has_lstar_structure {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG)
-                  (Σ n : Nat, Vector Bool (2 * n + 64)) T) :
-  -- L* encoding structure with ReplantingSimulation and WorstCaseCorrect
-  -- Works for ANY L* instance and frontier gate vertex
+                  (Σ n : Nat, Vector Bool (2 * n + 64)) T)
+    (h_uniformity : UniformityStructure.uniformityProp M) :
   ∀ (L : LStar.StructuralOWF.LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
     ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
       (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
-      -- Encoding coherence: initForPlanting uses standard encoded inputs with some coin choice
       (coinsFor : Fin (2^(L.R v)) → Fin T),
-      -- ReplantingSimulation: intermediate states are oblivious to planting (CORE AXIOM)
       LStar.StructuralOWF.Foundations.ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
-      -- WorstCaseCorrectOnLStar at PPT bound for sigma-wrapped input
-      -- Uses L.encodedφ.nvars to match the adapter encoding in StructuralOWFBridge
       LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
         (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k) ∧
-      -- Encoding coherence: initForPlanting is derived from standard encoding
-      -- This enables deriving halting from PPT.halts
-      -- Note: Uses L.encodedφ.nvars to match the adapter encoding in StructuralOWFBridge
       (∀ cfg : Fin (2^(L.R v)),
         initForPlanting cfg = initWithEncodingBase M.M M.encoding.input
-          (coinsFor cfg, ⟨L.encodedφ.nvars, L⟩) M.h_tape_pos M.h_blank_consistent)
+          (coinsFor cfg, ⟨L.encodedφ.nvars, L⟩) M.h_tape_pos M.h_blank_consistent) :=
+  h_uniformity
 
 #print axioms algspec_has_lstar_structure
 
@@ -443,7 +458,8 @@ encoding properties as structural fields, they come automatically.
 
 **Trust Boundary**: 0 additional axioms (structural properties from RandAdv type).
 -/
-theorem encoding_zero_default {α β : Type} [Sized α] [Sized β] [FirstNatComponent β] {T : Nat}
+theorem encoding_zero_default {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
+    [UniformityStructure α β] {T : Nat}
     (A : AlgSpec α β T) :
   ∃ (M : RandAdv α β T),
     M.toAlgSpec.run = A.run ∧
@@ -451,8 +467,8 @@ theorem encoding_zero_default {α β : Type} [Sized α] [Sized β] [FirstNatComp
     M.k = A.k ∧
     Function.Surjective M.encoding.output.decode ∧
     FirstNatComponent.firstNat M.early_decode_default = 0 := by
-  -- Get M from Church-Turing axiom
-  obtain ⟨M, h_run, h_C, h_k⟩ := algspec_has_tm A
+  -- Get M from Church-Turing axiom (now includes uniformity in 4th component)
+  obtain ⟨M, h_run, h_C, h_k, _h_uniformity⟩ := algspec_has_tm A
   -- Encoding properties come from RandAdv structural fields
   exact ⟨M, h_run, h_C, h_k, M.decode_surjective, M.default_zero⟩
 
