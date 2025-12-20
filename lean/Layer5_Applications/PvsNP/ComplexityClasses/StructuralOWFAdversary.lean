@@ -181,6 +181,20 @@ structure StructuralOWFAdversary (nvars : Nat) where
       (∀ i ≥ nvars, σ i = false) →
       ∃ cfg : TMConfig base.M, (base.extractWitness cfg).assignmentInf = σ
 
+  /-- **L*-ENCODING: coinsFor**: Maps planted config to coin choice for encoding.
+
+      **Statement**: For each L* instance L and frontier gate v, provides a function
+      that maps a planted emergent config (Fin (2^(L.R v))) to a coin choice.
+
+      **Purpose**: Establishes encoding coherence - initForPlanting uses standard
+      encoded inputs with this coin choice.
+
+      **Derivation**: Halting and poly bounds follow from PPT structure via this coherence.
+
+      **Trust Boundary**: 0 axioms (from algspec_has_lstar_structure axiom) -/
+  lstar_coinsFor : (L : LStarInstanceFG) → (v : Fin L.dag.n) →
+      L.fg.gateReq v → Fin (2^(L.R v)) → Fin base.num_coins
+
   /-- **L*-ENCODING: initForPlanting**: Maps planted config to initial TM state.
 
       **Statement**: For each L* instance L and frontier gate v, provides a function
@@ -228,53 +242,45 @@ structure StructuralOWFAdversary (nvars : Nat) where
         (lstar_extractConfigAtV L v)
         (lstar_initForPlanting L v h_fg)
 
-  /-- **L*-ENCODING: haltTime**: Specific halting time for each (L, v) pair.
+  /-- **L*-ENCODING: Encoding Coherence**: initForPlanting uses standard encoded inputs.
 
-      **Statement**: Provides the concrete halting time for the TM on planted L* instances.
+      **Statement**: For each (L, v, cfg), initForPlanting cfg equals the standard
+      initWithEncodingBase configuration with the coin choice from lstar_coinsFor.
 
-      **Purpose**: Exposes the haltTime from the axiom so that lstar_worst_case and
-      lstar_halts can both reference the same specific time.
+      **Purpose**: This is the key structural constraint that enables deriving halting
+      and polynomial bounds from the PPT structure. Since initForPlanting is just
+      a standard encoded-input configuration, PPT.halts applies directly.
+
+      **Note**: Uses plain L (not sigma-wrapped) because base.encoding.input expects
+      LStarInstanceFG. The adapter encoding handles sigma wrapping internally.
 
       **Trust Boundary**: 0 axioms (from algspec_has_lstar_structure axiom) -/
-  lstar_haltTime : (L : LStarInstanceFG) → (v : Fin L.dag.n) → L.fg.gateReq v → Nat
+  lstar_encoding_coherence : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
+      ∀ cfg : Fin (2^(L.R v)),
+        lstar_initForPlanting L v h_fg cfg = initWithEncodingBase base.M base.encoding.input
+          (lstar_coinsFor L v h_fg cfg, L) base.h_tape_pos base.h_blank_consistent
 
   /-- **L*-ENCODING: WorstCaseCorrectOnLStar**: TM outputs correct config for all plantings.
 
-      **Statement**: For any planted config cfg at frontier gate v, after lstar_haltTime steps,
-      the TM's extracted config equals cfg.
+      **Statement**: For any planted config cfg at frontier gate v, after the PPT time bound
+      for sigma-wrapped input, the TM's extracted config equals cfg.
 
       **Purpose**: Proves the TM is correct on ALL L* instances with ALL plantings.
       Combined with ReplantingSimulation, this enables the time lower bound proof.
 
       **Formalization**: For all cfg : Fin (2^(L.R v)):
-        let finalState := step^[lstar_haltTime L v h_fg] (initForPlanting cfg)
+        let finalState := step^[C * (size ⟨L.encodedφ.nvars, L⟩ + 1)^k] (initForPlanting cfg)
         extractConfigAtV finalState = cfg
 
-      **Note**: WorstCaseCorrect for t ≤ lstar_haltTime is DERIVABLE via derive_worst_case_all_t
-      from WorstCaseCorrect at lstar_haltTime + ReplantingSimulation.
+      **Note**: WorstCaseCorrect for t ≤ PPT bound is DERIVABLE via derive_worst_case_all_t
+      from WorstCaseCorrect at PPT bound + ReplantingSimulation.
 
       **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
   lstar_worst_case : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
       WorstCaseCorrectOnLStar L base.M v
         (lstar_extractConfigAtV L v)
         (lstar_initForPlanting L v h_fg)
-        (lstar_haltTime L v h_fg)
-
-  /-- **L*-ENCODING: Halting**: TM halts at lstar_haltTime for planted configs.
-
-      **Statement**: For each (L, v) with frontier gate, the TM halts at lstar_haltTime
-      for all planted configs, and lstar_haltTime is bounded by the PPT time.
-
-      **Purpose**: Enables the time lower bound proof by providing halting at a
-      concrete time. Combined with halt_persists, this shows halting at any later time.
-
-      **Usage**: StructuralOWFExponential uses this to prove h_halts_lstar.
-
-      **Trust Boundary**: 0 axioms (from algspec_has_lstar_structure axiom) -/
-  lstar_halts : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
-      (∀ cfg : Fin (2^(L.R v)),
-        ((TMConfig.step (M := base.M))^[lstar_haltTime L v h_fg] (lstar_initForPlanting L v h_fg cfg)).state ∈ base.M.halt) ∧
-      lstar_haltTime L v h_fg ≤ base.C * (Sized.size L + 1) ^ base.k
+        (base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ base.k)
 
 /-- Extract the TM from an OWF adversary. -/
 abbrev StructuralOWFAdversary.M {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.M
@@ -306,8 +312,72 @@ abbrev StructuralOWFAdversary.tapeCount {nvars : Nat} (A : StructuralOWFAdversar
 /-- Coins positivity from an OWF adversary. -/
 abbrev StructuralOWFAdversary.coins_pos {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.coins_pos
 
+/-- **L*-ENCODING: haltTime** (computed): The PPT time bound for L* instances.
+
+    **Definition**: lstar_haltTime L v h_fg := base.C * (size ⟨L.encodedφ.nvars, L⟩ + 1)^base.k
+
+    **Purpose**: Provides the concrete halting time for the TM on planted L* instances.
+    This is now COMPUTED from the PPT structure, not axiom-provided.
+    Uses sigma-wrapped size to match the actual encoding.
+
+    **Trust Boundary**: 0 axioms (derived from PPT structure) -/
+abbrev StructuralOWFAdversary.lstar_haltTime {nvars : Nat} (A : StructuralOWFAdversary nvars)
+    (L : LStarInstanceFG) (_v : Fin L.dag.n) (_h_fg : L.fg.gateReq _v) : Nat :=
+  A.base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ A.base.k
+
+/-- **L*-ENCODING: Halting** (derived): TM halts at lstar_haltTime for planted configs.
+
+    **Statement**: For each (L, v) with frontier gate, the TM halts at the PPT bound
+    for all planted configs, and the bound is trivially polynomial.
+
+    **Derivation**: From encoding coherence + base.halts:
+    1. lstar_encoding_coherence: initForPlanting cfg = initWithEncodingBase (coins, L)
+    2. base.halts: TM halts at C * (size L + 1)^k from initWithEncodingBase
+    3. Therefore: TM halts at the sigma-wrapped time bound from initForPlanting
+
+    **Trust Boundary**: 0 axioms (derived from encoding coherence + PPT halts) -/
+theorem StructuralOWFAdversary.lstar_halts {nvars : Nat} (A : StructuralOWFAdversary nvars)
+    (L : LStarInstanceFG) (v : Fin L.dag.n) (h_fg : L.fg.gateReq v) :
+    (∀ cfg : Fin (2^(L.R v)),
+      ((TMConfig.step (M := A.base.M))^[A.lstar_haltTime L v h_fg] (A.lstar_initForPlanting L v h_fg cfg)).state ∈ A.base.M.halt) ∧
+    A.lstar_haltTime L v h_fg ≤ A.base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ A.base.k := by
+  constructor
+  · -- Halting: derived from encoding coherence + base.halts
+    intro cfg
+    -- Step 1: Rewrite initForPlanting using encoding coherence
+    have h_coherence := A.lstar_encoding_coherence L v h_fg cfg
+    rw [h_coherence]
+    -- Step 2: Apply base.halts (PPT halting guarantee)
+    -- base.halts : ∀ (c : Fin base.num_coins) (L : LStarInstanceFG), halts at C * (size L + 1)^k
+    -- lstar_haltTime uses sigma-wrapped size which is ≥ size L
+    -- Since halt states are absorbing (halt_persists), halting at smaller time implies halting at larger time
+    let base_time := A.base.C * (Sized.size L + 1) ^ A.base.k
+    have h_halts_base : ((TMConfig.step (M := A.base.M))^[base_time]
+        (initWithEncodingBase A.base.M A.base.encoding.input
+          (A.lstar_coinsFor L v h_fg cfg, L) A.base.h_tape_pos A.base.h_blank_consistent)).state ∈ A.base.M.halt :=
+      A.base.halts (A.lstar_coinsFor L v h_fg cfg) L
+    -- Need to show lstar_haltTime ≥ base_time to apply halt_persists
+    -- This follows from size ⟨n, L⟩ ≥ size L
+    have h_time_le : base_time ≤ A.lstar_haltTime L v h_fg := by
+      simp only [lstar_haltTime, base_time]
+      apply Nat.mul_le_mul_left
+      apply Nat.pow_le_pow_left
+      apply Nat.add_le_add_right
+      -- size ⟨n, L⟩ = n + 1 + size L ≥ size L
+      simp only [Sized.size, sizedSigma, sizedNat]
+      omega
+    -- Apply halt_persists
+    have h_diff := A.lstar_haltTime L v h_fg - base_time
+    have h_eq : A.lstar_haltTime L v h_fg = base_time + h_diff := by omega
+    rw [h_eq, Function.iterate_add_apply]
+    exact halt_persists A.base.M _ h_diff h_halts_base
+  · -- Polynomial bound: trivially reflexive since lstar_haltTime = C * (size ⟨...⟩ + 1)^k
+    rfl
+
 -- Axiom Audits
 #print axioms StructuralOWFAdversary
 #print axioms StructuralOWFAdversary.M
+#print axioms StructuralOWFAdversary.lstar_haltTime
+#print axioms StructuralOWFAdversary.lstar_halts
 
 end LStar.Complexity

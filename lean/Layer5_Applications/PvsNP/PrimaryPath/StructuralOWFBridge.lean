@@ -1311,16 +1311,18 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
     (h_format_sep : EncodingDiscipline.FormatSeparated_exp M (adapterInputEncoding_exp M) M.h_blank_consistent)
     (h_surj : Function.Surjective M.encoding.output.decode)
     -- L* encoding structure from algspec_has_lstar_structure
-    -- Structure: ∃ init extract haltTime, Replanting ∧ WorstCase(haltTime) ∧ (∀ cfg, halts) ∧ haltTime ≤ poly
-    -- NOTE: WorstCase is now at haltTime only; ∀ t version is derived via derive_worst_case_all_t
+    -- Structure: ∃ init extract coinsFor, Replanting ∧ WorstCase(PPT_bound) ∧ encoding_coherence
+    -- Halting and poly bounds are DERIVED from encoding coherence + PPT structure
     (h_lstar_encoding : ∀ (L : LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
       ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
         (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
-        (haltTime : Nat),
+        (coinsFor : Fin (2^(L.R v)) → Fin T),
         ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
-        WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting haltTime ∧
-        (∀ cfg : Fin (2^(L.R v)), ((TMConfig.step (M := M.M))^[haltTime] (initForPlanting cfg)).state ∈ M.M.halt) ∧
-        haltTime ≤ M.C * (Sized.size L + 1) ^ M.k) :
+        WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
+          (M.C * (Sized.size L + 1) ^ M.k) ∧
+        (∀ cfg : Fin (2^(L.R v)),
+          initForPlanting cfg = initWithEncodingBase M.M M.encoding.input
+            (coinsFor cfg, ⟨L.n, L⟩) M.h_tape_pos M.h_blank_consistent)) :
     LStar.Complexity.StructuralOWFAdversary nvars := by
   classical
   let base := pptAdversary_from_randadv_exp_fixed (T := T) nvars M
@@ -1443,7 +1445,13 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
           simp [Witness.assignmentInf, h_assign, h_extend]
         simpa [base] using h_assignInf
       -- NEW: L*-encoding fields from h_lstar_encoding (via algspec_has_lstar_structure)
-      -- The axiom provides: ∃ init extract haltTime, Replanting ∧ WorstCase ∧ Halts
+      -- The axiom provides: ∃ init extract coinsFor, Replanting ∧ WorstCase(PPT_bound) ∧ encoding_coherence
+      lstar_coinsFor := fun L v h_fg cfg =>
+        -- coinsFor = Classical.choose (... third existential level ...)
+        let h_enc := h_lstar_encoding L v h_fg
+        let h_enc' := Classical.choose_spec h_enc  -- ∃ extract coinsFor, ...
+        let h_enc'' := Classical.choose_spec h_enc'  -- ∃ coinsFor, ...
+        (Classical.choose h_enc'') cfg
       lstar_initForPlanting := fun L v h_fg cfg =>
         -- initForPlanting = Classical.choose (h_lstar_encoding L v h_fg)
         (Classical.choose (h_lstar_encoding L v h_fg)) cfg
@@ -1452,72 +1460,53 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         if h_fg : L.fg.gateReq v then
           -- extractConfigAtV = Classical.choose (... extract level ...)
           let h_enc := h_lstar_encoding L v h_fg
-          let h_enc' := Classical.choose_spec h_enc  -- ∃ extract haltTime, ...
+          let h_enc' := Classical.choose_spec h_enc  -- ∃ extract coinsFor, ...
           (Classical.choose h_enc') cfg
         else
           0  -- Default value when gateReq v doesn't hold (not used in proofs)
       lstar_replanting := fun L v h_fg => by
         -- h_fg : L.fg.gateReq v = true
-        -- Extract: h_enc = ∃ init extract haltTime, Replanting ∧ WorstCase ∧ Halts
+        -- Extract: h_enc = ∃ init extract coinsFor, Replanting ∧ WorstCase ∧ encoding_coherence
         let h_enc := h_lstar_encoding L v h_fg
         -- Classical.choose h_enc = initForPlanting
-        -- Classical.choose_spec h_enc = ∃ extract haltTime, ...
+        -- Classical.choose_spec h_enc = ∃ extract coinsFor, ...
         let h_enc' := Classical.choose_spec h_enc
         -- Classical.choose h_enc' = extractConfigAtV
-        -- Classical.choose_spec h_enc' = ∃ haltTime, ...
+        -- Classical.choose_spec h_enc' = ∃ coinsFor, ...
         let h_enc'' := Classical.choose_spec h_enc'
-        -- Classical.choose h_enc'' = haltTime
-        -- Classical.choose_spec h_enc'' = Replanting ∧ WorstCase ∧ Halts
+        -- Classical.choose h_enc'' = coinsFor
+        -- Classical.choose_spec h_enc'' = Replanting ∧ WorstCase ∧ encoding_coherence
         let h_props := Classical.choose_spec h_enc''
-        -- h_props : Replanting ∧ WorstCase ∧ Halts, h_props.1 = ReplantingSimulation
+        -- h_props : Replanting ∧ WorstCase ∧ encoding_coherence, h_props.1 = ReplantingSimulation
         convert h_props.1 using 2 <;> simp only [dif_pos h_fg]
-      -- NEW: lstar_haltTime exposes the specific haltTime from the axiom
-      lstar_haltTime := fun L v h_fg =>
+      lstar_encoding_coherence := fun L v h_fg cfg => by
+        -- Extract encoding_coherence from the axiom's properties
         let h_enc := h_lstar_encoding L v h_fg
         let h_enc' := Classical.choose_spec h_enc
         let h_enc'' := Classical.choose_spec h_enc'
-        Classical.choose h_enc''  -- The haltTime from the axiom
+        let h_props := Classical.choose_spec h_enc''
+        -- h_props.2.2 = encoding_coherence: ∀ cfg, initForPlanting cfg = initWithEncodingBase (c, ⟨L.encodedφ.nvars, L⟩)
+        -- The adversary's constraint uses plain L, which the adapter encoding wraps as ⟨L.encodedφ.nvars, L⟩
+        have h_coherence := h_props.2.2 cfg
+        -- The key insight: base uses adapterInputEncoding_exp M, which wraps L as ⟨L.encodedφ.nvars, L⟩
+        -- So initWithEncodingBase base.M base.encoding.input (c, L) produces same config as
+        -- initWithEncodingBase M.M M.encoding.input (c, ⟨L.encodedφ.nvars, L⟩)
+        -- This follows from the definition of adapterInputEncoding_exp
+        have h_adapter_eq : ∀ c, initWithEncodingBase base.M base.encoding.input (c, L) base.h_tape_pos base.h_blank_consistent =
+            initWithEncodingBase M.M M.encoding.input (c, ⟨L.encodedφ.nvars, L⟩) M.h_tape_pos M.h_blank_consistent := by
+          intro c
+          simp only [base, pptAdversary_from_randadv_exp_fixed, adapterTMEncoding_exp_fixed, adapterInputEncoding_exp]
+          rfl
+        rw [h_adapter_eq]
+        exact h_coherence
       lstar_worst_case := fun L v h_fg => by
         let h_enc := h_lstar_encoding L v h_fg
         let h_enc' := Classical.choose_spec h_enc
         let h_enc'' := Classical.choose_spec h_enc'
         let h_props := Classical.choose_spec h_enc''
-        -- h_props.2.1 = WorstCaseCorrectOnLStar at axiomHaltTime
-        -- This directly provides what we need since lstar_haltTime = axiomHaltTime by construction
-        convert h_props.2.1 using 2 <;> simp only [dif_pos h_fg]
-      lstar_halts := fun L v h_fg => by
-        -- Extract haltTime and properties from h_lstar_encoding
-        let h_enc := h_lstar_encoding L v h_fg
-        let h_enc' := Classical.choose_spec h_enc
-        let h_enc'' := Classical.choose_spec h_enc'
-        let h_props := Classical.choose_spec h_enc''
-        -- h_props.2.2.1 = ∀ cfg, halts at haltTime
-        -- h_props.2.2.2 = haltTime ≤ M.C * (size L + 1)^M.k
-        -- lstar_haltTime L v h_fg = Classical.choose h_enc'' by construction
-        constructor
-        · -- Halting property at lstar_haltTime
-          intro cfg
-          have h_halts := h_props.2.2.1 cfg
-          -- Need to show: lstar_initForPlanting uses same initForPlanting from axiom
-          convert h_halts using 2
-        · -- Polynomial bound: need lstar_haltTime ≤ base.C * (size L + 1)^base.k
-          -- where base.C = M.C * 2^M.k and base.k = M.k
-          -- Axiom gives: haltTime ≤ M.C * (size L + 1)^M.k
-          -- Since 2^M.k ≥ 1, we have M.C * (size L + 1)^M.k ≤ (M.C * 2^M.k) * (size L + 1)^M.k
-          have h_bound := h_props.2.2.2
-          calc Classical.choose h_enc''
-              ≤ M.C * (Sized.size L + 1) ^ M.k := h_bound
-            _ ≤ (M.C * 2^M.k) * (Sized.size L + 1) ^ M.k := by
-                have h_C_pos : M.C > 0 := M.h_C_pos
-                have h_pow_pos : 2^M.k ≥ 1 := Nat.one_le_pow M.k 2 (by omega)
-                have h_size_pos : (Sized.size L + 1)^M.k > 0 := Nat.pow_pos (Nat.succ_pos _)
-                -- M.C * x ≤ (M.C * 2^M.k) * x when 2^M.k ≥ 1
-                calc M.C * (Sized.size L + 1) ^ M.k
-                    = M.C * 1 * (Sized.size L + 1) ^ M.k := by ring
-                  _ ≤ M.C * 2^M.k * (Sized.size L + 1) ^ M.k := by
-                      apply Nat.mul_le_mul_right
-                      apply Nat.mul_le_mul_left
-                      exact h_pow_pos }
+        -- h_props.2.1 = WorstCaseCorrectOnLStar at PPT bound
+        -- The axiom provides exactly what we need now
+        convert h_props.2.1 using 2 <;> simp only [dif_pos h_fg] }
 
 end AdversaryFromInFP
 

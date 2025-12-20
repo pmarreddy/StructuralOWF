@@ -336,7 +336,15 @@ Encoding properties (surjective, format separation) come from algspec_has_tm, no
 1. Gets M from `algspec_has_tm` (with encoding properties)
 2. Gets L* structure from `algspec_has_lstar_structure M`
 
-**Core content**: ReplantingSimulation (obliviousness) + WorstCaseCorrect + Halting bounds -/
+**Core content**:
+- ReplantingSimulation (obliviousness) - the key information-theoretic property
+- WorstCaseCorrect - TM correctly solves all planted instances
+- Encoding coherence - initForPlanting uses standard encoded inputs
+
+**Halting and poly bounds are DERIVED** from encoding coherence + PPT structure:
+- initForPlanting cfg = initWithEncodingBase (coinsFor cfg, ⟨L.n, L⟩)
+- PPT halts at C * (size L + 1)^k from initWithEncodingBase
+- Therefore halts at the PPT bound from initForPlanting -/
 axiom algspec_has_lstar_structure
     {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG)
@@ -346,15 +354,20 @@ axiom algspec_has_lstar_structure
   ∀ (L : LStar.StructuralOWF.LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
     ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
       (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
-      (haltTime : Nat),
+      -- Encoding coherence: initForPlanting uses standard encoded inputs with some coin choice
+      (coinsFor : Fin (2^(L.R v)) → Fin T),
       -- ReplantingSimulation: intermediate states are oblivious to planting (CORE AXIOM)
       LStar.StructuralOWF.Foundations.ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
-      -- WorstCaseCorrectOnLStar at haltTime (∀ t version derivable via derive_worst_case_all_t)
-      LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting haltTime ∧
-      -- Halting: TM halts within haltTime for any planted config
-      (∀ cfg : Fin (2^(L.R v)), ((TMConfig.step (M := M.M))^[haltTime] (initForPlanting cfg)).state ∈ M.M.halt) ∧
-      -- Polynomial bound: haltTime ≤ PPT time bound (enables upper bound in contradiction)
-      haltTime ≤ M.C * (Sized.size L + 1) ^ M.k
+      -- WorstCaseCorrectOnLStar at PPT bound for sigma-wrapped input
+      -- Uses L.encodedφ.nvars to match the adapter encoding in StructuralOWFBridge
+      LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
+        (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k) ∧
+      -- Encoding coherence: initForPlanting is derived from standard encoding
+      -- This enables deriving halting from PPT.halts
+      -- Note: Uses L.encodedφ.nvars to match the adapter encoding in StructuralOWFBridge
+      (∀ cfg : Fin (2^(L.R v)),
+        initForPlanting cfg = initWithEncodingBase M.M M.encoding.input
+          (coinsFor cfg, ⟨L.encodedφ.nvars, L⟩) M.h_tape_pos M.h_blank_consistent)
 
 #print axioms algspec_has_lstar_structure
 
