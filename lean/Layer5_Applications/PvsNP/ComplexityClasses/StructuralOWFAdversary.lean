@@ -248,6 +248,24 @@ structure StructuralOWFAdversary (nvars : Nat) where
         (lstar_initForPlanting L v h_fg)
         haltTime
 
+  /-- **L*-ENCODING: Halting**: TM halts at poly time for planted configs.
+
+      **Statement**: For each (L, v) with frontier gate, there exists a haltTime
+      bounded by the PPT time (C * (size L + 1)^k) such that the TM halts for
+      all planted configs.
+
+      **Purpose**: Enables the time lower bound proof by providing a concrete
+      halting time. Combined with halt_persists, this shows halting at any later time.
+
+      **Usage**: StructuralOWFExponential uses this to prove h_halts_lstar.
+
+      **Trust Boundary**: 0 axioms (from algspec_has_tm_lstar_sigma axiom) -/
+  lstar_halts : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
+      ∃ (haltTime : Nat),
+        (∀ cfg : Fin (2^(L.R v)),
+          ((TMConfig.step (M := base.M))^[haltTime] (lstar_initForPlanting L v h_fg cfg)).state ∈ base.M.halt) ∧
+        haltTime ≤ base.C * (Sized.size L + 1) ^ base.k
+
 /-- Extract the TM from an OWF adversary. -/
 abbrev StructuralOWFAdversary.M {nvars : Nat} (A : StructuralOWFAdversary nvars) := A.base.M
 

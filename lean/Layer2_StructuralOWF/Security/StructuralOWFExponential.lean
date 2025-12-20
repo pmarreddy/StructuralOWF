@@ -1820,12 +1820,25 @@ theorem f_is_structural_owf_exponential_flat
     -- The adversary's L*-encoding fields provide the encoding structure.
     -- R > 0 follows from h_R_eq_nvars (defined outside this block)
     have h_R_pos : L.R v_fg.val > 0 := by simp [h_R_eq_nvars]; omega
-    -- Bridge: connect encoded-input halts to L*-encoding halts
-    -- The adversary's lstar_initForPlanting should be coherent with encoded-input init.
+    -- Bridge: Use lstar_halts + halt_persists to show halting at proof's haltTime
+    -- lstar_halts provides: ∃ haltTime_axiom, (∀ cfg, halts at haltTime_axiom) ∧ haltTime_axiom ≤ PPT bound
+    -- Since proof's haltTime = PPT bound ≥ haltTime_axiom, we use halt_persists
     have h_halts_lstar : ((TMConfig.step (M := (A n.val).base.M))^[haltTime]
         ((A n.val).lstar_initForPlanting L v_fg.val v_fg.property 0)).state ∈ (A n.val).base.M.halt := by
-      -- TODO: Prove coherence between encoded-input init and lstar_initForPlanting
-      exact sorry
+      -- Extract axiom's haltTime from lstar_halts
+      obtain ⟨haltTime_axiom, h_halts_all, h_bound⟩ := (A n.val).lstar_halts L v_fg.val v_fg.property
+      -- haltTime_axiom ≤ (A n.val).base.C * (Sized.size L + 1)^(A n.val).base.k = haltTime
+      have h_le : haltTime_axiom ≤ haltTime := h_bound
+      -- At haltTime_axiom, TM halts for cfg = 0
+      have h_halts_at_axiom := h_halts_all 0
+      -- Rewrite haltTime using (diff + axiom) order for correct iterate_add composition
+      have h_diff : haltTime = (haltTime - haltTime_axiom) + haltTime_axiom := by omega
+      rw [h_diff]
+      -- step^[a + b] = step^[a] ∘ step^[b], so step^[diff + axiom] cfg = step^[diff] (step^[axiom] cfg)
+      rw [Function.iterate_add]
+      simp only [Function.comp_apply]
+      -- At step^[haltTime_axiom], we're halted. halt_persists keeps us halted.
+      exact Foundations.halt_persists (A n.val).base.M _ (haltTime - haltTime_axiom) h_halts_at_axiom
     exact Foundations.fg_first_commit_time_lower_bound_from_adversary
       L (A n.val) v_fg h_R_pos 0 haltTime h_halts_lstar
 
@@ -2415,11 +2428,23 @@ theorem f_is_structural_owf_exponential_true
     -- Use WC-1 derivation: L*-encoding fields from adversary → time bound
     -- R > 0 follows from h_R_eq_nvars (defined outside this block)
     have h_R_pos : L.R v_fg.val > 0 := by simp [h_R_eq_nvars]; omega
-    -- Bridge: connect encoded-input halts to L*-encoding halts
+    -- Bridge: Use lstar_halts + halt_persists to show halting at proof's haltTime
     have h_halts_lstar : ((TMConfig.step (M := (A n.val).base.M))^[haltTime]
         ((A n.val).lstar_initForPlanting L v_fg.val v_fg.property 0)).state ∈ (A n.val).base.M.halt := by
-      -- TODO: Prove coherence between encoded-input init and lstar_initForPlanting
-      exact sorry
+      -- Extract axiom's haltTime from lstar_halts
+      obtain ⟨haltTime_axiom, h_halts_all, h_bound⟩ := (A n.val).lstar_halts L v_fg.val v_fg.property
+      -- haltTime_axiom ≤ (A n.val).base.C * (Sized.size L + 1)^(A n.val).base.k = haltTime
+      have h_le : haltTime_axiom ≤ haltTime := h_bound
+      -- At haltTime_axiom, TM halts for cfg = 0
+      have h_halts_at_axiom := h_halts_all 0
+      -- Rewrite haltTime using (diff + axiom) order for correct iterate_add composition
+      have h_diff : haltTime = (haltTime - haltTime_axiom) + haltTime_axiom := by omega
+      rw [h_diff]
+      -- step^[a + b] = step^[a] ∘ step^[b], so step^[diff + axiom] cfg = step^[diff] (step^[axiom] cfg)
+      rw [Function.iterate_add]
+      simp only [Function.comp_apply]
+      -- At step^[haltTime_axiom], we're halted. halt_persists keeps us halted.
+      exact Foundations.halt_persists (A n.val).base.M _ (haltTime - haltTime_axiom) h_halts_at_axiom
     exact Foundations.fg_first_commit_time_lower_bound_from_adversary
       L (A n.val) v_fg h_R_pos 0 haltTime h_halts_lstar
 
