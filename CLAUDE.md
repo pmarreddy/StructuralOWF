@@ -63,7 +63,7 @@ lake build LayerName    # Specific layer
 ## Trust Boundary (2 Axioms)
 
 1. **`algspec_has_tm`** — Church-Turing bridge (any AlgSpec has TM implementation)
-2. **`tm_extracted_configs_separate_planted`** — WC-1 bridge (separation properties; time bound derived)
+2. **`not_refuted_implies_indistinguishable`** — WC-1 bridge (indistinguishability axiom; separation and time bound derived)
 
 All standard CS/information-theory principles. See `docs/AXIOM_FINAL_COUNT.md`.
 

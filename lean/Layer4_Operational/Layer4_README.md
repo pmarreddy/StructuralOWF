@@ -133,20 +133,20 @@ axiom church_turing_with_poly_simulation :
 
 **Status**: 1 axiom (shared across both profiles).
 
-#### Axiom 2: WC-1 Separation Bridge
+#### Axiom 2: WC-1 Indistinguishability Bridge
 
 **WC-1 Bridge** (WC1Bridge.lean):
 ```lean
-axiom tm_extracted_configs_separate_planted :
-  -- TM correctness → separation of planted world from all others
-  -- Time bound ≥ 2^R - 1 is DERIVED from separation properties
+axiom not_refuted_implies_indistinguishable :
+  -- If a world is not refuted by TM's run, it is TM-indistinguishable from planted
+  -- Separation and time bound ≥ 2^R - 1 are DERIVED from indistinguishability
 ```
 
-**Core principle**: Separation properties (planted survives, others refuted) imply time bound.
+**Core principle**: Indistinguishability implies separation (via contradiction), which implies time bound.
 
-**What the axiom asserts**: TM correctness implies separation of worlds.
+**What the axiom asserts**: Unrefuted worlds are TM-indistinguishable from planted.
 
-**What's derived** (proven): `haltTime ≥ 2^R - 1` via counting.
+**What's derived** (proven): Separation properties and `haltTime ≥ 2^R - 1` via counting.
 
 #### Theorems 3-5: Proven Properties
 
@@ -334,12 +334,14 @@ time ≥ 2^R
 
 **Path 2: WC-1 Bridge Route** (CURRENTLY ACTIVE)
 - Theorem: `tm_time_lower_bound_operational`
-- Strategy: Correctness → separation → refuted.length = 2^R - 1 → time ≥ 2^R - 1
-- Axiom: `tm_extracted_configs_separate_planted` (WC-1 bridge: separation only)
+- Strategy: Indistinguishability → separation → refuted.length = 2^R - 1 → time ≥ 2^R - 1
+- Axiom: `not_refuted_implies_indistinguishable` (WC-1 bridge: indistinguishability only)
 - Proof chain:
   ```
-  tm_extracted_configs_separate_planted (WC1Bridge.lean - AXIOM)
-    ↓ correctness → separation of planted from all other worlds
+  not_refuted_implies_indistinguishable (WC1Bridge.lean - AXIOM)
+    ↓ unrefuted → TM-indistinguishable from planted
+  indistinguishability_implies_all_wrong_refuted (PROVEN)
+    ↓ all wrong worlds refuted (by contradiction with WC correctness)
   separation_implies_refuted_length (PROVEN)
     ↓ separation → refuted.length = 2^R - 1
   tmRefutedWorlds_length_le_configs (PROVEN)
@@ -347,7 +349,7 @@ time ≥ 2^R
   tm_time_lower_bound_operational (PROVEN)
     ↓ Therefore: haltTime ≥ 2^R - 1 ✓
   ```
-- Length: Moderate (time bound is DERIVED, not axiomatic)
+- Length: Moderate (separation and time bound are DERIVED, not axiomatic)
 - Benefit: Direct semantic argument, shorter proof chain
 
 **Unified Theorem**:
@@ -647,9 +649,9 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 **2 axioms total**:
 1. **`algspec_has_tm`** (RandAdv.lean) — Church-Turing bridge: algorithms have TM implementations
-2. **`tm_extracted_configs_separate_planted`** (WC1Bridge.lean) — WC-1 separation bridge
-   - Asserts separation: planted survives, others refuted, no duplicates
-   - Time bound `haltTime ≥ 2^R - 1` derived from separation via counting
+2. **`not_refuted_implies_indistinguishable`** (WC1Bridge.lean) — WC-1 indistinguishability bridge
+   - Asserts indistinguishability: unrefuted worlds are TM-indistinguishable from planted
+   - Separation and time bound `haltTime ≥ 2^R - 1` derived from indistinguishability via counting
 
 Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly.
 
@@ -686,7 +688,7 @@ Both axioms operate at the semantic level—neither mentions P, NP, or complexit
 
 **After refactoring**: 2 axioms total
 - algspec_has_tm (positive: algorithms → TMs)
-- tm_extracted_configs_separate_planted (WC-1 bridge: separation axiom; time bound DERIVED)
+- not_refuted_implies_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
 
 **Reduction**: 85%+ axiom elimination.
 
@@ -732,9 +734,9 @@ Both axioms operate at the semantic level—neither mentions P, NP, or complexit
 
 2. **WC1Bridge.lean** (~3400 lines)
    - WC-1 bridge implementation
-   - `tm_extracted_configs_separate_planted` axiom (separation properties)
-   - Time bound derivation: `tm_time_lower_bound_operational` (PROVEN)
-   - Trust boundary: 1 axiom (separation only; time bound DERIVED)
+   - `not_refuted_implies_indistinguishable` axiom (indistinguishability property)
+   - Separation and time bound derivation: `tm_time_lower_bound_operational` (PROVEN)
+   - Trust boundary: 1 axiom (indistinguishability only; separation and time bound DERIVED)
 
 ### ExecutionSemantics/ (2 files, 24 axiom audits total)
 

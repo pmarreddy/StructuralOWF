@@ -175,7 +175,7 @@ literally a single TM taking 1^n as input. This is morally equivalent for the se
 ### Trust Boundary
 
 **1 custom axiom** (strict subset of P≠NP's 2 axioms):
-- `tm_extracted_configs_separate_planted` — WC-1 bridge (separation axiom; time bound DERIVED)
+- `not_refuted_implies_indistinguishable` — WC-1 bridge (indistinguishability axiom; separation and time bound DERIVED)
 
 OWF existence does NOT require the AlgSpec→TM bridge axiom (`algspec_has_tm`).
 
@@ -302,7 +302,7 @@ Zero-knowledge proofs:
 'P_ne_NP' depends on axioms:
   [propext, Classical.choice, Quot.sound,    ← Standard Lean
    algspec_has_tm,                           ← Church-Turing bridge
-   tm_extracted_configs_separate_planted]    ← WC-1 separation bridge
+   not_refuted_implies_indistinguishable]    ← WC-1 indistinguishability bridge
 ```
 
 ### The 2 Axioms
@@ -310,15 +310,15 @@ Zero-knowledge proofs:
 | # | Axiom | File | Nature | Risk |
 |---|-------|------|--------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean | Church-Turing bridge | Very Low |
-| 2 | `tm_extracted_configs_separate_planted` | WC1Bridge.lean | WC-1 separation bridge | Low |
+| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean | WC-1 indistinguishability bridge | Low |
 
 ### Axiom Details
 
 1. **`algspec_has_tm`**: Church-Turing thesis — any algorithm has a TM implementation.
 
-2. **`tm_extracted_configs_separate_planted`**: WC-1 bridge — asserts separation properties:
-   - Planted world survives, all others refuted, no duplicates
-   - Time bound `≥ 2^R - 1` derived from separation via counting
+2. **`not_refuted_implies_indistinguishable`**: WC-1 bridge — asserts indistinguishability:
+   - Unrefuted worlds are TM-indistinguishable from the planted world
+   - Separation and time bound `≥ 2^R - 1` derived from indistinguishability via counting
 
 Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly.
 

@@ -2849,8 +2849,8 @@ theorem P_ne_NP_complete :
   - Encoding semantics — proven as theorem
 - **Axioms** (2 total):
   - `algspec_has_tm` — Church-Turing bridge (RandAdv.lean)
-  - `tm_extracted_configs_separate_planted` — WC-1 separation bridge (WC1Bridge.lean)
-- **Design**: Time bound derived from separation properties, not directly asserted
+  - `not_refuted_implies_indistinguishable` — WC-1 indistinguishability bridge (WC1Bridge.lean)
+- **Design**: Separation and time bound derived from indistinguishability, not directly asserted
 
 ---
 
@@ -3141,7 +3141,7 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 
 **Trust Boundary**: 2 axioms (verified via `#print axioms P_ne_NP`)
 1. `algspec_has_tm` (RandAdv.lean) — Church-Turing bridge
-2. `tm_extracted_configs_separate_planted` (WC1Bridge.lean) — WC-1 separation bridge
+2. `not_refuted_implies_indistinguishable` (WC1Bridge.lean) — WC-1 indistinguishability bridge
 
 **Coherence**: All definitions match textbook formulations in their respective fields.
 

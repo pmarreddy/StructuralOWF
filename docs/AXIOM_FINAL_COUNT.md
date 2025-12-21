@@ -7,20 +7,19 @@ The P≠NP proof relies on exactly **2 custom axioms** plus Lean's standard axio
 | # | Axiom | Location | Nature |
 |---|-------|----------|--------|
 | 1 | `algspec_has_tm` | `Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean` | Church-Turing bridge |
-| 2 | `tm_extracted_configs_separate_planted` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | WC-1 separation bridge |
+| 2 | `not_refuted_implies_indistinguishable` | `Layer4_Operational/TimeBridge/WC1Bridge.lean` | WC-1 indistinguishability bridge |
 
 ## Axiom Structure
 
-The WC-1 bridge axiom asserts only **separation properties**:
-1. Planted world is NOT refuted
-2. All other worlds ARE refuted
-3. No duplicates in refuted list
+The WC-1 bridge axiom asserts **indistinguishability**:
+- If a world ω' is not refuted by the TM's run trace, then the TM cannot distinguish ω' from the planted world
 
-The **time bound `haltTime ≥ 2^R - 1` is derived**, not directly asserted:
-1. Separation → `refuted.length = 2^R - 1` (proven: `separation_implies_refuted_length`)
-2. WC-1 structure → `refuted.length ≤ configs.length` (proven: `tmRefutedWorlds_length_le_configs`)
-3. Dedup bound → `configs.length ≤ haltTime` (proven: `configsFromTMRun_length_le`)
-4. Conclusion: `2^R - 1 ≤ haltTime` (proven: `tm_time_lower_bound_operational`)
+The **separation properties and time bound are derived**:
+1. Indistinguishability → all wrong worlds must be refuted (proven: `indistinguishability_implies_all_wrong_refuted`)
+2. Separation → `refuted.length = 2^R - 1` (proven: `separation_implies_refuted_length`)
+3. WC-1 structure → `refuted.length ≤ configs.length` (proven: `tmRefutedWorlds_length_le_configs`)
+4. Dedup bound → `configs.length ≤ haltTime` (proven: `configsFromTMRun_length_le`)
+5. Conclusion: `2^R - 1 ≤ haltTime` (proven: `tm_time_lower_bound_operational`)
 
 ### 1. `algspec_has_tm` (Church-Turing Bridge, Positive Direction)
 
@@ -31,24 +30,25 @@ Any polynomial-time algorithmic specification has a Turing Machine implementatio
 
 **Risk**: Very Low. This is the universally accepted Church-Turing correspondence (Church 1936, Turing 1936).
 
-### 2. `tm_extracted_configs_separate_planted` (WC-1 Bridge Axiom - Operational)
+### 2. `not_refuted_implies_indistinguishable` (WC-1 Bridge Axiom - Operational)
 
 **What it says (simple)**:
-"A correct TM produces configs that separate the planted world from all others."
-The time bound (≥ 2^R - 1) is DERIVED from the separation properties.
+"If a world is not refuted by the TM's run, the TM cannot distinguish it from the planted world."
+Separation properties and time bound (≥ 2^R - 1) are DERIVED from this indistinguishability.
 
 **Key properties**:
-- **Operational**: Configs are DEFINED via `configsFromTMRun`, not existentially quantified
-- **Separation only**: Axiom asserts separation, NOT the time bound directly
+- **Operational**: Configs are DEFINED via the TM's actual run trace, not existentially quantified
+- **Indistinguishability**: Axiom asserts that unrefuted worlds produce the same TM output
+- **Separation derived**: By contradiction with worst-case correctness, all wrong worlds must be refuted
 - **Time bound derived**: WC-1 structure ensures each config adds ≤1 world, so time ≥ 2^R - 1
 
 **What the axiom asserts**:
 For a correct TM on a planted L* instance:
-1. The planted world is NOT refuted (it survives)
-2. All other worlds ARE refuted (they're eliminated)
-3. The refuted worlds list has no duplicates
+- If ω' ∉ tmRefutedWorlds, then TMIndistinguishable ω' cfg_planted
+- (i.e., the TM produces the same output on both)
 
-**Time bound is DERIVED** (not in axiom):
+**Separation and time bound are DERIVED** (not in axiom):
+- `indistinguishability_implies_all_wrong_refuted`: All wrong worlds must be refuted (by contradiction)
 - `tmRefutedWorlds_length_le_configs`: Each config adds ≤1 world (WC-1 structure)
 - `separation_implies_refuted_length`: Separation → refuted.length = 2^R - 1
 - `configsFromTMRun_length_le`: configs.length ≤ haltTime
@@ -87,15 +87,18 @@ lake env lean Layer5_Applications/PvsNP/PrimaryPath/CheckAxioms.lean
 
 ## The WC-1 Axiom Architecture
 
-The axiom `tm_extracted_configs_separate_planted` is the Church-Turing bridge for the
+The axiom `not_refuted_implies_indistinguishable` is the Church-Turing bridge for the
 negative direction: computational impossibility implies TM impossibility.
 
 ### What the Axiom Claims
 
 The axiom says: For a correct TM on a planted L* instance:
-1. The extracted configs separate the planted world from all wrong worlds
+- If a world ω' is not refuted by the TM's run trace, then ω' is TM-indistinguishable from planted
+
+From this, we derive (via `indistinguishability_implies_all_wrong_refuted`):
+1. All wrong worlds are refuted (by contradiction with worst-case correctness)
 2. The refuted worlds list has no duplicates (WC-1 property)
-3. `haltTime ≥ 2^R - 1` (direct time bound)
+3. `haltTime ≥ 2^R - 1` (derived time bound)
 
 ### What's Already Proven (0 custom axioms)
 

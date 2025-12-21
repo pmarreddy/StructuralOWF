@@ -430,9 +430,9 @@ theorem fg_first_commit_time_lower_bound
 - parity_requires_all_bits [5] (information-theoretic necessity)
 - visitedEncodings_card_ge_pow [6] (counting lemma)
 - correctness_implies_realizesAllValues (semantic bridge lemma)
-- [AXIOM] tm_extracted_configs_separate_planted (WC-1 bridge: separation axiom; time bound is DERIVED)
+- [AXIOM] not_refuted_implies_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
 
-**Axiomatic Content**: 1 (tm_extracted_configs_separate_planted - see Axiom 2/2 below)
+**Axiomatic Content**: 1 (not_refuted_implies_indistinguishable - see Axiom 2/2 below)
 
 **Paper Reference**: §9 "Time bound derivation", §7.4 "Operational semantics bridge"
 
@@ -511,10 +511,10 @@ theorem f_is_structural_owf_exponential_flat
 **Dependencies**:
 - Randomness.assignment [8] (witness extraction via field access)
 - fg_first_commit_time_lower_bound_encoded [7] (exponential time lower bound)
-- [AXIOM] tm_extracted_configs_separate_planted (WC-1 bridge: separation axiom; time bound is DERIVED)
+- [AXIOM] not_refuted_implies_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
 - [AXIOM] algspec_has_tm (Church-Turing equivalence)
 
-**Axiomatic Content**: 2 (algspec_has_tm, tm_extracted_configs_separate_planted - see Axiom Summary)
+**Axiomatic Content**: 2 (algspec_has_tm, not_refuted_implies_indistinguishable - see Axiom Summary)
 
 **Paper Reference**: §9 "OWF security proof", §9.2 "Contradiction derivation"
 
@@ -606,7 +606,7 @@ theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical
 - alignedCNFFamily (concrete satisfiable CNF family)
 - f_is_structural_owf_exponential_flat [9] (used internally by [10])
 
-**Axiomatic Content**: 2 (inherited from [9]: algspec_has_tm, tm_extracted_configs_separate_planted)
+**Axiomatic Content**: 2 (inherited from [9]: algspec_has_tm, not_refuted_implies_indistinguishable)
 
 **Paper Reference**: §10 "Main theorem", §10.3 Theorem 10.B "P ≠ NP (unconditional)"
 
@@ -833,24 +833,20 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
 
 ---
 
-### Axiom 2/2: WC-1 Separation Bridge
+### Axiom 2/2: WC-1 Indistinguishability Bridge
 
-**Name**: `tm_extracted_configs_separate_planted`
+**Name**: `not_refuted_implies_indistinguishable`
 
 **Location**: `Layer4_Operational/TimeBridge/WC1Bridge.lean`
 
-**Statement**: For planted L* instances, if a TM correctly solves the instance, the extracted configs separate the planted world from all others.
+**Statement**: For planted L* instances, if a world is not refuted by the TM's run trace, then the TM cannot distinguish it from the planted world.
 
-**Key Properties**:
-1. Planted world is NOT refuted
-2. All other worlds ARE refuted
-3. No duplicates in refuted list
-
-**Time Bound Derivation** (proven):
-- `separation_implies_refuted_length`: separation → `refuted.length = 2^R - 1`
-- `tmRefutedWorlds_length_le_configs`: `refuted.length ≤ configs.length`
-- `configsFromTMRun_length_le`: `configs.length ≤ haltTime`
-- `tm_time_lower_bound_operational`: `haltTime ≥ 2^R - 1`
+**Derivation Chain** (from axiom):
+1. `indistinguishability_implies_all_wrong_refuted`: all wrong worlds refuted (by contradiction)
+2. `separation_implies_refuted_length`: separation → `refuted.length = 2^R - 1`
+3. `tmRefutedWorlds_length_le_configs`: `refuted.length ≤ configs.length`
+4. `configsFromTMRun_length_le`: `configs.length ≤ haltTime`
+5. `tm_time_lower_bound_operational`: `haltTime ≥ 2^R - 1`
 
 **Used By**: [7] TM time bound, [9] OWF security
 

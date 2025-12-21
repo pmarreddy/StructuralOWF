@@ -4979,8 +4979,8 @@ Every SAT solver TM reads from a fixed input encoding:
 4. Therefore, extraction is constant → `EncodingConsistency` holds (DERIVED!)
 
 **Remaining axiom usage**:
-The original axiom `tm_extracted_configs_separate_planted` is still used elsewhere
-in the codebase. To fully eliminate it:
+The axiom `not_refuted_implies_indistinguishable` is still used in the codebase.
+To fully eliminate it, one could:
 1. Replace usages with `separation_for_readonly_input_tm`
 2. Show that each TM used satisfies `TMWithReadOnlyInput`
 

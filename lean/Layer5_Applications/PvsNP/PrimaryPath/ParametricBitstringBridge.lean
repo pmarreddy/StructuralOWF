@@ -182,7 +182,7 @@ This is EXACTLY the P vs NP asymmetry:
 
 **Trust Boundary**: 2 axioms
 - **algspec_has_tm** (RandAdv.lean) — Church-Turing bridge
-- **tm_extracted_configs_separate_planted** (WC1Bridge.lean) — WC-1 separation bridge
+- **not_refuted_implies_indistinguishable** (WC1Bridge.lean) — WC-1 indistinguishability bridge
 
 ---
 

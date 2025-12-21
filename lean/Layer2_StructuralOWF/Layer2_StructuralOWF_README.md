@@ -349,8 +349,8 @@ theorem f_is_parity_owf_exponential_true : ...
 
 ### Axiom Summary (2 axioms total)
 1. `algspec_has_tm` (RandAdv.lean) — Church-Turing bridge
-2. `tm_extracted_configs_separate_planted` (WC1Bridge.lean) — WC-1 separation bridge
-   - Asserts separation properties; time bound `≥ 2^R - 1` derived via counting
+2. `not_refuted_implies_indistinguishable` (WC1Bridge.lean) — WC-1 indistinguishability bridge
+   - Asserts indistinguishability; separation and time bound `≥ 2^R - 1` derived via counting
 
 Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly.
 

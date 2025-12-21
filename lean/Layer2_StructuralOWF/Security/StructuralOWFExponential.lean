@@ -175,9 +175,9 @@ Same principle: Plant_flat is triple-locked OWF
 
 **Axioms** (2 total):
 1. **`algspec_has_tm`** (RandAdv.lean) — Church-Turing bridge
-2. **`tm_extracted_configs_separate_planted`** (WC1Bridge.lean) — WC-1 separation bridge
-   - Asserts separation: planted survives, others refuted, no duplicates
-   - Time bound `≥ 2^R - 1` derived from separation via counting
+2. **`not_refuted_implies_indistinguishable`** (WC1Bridge.lean) — WC-1 indistinguishability bridge
+   - Asserts indistinguishability: unrefuted worlds are TM-indistinguishable from planted
+   - Separation and time bound `≥ 2^R - 1` derived from indistinguishability via counting
 
 Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds.
 
@@ -2546,16 +2546,15 @@ theorem f_is_structural_owf_exponential_true
 
 /-! ## WC-1 Bridge Axiom
 
-The WC-1 bridge axiom `tm_extracted_configs_separate_planted` asserts:
-- Planted world survives (not refuted)
-- All other worlds are refuted
-- No duplicates in refuted list
+The WC-1 bridge axiom `not_refuted_implies_indistinguishable` asserts:
+- If a world is not refuted by the TM's run, it is TM-indistinguishable from planted
 
-**Time bound derivation** (proven, not axiomatic):
-1. `separation_implies_refuted_length`: separation → refuted.length = 2^R - 1
-2. `tmRefutedWorlds_length_le_configs`: refuted.length ≤ configs.length
-3. `configsFromTMRun_length_le`: configs.length ≤ haltTime
-4. `tm_time_lower_bound_operational`: haltTime ≥ 2^R - 1
+**Separation and time bound derivation** (proven, not axiomatic):
+1. `indistinguishability_implies_all_wrong_refuted`: all wrong worlds refuted (by contradiction)
+2. `separation_implies_refuted_length`: separation → refuted.length = 2^R - 1
+3. `tmRefutedWorlds_length_le_configs`: refuted.length ≤ configs.length
+4. `configsFromTMRun_length_le`: configs.length ≤ haltTime
+5. `tm_time_lower_bound_operational`: haltTime ≥ 2^R - 1
 -/
 
 -- Verify the dominance lemma works correctly

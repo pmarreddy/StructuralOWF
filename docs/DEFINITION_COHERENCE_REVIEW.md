@@ -648,7 +648,7 @@ Excellent formalization:
 
 **Axioms** (2 total):
 1. `algspec_has_tm` — Church-Turing bridge (positive: algorithms → TMs)
-2. `tm_extracted_configs_separate_planted` — WC-1 bridge (separation axiom; time bound DERIVED)
+2. `not_refuted_implies_indistinguishable` — WC-1 bridge (indistinguishability axiom; separation and time bound DERIVED)
 
 ---
 
@@ -735,7 +735,7 @@ All 49 auxiliary definitions reviewed — standard implementations:
 
 **2 Axioms** — Minimal and reasonable:
 1. `algspec_has_tm` — Church-Turing thesis
-2. `tm_extracted_configs_separate_planted` — WC-1 bridge (separation axiom; time bound DERIVED)
+2. `not_refuted_implies_indistinguishable` — WC-1 bridge (indistinguishability axiom; separation and time bound DERIVED)
 
 ---
 
