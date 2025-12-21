@@ -7,20 +7,17 @@ import Layer4_Operational.TuringMachine.TuringMachineSemantics  -- For TMConfig.
 import Layer4_Operational.TimeBridge.LStarEncodingTypes  -- For ReplantingSimulation, WorstCaseCorrectOnLStar
 import Layer0_Foundations.Base.CNF  -- For CNF, HasPositiveClause
 
-/-! ## StructuralOWFAdversary: OWF-Specific PPT Adversary (Sigma-Wrapped Types)
+/-! ## StructuralOWFAdversary: OWF-Specific PPT Adversary
 
 **Purpose**: Wraps generic PPTAdversary with OWF-specific types and assignment correspondence.
 
-**Design (Option A - Sigma Types)**: StructuralOWFAdversary uses sigma-wrapped types:
-- Input: α = Σ _n : Nat, LStarInstanceFG (packages nvars with instance)
-- Output: β = Σ n : Nat, Randomness n
-- Witness: γ = Σ n : Nat, Witness n
-
-This eliminates the 2^k time bound inflation that was previously needed when
-converting between sigma-wrapped RandAdv types and unwrapped PPTAdversary types.
+**Type Specialization**:
+- Input: α = LStarInstanceFG (L* instances with Frontier Gate)
+- Output: β = Randomness nvars
+- Witness: γ = Witness nvars
 
 **TM-Algorithm Correspondence**: The correspondence between TM execution and
-algorithmic `run` is now a STRUCTURAL FIELD (`assignment_correspondence`) rather
+algorithmic `run` is a STRUCTURAL FIELD (`assignment_correspondence`) rather
 than an axiom. This uses ENCODED-INPUT semantics (initWithEncodingBase), not
 blank-tape (TMConfig.run).
 
@@ -41,73 +38,7 @@ open LStar.StructuralOWF
 open LStar.StructuralOWF.Foundations
 open Sized
 
-/-! ### Sigma-Wrapped Type Aliases
-
-These type aliases make the sigma-wrapped types explicit and improve readability.
-Using sigma types eliminates the 2^k time bound inflation in the adapter. -/
-
-/-- Sigma-wrapped L* input: packages nvars with the instance. -/
-abbrev LStarInput := Σ _n : Nat, LStarInstanceFG
-
-/-- Sigma-wrapped Randomness output: packages nvars with randomness. -/
-abbrev RandomnessOutput := Σ n : Nat, Randomness n
-
-/-- Sigma-wrapped Witness: packages nvars with witness. -/
-abbrev WitnessOutput := Σ n : Nat, Witness n
-
-/-- Extract nvars from a sigma-wrapped L* input. -/
-def LStarInput.nvars (x : LStarInput) : Nat := x.1
-
-/-- Extract the L* instance from a sigma-wrapped input. -/
-def LStarInput.inst (x : LStarInput) : LStarInstanceFG := x.2
-
-/-- Wrap an L* instance with its nvars. -/
-def LStarInput.wrap (L : LStarInstanceFG) : LStarInput := ⟨L.encodedφ.nvars, L⟩
-
-/-- **Nontrivial Computation (Sigma-Wrapped)**: Satisfying assignments require ≥2 TM steps.
-
-    **Definition**: For encoded-input initial configurations, if `extractWitness`
-    produces a satisfying assignment for a CNF φ (with nvars ≥ 4 and HasPositiveClause),
-    then the computation required at least 2 steps.
-
-    **Scope**:
-    - Encoded-input configurations via `initWithEncodingBase`
-    - A CNF φ passed as parameter (from the CNF family Φ used to plant the instance)
-    - CNFs with at least one all-positive clause
-
-    **Note**: Uses sigma-wrapped types for consistency with Option A architecture.
-    The CNF φ is passed as a parameter rather than extracted from the instance
-    because `LStarInstanceFG` contains only the OAP-encoded form (`encodedφ : EncodedCNF`),
-    not the plaintext CNF. The relationship φ.nvars = x.inst.encodedφ.nvars is maintained.
-
-    **Justification**: At t < 2, format separation ensures the output decoder
-    produces an all-false assignment when interpreting input-encoded data.
-    The all-false assignment cannot satisfy CNFs with positive clauses.
-    At t ≥ 2, meaningful computation has occurred.
-
-    **Trust Boundary**: 0 axioms (structural property of well-formed encodings)
--/
-def NontrivialComputation_sigma
-    {tapeCount : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
-    [Fintype alphabet] [DecidableEq alphabet]
-    (M : TuringMachine tapeCount states alphabet)
-    (extractWitness : TMConfig M → WitnessOutput)
-    {coins : Nat} (encoding : TMInputEncodingBase (Fin coins × LStarInput) alphabet)
-    (h_tape_pos : 0 < tapeCount)
-    (h_blank : M.blank = encoding.blank) : Prop :=
-  ∀ (c : Fin coins) (x : LStarInput) (φ : CNF) (haltTime : Nat),
-    φ.nvars = x.inst.encodedφ.nvars →  -- φ corresponds to this instance
-    φ.nvars ≥ 4 →
-    LStar.CNF.HasPositiveClause φ →
-    let init_cfg := initWithEncodingBase M encoding (c, x) h_tape_pos h_blank
-    let witness := extractWitness ((TMConfig.step (M := M))^[haltTime] init_cfg)
-    -- Only check if output nvars matches input nvars
-    witness.1 = x.nvars →
-    φ.satisfies witness.2.assignmentInf →
-    haltTime ≥ 2
-
-/-- **Nontrivial Computation (Legacy)**: Satisfying assignments require ≥2 TM steps.
-    Kept for backward compatibility with existing proofs. -/
+/-- **Nontrivial Computation**: Satisfying assignments require ≥2 TM steps. -/
 def NontrivialComputation (nvars : Nat)
     {tapeCount : Nat} {states alphabet : Type} [Fintype states] [DecidableEq states]
     [Fintype alphabet] [DecidableEq alphabet]
@@ -427,171 +358,5 @@ theorem StructuralOWFAdversary.lstar_halts {nvars : Nat} (A : StructuralOWFAdver
 #print axioms StructuralOWFAdversary.M
 #print axioms StructuralOWFAdversary.lstar_haltTime
 #print axioms StructuralOWFAdversary.lstar_halts
-
-/-! ## StructuralOWFAdversary_sigma: Option A Implementation
-
-This structure uses sigma-wrapped types throughout, eliminating the 2^k time bound
-inflation that was previously needed in the adapter.
-
-**Key difference from StructuralOWFAdversary**:
-- No `nvars` parameter - it's part of the sigma-wrapped input type
-- Uses `LStarInput = Σ _n, LStarInstanceFG` as input type
-- Uses `RandomnessOutput = Σ n, Randomness n` as output type
-- Uses `WitnessOutput = Σ n, Witness n` as witness type
-- Time bounds use sigma_size directly, matching RandAdv axiom semantics
-
-**Why this eliminates 2^k**:
-- RandAdv (from algspec_has_tm) provides correctness at `C * (sigma_size + 1)^k`
-- This structure's PPTAdversary also uses sigma_size for halts/run_correct
-- No size conversion needed → no 2^k inflation
--/
-
-/-- OWF-specific PPT adversary with sigma-wrapped types (Option A).
-
-    **Purpose**: Wraps generic PPTAdversary with sigma-wrapped OWF types.
-    This eliminates the 2^k time bound inflation in the adapter.
-
-    **Type Specialization**:
-    - α = LStarInput (Σ _n : Nat, LStarInstanceFG)
-    - β = RandomnessOutput (Σ n : Nat, Randomness n)
-    - γ = WitnessOutput (Σ n : Nat, Witness n)
-
-    **Key Properties**:
-    - Time bounds use sigma_size: `size ⟨nvars, L⟩ = nvars + 1 + dag.n`
-    - No 2^k inflation needed in adapter
-    - Directly matches RandAdv axiom semantics
-
-    **Assignment Correspondence**: Output nvars must match input nvars for success.
-    This is a value-level check (vs type-level in the nvars-parameterized version).
--/
-structure StructuralOWFAdversary_sigma where
-  /-- The underlying generic PPT adversary with sigma-wrapped types. -/
-  base : PPTAdversary LStarInput RandomnessOutput WitnessOutput
-
-  /-- **ASSIGNMENT CORRESPONDENCE**: extractWitness produces matching assignment.
-
-      **Statement**: For encoded-input TM execution, when the output nvars matches
-      the input nvars, the witness infinite assignment matches the run output.
-
-      **Semantics**: Uses ENCODED-INPUT execution (initWithEncodingBase).
-      We use assignmentInf (infinite assignment) to avoid type issues when nvars differ.
-
-      **Note**: We compare infinite assignments (AssignmentInf) which have the same type
-      regardless of nvars. This avoids the type mismatch that would occur with
-      finite assignments (Assignment nvars). -/
-  assignment_correspondence : ∀ (c : Fin base.num_coins) (x : LStarInput) (t : Nat),
-    t ≥ base.C * (size x + 1) ^ base.k →
-    let init_cfg := initWithEncodingBase base.M base.encoding.input (c, x) base.h_tape_pos base.h_blank_consistent
-    let final_cfg := (TMConfig.step (M := base.M))^[t] init_cfg
-    let witness := base.extractWitness final_cfg
-    let output := base.run c x
-    -- When output nvars matches input nvars, infinite assignments match
-    output.1 = x.nvars →
-    witness.2.assignmentInf = output.2.assignmentInf
-
-  /-- **HALTING (Encoded-Input)**: TM halts within C*(size x+1)^k steps.
-
-      **Note**: Uses sigma_size directly - no 2^k inflation needed. -/
-  halts_encoded : ∀ (c : Fin base.num_coins) (x : LStarInput),
-    let t := base.C * (size x + 1) ^ base.k
-    let init_cfg := initWithEncodingBase base.M base.encoding.input (c, x) base.h_tape_pos base.h_blank_consistent
-    let final_cfg := (TMConfig.step (M := base.M))^[t] init_cfg
-    final_cfg.state ∈ base.M.halt
-
-  /-- **NONTRIVIAL COMPUTATION**: extractWitness requires ≥2 steps for satisfying assignments. -/
-  nontrivial_computation : NontrivialComputation_sigma base.M base.extractWitness
-      base.encoding.input base.h_tape_pos base.h_blank_consistent
-
-  /-- **EXTRACTWITNESS COVERS BOUNDED ASSIGNMENTS**: extractWitness can produce any
-      assignment with bounded support. -/
-  extractWitness_covers_bounded_assignments : ∀ (n : Nat) (σ : LStar.AssignmentInf),
-      (∀ i ≥ n, σ i = false) →
-      ∃ cfg : TMConfig base.M, (base.extractWitness cfg).1 = n ∧
-        (base.extractWitness cfg).2.assignmentInf = σ
-
-  /-- **L*-ENCODING: coinsFor**: Maps planted config to coin choice. -/
-  lstar_coinsFor : (x : LStarInput) → (v : Fin x.inst.dag.n) →
-      x.inst.fg.gateReq v → Fin (2^(x.inst.R v)) → Fin base.num_coins
-
-  /-- **L*-ENCODING: initForPlanting**: Maps planted config to initial TM state. -/
-  lstar_initForPlanting : (x : LStarInput) → (v : Fin x.inst.dag.n) →
-      x.inst.fg.gateReq v → Fin (2^(x.inst.R v)) → TMConfig base.M
-
-  /-- **L*-ENCODING: extractConfigAtV**: Extracts computed config from TM state. -/
-  lstar_extractConfigAtV : (x : LStarInput) → (v : Fin x.inst.dag.n) →
-      TMConfig base.M → Fin (2^(x.inst.R v))
-
-  /-- **L*-ENCODING: ReplantingSimulation**: Replanting coherence property. -/
-  lstar_replanting : (x : LStarInput) → (v : Fin x.inst.dag.n) → (h_fg : x.inst.fg.gateReq v) →
-      ReplantingSimulation x.inst base.M v
-        (lstar_extractConfigAtV x v)
-        (lstar_initForPlanting x v h_fg)
-
-  /-- **L*-ENCODING: Encoding Coherence**: initForPlanting uses standard encoded inputs.
-
-      **Note**: Uses sigma-wrapped x directly - no unwrapping needed. -/
-  lstar_encoding_coherence : (x : LStarInput) → (v : Fin x.inst.dag.n) → (h_fg : x.inst.fg.gateReq v) →
-      ∀ cfg : Fin (2^(x.inst.R v)),
-        lstar_initForPlanting x v h_fg cfg = initWithEncodingBase base.M base.encoding.input
-          (lstar_coinsFor x v h_fg cfg, x) base.h_tape_pos base.h_blank_consistent
-
-  /-- **L*-ENCODING: WorstCaseCorrectOnLStar**: TM outputs correct config for all plantings.
-
-      **Note**: Time bound uses sigma_size directly - same as RandAdv axiom. -/
-  lstar_worst_case : (x : LStarInput) → (v : Fin x.inst.dag.n) → (h_fg : x.inst.fg.gateReq v) →
-      WorstCaseCorrectOnLStar x.inst base.M v
-        (lstar_extractConfigAtV x v)
-        (lstar_initForPlanting x v h_fg)
-        (base.C * (size x + 1) ^ base.k)
-
-/-- Extract the TM from a sigma-wrapped OWF adversary. -/
-abbrev StructuralOWFAdversary_sigma.M (A : StructuralOWFAdversary_sigma) := A.base.M
-
-/-- Extract witness function from a sigma-wrapped OWF adversary. -/
-abbrev StructuralOWFAdversary_sigma.extractWitness (A : StructuralOWFAdversary_sigma) := A.base.extractWitness
-
-/-- Extract run function from a sigma-wrapped OWF adversary. -/
-abbrev StructuralOWFAdversary_sigma.run (A : StructuralOWFAdversary_sigma) := A.base.run
-
-/-- Number of coins in a sigma-wrapped OWF adversary. -/
-abbrev StructuralOWFAdversary_sigma.num_coins (A : StructuralOWFAdversary_sigma) := A.base.num_coins
-
-/-- Uniform polynomial constant C from a sigma-wrapped OWF adversary. -/
-abbrev StructuralOWFAdversary_sigma.C (A : StructuralOWFAdversary_sigma) := A.base.C
-
-/-- Uniform polynomial exponent k from a sigma-wrapped OWF adversary. -/
-abbrev StructuralOWFAdversary_sigma.k (A : StructuralOWFAdversary_sigma) := A.base.k
-
-/-- **L*-ENCODING: haltTime** (computed): The PPT time bound for L* instances.
-
-    **Note**: Uses sigma_size directly - same as base.halts. -/
-abbrev StructuralOWFAdversary_sigma.lstar_haltTime (A : StructuralOWFAdversary_sigma)
-    (x : LStarInput) (_v : Fin x.inst.dag.n) (_h_fg : x.inst.fg.gateReq _v) : Nat :=
-  A.base.C * (size x + 1) ^ A.base.k
-
-/-- **L*-ENCODING: Halting** (derived): TM halts at lstar_haltTime for planted configs.
-
-    **Key difference from legacy version**: No need for halt_persists or size comparison
-    because lstar_haltTime = base time bound (both use sigma_size). -/
-theorem StructuralOWFAdversary_sigma.lstar_halts (A : StructuralOWFAdversary_sigma)
-    (x : LStarInput) (v : Fin x.inst.dag.n) (h_fg : x.inst.fg.gateReq v) :
-    (∀ cfg : Fin (2^(x.inst.R v)),
-      ((TMConfig.step (M := A.base.M))^[A.lstar_haltTime x v h_fg] (A.lstar_initForPlanting x v h_fg cfg)).state ∈ A.base.M.halt) ∧
-    A.lstar_haltTime x v h_fg ≤ A.base.C * (size x + 1) ^ A.base.k := by
-  constructor
-  · -- Halting: directly from encoding coherence + base.halts (no halt_persists needed!)
-    intro cfg
-    have h_coherence := A.lstar_encoding_coherence x v h_fg cfg
-    rw [h_coherence]
-    -- lstar_haltTime = base time bound, so base.halts applies directly
-    exact A.base.halts (A.lstar_coinsFor x v h_fg cfg) x
-  · -- Polynomial bound: reflexive (lstar_haltTime = C * (size x + 1)^k)
-    rfl
-
--- Axiom Audits for sigma-wrapped structure
-#print axioms StructuralOWFAdversary_sigma
-#print axioms StructuralOWFAdversary_sigma.M
-#print axioms StructuralOWFAdversary_sigma.lstar_haltTime
-#print axioms StructuralOWFAdversary_sigma.lstar_halts
 
 end LStar.Complexity
