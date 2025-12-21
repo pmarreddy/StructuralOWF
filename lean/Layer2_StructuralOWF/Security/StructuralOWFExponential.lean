@@ -1562,9 +1562,13 @@ theorem f_is_structural_owf_exponential_flat
   have h_success_for_bridge : (Φ n.val).satisfies (A_inv L).assignmentInf := h_inv_sat
 
   -- Time bound hypothesis for tm_algorithm_correspondence (encoded-input semantics)
-  -- haltTime = (A n.val).base.C * (size L + 1)^(A n.val).base.k (by definition)
-  -- assignment_correspondence uses size L, so this is reflexive
-  have h_time_bound_encoded : haltTime ≥ (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := le_refl _
+  -- haltTime uses sigma-wrapped size ≥ plain size, so bound holds
+  have h_time_bound_encoded : haltTime ≥ (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := by
+    -- sigma_size = nvars + L.dag.n ≥ L.dag.n = plain_size
+    apply Nat.mul_le_mul_left
+    apply Nat.pow_le_pow_left
+    simp only [Sized.size, Complexity.sizedSigma, Complexity.sizedNat]
+    omega
 
   -- Apply bridge theorem: algorithmic success (hypothesis) implies TM success (encoded-input)
   have h_tm_correct : (Φ n.val).satisfies (Foundations.TMAxioms.tmOutputWitnessEncoded (A n.val).base.M
@@ -1602,7 +1606,7 @@ theorem f_is_structural_owf_exponential_flat
 
   -- Polynomial time bound from PPT adversary structure (uniform bounds)
   -- Note: Uses (size L + 1) to match PPTAdversary.poly definition (avoids n=0 edge case)
-  have h_tm_poly_bound : haltTime = (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := rfl
+  have h_tm_poly_bound : haltTime = (A n.val).base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ (A n.val).base.k := rfl
 
   -- Instance is planted (by construction)
   have h_planted_inst : ∃ n' φ' r' h_nvars h_aligned, L = plant_flat n' φ' r' h_nvars h_aligned ∧ WellFormedRandomness_flat φ' r' := by
@@ -1663,10 +1667,21 @@ theorem f_is_structural_owf_exponential_flat
     -- Apply exponential time lower bound from TMAdapter (Exponential profile)
     -- Any correct TM must spend ≥ 2^(R_v) time steps to resolve the emergence
     -- at the FG gate for planted instances via information-theoretic visitation counting.
+    -- Halting at sigma-wrapped time: derive from halts_encoded (plain time) + halt_persists
     have h_halts_enc : (LStar.Complexity.initWithEncodingBase (A n.val).base.M (A n.val).base.encoding.input (c_bar, L)
                           (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent |>
-                        fun init => (Foundations.TMConfig.step)^[haltTime] init).state ∈ (A n.val).base.M.halt :=
-      (A n.val).halts_encoded c_bar L
+                        fun init => (Foundations.TMConfig.step)^[haltTime] init).state ∈ (A n.val).base.M.halt := by
+      -- halts_encoded gives halting at plain time t₀ = C * (size L + 1)^k
+      let t₀ := (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k
+      have h_halts_plain := (A n.val).halts_encoded c_bar L
+      -- haltTime ≥ t₀, so haltTime = (haltTime - t₀) + t₀
+      have h_ge : haltTime ≥ t₀ := h_time_bound_encoded
+      -- Use halt_persists to extend halting from t₀ to haltTime
+      -- Note: iterate_add f m n = f^[m] ∘ f^[n], so we use (haltTime - t₀) + t₀ order
+      have h_diff : haltTime = (haltTime - t₀) + t₀ := by omega
+      rw [h_diff]
+      simp only [Function.iterate_add]
+      exact Foundations.halt_persists (A n.val).base.M _ (haltTime - t₀) h_halts_plain
     -- Encoder completeness: extractWitness can produce all emergent config values.
     -- This follows from A3 emergence (full-rank matrices) combined with the fact that
     -- any reasonable extractWitness reads the tape and can thus produce any assignment.
@@ -1750,37 +1765,54 @@ theorem f_is_structural_owf_exponential_flat
 
     -- Prove uniform bound: haltTime ≤ C_axiom * (L.n + 1)^k_axiom
     have h_uniform_bound : haltTime ≤ C_axiom * (L.n + 1) ^ k_axiom := by
-      -- haltTime = C_uniform * (Sized.size L + 1)^k_uniform
-      -- Sized.size L ≤ 4 * C_cl * L.n^k_cl
-      -- So Sized.size L + 1 ≤ 4 * C_cl * L.n^k_cl + 1 ≤ 8 * C_cl * L.n^k_cl (for L.n ≥ 1)
-
       have h_L_n_pos : L.n > 0 := L.n_pos
       have h_L_n_ge_1 : L.n ≥ 1 := Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt h_L_n_pos)
 
-      -- Step 1: Bound (Sized.size L + 1) by 8 * C_cl * L.n^k_cl
-      have h_size_plus_one_bound : Sized.size L + 1 ≤ 8 * C_cl * L.n ^ k_cl := by
-        have h_size_bound : Sized.size L ≤ 4 * C_cl * L.n ^ k_cl := by
-          calc Sized.size L
-              ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl := h_size_poly_local
+      -- sigma_size = nvars + dag.n for the sigma-wrapped size
+      let sigma_size := Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG)
+      -- For planted instances: nvars = L.n
+      have h_nvars_eq_Ln : L.encodedφ.nvars = L.n := by
+        rw [← L.h_n_eq_nvars]
+      -- sigma_size = L.n + dag.n (sigma_size = nvars + dag.n, nvars = L.n)
+      have h_sigma_eq : sigma_size = L.n + L.dag.n := by
+        show Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) = _
+        simp only [Sized.size, LStar.Complexity.sizedSigma, LStar.Complexity.sizedNat]
+        rw [h_nvars_eq_Ln]
+        rfl
+
+      -- Step 1: Bound sigma_size + 1 by 8 * C_cl * L.n^k_cl
+      have h_sigma_size_plus_one_bound : sigma_size + 1 ≤ 8 * C_cl * L.n ^ k_cl := by
+        have h_dag_bound : L.dag.n ≤ 4 * C_cl * L.n ^ k_cl := by
+          calc L.dag.n
+              = Sized.size L := rfl
+            _ ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl := h_size_poly_local
             _ = 4 * C_cl * L.n ^ k_cl := by rw [← h_L_n_local]
         have h_k_cl_ge_1 : k_cl ≥ 1 := Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt (Nat.lt_of_lt_of_le Nat.zero_lt_one h_k_cl_pos))
         have h_Lnk_ge_1 : L.n ^ k_cl ≥ 1 := Nat.one_le_pow k_cl L.n h_L_n_pos
         have h_C_cl_ge_1 : C_cl ≥ 1 := Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt (Nat.lt_of_lt_of_le Nat.zero_lt_one h_C_cl_pos))
-        calc Sized.size L + 1
-            ≤ 4 * C_cl * L.n ^ k_cl + 1 := Nat.add_le_add_right h_size_bound 1
-          _ ≤ 4 * C_cl * L.n ^ k_cl + C_cl * L.n ^ k_cl := by
-              apply Nat.add_le_add_left
-              calc 1 ≤ L.n ^ k_cl := h_Lnk_ge_1
-                _ ≤ C_cl * L.n ^ k_cl := Nat.le_mul_of_pos_left (L.n ^ k_cl) h_C_cl_pos
-          _ = 5 * C_cl * L.n ^ k_cl := by ring
+        have h_Ln_le_poly : L.n ≤ C_cl * L.n ^ k_cl := by
+          calc L.n = L.n ^ 1 := by ring
+            _ ≤ L.n ^ k_cl := Nat.pow_le_pow_right h_L_n_ge_1 h_k_cl_ge_1
+            _ ≤ C_cl * L.n ^ k_cl := Nat.le_mul_of_pos_left _ h_C_cl_pos
+        calc sigma_size + 1
+            = L.n + L.dag.n + 1 := by rw [h_sigma_eq]
+          _ ≤ L.n + 4 * C_cl * L.n ^ k_cl + 1 := by omega
+          _ ≤ C_cl * L.n ^ k_cl + 4 * C_cl * L.n ^ k_cl + C_cl * L.n ^ k_cl := by
+              apply Nat.add_le_add
+              apply Nat.add_le_add
+              · exact h_Ln_le_poly
+              · exact le_refl _
+              · calc 1 ≤ L.n ^ k_cl := h_Lnk_ge_1
+                  _ ≤ C_cl * L.n ^ k_cl := Nat.le_mul_of_pos_left _ h_C_cl_pos
+          _ = 6 * C_cl * L.n ^ k_cl := by ring
           _ ≤ 8 * C_cl * L.n ^ k_cl := by
               apply Nat.mul_le_mul_right
               omega
 
       -- Step 2: Raise to power k_uniform
-      have h_pow_bound : (Sized.size L + 1) ^ k_uniform ≤ (8 * C_cl) ^ k_uniform * L.n ^ (k_cl * k_uniform) := by
-        calc (Sized.size L + 1) ^ k_uniform
-            ≤ (8 * C_cl * L.n ^ k_cl) ^ k_uniform := Nat.pow_le_pow_left h_size_plus_one_bound k_uniform
+      have h_pow_bound : (sigma_size + 1) ^ k_uniform ≤ (8 * C_cl) ^ k_uniform * L.n ^ (k_cl * k_uniform) := by
+        calc (sigma_size + 1) ^ k_uniform
+            ≤ (8 * C_cl * L.n ^ k_cl) ^ k_uniform := Nat.pow_le_pow_left h_sigma_size_plus_one_bound k_uniform
           _ = (8 * C_cl) ^ k_uniform * (L.n ^ k_cl) ^ k_uniform := by ring
           _ = (8 * C_cl) ^ k_uniform * L.n ^ (k_cl * k_uniform) := by rw [← Nat.pow_mul]
 
@@ -1790,16 +1822,15 @@ theorem f_is_structural_owf_exponential_flat
         omega
 
       -- Step 4: Combine, using uniform polynomial bounds from h_uniform_poly
-      -- h_uniform_poly gives (A n.val).base.C ≤ C_uniform and (A n.val).base.k ≤ k_uniform
       have h_C_le : (A n.val).base.C ≤ C_uniform := (h_uniform_poly n.val).1
       have h_k_le : (A n.val).base.k ≤ k_uniform := (h_uniform_poly n.val).2
-      have h_size_pos : Sized.size L + 1 > 0 := Nat.succ_pos _
+      have h_sigma_pos : sigma_size + 1 > 0 := Nat.succ_pos _
       calc haltTime
-          = (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := rfl
-        _ ≤ (A n.val).base.C * (Sized.size L + 1) ^ k_uniform := by
+          = (A n.val).base.C * (sigma_size + 1) ^ (A n.val).base.k := rfl
+        _ ≤ (A n.val).base.C * (sigma_size + 1) ^ k_uniform := by
             apply Nat.mul_le_mul_left
-            exact Nat.pow_le_pow_right h_size_pos h_k_le
-        _ ≤ C_uniform * (Sized.size L + 1) ^ k_uniform := by
+            exact Nat.pow_le_pow_right h_sigma_pos h_k_le
+        _ ≤ C_uniform * (sigma_size + 1) ^ k_uniform := by
             apply Nat.mul_le_mul_right
             exact h_C_le
         _ ≤ C_uniform * ((8 * C_cl) ^ k_uniform * L.n ^ (k_cl * k_uniform)) := by
@@ -1858,26 +1889,17 @@ theorem f_is_structural_owf_exponential_flat
   have h_nvars_L : (Φ n.val).nvars = (Φ n.val).nvars := rfl
 
   -- Upper bound: haltTime ≤ C * (poly(nvars) + 1)^k
-  -- This is polynomial in nvars, which will be dominated by 2^nvars
-  have h_upper_nvars : haltTime ≤ C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
-    -- size L = dag.n = 1 + nvars + nclauses + treeSize ≤ 1 + nvars + 2*nclauses
-    -- ≤ 1 + nvars + 2*C_cl*nvars^k_cl ≤ 4*C_cl*nvars^k_cl (for nvars ≥ 1 and k_cl ≥ 1)
+  -- Uses 5*C_cl to account for sigma-wrapped size (nvars + dag.n)
+  have h_upper_nvars : haltTime ≤ C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
     have h_nclauses_bound : (Φ n.val).clauses.length ≤ C_cl * n.val ^ k_cl :=
       h_clauses_bound n.val hn_ge_k
     have h_nvars_eq_n : (Φ n.val).nvars = n.val := h_nvars_eq n.val hn_ge_k
     have h_nvars_pos : (Φ n.val).nvars > 0 := by omega
 
-    -- For planted instances: dag.n ≤ 1 + nvars + 2*nclauses
-    -- (treeSize ≤ nclauses from reductionTreeSize definition)
     have h_dag_bound : L.dag.n ≤ 1 + (Φ n.val).nvars + 2 * (Φ n.val).clauses.length := by
       rw [h_L_def]
-      -- plant_flat construction: dag.n = totalNodes = 1 + nvars + nclauses + reductionTreeSize
-      -- reductionTreeSize nclauses ≤ nclauses
-      -- After unfolding plant_flat, .dag = build3SATReductionDAG φ
-      -- and (build3SATReductionDAG φ).n = totalNodes nvars nclauses
       show (plant_flat n.val (Φ n.val) r_star h_nvars_ge_4 (h_aligned n.val hn_ge_k)).dag.n ≤ _
       simp only [plant_flat]
-      -- Now goal is (build3SATReductionDAG (Φ n.val)).n ≤ 1 + nvars + 2*nclauses
       show (Construction.build3SATReductionDAG (Φ n.val)).n ≤ _
       simp only [Construction.build3SATReductionDAG, Construction.totalNodes]
       have h_tree_le : Construction.reductionTreeSize (Φ n.val).clauses.length ≤ (Φ n.val).clauses.length := by
@@ -1886,7 +1908,6 @@ theorem f_is_structural_owf_exponential_flat
         split <;> omega
       omega
 
-    -- Combine bounds: size L ≤ 4 * C_cl * nvars^k_cl (for nvars ≥ 1)
     have h_size_poly : Sized.size L ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl := by
       rw [h_size_L_eq]
       calc L.dag.n
@@ -1900,7 +1921,6 @@ theorem f_is_structural_owf_exponential_flat
         _ = 2 * (Φ n.val).nvars + 2 * C_cl * (Φ n.val).nvars ^ k_cl := by ring
         _ ≤ 2 * C_cl * (Φ n.val).nvars ^ k_cl + 2 * C_cl * (Φ n.val).nvars ^ k_cl := by
             apply Nat.add_le_add_right
-            -- nvars ≤ C_cl * nvars^k_cl for k_cl ≥ 1 and nvars ≥ 1
             calc 2 * (Φ n.val).nvars
                 = 2 * (Φ n.val).nvars ^ 1 := by ring
               _ ≤ 2 * (Φ n.val).nvars ^ k_cl := by
@@ -1912,21 +1932,48 @@ theorem f_is_structural_owf_exponential_flat
                     _ ≤ 2 * C_cl := Nat.mul_le_mul_left 2 h_C_cl_pos
         _ = 4 * C_cl * (Φ n.val).nvars ^ k_cl := by ring
 
-    -- haltTime = C * (size L + 1)^k ≤ C_uniform * (4*C_cl*nvars^k_cl + 1)^k_uniform
+    -- sigma_size = nvars + dag.n for sigma-wrapped size
+    let sigma_size := Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG)
+    have h_nvars_eq_Ln : L.encodedφ.nvars = L.n := by rw [← L.h_n_eq_nvars]
+    have h_Ln_eq_nvars : L.n = (Φ n.val).nvars := by
+      rw [h_L_def]
+      exact plant_flat_n n.val (Φ n.val) r_star h_nvars_ge_4 (h_aligned n.val hn_ge_k)
+    have h_sigma_eq : sigma_size = (Φ n.val).nvars + L.dag.n := by
+      show Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) = _
+      simp only [Sized.size, LStar.Complexity.sizedSigma, LStar.Complexity.sizedNat]
+      rw [h_nvars_eq_Ln, h_Ln_eq_nvars]
+      rfl
+
+    -- sigma_size + 1 ≤ 5 * C_cl * nvars^k_cl + 1 (accounts for extra nvars term)
+    have h_sigma_poly : sigma_size + 1 ≤ 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1 := by
+      have h_nvars_le_poly : (Φ n.val).nvars ≤ C_cl * (Φ n.val).nvars ^ k_cl := by
+        calc (Φ n.val).nvars = (Φ n.val).nvars ^ 1 := by ring
+          _ ≤ (Φ n.val).nvars ^ k_cl := Nat.pow_le_pow_right h_nvars_pos h_k_cl_pos
+          _ ≤ C_cl * (Φ n.val).nvars ^ k_cl := Nat.le_mul_of_pos_left _ h_C_cl_pos
+      calc sigma_size + 1
+          = (Φ n.val).nvars + L.dag.n + 1 := by rw [h_sigma_eq]
+        _ ≤ (Φ n.val).nvars + 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1 := by omega
+        _ ≤ C_cl * (Φ n.val).nvars ^ k_cl + 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1 := by
+            apply Nat.add_le_add
+            apply Nat.add_le_add_right
+            exact h_nvars_le_poly
+            exact le_refl _
+        _ = 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1 := by ring
+
     -- Using uniform polynomial bounds from h_uniform_poly
     have h_C_le : (A n.val).base.C ≤ C_uniform := (h_uniform_poly n.val).1
     have h_k_le : (A n.val).base.k ≤ k_uniform := (h_uniform_poly n.val).2
-    have h_poly_pos : 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1 > 0 := Nat.succ_pos _
+    have h_poly_pos : 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1 > 0 := Nat.succ_pos _
     calc haltTime
-        = (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := h_tm_poly_bound
-      _ ≤ (A n.val).base.C * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ (A n.val).base.k := by
+        = (A n.val).base.C * (sigma_size + 1) ^ (A n.val).base.k := h_tm_poly_bound
+      _ ≤ (A n.val).base.C * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ (A n.val).base.k := by
           apply Nat.mul_le_mul_left
           apply Nat.pow_le_pow_left
-          omega
-      _ ≤ (A n.val).base.C * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
+          exact h_sigma_poly
+      _ ≤ (A n.val).base.C * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
           apply Nat.mul_le_mul_left
           exact Nat.pow_le_pow_right h_poly_pos h_k_le
-      _ ≤ C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
+      _ ≤ C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
           apply Nat.mul_le_mul_right
           exact h_C_le
 
@@ -1937,34 +1984,29 @@ theorem f_is_structural_owf_exponential_flat
         ≥ n.val := h_wellformed n.val hn_ge_128
       _ ≥ n₀_combined := hn_ge_n₀_combined
 
-  -- Key: Prove 2^nvars > C_uniform * (4 * C_cl * nvars^k_cl + 1)^k_uniform
-  -- For nvars ≥ 1: 4*C_cl*nvars^k_cl + 1 ≤ 2 * 4*C_cl*nvars^k_cl = 8*C_cl*nvars^k_cl
-  -- So (...)^k_uniform ≤ (8*C_cl)^k_uniform * nvars^(k_cl*k_uniform)
-  -- Combined: C_uniform * (...)^k_uniform ≤ C_uniform * (8*C_cl)^k_uniform * nvars^(k_cl*k_uniform)
-  -- The combined threshold n₀_combined ensures 2^nvars dominates this polynomial.
+  -- Key: Prove 2^nvars > C_uniform * (5 * C_cl * nvars^k_cl + 1)^k_uniform
+  -- For sigma-wrapped: 5*C_cl*x + 1 ≤ 6*C_cl*x ≤ 8*C_cl*x
 
   have h_nvars_pos : (Φ n.val).nvars > 0 := by omega
 
-  -- For nvars ≥ 1: 4*C_cl*nvars^k_cl + 1 ≤ 8*C_cl*nvars^k_cl
-  have h_combined_poly_adjust : 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1 ≤ 8 * C_cl * (Φ n.val).nvars ^ k_cl := by
-    -- 1 ≤ 4 * C_cl * nvars^k_cl (since C_cl ≥ 1, nvars ≥ 1, k_cl ≥ 1)
-    have h1 : 1 ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl := by
-      calc 1 ≤ 1 * 1 * 1 := by omega
-        _ ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl := by
+  -- For sigma-wrapped: 5*C_cl*x + 1 ≤ 6*C_cl*x ≤ 8*C_cl*x
+  have h_combined_poly_adjust : 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1 ≤ 8 * C_cl * (Φ n.val).nvars ^ k_cl := by
+    have h1 : 1 ≤ C_cl * (Φ n.val).nvars ^ k_cl := by
+      calc 1 ≤ 1 * 1 := by omega
+        _ ≤ C_cl * (Φ n.val).nvars ^ k_cl := by
           apply Nat.mul_le_mul
-          apply Nat.mul_le_mul
-          · omega
           · exact h_C_cl_pos
           · apply Nat.one_le_pow; exact h_nvars_pos
-    -- 4*x + 1 ≤ 8*x when 1 ≤ 4*x (since 4*x + 1 ≤ 4*x + 4*x = 8*x)
-    calc 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1
-        ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl + 4 * C_cl * (Φ n.val).nvars ^ k_cl := Nat.add_le_add_left h1 _
-      _ = 8 * C_cl * (Φ n.val).nvars ^ k_cl := by ring
+    calc 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1
+        ≤ 5 * C_cl * (Φ n.val).nvars ^ k_cl + C_cl * (Φ n.val).nvars ^ k_cl := Nat.add_le_add_left h1 _
+      _ = 6 * C_cl * (Φ n.val).nvars ^ k_cl := by ring
+      _ ≤ 8 * C_cl * (Φ n.val).nvars ^ k_cl := by
+          apply Nat.mul_le_mul_right
+          omega
 
-  -- (4*C_cl*nvars^k_cl + 1)^k_uniform ≤ (8*C_cl*nvars^k_cl)^k_uniform = (8*C_cl)^k_uniform * nvars^(k_cl*k_uniform)
-  have h_outer_pow_adjust : (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform ≤
+  have h_outer_pow_adjust : (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform ≤
       (8 * C_cl) ^ k_uniform * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
-    calc (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
+    calc (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
         ≤ (8 * C_cl * (Φ n.val).nvars ^ k_cl) ^ k_uniform := by
           apply Nat.pow_le_pow_left h_combined_poly_adjust
       _ = (8 * C_cl) ^ k_uniform * ((Φ n.val).nvars ^ k_cl) ^ k_uniform := by ring
@@ -1975,8 +2017,8 @@ theorem f_is_structural_owf_exponential_flat
   have h_exp_combined_applied : 2^((Φ n.val).nvars) - 1 > (C_uniform * (8 * C_cl) ^ k_uniform) * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
     exact h_exp_combined (Φ n.val).nvars h_nvars_ge_n0_combined
 
-  have h_exp_dom_combined : 2^((Φ n.val).nvars) - 1 > C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
-    calc C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
+  have h_exp_dom_combined : 2^((Φ n.val).nvars) - 1 > C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
+    calc C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
         ≤ C_uniform * ((8 * C_cl) ^ k_uniform * (Φ n.val).nvars ^ (k_cl * k_uniform)) := by
           apply Nat.mul_le_mul_left
           exact h_outer_pow_adjust
@@ -1987,7 +2029,7 @@ theorem f_is_structural_owf_exponential_flat
   have : 2^((Φ n.val).nvars) - 1 > 2^((Φ n.val).nvars) - 1 := by
     calc 2^((Φ n.val).nvars) - 1
         ≤ haltTime := h_lower_nvars
-      _ ≤ C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := h_upper_nvars
+      _ ≤ C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := h_upper_nvars
       _ < 2^((Φ n.val).nvars) - 1 := h_exp_dom_combined
 
   exact Nat.lt_irrefl _ this
@@ -2201,7 +2243,12 @@ theorem f_is_structural_owf_exponential_true
 
   have h_success_for_bridge : (Φ n.val).satisfies (A_inv L).assignmentInf := h_inv_sat
 
-  have h_time_bound_encoded : haltTime ≥ (A n.val).base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ (A n.val).base.k := le_refl _
+  -- Time bound for bridge: sigma_size ≥ plain_size, so haltTime ≥ C * (plain + 1)^k
+  have h_time_bound_encoded : haltTime ≥ (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := by
+    apply Nat.mul_le_mul_left
+    apply Nat.pow_le_pow_left
+    simp only [Sized.size, Complexity.sizedSigma, Complexity.sizedNat]
+    omega
 
   have h_tm_correct : (Φ n.val).satisfies (Foundations.TMAxioms.tmOutputWitnessEncoded (A n.val).base.M
       (A n.val).base.encoding.input (c_bar, L) haltTime (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent
@@ -2230,7 +2277,7 @@ theorem f_is_structural_owf_exponential_true
       _ ≤ haltTime := Nat.le_of_lt ht
       _ = maxPos := rfl
 
-  have h_tm_poly_bound : haltTime = (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := rfl
+  have h_tm_poly_bound : haltTime = (A n.val).base.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ (A n.val).base.k := rfl
 
   have h_planted_inst : ∃ n' φ' r' h_nvars h_aligned, L = plant_flat n' φ' r' h_nvars h_aligned ∧ WellFormedRandomness_flat φ' r' := by
     refine ⟨n.val, (Φ n.val), r_star, h_nvars_ge_4, h_aligned n.val hn_ge_k, rfl, h_r_star_wellformed⟩
@@ -2281,10 +2328,18 @@ theorem f_is_structural_owf_exponential_true
         rw [← L.h_n_eq_nvars, h1]
       exact (A n.val).nontrivial_computation c_bar L (Φ n.val) haltTime h_nvars_match h_L_nvars h_L_positive h_correct_for_nontrivial
 
+    -- Halting at sigma-wrapped time: derive from halts_encoded (plain time) + halt_persists
     have h_halts_enc : (LStar.Complexity.initWithEncodingBase (A n.val).base.M (A n.val).base.encoding.input (c_bar, L)
                           (A n.val).base.h_tape_pos (A n.val).base.h_blank_consistent |>
-                        fun init => (Foundations.TMConfig.step)^[haltTime] init).state ∈ (A n.val).base.M.halt :=
-      (A n.val).halts_encoded c_bar L
+                        fun init => (Foundations.TMConfig.step)^[haltTime] init).state ∈ (A n.val).base.M.halt := by
+      let t₀ := (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k
+      have h_halts_plain := (A n.val).halts_encoded c_bar L
+      have h_ge : haltTime ≥ t₀ := h_time_bound_encoded
+      -- Note: iterate_add f m n = f^[m] ∘ f^[n], so we use (haltTime - t₀) + t₀ order
+      have h_diff : haltTime = (haltTime - t₀) + t₀ := by omega
+      rw [h_diff]
+      simp only [Function.iterate_add]
+      exact Foundations.halt_persists (A n.val).base.M _ (haltTime - t₀) h_halts_plain
 
     -- Well-formedness is now part of WellFormedRandomness_flat in h_planted_inst
 
@@ -2356,28 +2411,49 @@ theorem f_is_structural_owf_exponential_true
       have h_L_n_pos : L.n > 0 := L.n_pos
       have h_L_n_ge_1 : L.n ≥ 1 := Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt h_L_n_pos)
 
-      have h_size_plus_one_bound : Sized.size L + 1 ≤ 8 * C_cl * L.n ^ k_cl := by
-        have h_size_bound : Sized.size L ≤ 4 * C_cl * L.n ^ k_cl := by
-          calc Sized.size L
-              ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl := h_size_poly_local
+      -- sigma_size = nvars + dag.n for the sigma-wrapped size
+      let sigma_size := Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG)
+      -- For planted instances: nvars = L.n
+      have h_nvars_eq_Ln : L.encodedφ.nvars = L.n := by
+        rw [← L.h_n_eq_nvars]
+      -- sigma_size = L.n + dag.n (sigma_size = nvars + dag.n, nvars = L.n)
+      have h_sigma_eq : sigma_size = L.n + L.dag.n := by
+        show Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) = _
+        simp only [Sized.size, LStar.Complexity.sizedSigma, LStar.Complexity.sizedNat]
+        rw [h_nvars_eq_Ln]
+        rfl
+
+      have h_sigma_size_plus_one_bound : sigma_size + 1 ≤ 8 * C_cl * L.n ^ k_cl := by
+        have h_dag_bound : L.dag.n ≤ 4 * C_cl * L.n ^ k_cl := by
+          calc L.dag.n
+              = Sized.size L := rfl
+            _ ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl := h_size_poly_local
             _ = 4 * C_cl * L.n ^ k_cl := by rw [← h_L_n_local]
         have h_k_cl_ge_1 : k_cl ≥ 1 := Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt (Nat.lt_of_lt_of_le Nat.zero_lt_one h_k_cl_pos))
         have h_Lnk_ge_1 : L.n ^ k_cl ≥ 1 := Nat.one_le_pow k_cl L.n h_L_n_pos
         have h_C_cl_ge_1 : C_cl ≥ 1 := Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt (Nat.lt_of_lt_of_le Nat.zero_lt_one h_C_cl_pos))
-        calc Sized.size L + 1
-            ≤ 4 * C_cl * L.n ^ k_cl + 1 := Nat.add_le_add_right h_size_bound 1
-          _ ≤ 4 * C_cl * L.n ^ k_cl + C_cl * L.n ^ k_cl := by
-              apply Nat.add_le_add_left
-              calc 1 ≤ L.n ^ k_cl := h_Lnk_ge_1
-                _ ≤ C_cl * L.n ^ k_cl := Nat.le_mul_of_pos_left (L.n ^ k_cl) h_C_cl_pos
-          _ = 5 * C_cl * L.n ^ k_cl := by ring
+        have h_Ln_le_poly : L.n ≤ C_cl * L.n ^ k_cl := by
+          calc L.n = L.n ^ 1 := by ring
+            _ ≤ L.n ^ k_cl := Nat.pow_le_pow_right h_L_n_ge_1 h_k_cl_ge_1
+            _ ≤ C_cl * L.n ^ k_cl := Nat.le_mul_of_pos_left _ h_C_cl_pos
+        calc sigma_size + 1
+            = L.n + L.dag.n + 1 := by rw [h_sigma_eq]
+          _ ≤ L.n + 4 * C_cl * L.n ^ k_cl + 1 := by omega
+          _ ≤ C_cl * L.n ^ k_cl + 4 * C_cl * L.n ^ k_cl + C_cl * L.n ^ k_cl := by
+              apply Nat.add_le_add
+              apply Nat.add_le_add
+              · exact h_Ln_le_poly
+              · exact le_refl _
+              · calc 1 ≤ L.n ^ k_cl := h_Lnk_ge_1
+                  _ ≤ C_cl * L.n ^ k_cl := Nat.le_mul_of_pos_left _ h_C_cl_pos
+          _ = 6 * C_cl * L.n ^ k_cl := by ring
           _ ≤ 8 * C_cl * L.n ^ k_cl := by
               apply Nat.mul_le_mul_right
               omega
 
-      have h_pow_bound : (Sized.size L + 1) ^ k_uniform ≤ (8 * C_cl) ^ k_uniform * L.n ^ (k_cl * k_uniform) := by
-        calc (Sized.size L + 1) ^ k_uniform
-            ≤ (8 * C_cl * L.n ^ k_cl) ^ k_uniform := Nat.pow_le_pow_left h_size_plus_one_bound k_uniform
+      have h_pow_bound : (sigma_size + 1) ^ k_uniform ≤ (8 * C_cl) ^ k_uniform * L.n ^ (k_cl * k_uniform) := by
+        calc (sigma_size + 1) ^ k_uniform
+            ≤ (8 * C_cl * L.n ^ k_cl) ^ k_uniform := Nat.pow_le_pow_left h_sigma_size_plus_one_bound k_uniform
           _ = (8 * C_cl) ^ k_uniform * (L.n ^ k_cl) ^ k_uniform := by ring
           _ = (8 * C_cl) ^ k_uniform * L.n ^ (k_cl * k_uniform) := by rw [← Nat.pow_mul]
 
@@ -2388,13 +2464,13 @@ theorem f_is_structural_owf_exponential_true
       -- Using uniform polynomial bounds from h_uniform_poly
       have h_C_le : (A n.val).base.C ≤ C_uniform := (h_uniform_poly n.val).1
       have h_k_le : (A n.val).base.k ≤ k_uniform := (h_uniform_poly n.val).2
-      have h_size_pos : Sized.size L + 1 > 0 := Nat.succ_pos _
+      have h_sigma_pos : sigma_size + 1 > 0 := Nat.succ_pos _
       calc haltTime
-          = (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := rfl
-        _ ≤ (A n.val).base.C * (Sized.size L + 1) ^ k_uniform := by
+          = (A n.val).base.C * (sigma_size + 1) ^ (A n.val).base.k := rfl
+        _ ≤ (A n.val).base.C * (sigma_size + 1) ^ k_uniform := by
             apply Nat.mul_le_mul_left
-            exact Nat.pow_le_pow_right h_size_pos h_k_le
-        _ ≤ C_uniform * (Sized.size L + 1) ^ k_uniform := by
+            exact Nat.pow_le_pow_right h_sigma_pos h_k_le
+        _ ≤ C_uniform * (sigma_size + 1) ^ k_uniform := by
             apply Nat.mul_le_mul_right
             exact h_C_le
         _ ≤ C_uniform * ((8 * C_cl) ^ k_uniform * L.n ^ (k_cl * k_uniform)) := by
@@ -2435,7 +2511,8 @@ theorem f_is_structural_owf_exponential_true
   have h_size_L_eq : Sized.size L = L.dag.n := rfl
   have h_nvars_L : (Φ n.val).nvars = (Φ n.val).nvars := rfl
 
-  have h_upper_nvars : haltTime ≤ C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
+  -- Upper bound uses 5*C_cl to account for sigma-wrapped size (nvars + dag.n)
+  have h_upper_nvars : haltTime ≤ C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
     have h_nclauses_bound : (Φ n.val).clauses.length ≤ C_cl * n.val ^ k_cl :=
       h_clauses_bound n.val hn_ge_k
     have h_nvars_eq_n : (Φ n.val).nvars = n.val := h_nvars_eq n.val hn_ge_k
@@ -2477,20 +2554,48 @@ theorem f_is_structural_owf_exponential_true
                     _ ≤ 2 * C_cl := Nat.mul_le_mul_left 2 h_C_cl_pos
         _ = 4 * C_cl * (Φ n.val).nvars ^ k_cl := by ring
 
+    -- sigma_size = nvars + dag.n for sigma-wrapped size
+    let sigma_size := Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG)
+    have h_nvars_eq_Ln : L.encodedφ.nvars = L.n := by rw [← L.h_n_eq_nvars]
+    have h_Ln_eq_nvars : L.n = (Φ n.val).nvars := by
+      rw [h_L_def]
+      exact plant_flat_n n.val (Φ n.val) r_star h_nvars_ge_4 (h_aligned n.val hn_ge_k)
+    have h_sigma_eq : sigma_size = (Φ n.val).nvars + L.dag.n := by
+      show Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) = _
+      simp only [Sized.size, LStar.Complexity.sizedSigma, LStar.Complexity.sizedNat]
+      rw [h_nvars_eq_Ln, h_Ln_eq_nvars]
+      rfl
+
+    -- sigma_size + 1 ≤ 5 * C_cl * nvars^k_cl + 1 (accounts for extra nvars term)
+    have h_sigma_poly : sigma_size + 1 ≤ 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1 := by
+      have h_nvars_le_poly : (Φ n.val).nvars ≤ C_cl * (Φ n.val).nvars ^ k_cl := by
+        calc (Φ n.val).nvars = (Φ n.val).nvars ^ 1 := by ring
+          _ ≤ (Φ n.val).nvars ^ k_cl := Nat.pow_le_pow_right h_nvars_pos h_k_cl_pos
+          _ ≤ C_cl * (Φ n.val).nvars ^ k_cl := Nat.le_mul_of_pos_left _ h_C_cl_pos
+      calc sigma_size + 1
+          = (Φ n.val).nvars + L.dag.n + 1 := by rw [h_sigma_eq]
+        _ ≤ (Φ n.val).nvars + 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1 := by omega
+        _ ≤ C_cl * (Φ n.val).nvars ^ k_cl + 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1 := by
+            apply Nat.add_le_add
+            apply Nat.add_le_add_right
+            exact h_nvars_le_poly
+            exact le_refl _
+        _ = 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1 := by ring
+
     -- Using uniform polynomial bounds from h_uniform_poly
     have h_C_le : (A n.val).base.C ≤ C_uniform := (h_uniform_poly n.val).1
     have h_k_le : (A n.val).base.k ≤ k_uniform := (h_uniform_poly n.val).2
-    have h_poly_pos : 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1 > 0 := Nat.succ_pos _
+    have h_poly_pos : 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1 > 0 := Nat.succ_pos _
     calc haltTime
-        = (A n.val).base.C * (Sized.size L + 1) ^ (A n.val).base.k := h_tm_poly_bound
-      _ ≤ (A n.val).base.C * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ (A n.val).base.k := by
+        = (A n.val).base.C * (sigma_size + 1) ^ (A n.val).base.k := h_tm_poly_bound
+      _ ≤ (A n.val).base.C * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ (A n.val).base.k := by
           apply Nat.mul_le_mul_left
           apply Nat.pow_le_pow_left
-          omega
-      _ ≤ (A n.val).base.C * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
+          exact h_sigma_poly
+      _ ≤ (A n.val).base.C * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
           apply Nat.mul_le_mul_left
           exact Nat.pow_le_pow_right h_poly_pos h_k_le
-      _ ≤ C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
+      _ ≤ C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
           apply Nat.mul_le_mul_right
           exact h_C_le
 
@@ -2501,22 +2606,24 @@ theorem f_is_structural_owf_exponential_true
 
   have h_nvars_pos : (Φ n.val).nvars > 0 := by omega
 
-  have h_combined_poly_adjust : 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1 ≤ 8 * C_cl * (Φ n.val).nvars ^ k_cl := by
-    have h1 : 1 ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl := by
-      calc 1 ≤ 1 * 1 * 1 := by omega
-        _ ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl := by
+  -- For sigma-wrapped: 5*C_cl*x + 1 ≤ 6*C_cl*x ≤ 8*C_cl*x
+  have h_combined_poly_adjust : 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1 ≤ 8 * C_cl * (Φ n.val).nvars ^ k_cl := by
+    have h1 : 1 ≤ C_cl * (Φ n.val).nvars ^ k_cl := by
+      calc 1 ≤ 1 * 1 := by omega
+        _ ≤ C_cl * (Φ n.val).nvars ^ k_cl := by
           apply Nat.mul_le_mul
-          apply Nat.mul_le_mul
-          · omega
           · exact h_C_cl_pos
           · apply Nat.one_le_pow; exact h_nvars_pos
-    calc 4 * C_cl * (Φ n.val).nvars ^ k_cl + 1
-        ≤ 4 * C_cl * (Φ n.val).nvars ^ k_cl + 4 * C_cl * (Φ n.val).nvars ^ k_cl := Nat.add_le_add_left h1 _
-      _ = 8 * C_cl * (Φ n.val).nvars ^ k_cl := by ring
+    calc 5 * C_cl * (Φ n.val).nvars ^ k_cl + 1
+        ≤ 5 * C_cl * (Φ n.val).nvars ^ k_cl + C_cl * (Φ n.val).nvars ^ k_cl := Nat.add_le_add_left h1 _
+      _ = 6 * C_cl * (Φ n.val).nvars ^ k_cl := by ring
+      _ ≤ 8 * C_cl * (Φ n.val).nvars ^ k_cl := by
+          apply Nat.mul_le_mul_right
+          omega
 
-  have h_outer_pow_adjust : (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform ≤
+  have h_outer_pow_adjust : (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform ≤
       (8 * C_cl) ^ k_uniform * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
-    calc (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
+    calc (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
         ≤ (8 * C_cl * (Φ n.val).nvars ^ k_cl) ^ k_uniform := by
           apply Nat.pow_le_pow_left h_combined_poly_adjust
       _ = (8 * C_cl) ^ k_uniform * ((Φ n.val).nvars ^ k_cl) ^ k_uniform := by ring
@@ -2527,8 +2634,8 @@ theorem f_is_structural_owf_exponential_true
   have h_exp_combined_applied : 2^((Φ n.val).nvars) - 1 > (C_uniform * (8 * C_cl) ^ k_uniform) * (Φ n.val).nvars ^ (k_cl * k_uniform) := by
     exact h_exp_combined (Φ n.val).nvars h_nvars_ge_n0_combined
 
-  have h_exp_dom_combined : 2^((Φ n.val).nvars) - 1 > C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
-    calc C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
+  have h_exp_dom_combined : 2^((Φ n.val).nvars) - 1 > C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := by
+    calc C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform
         ≤ C_uniform * ((8 * C_cl) ^ k_uniform * (Φ n.val).nvars ^ (k_cl * k_uniform)) := by
           apply Nat.mul_le_mul_left
           exact h_outer_pow_adjust
@@ -2539,7 +2646,7 @@ theorem f_is_structural_owf_exponential_true
   have : 2^((Φ n.val).nvars) - 1 > 2^((Φ n.val).nvars) - 1 := by
     calc 2^((Φ n.val).nvars) - 1
         ≤ haltTime := h_lower_nvars
-      _ ≤ C_uniform * (4 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := h_upper_nvars
+      _ ≤ C_uniform * (5 * C_cl * (Φ n.val).nvars ^ k_cl + 1) ^ k_uniform := h_upper_nvars
       _ < 2^((Φ n.val).nvars) - 1 := h_exp_dom_combined
 
   exact Nat.lt_irrefl _ this
