@@ -341,6 +341,10 @@ instance : UniformityStructure
     (Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG)
     (Σ n : Nat, Vector Bool (2 * n + 64)) where
   uniformityProp := fun {T} M =>
+    -- Use haveI to provide NeZero instance from h_tape_pos
+    haveI : NeZero M.tapeCount := ⟨Nat.pos_iff_ne_zero.mp M.h_tape_pos⟩
+    -- TM-level properties for monotonicity (needed for time bound extension)
+    LStar.StructuralOWF.Foundations.HaltPreservesTape0 M.M ∧
     ∀ (L : LStar.StructuralOWF.LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
       ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
         (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
@@ -350,6 +354,12 @@ instance : UniformityStructure
         -- WorstCaseCorrectOnLStar at PPT bound
         LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
           (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k) ∧
+        -- Halting guarantee: TM halts at the specified time for all planted configs
+        (∀ cfg : Fin (2^(L.R v)),
+          ((TMConfig.step)^[M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k]
+            (initForPlanting cfg)).state ∈ M.M.halt) ∧
+        -- ExtractReadsOnlyTape0: extractConfigAtV only depends on tape 0
+        LStar.StructuralOWF.Foundations.ExtractReadsOnlyTape0 extractConfigAtV ∧
         -- Encoding coherence: initForPlanting is derived from standard encoding
         (∀ cfg : Fin (2^(L.R v)),
           initForPlanting cfg = initWithEncodingBase M.M M.encoding.input
@@ -393,17 +403,33 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
 
 #print axioms algspec_has_tm
 
+/-- **HaltPreservesTape0 Accessor**: Extract HaltPreservesTape0 from uniformityProp.
+
+This is the first conjunct of the L* uniformityProp, needed for monotonicity. -/
+def algspec_has_halt_preserves_tape0 {T : Nat}
+    (M : RandAdv (Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG)
+                  (Σ n : Nat, Vector Bool (2 * n + 64)) T)
+    (h_uniformity : UniformityStructure.uniformityProp M) :
+  haveI : NeZero M.tapeCount := ⟨Nat.pos_iff_ne_zero.mp M.h_tape_pos⟩
+  LStar.StructuralOWF.Foundations.HaltPreservesTape0 M.M :=
+  h_uniformity.1
+
 /-- **L* Structure Accessor**: Extract L* uniformity from algspec_has_tm for L* types.
 
 This is a CONVENIENCE WRAPPER, not a separate axiom. It unpacks the uniformity
 structure from algspec_has_tm for the L* type signature.
 
 **Usage**: Call sites that previously used `algspec_has_lstar_structure M` should
-now extract uniformity from the 4th component of `algspec_has_tm`. -/
+now extract uniformity from the 4th component of `algspec_has_tm`.
+
+**Note**: Now returns additional properties:
+- Halting guarantee at the specified time
+- ExtractReadsOnlyTape0 for monotonicity -/
 def algspec_has_lstar_structure {T : Nat}
     (M : RandAdv (Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG)
                   (Σ n : Nat, Vector Bool (2 * n + 64)) T)
     (h_uniformity : UniformityStructure.uniformityProp M) :
+  haveI : NeZero M.tapeCount := ⟨Nat.pos_iff_ne_zero.mp M.h_tape_pos⟩
   ∀ (L : LStar.StructuralOWF.LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
     ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
       (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
@@ -412,9 +438,13 @@ def algspec_has_lstar_structure {T : Nat}
       LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
         (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k) ∧
       (∀ cfg : Fin (2^(L.R v)),
+        ((TMConfig.step)^[M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k]
+          (initForPlanting cfg)).state ∈ M.M.halt) ∧
+      LStar.StructuralOWF.Foundations.ExtractReadsOnlyTape0 extractConfigAtV ∧
+      (∀ cfg : Fin (2^(L.R v)),
         initForPlanting cfg = initWithEncodingBase M.M M.encoding.input
           (coinsFor cfg, ⟨L.encodedφ.nvars, L⟩) M.h_tape_pos M.h_blank_consistent) :=
-  h_uniformity
+  h_uniformity.2
 
 #print axioms algspec_has_lstar_structure
 

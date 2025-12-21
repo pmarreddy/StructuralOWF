@@ -1310,16 +1310,25 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
     (M : RandAdv (Σ _n : Nat, LStarInstanceFG) (Σ n : Nat, Bits (expWLen n)) T)
     (h_format_sep : EncodingDiscipline.FormatSeparated_exp M (adapterInputEncoding_exp M) M.h_blank_consistent)
     (h_surj : Function.Surjective M.encoding.output.decode)
+    -- HaltPreservesTape0: TM doesn't modify tape 0 after halting (needed for monotonicity)
+    (h_halt_preserves : haveI : NeZero M.tapeCount := ⟨Nat.pos_iff_ne_zero.mp M.h_tape_pos⟩
+                        HaltPreservesTape0 M.M)
     -- L* encoding structure from algspec_has_lstar_structure
-    -- Structure: ∃ init extract coinsFor, Replanting ∧ WorstCase(PPT_bound) ∧ encoding_coherence
-    -- Halting and poly bounds are DERIVED from encoding coherence + PPT structure
-    (h_lstar_encoding : ∀ (L : LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
+    -- Structure: ∃ init extract coinsFor, Replanting ∧ WorstCase ∧ Halts ∧ ExtractTape0 ∧ encoding_coherence
+    (h_lstar_encoding : haveI : NeZero M.tapeCount := ⟨Nat.pos_iff_ne_zero.mp M.h_tape_pos⟩
+      ∀ (L : LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
       ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
         (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
         (coinsFor : Fin (2^(L.R v)) → Fin T),
         ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
         WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
           (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ M.k) ∧
+        -- Halting guarantee at M.C time
+        (∀ cfg : Fin (2^(L.R v)),
+          ((TMConfig.step)^[M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ M.k]
+            (initForPlanting cfg)).state ∈ M.M.halt) ∧
+        -- ExtractReadsOnlyTape0 for monotonicity
+        ExtractReadsOnlyTape0 extractConfigAtV ∧
         (∀ cfg : Fin (2^(L.R v)),
           initForPlanting cfg = initWithEncodingBase M.M M.encoding.input
             (coinsFor cfg, ⟨L.encodedφ.nvars, L⟩) M.h_tape_pos M.h_blank_consistent)) :
@@ -1485,9 +1494,9 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         let h_enc' := Classical.choose_spec h_enc
         let h_enc'' := Classical.choose_spec h_enc'
         let h_props := Classical.choose_spec h_enc''
-        -- h_props.2.2 = encoding_coherence: ∀ cfg, initForPlanting cfg = initWithEncodingBase (c, ⟨L.encodedφ.nvars, L⟩)
-        -- The adversary's constraint uses plain L, which the adapter encoding wraps as ⟨L.encodedφ.nvars, L⟩
-        have h_coherence := h_props.2.2 cfg
+        -- h_props.2.2.2.2 = encoding_coherence: ∀ cfg, initForPlanting cfg = initWithEncodingBase (c, ⟨L.encodedφ.nvars, L⟩)
+        -- Structure: Replanting ∧ WC ∧ Halts ∧ ExtractTape0 ∧ encoding_coherence
+        have h_coherence := h_props.2.2.2.2 cfg
         -- The key insight: base uses adapterInputEncoding_exp M, which wraps L as ⟨L.encodedφ.nvars, L⟩
         -- So initWithEncodingBase base.M base.encoding.input (c, L) produces same config as
         -- initWithEncodingBase M.M M.encoding.input (c, ⟨L.encodedφ.nvars, L⟩)
@@ -1500,18 +1509,54 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         rw [h_adapter_eq]
         exact h_coherence
       lstar_worst_case := fun L v h_fg => by
+        haveI : NeZero M.tapeCount := ⟨Nat.pos_iff_ne_zero.mp M.h_tape_pos⟩
         let h_enc := h_lstar_encoding L v h_fg
         let h_enc' := Classical.choose_spec h_enc
         let h_enc'' := Classical.choose_spec h_enc'
         let h_props := Classical.choose_spec h_enc''
-        -- h_props.2.1 = WorstCaseCorrectOnLStar at M.C * (sigma_size+1)^M.k
-        -- Goal needs: WorstCaseCorrectOnLStar at base.C * (sigma_size+1)^base.k
-        --           = (M.C * 2^M.k) * (sigma_size+1)^M.k (factor of 2^M.k larger)
-        -- This requires showing that running 2^M.k times more steps doesn't change the result
-        -- (follows from TM halting + halt persistence, but not directly available here)
-        -- TEMP: Use sorry; proper fix requires WorstCaseCorrectOnLStar monotonicity lemma
-        convert h_props.2.1 using 2
-        all_goals sorry }
+        -- Extract properties from h_props:
+        -- h_props.1 = ReplantingSimulation
+        -- h_props.2.1 = WorstCaseCorrectOnLStar at t1 = M.C * (sigma_size+1)^M.k
+        -- h_props.2.2.1 = Halting guarantee at t1
+        -- h_props.2.2.2.1 = ExtractReadsOnlyTape0
+        -- h_props.2.2.2.2 = Encoding coherence
+        let extractConfigAtV := Classical.choose h_enc'
+        let initForPlanting := Classical.choose h_enc
+        let sigma_size := Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG)
+        let t1 := M.C * (sigma_size + 1) ^ M.k
+        -- Goal uses sigma_size (same as axiom), not Sized.size L
+        let t2 := base.C * (sigma_size + 1) ^ base.k
+        -- Goal: WorstCaseCorrectOnLStar at t2 = base.C * (sigma_size+1)^base.k = (M.C * 2^M.k) * (sigma_size+1)^M.k
+        -- We have: WorstCaseCorrectOnLStar at t1 = M.C * (sigma_size+1)^M.k
+        -- Since t2 ≥ t1 and TM halts at t1, use monotonicity
+        have h_wc : WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting t1 := h_props.2.1
+        have h_halts : ∀ cfg, ((TMConfig.step)^[t1] (initForPlanting cfg)).state ∈ M.M.halt := h_props.2.2.1
+        have h_extract_tape0 : ExtractReadsOnlyTape0 extractConfigAtV := h_props.2.2.2.1
+        -- Show t2 ≥ t1: base.C * (sigma_size+1)^base.k ≥ M.C * (sigma_size+1)^M.k
+        -- base.C = M.C * 2^M.k, base.k = M.k
+        have h_base_C : base.C = M.C * 2 ^ M.k := by
+          simp only [base, pptAdversary_from_randadv_exp_fixed, adapterTMEncoding_exp_fixed]
+        have h_base_k : base.k = M.k := by
+          simp only [base, pptAdversary_from_randadv_exp_fixed, adapterTMEncoding_exp_fixed]
+        have h_t2_ge : t2 ≥ t1 := by
+          simp only [t2, t1, h_base_C, h_base_k]
+          calc (M.C * 2 ^ M.k) * (sigma_size + 1) ^ M.k
+              = M.C * (2 ^ M.k * (sigma_size + 1) ^ M.k) := by ring
+            _ ≥ M.C * (sigma_size + 1) ^ M.k := by
+                apply Nat.mul_le_mul_left
+                have h1 : 1 ≤ 2 ^ M.k := Nat.one_le_pow M.k 2 (by omega)
+                calc 2 ^ M.k * (sigma_size + 1) ^ M.k
+                    ≥ 1 * (sigma_size + 1) ^ M.k := by
+                        apply Nat.mul_le_mul_right; exact h1
+                  _ = (sigma_size + 1) ^ M.k := by ring
+        -- Apply monotonicity: extends correctness from t1 to t2
+        -- Direct proof: The goal's lstar_* functions are definitionally equal to Classical.choose results
+        -- after applying dif_pos h_fg. Use exact with the type equality.
+        have h_result := WorstCaseCorrectOnLStar_monotone extractConfigAtV initForPlanting t1 t2
+          h_wc h_halts h_halt_preserves h_extract_tape0 h_t2_ge
+        -- Convert types: base.M = M.M definitionally after unfolding
+        simp only [base, pptAdversary_from_randadv_exp_fixed, adapterTMEncoding_exp_fixed, dif_pos h_fg] at h_result ⊢
+        exact h_result }
 
 end AdversaryFromInFP
 
@@ -2113,9 +2158,13 @@ theorem structural_owf_inversion_not_in_fp
   have h_early_zero : M_randadv.early_decode_default.1 = 0 := h_default_zero
   have h_format_sep := StructuralOWFBridgeCommon.formatSeparated_from_early_decode_exp M_randadv h_early_zero
 
+  -- Step 1.5: Extract HaltPreservesTape0 from uniformity (needed for monotonicity)
+  have h_halt_preserves := algspec_has_halt_preserves_tape0 M_randadv h_uniformity
+
   -- Step 2: Construct adversary family from M_randadv (with L* encoding structure)
   let A : (n : Nat) → LStar.Complexity.StructuralOWFAdversary (Φ n).nvars := fun n =>
-    AdversaryFromInFP.structuralOWFAdversary_from_randadv_exp_fixed (Φ n).nvars M_randadv h_format_sep h_surj h_lstar_encoding
+    AdversaryFromInFP.structuralOWFAdversary_from_randadv_exp_fixed (Φ n).nvars M_randadv
+      h_format_sep h_surj h_halt_preserves h_lstar_encoding
 
   -- Step 3: Show uniform polynomial bounds
   -- The adversary's C and k come from M_randadv, which inherits from M_fp
