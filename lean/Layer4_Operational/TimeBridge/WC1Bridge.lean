@@ -3857,8 +3857,30 @@ This is the semantic justification for the indistinguishability bridge axiom.
     It is a DEFINITION, not an axiom - but to use it, one must show that
     the actual encoding satisfies these properties.
 
-    **Key Properties**:
-    1. `replanting_simulation`: The No Backdoor property lifted to TM level
+    **Formal Property**:
+    - `replanting_simulation`: The No Backdoor property lifted to TM level
+
+    **PROOF OBLIGATION (Canonical Initialization)**:
+    Any valid instantiation MUST satisfy these properties (enforced at construction site):
+
+    1. `init_state`: ∀ cfg, (initForPlanting cfg).state = M.q0
+       All plantings start in the SAME control state.
+       Blocks state-stuffing attack.
+
+    2. `init_heads`: ∀ cfg i, (initForPlanting cfg).heads i = 0
+       All heads start at position 0.
+       Blocks head-position smuggling attack.
+
+    3. `init_work_tapes_blank`: ∀ cfg (i : Fin k), i ≠ 0 →
+         (initForPlanting cfg).tapes i = fun _ => M.blank
+       Work tapes start blank. Only tape0 varies.
+       Blocks work-tape smuggling attack.
+
+    4. `extract_from_tape0`: extractConfigAtV depends only on tape0 contents
+       Blocks extractor bypass attack.
+
+    These are verified at construction via `lstar_encoding_coherence` in
+    StructuralOWFAdversary, which proves initForPlanting = initWithEncodingBase.
 
     **Why this is the right abstraction**:
     - L* reveals planted config only through FG gate observations (No Backdoor theorem)
@@ -3871,13 +3893,15 @@ structure LStarTMEncoding
     (L : LStarInstanceFG)
     (M : TuringMachine k states alphabet)
     (v : Fin L.dag.n) where
-  /-- How to create initial TM config for each planting at vertex v -/
+  /-- How to create initial TM config for each planting at vertex v.
+      PROOF OBLIGATION: Must satisfy canonical init (see structure docstring). -/
   initForPlanting : Fin (2^(L.R v)) → TMConfig M
-  /-- How to extract the current config observation at vertex v -/
+  /-- How to extract the current config observation at vertex v.
+      PROOF OBLIGATION: Must read from tape0 only (see structure docstring). -/
   extractConfigAtV : TMConfig M → Fin (2^(L.R v))
-  /-- Replanting Simulation (No Backdoor at TM level)
+  /-- Replanting Simulation (No Backdoor at TM level).
       If TM extracts config c at time t, then planting c produces the same state.
-      This captures: TM's state depends only on what it has "observed" -/
+      This captures: TM's state depends only on what it has "observed". -/
   replanting_simulation : ∀ (cfg_planted : Fin (2^(L.R v))) (t : Nat),
     let state_t := (TMConfig.step (M := M))^[t] (initForPlanting cfg_planted)
     let c := extractConfigAtV state_t
