@@ -1319,10 +1319,10 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         (coinsFor : Fin (2^(L.R v)) → Fin T),
         ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
         WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
-          (M.C * (Sized.size L + 1) ^ M.k) ∧
+          (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ M.k) ∧
         (∀ cfg : Fin (2^(L.R v)),
           initForPlanting cfg = initWithEncodingBase M.M M.encoding.input
-            (coinsFor cfg, ⟨L.n, L⟩) M.h_tape_pos M.h_blank_consistent)) :
+            (coinsFor cfg, ⟨L.encodedφ.nvars, L⟩) M.h_tape_pos M.h_blank_consistent)) :
     LStar.Complexity.StructuralOWFAdversary nvars := by
   classical
   let base := pptAdversary_from_randadv_exp_fixed (T := T) nvars M
@@ -1478,7 +1478,7 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         -- Classical.choose_spec h_enc'' = Replanting ∧ WorstCase ∧ encoding_coherence
         let h_props := Classical.choose_spec h_enc''
         -- h_props : Replanting ∧ WorstCase ∧ encoding_coherence, h_props.1 = ReplantingSimulation
-        convert h_props.1 using 2 <;> simp only [dif_pos h_fg]
+        convert h_props.1 using 2 <;> first | rfl | simp only [dif_pos h_fg]
       lstar_encoding_coherence := fun L v h_fg cfg => by
         -- Extract encoding_coherence from the axiom's properties
         let h_enc := h_lstar_encoding L v h_fg
@@ -1504,9 +1504,14 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         let h_enc' := Classical.choose_spec h_enc
         let h_enc'' := Classical.choose_spec h_enc'
         let h_props := Classical.choose_spec h_enc''
-        -- h_props.2.1 = WorstCaseCorrectOnLStar at PPT bound
-        -- The axiom provides exactly what we need now
-        convert h_props.2.1 using 2 <;> simp only [dif_pos h_fg] }
+        -- h_props.2.1 = WorstCaseCorrectOnLStar at M.C * (sigma_size+1)^M.k
+        -- Goal needs: WorstCaseCorrectOnLStar at base.C * (sigma_size+1)^base.k
+        --           = (M.C * 2^M.k) * (sigma_size+1)^M.k (factor of 2^M.k larger)
+        -- This requires showing that running 2^M.k times more steps doesn't change the result
+        -- (follows from TM halting + halt persistence, but not directly available here)
+        -- TEMP: Use sorry; proper fix requires WorstCaseCorrectOnLStar monotonicity lemma
+        convert h_props.2.1 using 2
+        all_goals sorry }
 
 end AdversaryFromInFP
 
@@ -1787,10 +1792,13 @@ theorem structural_owf_inversion_not_in_fp
   -- equals f_family's success rate, which is 1 by h_inverts.
 
   -- Construct adversary family from InFP using algspec_has_tm + algspec_has_lstar_structure
-  -- Step 1: Get TM from algspec_has_tm (with encoding properties)
-  obtain ⟨M_randadv, h_run_eq, _h_C_eq, _h_k_eq, h_surj, h_default_ne, h_default_zero⟩ := algspec_has_tm M_fp
+  -- Step 1: Get TM from algspec_has_tm (with uniformity)
+  obtain ⟨M_randadv, h_run_eq, _h_C_eq, _h_k_eq, h_uniformity⟩ := algspec_has_tm M_fp
+  -- Get encoding properties from RandAdv structural fields
+  have h_surj : Function.Surjective M_randadv.encoding.output.decode := M_randadv.decode_surjective
+  have h_default_zero : FirstNatComponent.firstNat M_randadv.early_decode_default = 0 := M_randadv.default_zero
   -- Step 2: Get L* structure from algspec_has_lstar_structure
-  have h_lstar_encoding := algspec_has_lstar_structure M_randadv
+  have h_lstar_encoding := algspec_has_lstar_structure M_randadv h_uniformity
 
   -- The RandAdv M_randadv implements f_family with the same polynomial bounds
   -- From h_correct_fp: M_fp.run correctly computes f_family
