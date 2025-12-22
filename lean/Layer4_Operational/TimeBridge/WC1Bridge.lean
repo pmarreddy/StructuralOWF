@@ -8,21 +8,23 @@ import Layer3_InformationBounds.Keyedness.NoBackdoorTheorem
 import Layer2_StructuralOWF.Plant.PlantCore
 import Layer4_Operational.TuringMachine.TMAxioms
 import Layer4_Operational.TimeBridge.TMAdapterExponential
-import Layer4_Operational.TimeBridge.LStarEncodingTypes  -- For ReplantingSimulation, WorstCaseCorrectOnLStar
+import Layer4_Operational.TimeBridge.LStarEncodingTypes  -- For SameObservationSameState, WorstCaseCorrectOnLStar
 import Mathlib.Tactic
 import Mathlib.Data.List.Indexes
 import Mathlib.Data.List.FinRange
 
-/-! ## WC1Bridge: WorldCommit-1 Based Time Bounds (ZERO CUSTOM AXIOMS!)
+/-! ## WC1Bridge: WorldCommit-1 Based Time Bounds (1 SEMANTIC AXIOM)
 
-**Purpose**: Provide an axiom-free path from TM execution to time bounds via WC-1.
+**Purpose**: Derive time bounds from TM execution via WC-1 protocol.
 
-**Restored from**: TMToExecutionPrefix.lean (deleted in commit 9776781)
+**Single Axiom**: `not_refuted_implies_indistinguishable` — asserts that unrefuted
+worlds are TM-indistinguishable from the planted world. All other properties
+(separation, time bound ≥ 2^R - 1) are DERIVED from this.
 
 **Key Insight**: The WorldCommit-1 theorem (`world_commit_refutation_excludes_one`)
 proves that each UnitRefute step eliminates exactly 1 world. By tracking refutations
 as UnitRefute constraints (instead of ConfigMatch), we can derive time bounds
-WITHOUT the Church-Turing bridge axiom.
+from the indistinguishability axiom alone.
 
 **Architecture**:
 ```
@@ -639,8 +641,6 @@ theorem emptyBasePrefix_no_constraints (L : LStarInstanceFG) (C : Finset (Fin L.
   simp only [h_bit, h_config, h_synth, List.nil_append]
 
 /-! ### Package 2: Refuted Worlds Extraction
-
-**Restored from**: TMToExecutionPrefix.lean (deleted in commit 9776781)
 
 The key insight is to process configs sequentially, extracting violators at each step.
 This ensures the feasibility invariant holds by construction.
@@ -2449,7 +2449,7 @@ theorem fg_first_commit_time_lower_bound_via_wc1
 Package 10 (old existential axiom) has been removed.
 The indistinguishability bridge axiom `not_refuted_implies_indistinguishable`
 is now the SINGLE semantic bridge. Structural properties (WorstCaseCorrectOnLStar,
-ReplantingSimulation) are provided definitionally via the `LStarAdversary` structure.
+SameObservationSameState) are provided definitionally via the `LStarAdversary` structure.
 -/
 
 /-! ### Package 11: WC-1 Infrastructure (Supporting Theorems)
@@ -3835,13 +3835,13 @@ This is the semantic justification for the indistinguishability bridge axiom.
 
 **Key Definitions**:
 1. `WorstCaseCorrect`: TM is correct for ALL possible plantings
-2. `ReplantingSimulation`: If TM extracts config c, replanting c gives same TM behavior
+2. `SameObservationSameState`: If TM extracts config c, replanting c gives same TM behavior
 3. `AllConfigsPlanted`: All extracted configs equal cfg_planted
 
 **The Proof**:
 1. Suppose TM M is worst-case correct
 2. Suppose at step t, M extracts config c ≠ cfg_planted
-3. By ReplantingSimulation: if we plant c instead, M behaves identically
+3. By SameObservationSameState: if we plant c instead, M behaves identically
 4. M would extract same configs, halt in same state, produce same output
 5. But output = cfg_planted (from original run), which ≠ c
 6. So M is wrong when c is planted
@@ -3907,7 +3907,7 @@ structure LStarTMEncoding
     let c := extractConfigAtV state_t
     (TMConfig.step (M := M))^[t] (initForPlanting c) = state_t
 
--- NOTE: ReplantingSimulation is now imported from LStarEncodingTypes.lean
+-- NOTE: SameObservationSameState is now imported from LStarEncodingTypes.lean
 
 /-- **Definition**: Two worlds are TM-indistinguishable if planting either gives the same TM output.
 
@@ -3930,9 +3930,9 @@ def TMIndistinguishable
   extractConfigAtV ((TMConfig.step (M := M))^[haltTime] (initForPlanting cfg₁)) =
   extractConfigAtV ((TMConfig.step (M := M))^[haltTime] (initForPlanting cfg₂))
 
-/-- **THEOREM**: LStarTMEncoding directly provides ReplantingSimulation.
+/-- **THEOREM**: LStarTMEncoding directly provides SameObservationSameState.
 
-    The structure's `replanting_simulation` field IS the ReplantingSimulation property. -/
+    The structure's `replanting_simulation` field IS the SameObservationSameState property. -/
 theorem LStarTMEncoding.implies_replanting_simulation
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
@@ -3940,7 +3940,7 @@ theorem LStarTMEncoding.implies_replanting_simulation
     {M : TuringMachine k states alphabet}
     {v : Fin L.dag.n}
     (enc : LStarTMEncoding L M v)
-    : ReplantingSimulation L M v enc.extractConfigAtV enc.initForPlanting :=
+    : SameObservationSameState L M v enc.extractConfigAtV enc.initForPlanting :=
   enc.replanting_simulation
 
 /-- **DEFINITION**: L* Adversary (Uniform Solver with Encoding Structure)
@@ -3989,13 +3989,13 @@ structure LStarAdversary
   /-- Property: Worst-case correctness (correct on ALL plantings) -/
   h_worst_case : WorstCaseCorrectOnLStar L M v enc.extractConfigAtV enc.initForPlanting haltTime
 
-/-- Extract ReplantingSimulation from LStarAdversary -/
+/-- Extract SameObservationSameState from LStarAdversary -/
 theorem LStarAdversary.get_replanting_simulation
     (k : Nat) (states alphabet : Type)
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG) (v : Fin L.dag.n) (h_v_fg : L.fg.gateReq v)
     (adv : @LStarAdversary k states alphabet _ _ _ _ L v h_v_fg)
-    : ReplantingSimulation L adv.M v adv.enc.extractConfigAtV adv.enc.initForPlanting :=
+    : SameObservationSameState L adv.M v adv.enc.extractConfigAtV adv.enc.initForPlanting :=
   adv.enc.replanting_simulation
 
 /-! #### Key Insight: initForPlanting Creates Proper L* Instances
@@ -4033,10 +4033,13 @@ With WorstCaseCorrectOnLStar true, we can derive separation:
 This breaks the circularity via the indistinguishability bridge.
 -/
 
-/-- **BRIDGE AXIOM**: Unrefuted worlds are TM-indistinguishable from planted.
+/-- **BRIDGE AXIOM**: The TM only knows what it has computed.
 
-    If a world ω' is not refuted by the TM's actual run trace, then TM cannot
-    distinguish ω' from the planted world - they produce the same output.
+    **INTUITION**: If a world ω' is not ruled out by the TM's observations,
+    then the TM cannot tell ω' apart from the planted world.
+
+    **FORMAL**: If ω' is not refuted by the TM's actual run trace, then TM
+    produces the same output on ω' as on the planted world.
 
     **Critical constraint**: `configs` must be the actual extracted trace from
     running M on initForPlanting(cfg_planted). This ties the axiom to the
@@ -4156,10 +4159,10 @@ theorem indistinguishability_implies_all_wrong_refuted
 
 #print axioms indistinguishability_implies_all_wrong_refuted
 
-/-- **THEOREM**: ReplantingSimulation holds for TMs with constant extraction.
+/-- **THEOREM**: SameObservationSameState holds for TMs with constant extraction.
 
     If `extractConfigAtV` is constant during execution (returns the initial planted config),
-    then ReplantingSimulation trivially holds.
+    then SameObservationSameState trivially holds.
 
     **Key insight for read-only TMs**:
     - Tape 0 is never modified
@@ -4178,7 +4181,7 @@ theorem readonly_implies_replanting_simulation
     -- Key property: extractConfigAtV is constant during execution (from read-only input)
     (h_extraction_constant : ∀ (cfg : Fin (2^(L.R v))) (t : Nat),
         extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg)) = cfg)
-    : ReplantingSimulation L M v extractConfigAtV initForPlanting := by
+    : SameObservationSameState L M v extractConfigAtV initForPlanting := by
   intro cfg_planted t
   -- c = extractConfigAtV(state_t) = cfg_planted (by h_extraction_constant)
   have h_c_eq : extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted)) = cfg_planted :=
@@ -4216,7 +4219,7 @@ theorem worst_case_correct_implies_all_configs_planted
     (cfg_planted : Fin (2^(L.R v)))
     -- Hypotheses
     (h_worst_case : WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting haltTime)
-    (h_replanting : ReplantingSimulation L M v extractConfigAtV initForPlanting)
+    (h_replanting : SameObservationSameState L M v extractConfigAtV initForPlanting)
     : ∀ t ≤ haltTime,
         extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted)) = cfg_planted := by
   intro t h_t_le
@@ -4272,7 +4275,7 @@ theorem worst_case_correct_implies_all_configs_planted
   exact h_ne h_eq
 
 /-- **DERIVATION LEMMA**: WorstCaseCorrectOnLStar for all t ≤ haltTime follows from
-    WorstCaseCorrectOnLStar at haltTime + ReplantingSimulation.
+    WorstCaseCorrectOnLStar at haltTime + SameObservationSameState.
 
     **Key insight**: This shows the `∀ t` quantification in the axiom is DERIVABLE.
     The axiom only needs to provide WorstCaseCorrectOnLStar at haltTime.
@@ -4296,7 +4299,7 @@ theorem derive_worst_case_all_t
     (haltTime : Nat)
     -- Only need WorstCaseCorrect at haltTime (not ∀ t)
     (h_worst_case_at_haltTime : WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting haltTime)
-    (h_replanting : ReplantingSimulation L M v extractConfigAtV initForPlanting)
+    (h_replanting : SameObservationSameState L M v extractConfigAtV initForPlanting)
     : ∀ t ≤ haltTime, WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting t := by
   intro t h_t_le
   -- WorstCaseCorrectOnLStar at t means: ∀ cfg, extractConfigAtV(step^[t](initForPlanting cfg)) = cfg
@@ -4332,7 +4335,7 @@ theorem separation_from_worst_case_correctness
     (cfg_planted : Fin (2^(L.R v)))
     -- Key hypotheses
     (h_worst_case : WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting haltTime)
-    (h_replanting : ReplantingSimulation L M v extractConfigAtV initForPlanting)
+    (h_replanting : SameObservationSameState L M v extractConfigAtV initForPlanting)
     -- Build configs list
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     (h_configs_def : configs = (List.range haltTime).map (fun t =>
@@ -4382,7 +4385,7 @@ theorem separation_from_worst_case_correctness
     instead of the direct separation axiom.
 
     **Derivation chain** (uses new bridge axiom):
-    1. WorstCaseCorrectOnLStar + ReplantingSimulation → all configs = cfg_planted
+    1. WorstCaseCorrectOnLStar + SameObservationSameState → all configs = cfg_planted
     2. all configs = cfg_planted → Property 1 (planted not refuted)
     3. Bridge axiom + WorstCaseCorrectOnLStar → Property 2 (all wrong refuted)
     4. WC-1 structure → Property 3 (no duplicates)
@@ -4514,7 +4517,7 @@ This ties the axiom to operational semantics - not arbitrary lists.
 Hypotheses:
 ├── WorstCaseCorrectOnLStar: ∀ cfg, TM outputs cfg when run on L*(cfg)
 │   (TRUE for P-time SAT solvers - they solve ALL instances)
-└── ReplantingSimulation: TM state depends only on extracted observations
+└── SameObservationSameState: TM state depends only on extracted observations
     (Follows from No Backdoor structure of L*)
 
 Bridge Axiom:
@@ -4550,7 +4553,7 @@ Derived (0 additional axioms):
 
 3. **Hypotheses are semantically justified**:
    - WorstCaseCorrectOnLStar: P-time algorithms ARE worst-case correct
-   - ReplantingSimulation: follows from No Backdoor (L* structure)
+   - SameObservationSameState: follows from No Backdoor (L* structure)
 
 4. **No circularity**: The time bound is DERIVED, not assumed in the axiom.
 
@@ -4580,7 +4583,7 @@ TM-indistinguishability, which combined with worst-case correctness yields separ
 
     This theorem derives separation properties from explicit hypotheses:
     1. `WorstCaseCorrectOnLStar`: TM correctly extracts planted config for ANY planting
-    2. `ReplantingSimulation`: TM state at step t is same for any planting giving same extracted config
+    2. `SameObservationSameState`: TM state at step t is same for any planting giving same extracted config
 
     **Usage**: Called by the main derivation chain via `tm_time_lower_bound_via_indistinguishability`.
 
@@ -4601,7 +4604,7 @@ theorem tm_extracted_configs_separate_planted_theorem
     (cfg_planted : Fin (2^(L.R v)))
     -- Key hypotheses that make the axiom a theorem
     (h_worst_case : WorstCaseCorrectOnLStar L M v extractConfigAtV initForPlanting haltTime)
-    (h_replanting : ReplantingSimulation L M v extractConfigAtV initForPlanting)
+    (h_replanting : SameObservationSameState L M v extractConfigAtV initForPlanting)
     : -- Same conclusion as the axiom
       let C : Finset (Fin L.dag.n) := {v}
       let configs := (List.range haltTime).map (fun t =>
@@ -4617,11 +4620,11 @@ theorem tm_extracted_configs_separate_planted_theorem
 
 /-- **Corollary**: Separation is semantically justified.
 
-    This shows that WorstCaseCorrectOnLStar + ReplantingSimulation → separation properties.
+    This shows that WorstCaseCorrectOnLStar + SameObservationSameState → separation properties.
 
     **What `tm_extracted_configs_separate_planted_theorem` proves**:
     - Separation properties (planted survives, all others refuted, no duplicates)
-    - Derived from WorstCaseCorrectOnLStar + ReplantingSimulation
+    - Derived from WorstCaseCorrectOnLStar + SameObservationSameState
     - Uses 0 custom axioms (only propext, Classical.choice, Quot.sound)
 
     **The derivation chain** (current main path):
@@ -4632,7 +4635,7 @@ theorem tm_extracted_configs_separate_planted_theorem
 
     **Why the single bridge axiom is reasonable**:
     - Indistinguishability: If TM hasn't refuted ω', it can't distinguish ω' from planted
-    - Structural properties (WorstCaseCorrect, ReplantingSimulation) are DEFINITIONAL
+    - Structural properties (WorstCaseCorrect, SameObservationSameState) are DEFINITIONAL
 -/
 theorem axiom_elimination_path_summary :
     -- For any TM satisfying worst-case correctness and replanting simulation,
@@ -4999,7 +5002,7 @@ requirements and derives the time bound. -/
 /-- **Interface Theorem**: Time lower bound via indistinguishability chain.
 
     This theorem provides the clean interface for the main P≠NP proof:
-    - Takes WorstCaseCorrectOnLStar and ReplantingSimulation as hypotheses
+    - Takes WorstCaseCorrectOnLStar and SameObservationSameState as hypotheses
     - Derives haltTime ≥ 2^R - 1 via the indistinguishability chain
 
     **Derivation chain**:
@@ -5128,7 +5131,7 @@ The main P≠NP proof uses the indistinguishability chain via
 **Definitional Requirements** (not axioms):
 - Encoding structure (initForPlanting, extractConfigAtV) provided by caller
 - WorstCaseCorrectOnLStar: what "correct adversary" means
-- ReplantingSimulation: what "no backdoor" means
+- SameObservationSameState: what "no backdoor" means
 
 **Benefit**: The single axiom explains WHY separation holds (indistinguishability),
 rather than just asserting THAT it holds.
@@ -5151,7 +5154,7 @@ section AxiomAudit
 The entire proof chain uses only ONE custom axiom:
 `not_refuted_implies_indistinguishable` - semantic bridge (indistinguishability)
 
-Structural properties (WorstCaseCorrectOnLStar, ReplantingSimulation) are provided
+Structural properties (WorstCaseCorrectOnLStar, SameObservationSameState) are provided
 DEFINITIONALLY via the `LStarAdversary` structure, not axiomatically.
 -/
 
@@ -5184,13 +5187,13 @@ end AxiomAudit
 
 /-! ### Note on Encoding Structure
 
-The L*-encoding structure (initForPlanting, extractConfigAtV, ReplantingSimulation,
+The L*-encoding structure (initForPlanting, extractConfigAtV, SameObservationSameState,
 WorstCaseCorrectOnLStar) is now a DEFINITIONAL part of StructuralOWFAdversary.
 
 The adversary structure includes these fields:
 - lstar_initForPlanting: maps planted config to initial TM state
 - lstar_extractConfigAtV: extracts emergent config from TM state
-- lstar_replanting: ReplantingSimulation proof
+- lstar_replanting: SameObservationSameState proof
 - lstar_worst_case: WorstCaseCorrectOnLStar proof
 
 Callers use `fg_first_commit_time_lower_bound_from_adversary` which extracts

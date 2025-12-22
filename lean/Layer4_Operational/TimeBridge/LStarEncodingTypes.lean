@@ -14,7 +14,7 @@ these type definitions are extracted here.
 
 **Types Defined**:
 - `WorstCaseCorrectOnLStar`: TM outputs correct config for ALL plantings
-- `ReplantingSimulation`: Replanting coherence property
+- `SameObservationSameState`: Same extracted config → same TM state
 
 See Layer4_Operational/TimeBridge/WC1Bridge.lean for usage.
 -/
@@ -59,24 +59,24 @@ def WorstCaseCorrectOnLStar
     let finalState := (TMConfig.step (M := M))^[haltTime] (initForPlanting cfg)
     extractConfigAtV finalState = cfg
 
-/-- **ReplantingSimulation**: Replanting coherence property.
+/-- **SameObservationSameState**: Same extracted config → same TM state.
 
-    This property asserts that the encoding is coherent: what the TM observes
-    matches what was planted, enabling deterministic replay.
+    **INTUITION**: The TM only knows what it has computed. Its state is determined
+    by what it has extracted, not by what was "secretly" planted.
 
-    **Property**: For all cfg_planted and t:
+    **WHY IT MATTERS**: If two planted configs produce the same extracted config
+    at step t, they're in the same TM state. This limits distinguishing power:
+    the TM can only distinguish configs it has actually observed.
+
+    **FORMAL PROPERTY**: For all cfg_planted and t:
       let state_t := step^[t] (initForPlanting cfg_planted)
       let c := extractConfigAtV state_t
       step^[t] (initForPlanting c) = state_t
 
     i.e., if TM extracts config c at time t, then running with c planted
     reaches the exact same state.
-
-    **Why this matters**: This property enables the time lower bound proof.
-    If the TM could distinguish between plantings before actually computing
-    the emergent config, it would violate this simulation property.
 -/
-def ReplantingSimulation
+def SameObservationSameState
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG)
@@ -258,7 +258,7 @@ theorem WorstCaseCorrectOnLStar_monotone
 
 -- Axiom audits
 #print axioms WorstCaseCorrectOnLStar
-#print axioms ReplantingSimulation
+#print axioms SameObservationSameState
 #print axioms HaltPreservesTape0
 #print axioms ExtractReadsOnlyTape0
 #print axioms tape0_unchanged_step

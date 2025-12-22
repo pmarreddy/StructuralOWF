@@ -4,7 +4,7 @@ import Layer5_Applications.PvsNP.ComplexityClasses.TMEncoding  -- For getTape0, 
 import Layer2_StructuralOWF.FrontierGate.FrontierGate  -- For LStarInstanceFG
 import Layer2_StructuralOWF.FrontierGate.RandomnessTypes  -- For Randomness, Witness
 import Layer4_Operational.TuringMachine.TuringMachineSemantics  -- For TMConfig.run
-import Layer4_Operational.TimeBridge.LStarEncodingTypes  -- For ReplantingSimulation, WorstCaseCorrectOnLStar
+import Layer4_Operational.TimeBridge.LStarEncodingTypes  -- For SameObservationSameState, WorstCaseCorrectOnLStar
 import Layer0_Foundations.Base.CNF  -- For CNF, HasPositiveClause
 
 /-! ## StructuralOWFAdversary: OWF-Specific PPT Adversary
@@ -171,7 +171,7 @@ structure StructuralOWFAdversary (nvars : Nat) where
 
       **Derivation**: Halting and poly bounds follow from PPT structure via this coherence.
 
-      **Trust Boundary**: 0 axioms (from algspec_has_lstar_structure axiom) -/
+      **Trust Boundary**: Populated from algspec_has_lstar_structure (upstream axiom) -/
   lstar_coinsFor : (L : LStarInstanceFG) → (v : Fin L.dag.n) →
       L.fg.gateReq v → Fin (2^(L.R v)) → Fin base.num_coins
 
@@ -185,7 +185,7 @@ structure StructuralOWFAdversary (nvars : Nat) where
 
       **Usage**: Security proofs use this to plant different configs and analyze TM behavior.
 
-      **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
+      **Trust Boundary**: Populated from algspec_has_lstar_structure (upstream axiom) -/
   lstar_initForPlanting : (L : LStarInstanceFG) → (v : Fin L.dag.n) →
       L.fg.gateReq v → Fin (2^(L.R v)) → TMConfig base.M
 
@@ -199,26 +199,27 @@ structure StructuralOWFAdversary (nvars : Nat) where
 
       **Usage**: Security proofs use this to observe what config the TM has computed.
 
-      **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
+      **Trust Boundary**: Populated from algspec_has_lstar_structure (upstream axiom) -/
   lstar_extractConfigAtV : (L : LStarInstanceFG) → (v : Fin L.dag.n) →
       TMConfig base.M → Fin (2^(L.R v))
 
-  /-- **L*-ENCODING: ReplantingSimulation**: Replanting coherence property.
+  /-- **L*-ENCODING: SameObservationSameState**: The TM only knows what it has computed.
 
-      **Statement**: For any planted config at time t, if the TM extracts config c,
-      then running with c planted reaches the same state.
+      **INTUITION**: The TM's state is determined by what it has extracted, not by
+      what was "secretly" planted. Same extracted config → same state.
 
-      **Purpose**: Proves the encoding is coherent - extracting and replanting
-      is idempotent. This is the key structural property enabling time bounds.
+      **WHY IT MATTERS**: If two planted configs produce the same extracted config
+      at step t, they're in the same TM state. This limits distinguishing power to
+      at most one new config per step.
 
-      **Formalization**: For all cfg_planted and t:
+      **FORMAL**: For all cfg_planted and t:
         let state_t := step^[t] (initForPlanting cfg_planted)
         let c := extractConfigAtV state_t
         step^[t] (initForPlanting c) = state_t
 
-      **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
+      **Trust Boundary**: Definitional requirement from algspec_has_lstar_structure -/
   lstar_replanting : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
-      ReplantingSimulation L base.M v
+      SameObservationSameState L base.M v
         (lstar_extractConfigAtV L v)
         (lstar_initForPlanting L v h_fg)
 
@@ -234,7 +235,7 @@ structure StructuralOWFAdversary (nvars : Nat) where
       **Note**: Uses plain L (not sigma-wrapped) because base.encoding.input expects
       LStarInstanceFG. The adapter encoding handles sigma wrapping internally.
 
-      **Trust Boundary**: 0 axioms (from algspec_has_lstar_structure axiom) -/
+      **Trust Boundary**: Populated from algspec_has_lstar_structure (upstream axiom) -/
   lstar_encoding_coherence : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
       ∀ cfg : Fin (2^(L.R v)),
         lstar_initForPlanting L v h_fg cfg = initWithEncodingBase base.M base.encoding.input
@@ -246,16 +247,16 @@ structure StructuralOWFAdversary (nvars : Nat) where
       for sigma-wrapped input, the TM's extracted config equals cfg.
 
       **Purpose**: Proves the TM is correct on ALL L* instances with ALL plantings.
-      Combined with ReplantingSimulation, this enables the time lower bound proof.
+      Combined with SameObservationSameState, this enables the time lower bound proof.
 
       **Formalization**: For all cfg : Fin (2^(L.R v)):
         let finalState := step^[C * (size ⟨L.encodedφ.nvars, L⟩ + 1)^k] (initForPlanting cfg)
         extractConfigAtV finalState = cfg
 
       **Note**: WorstCaseCorrect for t ≤ PPT bound is DERIVABLE via derive_worst_case_all_t
-      from WorstCaseCorrect at PPT bound + ReplantingSimulation.
+      from WorstCaseCorrect at PPT bound + SameObservationSameState.
 
-      **Trust Boundary**: 0 axioms (definitional requirement, not assumption) -/
+      **Trust Boundary**: Populated from algspec_has_lstar_structure (upstream axiom) -/
   lstar_worst_case : (L : LStarInstanceFG) → (v : Fin L.dag.n) → (h_fg : L.fg.gateReq v) →
       WorstCaseCorrectOnLStar L base.M v
         (lstar_extractConfigAtV L v)

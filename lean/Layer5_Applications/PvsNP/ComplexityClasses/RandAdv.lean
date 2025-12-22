@@ -2,7 +2,7 @@ import Layer5_Applications.PvsNP.ComplexityClasses.AlgSpec
 import Layer5_Applications.PvsNP.ComplexityClasses.TMEncoding
 import Layer5_Applications.PvsNP.ComplexityClasses.StructuralOWFSizedInstances  -- For Sized LStarInstanceFG
 import Layer4_Operational.TuringMachine.TuringMachineSemantics
-import Layer4_Operational.TimeBridge.LStarEncodingTypes  -- For ReplantingSimulation
+import Layer4_Operational.TimeBridge.LStarEncodingTypes  -- For SameObservationSameState
 import Layer2_StructuralOWF.FrontierGate.FrontierGate  -- For LStarInstanceFG
 import Layer2_StructuralOWF.FrontierGate.RandomnessTypes  -- For Randomness
 import Mathlib.Data.Vector.Basic  -- For Vector Bool
@@ -302,20 +302,20 @@ the "obliviousness" property holds: TM state depends only on observed/computed i
 not on hidden input structure.
 
 **Uniformity Principle**: A uniform TM has no "backdoor" access to input structure.
-For L* adversaries, this means ReplantingSimulation holds by construction:
+For L* adversaries, this means SameObservationSameState holds by construction:
 - State at time t depends only on what has been extracted (observed)
 - Different planted configs giving same extracted config → same TM state
 
 **Single Axiom Design**: We use ONE axiom (`algspec_has_tm`) that provides:
 1. Generic Church-Turing (TM exists for any AlgSpec)
-2. L* uniformity structure (ReplantingSimulation etc.) via typeclass when types are L* types
+2. L* uniformity structure (SameObservationSameState etc.) via typeclass when types are L* types
 
 The L* structure follows from uniformity - it's not additional axiomatic content.
 -/
 
 /-- **Uniformity Structure Typeclass**: Conditional properties based on type.
 
-For L* types: provides ReplantingSimulation, WorstCaseCorrect, encoding coherence.
+For L* types: provides SameObservationSameState, WorstCaseCorrect, encoding coherence.
 For other types: trivially True (no additional structure needed).
 
 **Why this follows from uniformity**: A uniform TM processes all inputs with the same
@@ -334,33 +334,52 @@ instance (priority := low) {α β : Type} [Sized α] [Sized β] [FirstNatCompone
 /-- **L* Uniformity Structure**: Full uniformity properties for L* adversary types.
 
 For L* adversaries (SAT solvers on planted instances), uniformity implies:
-- ReplantingSimulation: TM state is oblivious to which config was planted
+- SameObservationSameState: TM state is oblivious to which config was planted
 - WorstCaseCorrect: TM correctly solves all planted instances
 - Encoding coherence: initForPlanting uses standard encoded inputs -/
 instance : UniformityStructure
     (Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG)
     (Σ n : Nat, Vector Bool (2 * n + 64)) where
   uniformityProp := fun {T} M =>
-    -- Use haveI to provide NeZero instance from h_tape_pos
+    -- Technical: provide NeZero instance needed for tape indexing
     haveI : NeZero M.tapeCount := ⟨Nat.pos_iff_ne_zero.mp M.h_tape_pos⟩
-    -- TM-level properties for monotonicity (needed for time bound extension)
+
+    -- GLOBAL PROPERTY: TM doesn't modify tape 0 after halting
+    -- (Needed for WorstCaseCorrectOnLStar monotonicity - correctness extends to larger times)
     LStar.StructuralOWF.Foundations.HaltPreservesTape0 M.M ∧
+
+    -- FOR EACH L* instance L and gate vertex v where gateReq holds:
+    -- (gateReq ensures v has the right combinatorial properties for the OWF)
     ∀ (L : LStar.StructuralOWF.LStarInstanceFG) (v : Fin L.dag.n), L.fg.gateReq v →
+
+      -- There exist encoding/decoding functions witnessing uniformity:
+      -- • initForPlanting: Creates TM initial state from a planted config
+      -- • extractConfigAtV: Reads the TM's current guess for the config at v
+      -- • coinsFor: Random coins used when planting each config
       ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
         (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
         (coinsFor : Fin (2^(L.R v)) → Fin T),
-        -- ReplantingSimulation: intermediate states are oblivious to planting
-        LStar.StructuralOWF.Foundations.ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
-        -- WorstCaseCorrectOnLStar at PPT bound
+
+        -- (1) OBLIVIOUSNESS: TM state depends only on extracted values, not secret planting.
+        --     "Same extracted config → same TM state" - limits distinguishing power.
+        LStar.StructuralOWF.Foundations.SameObservationSameState L M.M v extractConfigAtV initForPlanting ∧
+
+        -- (2) CORRECTNESS: TM outputs the correct planted config within poly-time bound.
+        --     For ALL 2^(L.R v) possible plantings, TM correctly identifies which was planted.
         LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
           (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k) ∧
-        -- Halting guarantee: TM halts at the specified time for all planted configs
+
+        -- (3) TERMINATION: TM halts within the poly-time bound for all planted configs.
         (∀ cfg : Fin (2^(L.R v)),
           ((TMConfig.step)^[M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k]
             (initForPlanting cfg)).state ∈ M.M.halt) ∧
-        -- ExtractReadsOnlyTape0: extractConfigAtV only depends on tape 0
+
+        -- (4) LOCALITY: extractConfigAtV only reads tape 0.
+        --     Combined with HaltPreservesTape0, enables monotonicity lemma.
         LStar.StructuralOWF.Foundations.ExtractReadsOnlyTape0 extractConfigAtV ∧
-        -- Encoding coherence: initForPlanting is derived from standard encoding
+
+        -- (5) ENCODING COHERENCE: initForPlanting uses the standard input encoding.
+        --     Ensures TM receives well-formed inputs, not arbitrary tape states.
         (∀ cfg : Fin (2^(L.R v)),
           initForPlanting cfg = initWithEncodingBase M.M M.encoding.input
             (coinsFor cfg, ⟨L.encodedφ.nvars, L⟩) M.h_tape_pos M.h_blank_consistent)
@@ -369,7 +388,7 @@ instance : UniformityStructure
 
 **THIS IS THE ONLY CHURCH-TURING AXIOM**. It provides:
 1. TM existence with behavioral equivalence and complexity preservation
-2. Uniformity structure (via typeclass) - for L* types, this includes ReplantingSimulation
+2. Uniformity structure (via typeclass) - for L* types, this includes SameObservationSameState
 
 **SEMANTIC CONTENT**:
 
@@ -381,7 +400,7 @@ AXIOM CONTENT: Church-Turing thesis for uniform TMs.
 - Effective computability implies Turing computability with preserved complexity
 - The TM is UNIFORM (fixed δ for all inputs) - inherent to the TM model
 - Uniformity implies obliviousness, captured via UniformityStructure typeclass:
-  * For L* types: ReplantingSimulation, WorstCaseCorrect, encoding coherence
+  * For L* types: SameObservationSameState, WorstCaseCorrect, encoding coherence
   * For other types: trivially True
 
 TRUST ASSESSMENT: Foundational. This single axiom encodes the standard equivalence
@@ -434,7 +453,7 @@ def algspec_has_lstar_structure {T : Nat}
     ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
       (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
       (coinsFor : Fin (2^(L.R v)) → Fin T),
-      LStar.StructuralOWF.Foundations.ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
+      LStar.StructuralOWF.Foundations.SameObservationSameState L M.M v extractConfigAtV initForPlanting ∧
       LStar.StructuralOWF.Foundations.WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
         (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStar.StructuralOWF.LStarInstanceFG) + 1) ^ M.k) ∧
       (∀ cfg : Fin (2^(L.R v)),

@@ -1320,7 +1320,7 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
       ∃ (initForPlanting : Fin (2^(L.R v)) → TMConfig M.M)
         (extractConfigAtV : TMConfig M.M → Fin (2^(L.R v)))
         (coinsFor : Fin (2^(L.R v)) → Fin T),
-        ReplantingSimulation L M.M v extractConfigAtV initForPlanting ∧
+        SameObservationSameState L M.M v extractConfigAtV initForPlanting ∧
         WorstCaseCorrectOnLStar L M.M v extractConfigAtV initForPlanting
           (M.C * (Sized.size (⟨L.encodedφ.nvars, L⟩ : Σ _n : Nat, LStarInstanceFG) + 1) ^ M.k) ∧
         -- Halting guarantee at M.C time
@@ -1486,7 +1486,7 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         -- Classical.choose h_enc'' = coinsFor
         -- Classical.choose_spec h_enc'' = Replanting ∧ WorstCase ∧ encoding_coherence
         let h_props := Classical.choose_spec h_enc''
-        -- h_props : Replanting ∧ WorstCase ∧ encoding_coherence, h_props.1 = ReplantingSimulation
+        -- h_props : Replanting ∧ WorstCase ∧ encoding_coherence, h_props.1 = SameObservationSameState
         convert h_props.1 using 2 <;> first | rfl | simp only [dif_pos h_fg]
       lstar_encoding_coherence := fun L v h_fg cfg => by
         -- Extract encoding_coherence from the axiom's properties
@@ -1515,7 +1515,7 @@ noncomputable def structuralOWFAdversary_from_randadv_exp_fixed
         let h_enc'' := Classical.choose_spec h_enc'
         let h_props := Classical.choose_spec h_enc''
         -- Extract properties from h_props:
-        -- h_props.1 = ReplantingSimulation
+        -- h_props.1 = SameObservationSameState
         -- h_props.2.1 = WorstCaseCorrectOnLStar at t1 = M.C * (sigma_size+1)^M.k
         -- h_props.2.2.1 = Halting guarantee at t1
         -- h_props.2.2.2.1 = ExtractReadsOnlyTape0
