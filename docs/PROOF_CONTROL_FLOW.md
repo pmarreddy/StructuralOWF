@@ -806,25 +806,24 @@ See `docs/AXIOM_FINAL_COUNT.md` for comprehensive axiom documentation and verifi
 
 ---
 
-### Axiom 1/2: Church-Turing Bridge + Garbage Separation
+### Axiom 1/2: Church-Turing Bridge
 
 **Name**: `algspec_has_tm`
 
 **Location**: `Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean`
 
-**Statement**: Any polynomial-time algorithmic specification (AlgSpec) has a TM implementation with: (a) preserved run semantics, (b) surjective output decoding, (c) outputs distinct from early_decode_default.
+**Statement**: Any polynomial-time algorithmic specification (AlgSpec) has a TM implementation with: (a) preserved run semantics, (b) matching polynomial bounds, (c) uniformity properties.
 
 **Formal Signature**:
 ```lean
-axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β] {T : Nat}
+axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
+    [UniformityStructure α β] {T : Nat}
     (A : AlgSpec α β T) :
   ∃ (M : RandAdv α β T),
     M.toAlgSpec.run = A.run ∧
     M.C = A.C ∧
     M.k = A.k ∧
-    Function.Surjective M.encoding.output.decode ∧
-    (∀ c x, A.run c x ≠ M.early_decode_default) ∧
-    FirstNatComponent.firstNat M.early_decode_default = 0
+    UniformityStructure.uniformityProp M
 ```
 
 **Nature**: Church-Turing correspondence (standard CS assumption)

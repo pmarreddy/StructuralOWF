@@ -531,11 +531,21 @@ structure PPTAdversary (α β γ : Type) [Sized α] [Sized β] where
   k : Nat                            -- Uniform time exponent
   h_C_pos : C > 0
   h_k_pos : k > 0
-  poly : ∀ n, time_bound n ≤ C * (n + 1) ^ k  -- Polynomial bound (halting separate)
-  encoding : TMEncodingBase (Fin num_coins × α) β (Fin alphabetSize)  -- Bidirectional encoding (coin,input) pair
+  poly : ∀ n, time_bound n ≤ C * (n + 1) ^ k  -- Polynomial bound
+  encoding : TMEncodingBase (Fin num_coins × α) β (Fin alphabetSize)  -- Bidirectional encoding
   h_blank_consistent : M.blank = encoding.input.blank  -- Blank symbol consistency
-  halts : ∀ (c : Fin num_coins) (x : α), ...  -- TM halts within time bound (separate field)
-  run_correct : ∀ (c : Fin num_coins) (x : α) (t : Nat), ...  -- TM execution matches run
+  halts : ∀ (c : Fin num_coins) (x : α),  -- TM halts within time bound
+    let t := C * (size x + 1) ^ k
+    let init_cfg := initWithEncodingBase M encoding.input (c, x) h_tape_pos h_blank_consistent
+    let final_cfg := (TMConfig.step (M := M))^[t] init_cfg
+    final_cfg.state ∈ M.halt
+  run_correct : ∀ (c : Fin num_coins) (x : α) (t : Nat),  -- TM execution matches run
+    t ≥ C * (size x + 1) ^ k →
+    let init_cfg := initWithEncodingBase M encoding.input (c, x) h_tape_pos h_blank_consistent
+    let final_cfg := (TMConfig.step (M := M))^[t] init_cfg
+    let tape_output := getTape0 final_cfg h_tape_pos
+    let decoded_β := encoding.output.decode tape_output
+    decoded_β = run c x
   coins_pos : 0 < num_coins
 ```
 
