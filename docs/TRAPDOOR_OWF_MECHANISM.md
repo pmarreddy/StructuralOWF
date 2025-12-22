@@ -937,7 +937,7 @@ Example (α = [T, F, T]):
     entropy(v₂) = [0, 0, 0, ...]  ← α[1] = F
     entropy(v₃) = [1, 0, 0, ...]  ← α[2] = T
 
-(Lean: PlantCore.lean, plant_n_entropy)
+(Lean: PlantExponential.lean, plant_flat_entropy)
 ```
 
 **Step 4: FG Gate Seed**
@@ -1106,7 +1106,7 @@ but the main P≠NP proof uses `WellFormedRandomness_flat` with dgLen = n.
 - `FrontierGate.lean`: LStarInstanceFG structure
 - `EmergentConfig.lean`: WellFormedRandomness constraints
 - `StructuralOWFExponential.lean`: Security proofs
-- `ParityLowerBound.lean`: Information-theoretic lower bounds
+- `StructuralLowerBound.lean`: Information-theoretic lower bounds (parity_requires_all_bits)
 
 **Demonstration**:
 - `testing/extract_valid_encoding.lean`: Concrete runnable demo showing:
