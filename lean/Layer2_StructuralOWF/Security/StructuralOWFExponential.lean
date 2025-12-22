@@ -1303,8 +1303,8 @@ f(r) = plant_flat(n, Φ(n), r) is one-way against all uniform PPT adversaries.
 
 **Key differences**:
 - Lambda: φ.nvars (not (log₂ n)²) → exponential bound 2^n
-- Time bound: Uses TMAdapter_flat.fg_first_commit_time_lower_bound_sub_one (fully proven)
-- Dominance: Uses two_pow_dominates_poly (2^n > poly(n), private axiom for general case)
+- Time bound: Uses TMAdapter_flat + WC-1 bridge (operational lower bound `≥ 2^R - 1`)
+- Dominance: Uses `exponential_dominates_poly_general_minus_one` (proven, no axioms)
 - Plant function: plant_flat
 
 **Solution Multiplicity Bound** (h_bounded hypothesis):
@@ -1321,12 +1321,12 @@ dense-solution formulas where random guessing succeeds. See CNFFamily.BoundedSol
 - plant_flat construction: PlantFlat.lean (0 sorries)
 - R_of_flat rank function: RanksFlat.lean (0 sorries)
 - Bridge theorems: PlantFlat.lean (0 sorries)
-- Operational time bound: TMAdapter_flat.lean (fully proven, 0 sorries)
-- Exponential dominance: exponential_dominates_polynomial (proven)
-- Private axiom: two_pow_dominates_poly (for general C,deg - not needed for main proof)
+- Operational time bound: TMAdapter_flat.lean (plus WC-1 bridge axiom; 0 sorries)
+- Exponential dominance: exponential_dominates_poly_general_minus_one (proven)
 
-**Remaining axioms**: Zero - All operational semantics fully proven.
-**Private axiom** (not in critical path): two_pow_dominates_poly (asymptotic analysis, general case)
+**Remaining non-Mathlib axioms** (trust boundary):
+1. `algspec_has_tm` (Church–Turing bridge for adversary specs)
+2. `not_refuted_implies_indistinguishable` (WC-1 bridge axiom)
 
 **Reference**: Adapted from Security.lean `f_is_one_way_from_fg_rand_family_axiom_free`.
 -/
@@ -1890,7 +1890,7 @@ theorem f_is_structural_owf_exponential_flat
   have h_nvars_L : (Φ n.val).nvars = (Φ n.val).nvars := rfl
 
   -- Upper bound: haltTime ≤ C * (poly(nvars) + 1)^k
-  -- Uses 5*C_cl to account for sigma-wrapped size (nvars + dag.n)
+  -- Uses 6*C_cl to account for sigma-wrapped size (nvars + 1 + dag.n, then +1)
   have h_upper_nvars : haltTime ≤ C_uniform * (6 * C_cl * (Φ n.val).nvars ^ k_cl) ^ k_uniform := by
     have h_nclauses_bound : (Φ n.val).clauses.length ≤ C_cl * n.val ^ k_cl :=
       h_clauses_bound n.val hn_ge_k
@@ -1997,7 +1997,7 @@ theorem f_is_structural_owf_exponential_flat
       _ ≥ n₀_combined := hn_ge_n₀_combined
 
   -- Key: Prove 2^nvars > C_uniform * (5 * C_cl * nvars^k_cl + 1)^k_uniform
-  -- For sigma-wrapped: 5*C_cl*x + 1 ≤ 6*C_cl*x ≤ 8*C_cl*x
+  -- For sigma-wrapped: sigma_size + 1 ≤ 6*C_cl*x, then 6*C_cl*x ≤ 8*C_cl*x
 
   have h_nvars_pos : (Φ n.val).nvars > 0 := by omega
 
@@ -2521,7 +2521,7 @@ theorem f_is_structural_owf_exponential_true
   have h_size_L_eq : Sized.size L = L.dag.n := rfl
   have h_nvars_L : (Φ n.val).nvars = (Φ n.val).nvars := rfl
 
-  -- Upper bound uses 5*C_cl to account for sigma-wrapped size (nvars + dag.n)
+  -- Upper bound uses 6*C_cl to account for sigma-wrapped size (nvars + 1 + dag.n, then +1)
   have h_upper_nvars : haltTime ≤ C_uniform * (6 * C_cl * (Φ n.val).nvars ^ k_cl) ^ k_uniform := by
     have h_nclauses_bound : (Φ n.val).clauses.length ≤ C_cl * n.val ^ k_cl :=
       h_clauses_bound n.val hn_ge_k
