@@ -126,16 +126,16 @@ lake env lean /tmp/bridge_axiom.lean 2>&1
 ```bash
 cd /Volumes/Ddrive/PNePNP-Publication/lean
 
-# Check WC-1 theorem
+# Check WC-1 theorem (NOTE: namespace is LStar.StructuralOWF.Foundations, not LStar.WorldCommit)
 cat > /tmp/wc1_check.lean << 'EOF'
 import Layer3_InformationBounds.WorldCommit.WorldCommit
-#check @LStar.WorldCommit.world_commit_refutation_excludes_one
-#print axioms LStar.WorldCommit.world_commit_refutation_excludes_one
+#check @LStar.StructuralOWF.Foundations.world_commit_refutation_excludes_one
+#print axioms LStar.StructuralOWF.Foundations.world_commit_refutation_excludes_one
 EOF
 lake env lean /tmp/wc1_check.lean 2>&1
 
-# Check UnitRefute definition
-grep -A 10 "structure UnitRefute" Layer3_InformationBounds/WorldCommit/*.lean
+# Check UnitRefute definition (it's an inductive constructor in CutConstraint, not a structure)
+grep -A 5 "| UnitRefute" Layer3_InformationBounds/ConstraintSystem/ConstraintSystem.lean
 ```
 
 **Expected**: WC-1 theorem depends only on standard axioms (propext, Classical.choice, Quot.sound)
@@ -575,8 +575,8 @@ EOF
 lake env lean /tmp/axiom_full.lean 2>&1 | grep -E "algspec_has_tm|not_refuted_implies_indistinguishable|tm_correctness"
 
 # Check for sorries
-grep -rn "\bsorry\b" --include="*.lean" Layer4_Operational/TimeBridge/ | grep -v "-- sorry"
-grep -rn "\bsorry\b" --include="*.lean" Layer5_Applications/ | grep -v "-- sorry"
+grep -rn "\bsorry\b" --include="*.lean" Layer4_Operational/TimeBridge/ | grep -v -- "-- sorry"
+grep -rn "\bsorry\b" --include="*.lean" Layer5_Applications/ | grep -v -- "-- sorry"
 
 # Check WC-1 bridge theorems are proven (not axiom)
 grep -n "^theorem\|^axiom" Layer4_Operational/TimeBridge/WC1Bridge.lean | head -30
