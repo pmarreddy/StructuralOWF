@@ -19,14 +19,14 @@ Guidance for AI assistants working on P≠NP via Semantic Conservation Law forma
 **Claim**: P≠NP via information-theoretic approach (Semantic Conservation Law)
 
 **Status**: Publication-ready
-- ~94,000 lines Lean 4 (171 files)
-- 0 sorries, 2 axioms
+- ~76,000 lines Lean 4 (165 files)
+- 0 sorries, 2 core axioms
 - Full build passes
 
 **Key Resources**:
 - `paper/read-or-x.md` — Mathematical exposition
 - `lean/` — Mechanized proof (authoritative)
-- `CONTRIBUTIONS.md` — Reviewer guidelines
+- `docs/CONTRIBUTIONS.md` — Reviewer guidelines
 - `docs/AI_REVIEW_GUIDE.md` — AI-assisted review guide
 
 ---
@@ -60,12 +60,14 @@ lake build LayerName    # Specific layer
 
 ---
 
-## Trust Boundary (2 Axioms)
+## Trust Boundary (2 Core Axioms)
 
 1. **`algspec_has_tm`** — Church-Turing bridge (any AlgSpec has TM implementation)
 2. **`not_refuted_implies_indistinguishable`** — WC-1 bridge (indistinguishability axiom; separation and time bound derived)
 
 All standard CS/information-theory principles. See `docs/AXIOM_FINAL_COUNT.md`.
+
+**Note**: Cryptographic applications in `Layer5_Applications/Crypto/` use additional standard axioms (PRG→PRF, OWF→commitment, etc.) that are derived consequences of OWF existence, not part of the core P≠NP proof.
 
 ---
 
