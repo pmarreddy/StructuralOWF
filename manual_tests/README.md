@@ -19,8 +19,10 @@
 | **07** | TEST_07_INFORMATION_THEORETIC_FOUNDATIONS.md | CRITICAL | 6-10 hrs | SCL info theory foundations (25 vectors) |
 | **08** | TEST_08_PUBLICATION_PEER_REVIEW.md | HIGH | 4-8 hrs | Publication readiness (20 vectors) |
 | **09** | TEST_09_THREE_BARRIER_COMPREHENSIVE.md | CRITICAL | 12-18 hrs | All 3 barriers (Storage, Resolution, Elimination) (108 vectors) |
+| **10** | TEST_10_COMPLEXITY_BARRIERS_COMPREHENSIVE.md | CRITICAL | 15-20 hrs | Complexity barriers comprehensive (150+ vectors) |
+| **11** | TEST_11_WC1_BRIDGE.md | CRITICAL | 4-6 hrs | WC-1 bridge integration (11 vectors) |
 
-**Total Estimated Time**: 57-90 hours for comprehensive verification (444+ attack vectors)
+**Total Estimated Time**: 76-116 hours for comprehensive verification (504+ attack vectors)
 
 ---
 
@@ -29,14 +31,16 @@
 **Recommended sequence**:
 
 1. **TEST_01: Axiom Audit** (First - if axioms are wrong, nothing else matters)
-2. **TEST_06: Historical Failure Modes** (Verify we avoid known barriers and pitfalls)
-3. **TEST_03: Semantic Verification** (Definitions must be correct)
-4. **TEST_07: Information-Theoretic Foundations** (SCL core must be sound)
-5. **TEST_09: Three-Barrier Comprehensive** (All 3 barriers must be sound)
-6. **TEST_02: Non-Vacuity** (Proof must be non-trivial)
-7. **TEST_04: Proof Chain** (All pieces must connect)
-8. **TEST_05: Adversarial Attacks** (Active stress testing)
-9. **TEST_08: Publication Peer Review** (Final publication readiness)
+2. **TEST_11: WC-1 Bridge** (New axiom architecture - verify before proceeding)
+3. **TEST_06: Historical Failure Modes** (Verify we avoid known barriers and pitfalls)
+4. **TEST_03: Semantic Verification** (Definitions must be correct)
+5. **TEST_07: Information-Theoretic Foundations** (SCL core must be sound)
+6. **TEST_09: Three-Barrier Comprehensive** (All 3 barriers must be sound)
+7. **TEST_10: Complexity Barriers Comprehensive** (Full barrier analysis)
+8. **TEST_02: Non-Vacuity** (Proof must be non-trivial)
+9. **TEST_04: Proof Chain** (All pieces must connect)
+10. **TEST_05: Adversarial Attacks** (Active stress testing)
+11. **TEST_08: Publication Peer Review** (Final publication readiness)
 
 ---
 
@@ -109,7 +113,7 @@ After running each test, create a results file:
 
 | Test | Critical Pass Criteria |
 |------|----------------------|
-| 01 | ≤3 custom axioms, all documented, none assume P≠NP, independent |
+| 01 | ≤2 custom axioms, all documented, none assume P≠NP, independent |
 | 02 | All types inhabited, L* non-empty, works for n≥128, no vacuous truth |
 | 03 | Definitions match Sipser/Arora-Barak textbooks, EXPTIME compatible |
 | 04 | No sorry in proof chain, complete dependency graph, modular structure |
@@ -118,6 +122,8 @@ After running each test, create a results file:
 | 07 | SCL is info-theoretically sound, parity hiding valid, DPI respected |
 | 08 | Paper claims match code, barriers addressed, notation consistent |
 | 09 | All 3 barriers (Storage/Resolution/Elimination) block simultaneously, A1-A5 sound |
+| 10 | Complexity barriers comprehensive analysis passes |
+| 11 | WC-1 bridge axiom semantic, time bound 2^R-1 derived, no cheating encodings |
 
 ### Any Failure Criteria Triggers Rejection:
 
@@ -321,6 +327,22 @@ After running each test, create a results file:
 - 9.10 Three-Barrier Simultaneity (9 vectors)
 - 9.11 A1-A5 Property Coverage (9 vectors)
 - 9.12 Paradigm Unification (8 vectors)
+
+**Test 10 - Complexity Barriers Comprehensive** (150+ vectors):
+- See TEST_10_COMPLEXITY_BARRIERS_COMPREHENSIVE.md for full breakdown
+
+**Test 11 - WC-1 Bridge Integration** (11 vectors):
+- 11.1 Axiom Strength Analysis (indistinguishability bridge)
+- 11.2 WC-1 "+1 Per Step" Verification
+- 11.3 SameObservationSameState Property Soundness
+- 11.4 WorstCaseCorrectOnLStar Property Verification
+- 11.5 Time Bound Derivation Chain (2^R - 1)
+- 11.6 tmRefutedWorlds and Nodup Property
+- 11.7 LStarTMEncoding Structure Soundness
+- 11.8 UniformityStructure Integration
+- 11.9 TMIndistinguishable Definition Correctness
+- 11.10 Proof Chain from Axiom to P≠NP
+- 11.11 WorstCaseCorrectOnLStar Monotonicity
 
 ---
 
