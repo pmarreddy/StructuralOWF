@@ -840,6 +840,12 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
 
 **Statement**: For planted L* instances, if a world is not refuted by the TM's run trace, then the TM cannot distinguish it from the planted world.
 
+**Directionality (why this direction matters)**:
+- The axiom is the “completeness” direction: `ω ∉ tmRefutedWorlds` → `TMIndistinguishable(ω, ω_planted)`. This is exactly what drives the contradiction argument “if a wrong world survives refutation, then the TM must behave identically on it”, hence *all wrong worlds are refuted*.
+- The reversed direction, `TMIndistinguishable(ω, ω_planted)` → `ω ∉ tmRefutedWorlds`, is a different property (“soundness” of the refutation procedure). Its contrapositive is `ω ∈ tmRefutedWorlds` → `¬ TMIndistinguishable(ω, ω_planted)`.
+- Even if the reversed direction held, it would not support the lower bound derivation by itself: it does not imply “all wrong worlds are refuted”, which is the key counting premise.
+- **Semantic gap**: `TMIndistinguishable` compares *final outputs*, while `tmRefutedWorlds` is built from the *entire trace*. Despite this, the reverse direction (←) is derivable under worst-case correctness: indistinguishability + correctness forces `ω = ω_planted`, and the planted world never refutes itself. See `indistinguishable_implies_not_refuted` and `not_refuted_iff_indistinguishable` in `WC1Bridge.lean`.
+
 **Derivation Chain** (from axiom):
 1. `indistinguishability_implies_all_wrong_refuted`: all wrong worlds refuted (by contradiction)
 2. `separation_implies_refuted_length`: separation → `refuted.length = 2^R - 1`

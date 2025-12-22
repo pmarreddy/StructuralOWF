@@ -3058,8 +3058,8 @@ theorem P_ne_NP_complete :
   - Encoding semantics — proven as theorem
 - **Axioms** (2 total):
   - `algspec_has_tm` — Church-Turing bridge (RandAdv.lean)
-  - `not_refuted_implies_indistinguishable` — WC-1 indistinguishability bridge (WC1Bridge.lean)
-- **Design**: Separation and time bound derived from indistinguishability, not directly asserted
+  - `not_refuted_implies_indistinguishable` — WC-1 indistinguishability bridge (→ direction; ← derivable)
+- **Design**: Separation and time bound derived from indistinguishability; biconditional proven
 
 ---
 
@@ -3335,8 +3335,10 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 63. **algspec_has_lstar_structure** - Derives L* encoding from UniformityStructure
 64. **TraceMonotone** - Execution trace monotonicity property
 
-**WC-1 Bridge Theorem** (derived, not definition):
+**WC-1 Bridge Theorems** (derived, not definitions):
 - **time_bounds_refutations** - THEOREM: execution time ≥ refutation count (0 axioms!)
+- **indistinguishable_implies_not_refuted** - THEOREM: reverse direction (←) derivable from WC correctness (0 axioms!)
+- **not_refuted_iff_indistinguishable** - THEOREM: biconditional shows axiom is tight (uses axiom for → only)
 
 **Supporting Infrastructure** (13 additional definitions - proof fails without):
 

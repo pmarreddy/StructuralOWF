@@ -321,9 +321,10 @@ Zero-knowledge proofs:
 
 1. **`algspec_has_tm`**: Church-Turing thesis — any algorithm has a TM implementation.
 
-2. **`not_refuted_implies_indistinguishable`**: WC-1 bridge — asserts indistinguishability:
+2. **`not_refuted_implies_indistinguishable`**: WC-1 bridge — asserts indistinguishability (→ direction):
    - Unrefuted worlds are TM-indistinguishable from the planted world
    - Separation and time bound `≥ 2^R - 1` derived from indistinguishability via counting
+   - Reverse direction (←) derivable from WC correctness; biconditional proven in `WC1Bridge.lean`
 
 Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly.
 

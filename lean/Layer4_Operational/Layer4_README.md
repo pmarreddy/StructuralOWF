@@ -143,9 +143,12 @@ axiom not_refuted_implies_indistinguishable :
 
 **Core principle**: Indistinguishability implies separation (via contradiction), which implies time bound.
 
-**What the axiom asserts**: Unrefuted worlds are TM-indistinguishable from planted.
+**What the axiom asserts**: Unrefuted worlds are TM-indistinguishable from planted (→ direction).
 
-**What's derived** (proven): Separation properties and `haltTime ≥ 2^R - 1` via counting.
+**What's derived** (proven):
+- Separation properties and `haltTime ≥ 2^R - 1` via counting
+- The **reverse direction** (←): `indistinguishable_implies_not_refuted` — derivable from WC correctness
+- The **biconditional**: `not_refuted_iff_indistinguishable` — shows axiom is "tight"
 
 #### Theorems 3-5: Proven Properties
 
@@ -678,9 +681,11 @@ Both axioms operate at the semantic level—neither mentions P, NP, or complexit
 
 1. **WC1Bridge.lean**
    - WC-1 bridge implementation
-   - `not_refuted_implies_indistinguishable` axiom (indistinguishability property)
+   - `not_refuted_implies_indistinguishable` axiom (→ direction: indistinguishability)
+   - `indistinguishable_implies_not_refuted` theorem (← direction: derivable from WC correctness)
+   - `not_refuted_iff_indistinguishable` theorem (biconditional: shows axiom is tight)
    - Separation and time bound derivation: `tm_time_lower_bound_operational` (PROVEN)
-   - Trust boundary: 1 axiom (indistinguishability only; separation and time bound DERIVED)
+   - Trust boundary: 1 axiom (← direction derivable; separation and time bound DERIVED)
 
 2. **TMAdapterExponential.lean**
    - Exponential profile adapter (R=n)
