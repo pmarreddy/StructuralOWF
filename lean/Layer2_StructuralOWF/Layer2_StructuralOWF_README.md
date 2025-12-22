@@ -8,7 +8,7 @@
 - **Computable in poly-time**: Forward evaluation via seed chain propagation
 - **Hard to invert**: Requires exponential time (2^n lower bound)
 
-**Files**: 10 files across 4 directories (Plant, FrontierGate, Extractor, Security)
+**Files**: 7 files across 3 directories (Plant, FrontierGate, Security)
 
 ---
 
@@ -107,7 +107,7 @@ For 3-SAT formula φ with n variables and m clauses:
 
 ### Plant Uniqueness
 
-**Theorem** (PlantUniqueness.lean): Plant function is deterministic.
+**Property**: Plant function is deterministic.
 
 **Why Crucial**: One-wayness requires **functions**, not relations. If Plant were nondeterministic, "finding preimage" would be ill-defined.
 
@@ -200,7 +200,7 @@ digest_fg depends on ALL variable seeds (full R-bit identity digest)
 
 ### File Organization
 
-**8 files across 3 directories**:
+**7 files across 3 directories**:
 
 **Plant/** (3 files):
 - **PlantCore.lean**: Core Plant function shared infrastructure
@@ -295,12 +295,7 @@ The trapdoor application uses `generateCNF` for arbitrary assignments (TrapdoorS
 
 **Output**: Boolean assignment σ: {0,1}^n satisfying φ
 
-**Key Theorem** (Extractor.lean):
-```lean
-theorem extractor_correctness :
-  ∀ φ r, Plant(φ, r) has valid preimage →
-  ∃ σ, σ satisfies φ (witness extraction succeeds)
-```
+**Key Property**: Extractor correctness—given valid preimage, witness can always be extracted.
 
 **Why Crucial for OWF → P≠NP Bridge**:
 
@@ -309,16 +304,18 @@ Assume P = NP (for contradiction)
 → 3-SAT solvable in poly-time
 → Build poly-time inverter:
     1. For target output x*, search for preimage r
-    2. Extract witness σ from r via Extractor
+    2. Extract witness σ from r via extractor
     3. Verify σ satisfies φ (poly-time check)
 → Can invert OWF in poly-time (contradiction with hardness bound!)
 → Therefore: P ≠ NP
 ```
 
-**Design**: Extractor is **deterministic** and **polynomial-time**:
+**Design**: Extraction is **deterministic** and **polynomial-time**:
 - Uses decodeSeed operations (inverse of encodeSeed, A4 Closure)
 - Seed parsing is bit extraction (O(n) operations)
 - Witness verification is clause evaluation (O(m) clauses)
+
+**Implementation**: Extractor functionality is integrated into the OWF bridge in Layer 5 (`PvsNP/PrimaryPath/`).
 
 ---
 
@@ -512,20 +509,20 @@ OWF security combines:
 3. Time bounds (Layer 4)
 4. Security reduction (Layer 5)
 
-### Q5: How does Extractor relate to the OWF construction?
+### Q5: How does witness extraction relate to the OWF construction?
 
-**A**: Extractor is the **inverse direction** of the OWF → P≠NP reduction:
+**A**: Witness extraction is the **inverse direction** of the OWF → P≠NP reduction:
 
 ```
 Forward: 3-SAT → L* → Plant function → OWF
-Inverse: OWF preimage → Extractor → 3-SAT witness
+Inverse: OWF preimage → witness extraction → 3-SAT witness
 
 Reduction: If P = NP, then 3-SAT poly-time solvable
-           → Can invert OWF via Extractor (contradiction!)
+           → Can invert OWF via witness extraction (contradiction!)
            → Therefore: P ≠ NP
 ```
 
-Extractor provides the **witness extraction guarantee** needed for the reduction.
+Witness extraction provides the **guarantee** needed for the reduction. Implementation is in Layer 5 (`PvsNP/PrimaryPath/`).
 
 ---
 
@@ -534,7 +531,7 @@ Extractor provides the **witness extraction guarantee** needed for the reduction
 - **§3 "L* → OWF Construction"**: Plant function definition and forward computation
 - **§4 "FrontierGate Mechanism"**: Identity digest wiring and world splitting
 - **§5 "Security Analysis"**: OWF security proofs
-- **§8 "Extractor Correctness"**: Witness reconstruction from preimages
+- **§8 "Witness Extraction"**: Witness reconstruction from preimages
 - **Theorem 5.B**: OWF security (exponential bound)
 
 ---

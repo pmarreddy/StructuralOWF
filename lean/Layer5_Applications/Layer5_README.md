@@ -12,7 +12,7 @@
 
 **Status**: Publication-ready. P≠NP proof complete; cryptographic scaffolds implemented.
 
-**Build**: All 46 files compile successfully.
+**Build**: All 48 files compile successfully.
 
 **Trust Boundary**: 2 axioms (Church-Turing thesis + information-theoretic keyedness bound).
 
@@ -44,7 +44,7 @@ Impagliazzo (1995) proposed five possible computational worlds based on the exis
 
 ## Overview
 
-- **Files**: 46 total (24 in PvsNP/, 22 in Crypto/)
+- **Files**: 48 total (26 in PvsNP/, 22 in Crypto/)
 - **Folders**: PvsNP/ (Common, ComplexityClasses, PrimaryPath) and Crypto/ (with PRG, Cryptomania, ZeroKnowledge subdirectories)
 - **Sorries**: 0 in core P≠NP path (complete formalization)
 - **Main Theorem**: `fpnefnp_implies_not_peqnp` (ParametricBitstringBridge.lean)
@@ -219,14 +219,14 @@ StructuralOWF   Bridge    Both paths
 
 ## File Organization
 
-### PvsNP/ (22 files)
+### PvsNP/ (26 files)
 
 Main P≠NP proof path.
 
 #### PvsNP/Common/ (1 file)
 - **StructuralOWFBridgeCommon.lean**: Shared bridge utilities
 
-#### PvsNP/ComplexityClasses/ (13 files)
+#### PvsNP/ComplexityClasses/ (15 files)
 Core complexity class definitions and infrastructure:
 - **AlgSpec.lean**: Algorithm specification framework
 - **BitEncoding.lean**: Bit encoding utilities
@@ -242,7 +242,11 @@ Core complexity class definitions and infrastructure:
 - **TMEncoding.lean**: TM encoding definitions
 - **UniformPPT.lean**: Uniform PPT interface
 
-#### PvsNP/PrimaryPath/ (9 files)
+##### PvsNP/ComplexityClasses/Encoding/ (2 files)
+- **BitstringOWF.lean**: Bitstring-based OWF definitions
+- **LStarEncoding.lean**: L* encoding utilities
+
+#### PvsNP/PrimaryPath/ (10 files)
 Primary OWF → P≠NP path:
 - **CheckAxioms.lean**: Axiom verification
 - **EncodingHelpers.lean**: Encoding helper functions
@@ -251,6 +255,7 @@ Primary OWF → P≠NP path:
 - **UniformPPTEmbedding.lean**: Textbook OWF security (uniform PPT → family embedding)
 - **ParametricBitstringBridge.lean**: Main P≠NP theorem (`fpnefnp_implies_not_peqnp`)
 - **ParametricComplexity.lean**: Parametric FP/FNP families
+- **ProofTests.lean**: Proof verification tests
 - **StructuralOWFBridge.lean**: OWF to FP≠FNP bridge
 - **StructuralOWFBridgeHelpers.lean**: Bridge helper lemmas
 
@@ -502,7 +507,7 @@ This distinction matters for cryptographic applications where OWFs are defined a
 
 ## Verification Checklist
 
-- [x] All 46 files compile successfully
+- [x] All 48 files compile successfully
 - [x] Zero sorries in core P≠NP path
 - [x] All audits show only standard Lean axioms + 2 foundation axioms
 - [x] Primary path: Zero bridge axioms (bitstrings)

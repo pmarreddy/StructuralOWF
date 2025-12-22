@@ -19,7 +19,7 @@ Guidance for AI assistants working on P≠NP via Semantic Conservation Law forma
 **Claim**: P≠NP via information-theoretic approach (Semantic Conservation Law)
 
 **Status**: Publication-ready
-- ~76,000 lines Lean 4 (165 files)
+- ~80,000 lines Lean 4 (165 files)
 - 0 sorries, 2 core axioms
 - Full build passes
 

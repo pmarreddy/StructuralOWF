@@ -4,7 +4,7 @@
 
 **Location**: `lean/Layer1_Construction/`
 
-**Status**: ✅ Publication-ready (13/13 files, zero custom axioms)
+**Status**: ✅ Publication-ready (12/12 files, zero custom axioms)
 
 ---
 
@@ -321,7 +321,6 @@ With k = O(log m): seedWidth = O(m · R) = poly(n) ✓
 6. **BalancedBinaryTree.lean** - Balanced binary tree for O(log m) aggregation
 7. **MultiLevelDAG.lean** - Complete multi-level DAG construction (depth O(log m))
 8. **OAPEncoding.lean** - OAP (Observation-Assignment Pair) encoding helpers
-9. **OAPLocalFlip.lean** - Local flip lemmas for OAP XOR properties
 
 **Purpose**: Build complete L* instances with verified A1-A5 properties.
 

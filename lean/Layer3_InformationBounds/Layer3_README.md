@@ -217,33 +217,30 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 - **EmergentConfig.lean**: Emergent configuration handling
 - **NormalForm.lean**: Constraint normalization
 
-### Keyedness/ (10 files)
+### Keyedness/ (9 files)
 - **KeyednessFromA2.lean**: Keyedness proven from A2 (eliminates axiom)
 - **KeyednessBounds.lean**: Keyedness lower bounds
 - **AcceptanceUniqueness.lean**: Unique acceptance semantics
 - **LaneDefinitions.lean**: FG vs. non-FG lane separation
-- **PlantedBoundaryDiversity.lean**: Diversity at segment boundaries
 - **PlantedFGDiversity.lean**: FG-specific diversity properties
 - **PlantedInstanceConsistency.lean**: Consistency of planted instances
 - **StateConfigCorrespondence.lean**: State ↔ config bijection
 - **SeedLockProperties.lean**: Seed-lock mechanism properties
 - **NoBackdoorTheorem.lean**: Absence of algorithmic backdoors in planted instances
 
-### SegmentReduction/ (8 files)
+### SegmentReduction/ (7 files)
 - **SegmentReduction.lean**: Main theorem (refutationCount ≥ 2^(ρ-s) - 1)
 - **CanonicalKeyednessBounds.lean**: Keyedness for canonical witnesses
-- **ParityLowerBound.lean**: Parity-based lower bounds
 - **SegmentBoundaries.lean**: Segment boundary definitions
 - **SegmentCounting.lean**: Segment counting infrastructure
 - **SegmentInjection.lean**: Injection mapping for segments
-- **SegmentWorkBounds.lean**: Work distribution theorems
+- **StructuralLowerBound.lean**: Structural lower bound proofs
 - **WorkLowerBounds.lean**: Lower bound aggregation
 
-### WorldCommit/ (9 files)
+### WorldCommit/ (8 files)
 - **WorldCommit.lean**: WC-1 property (exact -1 exclusion)
 - **AppendixJBridge.lean**: Appendix J bridge theorems (multiplicative world counting)
 - **CDT_Lemmas.lean**: Canonical Deterministic Trajectory lemmas
-- **ConfigMatchToUnitRefute.lean**: ConfigMatch → UnitRefute equivalence
 - **CutProduct.lean**: Cartesian product for cut worlds
 - **CutWorlds.lean**: World space for cut vertices
 - **ExecutionHistory.lean**: Execution prefix tracking
@@ -319,7 +316,7 @@ Layer 2 (Plant) → Layer 3 (Info bound) → Layer 4 (Time bound) → Layer 5 (P
 
 **A**: The bulk-elimination loophole is closed by a two-part proof:
 
-1. **R-bit Identity Digest Requires All Bits** (`parity_requires_all_bits` in ParityLowerBound.lean):
+1. **R-bit Identity Digest Requires All Bits** (`parity_requires_all_bits` in StructuralLowerBound.lean):
    - To compute the digest (ALL R bits), the algorithm must know the FULL configuration
    - With incomplete observation, collisions exist (two configs look identical)
    - Cannot reliably use DigestMatch without full knowledge
@@ -329,8 +326,8 @@ Layer 2 (Plant) → Layer 3 (Info bound) → Layer 4 (Time bound) → Layer 5 (P
    - Poly-time = poly(log n) bits observed ≪ R bits total
    - Therefore: poly-time algorithms cannot distinguish correct config
 
-3. **ConfigMatch ≡ UnitRefute Sequence** (`apply_unitRefutesFor_eq_filter_by_constraint` in ConfigMatchToUnitRefute.lean):
-   - Even if ConfigMatch were usable, it decomposes to UnitRefute list
+3. **Constraint Decomposition** (CDT_Lemmas.lean):
+   - Constraint matching decomposes to unit refutations
    - Each UnitRefute removes exactly 1 world (WC-1)
 
 **The Chain**:
@@ -378,8 +375,8 @@ All three ways require exponential resources simultaneously.
 
 ## Build Status
 
-**Layer 3 files**: 49 files total
-- ✅ All 49 files compile successfully
+**Layer 3 files**: 46 files total
+- ✅ All 46 files compile successfully
 - ✅ Main theorems proven (refutationCount ≥ 2^(ρ-s) - 1)
 - ✅ Keyedness axiom eliminated (KeyednessFromA2)
 - ✅ Zero sorries in active proof chain

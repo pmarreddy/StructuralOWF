@@ -8,7 +8,7 @@
 
 **Key achievement**: Exponential time lower bound `haltTime ≥ 2^ρ` from TM execution, with explicit model-specific proofs.
 
-**Implements**: The **TM observation paradigm** (bits observed = q, configs visited = 2^Φ) — see `TimeBridge/TMToExecutionPrefix.lean` for implementation details and paper §11.4 for theoretical foundations.
+**Implements**: The **TM observation paradigm** (bits observed = q, configs visited = 2^Φ) — see `TimeBridge/WC1Bridge.lean` for implementation details and paper §11.4 for theoretical foundations.
 
 ---
 
@@ -52,14 +52,13 @@ Operational (Layer 4)
 - TMSemanticProperties.lean: TM semantic properties
 - TuringMachineSemantics.lean: Deterministic k-tape TM semantics (axiom-free)
 
-**TimeBridge/** (2 files):
-- Exponential time lower bound
-- TM adapter (TMAdapterExponential.lean)
-- ExecutionPrefix construction
+**TimeBridge/** (3 files):
+- WC1Bridge.lean: WC-1 bridge and time bound derivation
+- TMAdapterExponential.lean: TM adapter for exponential profile
+- LStarEncodingTypes.lean: L* encoding type definitions
 
-**ExecutionSemantics/** (2 files):
-- Abstract execution framework (model-agnostic)
-- TrackedRun structure (states → segments → configs)
+**ExecutionSemantics/** (1 file):
+- ExecutionSemantics.lean: Abstract execution framework (model-agnostic)
 
 **RWA/** (1 file - supplementary):
 - RWADeterminism.lean: RWA schedule-invariance verification
@@ -309,7 +308,7 @@ time ≥ 2^R
 
 ---
 
-### TMToExecutionPrefix.lean (5401 lines, 16 axiom audits)
+### WC1Bridge.lean (Main Time Bound Derivation)
 
 **Purpose**: Bridge TM execution to ExecutionPrefix (abstract observations) using **bottom-up construction**.
 
@@ -517,54 +516,6 @@ structure TrackedRun (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) extends
 #print axioms execution_framework_complete
 ```
 
-### ExecSemantics.lean (690 lines, 13 axiom audits)
-
-**Purpose**: Extended execution semantics with additional operational properties.
-
-**Key additions**:
-
-1. **ExecutionPrefix**: Partial execution history
-   ```lean
-   structure ExecutionPrefix where
-     partialTrace : List (Nat × AlgorithmState)
-     h_ordered : timestamps strictly increasing
-     h_bounded : all timestamps < time
-   ```
-
-2. **Observation tracking**: Map time → observations
-   ```lean
-   def observationsAtTime (prefix : ExecutionPrefix) (t : Nat) :
-       Finset (Observation L v) := ...
-   ```
-
-3. **Completeness property**: All observations captured
-   ```lean
-   theorem observations_complete (prefix : ExecutionPrefix)
-       (h_complete : obs.isComplete) :
-       ∀ bit ∈ obs.bits, ∃ t, bit ∈ observationsAtTime prefix t
-   ```
-
-**Status**: Supporting definitions for TMToExecutionPrefix.
-
-**Trust boundary**: 0 axioms (pure definitions).
-
-**Axiom audits** (13 statements):
-```lean
-#print axioms ExecutionPrefix
-#print axioms partialTrace
-#print axioms h_ordered
-#print axioms h_bounded
-#print axioms observationsAtTime
-#print axioms observations_complete
-#print axioms prefix_extends
-#print axioms prefix_consistent
-#print axioms prefix_bounded
-#print axioms prefix_correctness
-#print axioms prefix_from_trace
-#print axioms prefix_time_bound
-#print axioms prefix_segment_alignment
-```
-
 ---
 
 ## RWA Folder (Supplementary)
@@ -617,7 +568,7 @@ structure TrackedRun (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) extends
 
 | Aspect | Path 1 (WC-1) | Path 2 (Realizability) |
 |--------|---------------|------------------------|
-| **Main file** | TMToExecutionPrefix.lean | TMToExecutionPrefix.lean |
+| **Main file** | WC1Bridge.lean | WC1Bridge.lean |
 | **Main theorem** | exponential_time_lower_bound_via_WC1 | exponential_time_lower_bound_via_Realizability |
 | **Strategy** | Information theory → eliminations → time | Correctness → exhaustive search → time |
 | **Key axiom** | totalEliminations_bounded_by_time | realizability_for_planted_instances |
@@ -723,41 +674,37 @@ Both axioms operate at the semantic level—neither mentions P, NP, or complexit
    - LocalEncoder abstraction (visitedEncodings_card_ge_pow)
    - Trust boundary: 0 axioms
 
-### TimeBridge/ (2 files)
+### TimeBridge/ (3 files)
 
-1. **TMAdapterExponential.lean** (~2000 lines)
-   - Exponential profile adapter (R=n)
-   - ValidExecutionPrefix_flat: TM→ExecutionPrefixReal validation
-   - simpleCanonicalPlantedPrefix_flat: Constructive prefix builder
-   - tmToWitnessFinder implementation
-   - tm_proves_keyed_visitation_exponential
-
-2. **WC1Bridge.lean** (~3400 lines)
+1. **WC1Bridge.lean**
    - WC-1 bridge implementation
    - `not_refuted_implies_indistinguishable` axiom (indistinguishability property)
    - Separation and time bound derivation: `tm_time_lower_bound_operational` (PROVEN)
    - Trust boundary: 1 axiom (indistinguishability only; separation and time bound DERIVED)
 
-### ExecutionSemantics/ (2 files, 24 axiom audits total)
+2. **TMAdapterExponential.lean**
+   - Exponential profile adapter (R=n)
+   - tmToWitnessFinder implementation
+   - tm_proves_keyed_visitation_exponential
 
-1. **ExecutionSemantics.lean** (2325 lines, 11 audits)
+3. **LStarEncodingTypes.lean**
+   - L* encoding type definitions
+   - Type infrastructure for TM bridge
+
+### ExecutionSemantics/ (1 file)
+
+1. **ExecutionSemantics.lean**
    - Abstract execution framework (model-agnostic)
    - TrackedRun structure (states → segments → configs)
    - keyedness_from_execution, soundness_from_coverage
    - Trust boundary: 0 axioms
 
-2. **ExecSemantics.lean** (690 lines, 13 audits)
-   - Extended execution semantics
-   - ExecutionPrefix, observation tracking
-   - Completeness properties
-   - Trust boundary: 0 axioms
-
 ### Summary
 
-**Total files**: 9 (5 TuringMachine + 1 TimeBridge + 2 ExecutionSemantics + 1 RWA)
+**Total files**: 10 (5 TuringMachine + 3 TimeBridge + 1 ExecutionSemantics + 1 RWA)
 **Total lines**: ~10,000 lines (largest layer by far!)
 **Trust boundary**: 2 axioms (Church-Turing, positive + Church-Turing, negative/impossibility)
-**Status**: All 9 files compile successfully
+**Status**: All 10 files compile successfully
 
 ---
 
@@ -777,7 +724,7 @@ Both axioms operate at the semantic level—neither mentions P, NP, or complexit
 
 ### Dual-Path Architecture
 
-**Innovation**: Two complete proofs in ONE file (TMToExecutionPrefix.lean):
+**Innovation**: Two complete proofs in ONE file (WC1Bridge.lean):
 - Path 1 (WC-1): Information-theoretic → operational
 - Path 2 (Realizability): Semantic → operational
 - Same trust boundary (2 axioms)
