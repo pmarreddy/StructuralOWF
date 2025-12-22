@@ -24,8 +24,8 @@ The P ≠ NP proof relies on L* simultaneously blocking all three operational ro
 
 | # | Axiom | Location | Barrier Impact | Risk |
 |---|-------|----------|----------------|------|
-| 1 | `algspec_has_tm` | RandAdv.lean:297 | All (TM model) | Very Low |
-| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:2132 | Church-Turing bridge (negative: functional impossibility → TM impossibility) | Low |
+| 1 | `algspec_has_tm` | RandAdv.lean:414 | All (TM model) | Very Low |
+| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 | WC-1 bridge (indistinguishability axiom) | Low |
 
 **Previously Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding` - Now 145-line theorem (EncodingDiscipline.lean)
@@ -44,7 +44,7 @@ cd lean && lake build && lake env lean -c 'import Layer5_Applications.PvsNP.Prim
 
 | Barrier | Dimension | SCL Term | Blocked By | Primary Lean File | Key Theorem |
 |---------|-----------|----------|------------|-------------------|-------------|
-| **Storage** | 1 (Space) | Φ | Keyedness | `SCLNode.lean:297` | `SCL_node` |
+| **Storage** | 1 (Space) | Φ | Keyedness | `SCLNode.lean:316` | `SCL_node` |
 | **Resolution** | 2 (Time-Forward) | +q (read) | Emergence + Bandwidth | `A3_Emergence.lean:260` | `L_satisfies_A3` |
 | **Elimination** | 3 (Time-Backward) | +q (test) | Per-Node + CDT | `SegmentReduction.lean:3188` | `refutation_count_exponential_bound` |
 
@@ -97,7 +97,7 @@ Keyedness (derived from A2 Injectivity) states: different seeds → different de
 
 **Lean Files**:
 - `Layer1_Construction/Properties/A2_Injectivity.lean` — `satisfies_A2` definition (line 225), `L_satisfies_A2` theorem (line 231)
-- `Layer0_Foundations/SCL/SCLNode.lean` — `SCL_node` theorem (line 297)
+- `Layer0_Foundations/SCL/SCLNode.lean` — `SCL_node` theorem (line 316)
 - `Layer1_Construction/Core/SeedChain.lean` — Seed encoding, `encodeSeed_injective`
 
 ### Attack Vectors
@@ -1345,9 +1345,10 @@ The Resolution barrier requires that R_v bits MUST be explicitly read from desig
 **Lean Files**:
 - `Layer1_Construction/Core/Pools.lean` — `address_hermetic` (line 168-177)
 - `Layer1_Construction/Core/OAPEncoding.lean` — OAP XOR encoding/decoding
-- `Layer4_Operational/TMAdapter/TMAdapterExponential.lean` — `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom (line 297)
+- `Layer4_Operational/TimeBridge/WC1Bridge.lean` — `not_refuted_implies_indistinguishable` axiom (line 4067)
+  NOTE: Primary path uses `not_refuted_implies_indistinguishable`; `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` is at TMAdapterExponential.lean:2151
 
-**AXIOM ALERT**: This category relies on axiom #4 (`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`). This axiom formalizes OAP (Overlay Access Protocol) non-inferability: without observing ALL emergent configs, a TM cannot produce a correct satisfying assignment for planted instances.
+**AXIOM ALERT**: This category relies on the WC-1 axiom (`not_refuted_implies_indistinguishable` at WC1Bridge.lean:4067). This axiom formalizes indistinguishability: without observing ALL emergent configs, a TM cannot produce a correct satisfying assignment for planted instances.
 
 **Axiom Statement** (simplified):
 ```lean
@@ -3035,7 +3036,7 @@ grep -rn "paradigm\|Paradigm\|adapter\|Adapter" lean/Layer*/*.lean
 | Axiom | Barrier(s) Affected | Why Needed |
 |-------|---------------------|------------|
 | `algspec_has_tm` | All | Church-Turing bridge for TM semantics |
-| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | Resolution | OAP non-inferability (keyedness bound) |
+| `not_refuted_implies_indistinguishable` | Resolution | WC-1 indistinguishability (coverage requirement) |
 
 **Note**: Previously there were 4 axioms. `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proven theorems (see README).
 

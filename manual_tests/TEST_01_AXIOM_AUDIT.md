@@ -3,7 +3,7 @@
 **Priority**: CRITICAL (Most Important Test)
 **Risk Level**: Proof-Invalidating
 **Estimated Time**: 2-4 hours for comprehensive audit
-**Last Updated**: 2025-12-07 (verified against actual `#print axioms P_ne_NP` output)
+**Last Updated**: 2025-12-22 (verified against actual `#print axioms P_ne_NP` output)
 
 ---
 
@@ -33,10 +33,10 @@ The axiom audit is the single most important verification step. If ANY axiom is:
 
 | # | Axiom | File | Type | Risk |
 |---|-------|------|------|------|
-| 1 | `algspec_has_tm` | RandAdv.lean:297 | Church-Turing bridge | Very Low |
-| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:297 | Information-theoretic bound | Low |
+| 1 | `algspec_has_tm` | RandAdv.lean:414 | Church-Turing bridge | Very Low |
+| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 | WC-1 indistinguishability bridge | Low |
 
-**Note**: `fg_lossless_encoding` was previously an axiom but is now fully proven (145-line theorem). See `docs/AXIOM_FINAL_COUNT.md` for authoritative axiom documentation.
+**Note**: See `docs/AXIOM_FINAL_COUNT.md` for authoritative axiom documentation.
 
 ---
 
@@ -74,42 +74,38 @@ grep -rn "sorryAx" --include="*.lean" | grep -v ".lake"
  Classical.choice,
  Quot.sound,
  LStar.Complexity.algspec_has_tm,
- _private.Layer2_StructuralOWF.Plant.PlantExponential.0.LStar.StructuralOWF.plant_flat_wf_transfer,
- _private.Layer5_Applications.PvsNP.ComplexityClasses.EncodingDiscipline.0.LStar.Complexity.EncodingDiscipline.fg_lossless_encoding,
- LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded]
+ LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable]
 ```
 
 **Red Flags**:
 - Any axiom not in the list above
 - Any `sorry` in files used by P_ne_NP
 - Any `sorryAx` anywhere in the dependency chain
-- Axiom count ≠ 4 custom + 3 standard
+- Axiom count ≠ 2 custom + 3 standard
 
 **Verification Checklist**:
-- [ ] Exactly 4 custom axioms in P_ne_NP chain
+- [ ] Exactly 2 custom axioms in P_ne_NP chain
 - [ ] No undocumented axioms exist
 - [ ] No `sorry` in main proof chain
 - [ ] No `sorryAx` in main proof chain
-- [ ] Private axiom names match expected mangled format
 
 ---
 
-### ATTACK 1.2: Axiom Strength Analysis (All 4 Axioms)
+### ATTACK 1.2: Axiom Strength Analysis (Both Axioms)
 
 **Goal**: Determine if any axiom is "too strong" (secretly assumes P≠NP)
 
-#### Axiom 1: `algspec_has_tm` (RandAdv.lean:297)
+#### Axiom 1: `algspec_has_tm` (RandAdv.lean:414)
 
 ```lean
-axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β] {T : Nat}
+axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
+    [UniformityStructure α β] {T : Nat}
     (A : AlgSpec α β T) :
   ∃ (M : RandAdv α β T),
     M.toAlgSpec.run = A.run ∧
     M.C = A.C ∧
     M.k = A.k ∧
-    Function.Surjective M.encoding.output.decode ∧
-    (∀ c x, A.run c x ≠ M.early_decode_default) ∧
-    FirstNatComponent.firstNat M.early_decode_default = 0
+    UniformityStructure.uniformityProp M
 ```
 
 **Strength Test Questions**:
@@ -121,84 +117,38 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
   - **Analysis**: No - if SAT had a poly-time algorithm, this axiom would give you the TM for it
 - **VERDICT**: SAFE (definitional, not computational)
 
-#### Axiom 2: `plant_flat_wf_transfer` (PlantExponential.lean:1067, private)
+#### Axiom 2: `not_refuted_implies_indistinguishable` (WC1Bridge.lean:4067)
 
 ```lean
-private axiom plant_flat_wf_transfer (φ' φ_known : CNF) (L : LStarInstanceFG)
-    (h_L_phi' : ∃ n' r' h_nvars', L = plant_flat n' φ' r' h_nvars')
-    (h_L_known : ∃ n r h_nvars, L = plant_flat n φ_known r h_nvars)
-    (c : Clause) (hc : c ∈ φ'.clauses) (l : Literal) (hl : l ∈ c.literals)
-    (h_wf_known : φ_known.WellFormed) : l.var < φ'.nvars
-```
-
-**Strength Test Questions**:
-- [ ] Does this restrict polynomial-time computation?
-  - **Analysis**: No - this is about CNF structure preservation, not computation
-- [ ] Could this be false?
-  - **Analysis**: No - if L = plant_flat(φ') = plant_flat(φ_known) with same structure, literal bounds transfer
-- [ ] Is this information-theoretic?
-  - **Analysis**: It's structural: plant_flat encodes φ injectively, so two CNFs producing same L must have same properties
-- **VERDICT**: SAFE (structural property of plant_flat encoding)
-
-#### Axiom 3: `fg_lossless_encoding` (EncodingDiscipline.lean:346, private)
-
-```lean
-private axiom fg_lossless_encoding
-    (φ : CNF) (h_nvars_pos : φ.nvars > 0) (numGates : Nat)
-    (gateIndex : Nat) (h_gate_valid : gateIndex < numGates)
-    (h_numGates_valid : numGates ≤ φ.clauses.length)
-    (h_vertex_valid : 1 + φ.nvars + gateIndex < ... .dag.n)
-    (σ : LStar.Assignment)
-    (h_cap : ... R v ≤ seedWidth v)
-    (h_has_parents : ... .parents v ≠ ∅) :
-    Foundations.extractEmergentBits seed R h_cap =
-    Vector.ofFn (fun j : Fin R => if R > 0 then σ (R - 1 - j.val) else false)
-```
-
-**Strength Test Questions**:
-- [ ] Does this restrict computation?
-  - **Analysis**: No - it's a roundtrip property for bit extraction
-- [ ] Is this mathematically deep?
-  - **Analysis**: No - it says extracting R bits from an R-bit encoding recovers original data
-- [ ] Why is it an axiom?
-  - **Analysis**: Complex dependent type index manipulation (Fin.cast, Vector.get_append_right)
-- **VERDICT**: SAFE (encoding mechanics, mathematically trivial)
-
-#### Axiom 4: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (TMAdapterExponential.lean:297)
-
-```lean
-axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
-    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars) (_h_wf : WellFormedRandomness_flat φ r)
-    (v : {v // L.fg.gateReq v})
-    {numTapes : Nat} {states alphabet : Type}
+axiom not_refuted_implies_indistinguishable
+    {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
-    (M : TuringMachine numTapes states alphabet)
-    (init : TMConfig M) (haltTime : Nat)
-    (extractWitness : TMConfig M → Witness)
-    (encodeConfig : TMConfig M → Nat)
-    -- UNIFORMITY REQUIREMENT
-    (C_uniform k_uniform : Nat)
-    (h_C_pos : C_uniform > 0) (h_k_pos : k_uniform > 0)
-    (h_uniform_bound : haltTime ≤ C_uniform * (L.n + 1) ^ k_uniform)
-    -- Standard parameters
-    (val : Fin (2^(L.R v.val)))
-    (h_val_reachable : ∃ cfg : TMConfig M, encodeConfig cfg = val.val)
-    (h_missing : ∀ t < haltTime, encodeConfig (step^[t] init) ≠ val.val)
-    (h_correct : φ.satisfies (extractWitness (step^[haltTime] init)).assignment)
-    : False
+    (L : LStarInstanceFG)
+    (M : TuringMachine k states alphabet)
+    (v : Fin L.dag.n)
+    (enc : LStarTMEncoding L M v)
+    (haltTime : Nat)
+    (cfg_planted : Fin (2^(L.R v)))
+    (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
+    (h_configs_def : configs = (List.range haltTime).map (fun t =>
+        ⟨v, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
+    (h_v_in : v ∈ ({v} : Finset (Fin L.dag.n)))
+    (ω' : CutWorld L {v})
+    (h_not_refuted : ω' ∉ tmRefutedWorlds L {v} configs)
+    : TMIndistinguishable L M v enc.extractConfigAtV enc.initForPlanting haltTime
+        (ω'.assignment v h_v_in) cfg_planted
 ```
 
 **Strength Test Questions**:
 - [ ] Does this directly say "poly-time can't do X"?
-  - **Analysis**: No - it says IF (missing config) AND (correct output) AND (uniform PPT bound), then False
+  - **Analysis**: No - it asserts indistinguishability: if a world isn't refuted by the TM run trace, the TM cannot distinguish it from the planted world
 - [ ] Is this information-theoretically sound?
-  - **Analysis**: Yes - if you miss observing some config value, you lack information needed for correctness on planted instances
-- [ ] What about the uniformity requirement?
-  - **Analysis**: CRUCIAL - prevents non-uniform "lucky TMs"; requires instance-independent C, k bounds
-- [ ] Could this be false for some encoder?
-  - **Analysis**: No - `h_val_reachable` guard ensures encoder is non-trivial; encoder completeness is PROVEN via `tmEmergentEncoder_surjective_flat`
-- **VERDICT**: LIKELY SAFE (but requires deeper analysis - see Attack 1.17)
+  - **Analysis**: Yes - if you haven't observed information that rules out a world, you cannot distinguish it
+- [ ] What about the operational structure?
+  - **Analysis**: CRUCIAL - configs are DEFINED via actual TM run trace (not existentially quantified), ensuring the axiom only applies to real TM execution
+- [ ] Does this assume P≠NP?
+  - **Analysis**: No - it's about indistinguishability. The time bound (≥ 2^R - 1) is DERIVED via `indistinguishability_implies_all_wrong_refuted` and WC-1 structure theorems
+- **VERDICT**: SAFE (indistinguishability principle; separation/time bound derived, not assumed)
 
 ---
 
@@ -214,16 +164,12 @@ axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 ```bash
 # Search for P/NP mentions in axiom files
 grep -B5 -A30 "^axiom " Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean | grep -i "InP\|InNP\|P_ne\|PeqNP"
-grep -B5 -A30 "^axiom " Layer4_Operational/TimeBridge/TMAdapterExponential.lean | grep -i "InP\|InNP\|P_ne\|PeqNP"
-grep -B5 -A30 "^private axiom " Layer2_StructuralOWF/Plant/PlantExponential.lean | grep -i "InP\|InNP\|P_ne\|PeqNP"
-grep -B5 -A30 "^private axiom " Layer5_Applications/PvsNP/ComplexityClasses/EncodingDiscipline.lean | grep -i "InP\|InNP\|P_ne\|PeqNP"
+grep -B5 -A30 "^axiom " Layer4_Operational/TimeBridge/WC1Bridge.lean | grep -i "InP\|InNP\|P_ne\|PeqNP"
 ```
 
 **Expected**: No matches. Axioms should be about:
 - Encodings (algspec_has_tm)
-- Structure preservation (plant_flat_wf_transfer)
-- Bit extraction (fg_lossless_encoding)
-- Information theory (tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
+- Indistinguishability (not_refuted_implies_indistinguishable)
 - NOT about complexity classes directly
 
 **Verification Checklist**:
@@ -259,20 +205,20 @@ theorem axioms_inconsistent : False := by
 ```lean
 -- For each axiom, verify it doesn't derive False alone
 #check @algspec_has_tm  -- Should not have False in its conclusion
-#check @tm_correctness_implies_realizesAllValuesFrom_flat_encoded
--- The collision axiom DOES conclude False, but only under specific preconditions
+#check @not_refuted_implies_indistinguishable  -- Concludes TMIndistinguishable, not False
 ```
 
 **Test 3: Mutual Contradiction Check**
 ```lean
--- Can we satisfy the preconditions of tm_correctness_implies_realizesAllValuesFrom_flat_encoded
+-- Can we satisfy the preconditions of not_refuted_implies_indistinguishable
 -- using outputs from algspec_has_tm?
 --
 -- algspec_has_tm: AlgSpec → TM
--- tm_correctness_implies_realizesAllValuesFrom_flat_encoded: TM + correct output → realizes all values
+-- not_refuted_implies_indistinguishable: TM + unrefuted world → TMIndistinguishable
 --
 -- For contradiction: need to show EVERY TM from algspec_has_tm
--- satisfies h_missing AND h_correct simultaneously (impossible for correct TMs)
+-- has all wrong worlds unrefuted AND produces correct output (impossible)
+-- The derivation chain shows: if TM is worst-case correct, all wrong worlds ARE refuted
 ```
 
 **Verification Checklist**:
@@ -328,13 +274,14 @@ def identity_spec : AlgSpec Nat Nat 10 where
 -- This should typecheck and produce an existential
 ```
 
-**Test for tm_correctness_implies_realizesAllValuesFrom_flat_encoded**:
+**Test for not_refuted_implies_indistinguishable**:
 ```lean
--- The axiom states: h_correct (TM produces satisfying assignment) → realizesAllValuesFrom
--- This means: correct output implies all 2^R config values were visited
+-- The axiom states: unrefuted world → TMIndistinguishable
+-- This means: if a world is not ruled out by configs, TM cannot distinguish it
 --
--- For planted instances with correct TMs, visiting ALL 2^R configs is required
--- The axiom captures this information-theoretic necessity
+-- For planted instances with correct TMs, all wrong worlds must be refuted
+-- (derived via indistinguishability_implies_all_wrong_refuted)
+-- The axiom captures the information-theoretic indistinguishability principle
 ```
 
 ---
@@ -358,11 +305,11 @@ done
 
 **Dependency Matrix (Expected)**:
 
-| Theorem | algspec_has_tm | collision_indist |
-|---------|----------------|------------------|
+| Theorem | algspec_has_tm | not_refuted_implies_indistinguishable |
+|---------|----------------|---------------------------------------|
 | P_ne_NP | ✅ | ✅ |
 | pnenp_classical | ✅ | ✅ |
-| f_is_one_way | ✅ | ✅ |
+| f_is_structural_owf_exponential_true | ❌ | ✅ |
 
 **Verification Checklist**:
 - [ ] All 2 axioms used by P_ne_NP
@@ -410,22 +357,20 @@ Then the axioms DON'T imply P≠NP!
 
 **Analysis**:
 - **algspec_has_tm**: Holds in any model of computation (Church-Turing thesis)
-- **algspec_has_tm**: Church-Turing bridge, model-independent
-- **tm_correctness_implies_realizesAllValuesFrom_flat_encoded**: The key axiom
+- **not_refuted_implies_indistinguishable**: The key axiom
 
-**Note**: `plant_flat_wf_transfer` and `fg_lossless_encoding` were previously axioms but are now proven theorems.
-
-**For tm_correctness_implies_realizesAllValuesFrom_flat_encoded in a P=NP world**:
+**For not_refuted_implies_indistinguishable in a P=NP world**:
 - If P=NP, there exists a poly-time SAT solver
-- For planted instances, this solver must visit enough configs
-- The axiom says: correct output → all 2^R values were realized
-- Question: Does poly-time SAT solver visit all configs or fail correctness?
+- For planted instances, this solver must refute all wrong worlds to be correct
+- The axiom says: unrefuted world → indistinguishable from planted
+- By contrapositive with worst-case correctness: all wrong worlds must be refuted
+- Derived consequence: haltTime ≥ 2^R - 1 (via WC-1 structure theorems)
 
 **Key insight**: In a P=NP world, a poly-time SAT solver for planted instances would either:
-1. Visit ALL 2^R emergent configs (satisfying the coverage requirement) - but 2^R > poly(n), so impossible
-2. NOT visit all configs but still be correct - violating the axiom
+1. Refute ALL 2^R - 1 wrong worlds (requiring ≥ 2^R - 1 time) - but 2^R > poly(n), so impossible
+2. Leave some wrong world unrefuted but still be correct - violating indistinguishability + worst-case correctness
 
-This is the crux: the axiom captures that correctness on planted instances REQUIRES exponential-time coverage, which is information-theoretically justified.
+This is the crux: the axiom captures indistinguishability, from which the time bound is DERIVED.
 
 ---
 
@@ -433,16 +378,15 @@ This is the crux: the axiom captures that correctness on planted instances REQUI
 
 **Goal**: Determine if axioms are derivable from each other
 
-**Note**: There are now only 2 axioms (`algspec_has_tm` and `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`).
-The previously listed `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proven theorems.
+**Note**: There are exactly 2 axioms (`algspec_has_tm` and `not_refuted_implies_indistinguishable`).
 
 **Method**:
 ```lean
 -- Can we prove axiom 2 from axiom 1?
 theorem axiom2_from_axiom1 :
   (∀ A, algspec_has_tm A) →
-  tm_correctness_implies_realizesAllValuesFrom_flat_encoded = _ := by
-  sorry  -- SHOULD FAIL - different domains (Church-Turing vs information theory)
+  not_refuted_implies_indistinguishable = _ := by
+  sorry  -- SHOULD FAIL - different domains (Church-Turing vs indistinguishability)
 ```
 
 **Expected**: `sorry` required (axioms are independent).
@@ -518,12 +462,16 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 -- Test: Does algspec_has_tm work with Empty input?
 -- Answer: No - Empty has no values, so AlgSpec on Empty is vacuous
 
--- Test: Does tm_correctness_implies_realizesAllValuesFrom_flat_encoded work with R = 0?
+-- Test: Does not_refuted_implies_indistinguishable work with R = 0?
 -- Answer: If R = 0, then 2^R = 1, so there's only 1 config value
--- This is handled by the h_nvars ≥ 4 requirement (ensures R > 0)
+-- This is handled by the plant_flat construction requiring h_nvars ≥ 4
+-- The LStarInstanceFG structure comes from plant_flat which ensures sufficient size
+
+-- Test: What about L.dag.n = 0?
+-- Answer: v : Fin L.dag.n requires L.dag.n > 0, so this case is excluded
 ```
 
-**Verification**: Check that axiom preconditions exclude degenerate cases.
+**Verification**: Check that construction preconditions (in plant_flat) exclude degenerate cases.
 
 ---
 
@@ -534,13 +482,11 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 **Method**:
 ```bash
 # Private axioms appear with _private prefix in #print axioms output
-# Map mangled names to source locations
+# Current status: NO private axioms in P_ne_NP dependency chain
 
-# Expected mappings:
-# _private.Layer2_StructuralOWF.Plant.PlantExponential.0.LStar.StructuralOWF.plant_flat_wf_transfer
-#   → Layer2_StructuralOWF/Plant/PlantExponential.lean:1067
-# _private.Layer5_Applications.PvsNP.ComplexityClasses.EncodingDiscipline.0.LStar.Complexity.EncodingDiscipline.fg_lossless_encoding
-#   → Layer5_Applications/PvsNP/ComplexityClasses/EncodingDiscipline.lean:346
+# All axioms are public:
+# - LStar.Complexity.algspec_has_tm
+# - LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable
 ```
 
 **Red Flag**: Any private axiom not documented in trust boundary.
@@ -556,15 +502,13 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 | Axiom | Contribution | Could prove P≠NP alone? |
 |-------|--------------|-------------------------|
 | algspec_has_tm | TM bridge | No (Church-Turing) |
-| plant_flat_wf_transfer | CNF structure | No (just encoding) |
-| fg_lossless_encoding | Bit roundtrip | No (just extraction) |
-| collision_indist | Info-theoretic bound | No (needs construction) |
+| not_refuted_implies_indistinguishable | Indistinguishability | No (needs construction + derivation) |
 
 **Key insight**: No single axiom implies P≠NP. The separation emerges from COMBINING:
 1. The L* construction (creates planted instances)
-2. Axioms 2,3 (encoding discipline)
-3. Axiom 4 (coverage requirement)
-4. Axiom 1 (TM representation)
+2. The indistinguishability axiom (unrefuted → indistinguishable)
+3. Derived theorems (all wrong worlds must be refuted, WC-1 structure, time bound)
+4. The TM bridge (AlgSpec → RandAdv)
 
 ---
 
@@ -574,26 +518,26 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 
 **Method**:
 ```lean
--- For tm_correctness_implies_realizesAllValuesFrom_flat_encoded:
--- The axiom states: h_correct → realizesAllValuesFrom
--- This means: correct output implies all 2^R config values were visited
+-- For not_refuted_implies_indistinguishable:
+-- The axiom states: unrefuted world → TMIndistinguishable
+-- This means: if a world isn't ruled out by configs, TM cannot distinguish it
 
 -- The axiom is designed so that for PLANTED instances with CORRECT TM output,
--- all config values must have been realized during execution.
--- This is the information-theoretic content: correctness requires full coverage.
+-- all wrong worlds must be refuted (derived via indistinguishability_implies_all_wrong_refuted).
+-- This is the information-theoretic content: correctness requires full refutation.
 
--- Test: Construct a TM that visits all 2^R configs
--- Such TM satisfies both h_correct and realizesAllValuesFrom - consistent
+-- Test: Construct a TM that refutes all wrong worlds
+-- Such TM satisfies worst-case correctness - consistent
 
--- Test: Construct a TM that misses some config but is still correct
--- On planted instances, this should be impossible (the axiom's claim)
--- If we could construct such a TM, the axiom would be false
+-- Test: Construct a TM that leaves some wrong world unrefuted but is still correct
+-- By indistinguishability + worst-case correctness, this leads to contradiction
+-- If we could construct such a TM, the derivation chain would be unsound
 ```
 
 **Verification**: The axiom's strength comes from:
 1. Preconditions ARE satisfiable (planted instances exist, TMs exist)
-2. Correctness on planted instances implies exponential coverage
-3. This is the information-theoretic content
+2. Indistinguishability + worst-case correctness → all wrong worlds refuted (derived)
+3. WC-1 structure → time ≥ 2^R - 1 (derived)
 
 ---
 
@@ -606,39 +550,39 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 # Check each axiom's dependencies
 cat > /tmp/per_axiom.lean << 'EOF'
 import Layer5_Applications.PvsNP.ComplexityClasses.RandAdv
-import Layer4_Operational.TimeBridge.TMAdapterExponential
-import Layer2_StructuralOWF.Plant.PlantExponential
-import Layer5_Applications.PvsNP.ComplexityClasses.EncodingDiscipline
+import Layer4_Operational.TimeBridge.WC1Bridge
 
 #print axioms LStar.Complexity.algspec_has_tm
-#print axioms LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded
--- Private axioms are self-referential (they ARE axioms)
+#print axioms LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable
 EOF
 lake env lean /tmp/per_axiom.lean 2>&1
 ```
 
 **Expected**:
-- `algspec_has_tm` → `[propext, Classical.choice, Quot.sound, algspec_has_tm]`
-- `collision_indist` → `[propext, Classical.choice, Quot.sound, collision_indist]`
-- Private axioms → Only standard + themselves
+- `algspec_has_tm` → `[propext, Quot.sound, algspec_has_tm]` (no Classical.choice)
+- `not_refuted_implies_indistinguishable` → `[propext, Classical.choice, Quot.sound, not_refuted_implies_indistinguishable]`
 
 ---
 
 ### ATTACK 1.19: Uniformity Requirement Analysis (NEW)
 
-**Goal**: Verify the uniformity requirement in tm_correctness_implies_realizesAllValuesFrom_flat_encoded is sound
+**Goal**: Verify uniformity is properly enforced in the proof architecture
 
-**Background**: The axiom includes:
+**Background**: Uniformity is enforced through the `algspec_has_tm` axiom's `UniformityStructure`:
 ```lean
--- UNIFORMITY REQUIREMENT: TM must come from uniform PPT (instance-independent bounds)
-(C_uniform k_uniform : Nat)
-(h_C_pos : C_uniform > 0) (h_k_pos : k_uniform > 0)
-(h_uniform_bound : haltTime ≤ C_uniform * (L.n + 1) ^ k_uniform)
+axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
+    [UniformityStructure α β] {T : Nat}
+    (A : AlgSpec α β T) :
+  ∃ (M : RandAdv α β T),
+    M.toAlgSpec.run = A.run ∧
+    M.C = A.C ∧  -- polynomial constant preserved
+    M.k = A.k ∧  -- polynomial exponent preserved
+    UniformityStructure.uniformityProp M
 ```
 
 **Questions**:
 - [ ] Does this block non-uniform adversaries?
-  - **Analysis**: Yes - a non-uniform TM hardcoded for specific instances would need different C,k per instance
+  - **Analysis**: Yes - the polynomial bounds C,k are instance-independent (from AlgSpec)
 - [ ] Does this block exponential-time strategies?
   - **Analysis**: Yes - no fixed C,k satisfies 2^n ≤ C*n^k for all n
 - [ ] Is this requirement too restrictive?
@@ -693,7 +637,7 @@ Compare findings with:
 ## Pass/Fail Criteria
 
 ### PASS Conditions (ALL must be true):
-- [ ] Exactly 2 custom axioms used by P_ne_NP (algspec_has_tm, tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
+- [ ] Exactly 2 custom axioms used by P_ne_NP (algspec_has_tm, not_refuted_implies_indistinguishable)
 - [ ] All axioms are documented
 - [ ] No axiom directly assumes P≠NP
 - [ ] No axiom restricts polynomial-time computation
@@ -708,7 +652,7 @@ Compare findings with:
 - [ ] Axiom secretly implies P≠NP
 - [ ] `sorry` or `sorryAx` in dependency chain
 - [ ] Axioms derive `False` without valid preconditions
-- [ ] Axiom count differs from verified 4
+- [ ] Axiom count differs from verified 2
 - [ ] Axiom preconditions are unsatisfiable
 - [ ] Crypto axioms appear in P_ne_NP chain
 
@@ -717,14 +661,12 @@ Compare findings with:
 ## Historical Findings
 
 From previous audits:
-- **Eliminated**: `tm_overhead`, `encoding_semantics` (now theorems)
-- **Current (verified 2025-12-07)**:
-  1. `algspec_has_tm`
-  2. `plant_flat_wf_transfer` (private)
-  3. `fg_lossless_encoding` (private)
-  4. `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`
+- **Eliminated**: `tm_overhead`, `encoding_semantics`, `plant_flat_wf_transfer`, `fg_lossless_encoding` (now theorems)
+- **Current (verified 2025-12-22)**:
+  1. `algspec_has_tm` (Church-Turing bridge)
+  2. `not_refuted_implies_indistinguishable` (WC-1 indistinguishability bridge)
 - **Vestigial**: `planted_revealedBits_empty` (not in P_ne_NP chain)
-- **Not in chain**: `planted_pss_uniqueness_flat` (despite being in some docs)
+- **Not in chain**: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (exists but unused by P_ne_NP)
 
 ---
 
@@ -736,38 +678,26 @@ From previous audits:
 2. **Polynomial Preservation**: If AlgSpec has poly bound C*n^k, TM can simulate with same bound
 3. **No Restriction**: This doesn't say what CAN'T be computed, only what CAN
 
-### Why `plant_flat_wf_transfer` is Sound
+### Why `not_refuted_implies_indistinguishable` is Sound
 
-1. **Injective Encoding**: `plant_flat` encodes CNF structure into L
-2. **Structure Preservation**: Two CNFs producing same L must have same literal bounds
-3. **No Computation**: Pure structural property
-
-### Why `fg_lossless_encoding` is Sound
-
-1. **Bit Manipulation**: Extracting R bits from R-bit encoding recovers original
-2. **Mathematically Trivial**: Statement is immediate
-3. **Axiomatized for**: Complex dependent type index manipulation in Lean
-
-### Why `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` is Sound
-
-1. **Information Theory**: Correctness requires observing relevant information
-2. **Planted Construction**: FG gates encode randomness that determines correct assignment
-3. **Coverage Requirement**: Missing config → missing information → cannot guarantee correctness
-4. **Uniformity Guard**: Only applies to uniform PPT adversaries (instance-independent bounds)
-5. **Soundness Guard**: `h_extractWitness_surj` blocks trivial/degenerate encoders
+1. **Indistinguishability Principle**: If you haven't observed information ruling out a world, you cannot distinguish it
+2. **Operational Definition**: Configs are DEFINED via actual TM run trace (not existentially quantified)
+3. **Derivation Chain**: Separation and time bound are DERIVED, not assumed:
+   - `indistinguishability_implies_all_wrong_refuted`: All wrong worlds must be refuted (by contradiction with worst-case correctness)
+   - `tmRefutedWorlds_length_le_configs`: Each config adds ≤1 world (WC-1 structure)
+   - `separation_implies_refuted_length`: Separation → refuted.length = 2^R - 1
+   - `tm_time_lower_bound_operational`: haltTime ≥ 2^R - 1
 
 ### Why These Don't Assume P≠NP
 
 A hypothetical P=NP world:
 - `algspec_has_tm`: Still true (poly-time SAT solver would get a TM)
-- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`: Still true (information theory unchanged)
-
-**Note**: `plant_flat_wf_transfer` and `fg_lossless_encoding` were previously axioms but are now proven theorems.
+- `not_refuted_implies_indistinguishable`: Still true (indistinguishability principle unchanged)
 
 The P≠NP conclusion comes from COMBINING these with the FG construction,
 not from the axioms themselves. The construction creates instances where
 correctness requires 2^Ω(n) time, and no axiom blocks a poly-time algorithm
-from existing—the construction makes such algorithms incorrect.
+from existing—the construction makes such algorithms incorrect on planted instances.
 
 ---
 
@@ -775,9 +705,8 @@ from existing—the construction makes such algorithms incorrect.
 
 | Axiom | File | Line | Namespace |
 |-------|------|------|-----------|
-| `algspec_has_tm` | RandAdv.lean | 298 | `LStar.Complexity` |
-| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | 2132 | `LStar.StructuralOWF.Foundations.FlatProfile` |
+| `algspec_has_tm` | RandAdv.lean | 414 | `LStar.Complexity` |
+| `not_refuted_implies_indistinguishable` | WC1Bridge.lean | 4067 | `LStar.StructuralOWF.Foundations` |
 
-**Eliminated Axioms** (now proven theorems):
-- `plant_flat_wf_transfer` - Now definitionally true via CNF.WellFormed
-- `fg_lossless_encoding` - 145-line theorem in EncodingDiscipline.lean
+**Not in P_ne_NP Chain** (exists but unused):
+- `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` - TMAdapterExponential.lean:2151

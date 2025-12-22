@@ -53,14 +53,15 @@ The most common failure mode for formalized proofs: the paper claims one thing, 
 **Claim 1**: "We prove P ≠ NP"
 → Check: Is P_ne_NP proven? What exactly does it say?
 → Lean: `theorem P_ne_NP : ¬PeqNP_classical`
-→ File: Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean:3237
+→ File: Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean:3676
 
 **Claim 2**: "Using only 2 axioms" (paper abstract)
 → Check: Run `#print axioms P_ne_NP` - exactly 2 custom axioms?
 → Expected output:
    - propext, Classical.choice, Quot.sound (standard Lean)
-   - algspec_has_tm (Church-Turing bridge, positive)
-   - tm_correctness_implies_realizesAllValuesFrom_flat_encoded (Church-Turing bridge, negative)
+   - algspec_has_tm (Church-Turing bridge, positive) - RandAdv.lean:414
+   - not_refuted_implies_indistinguishable (WC-1 bridge) - WC1Bridge.lean:4067
+   NOTE: Primary path uses not_refuted_implies_indistinguishable; tm_correctness_implies_realizesAllValuesFrom_flat_encoded is at TMAdapterExponential.lean:2151
 → Reference: docs/AXIOM_FINAL_COUNT.md for authoritative count
 
 **Note**: `fg_lossless_encoding` was previously an axiom but is now fully proven (145-line theorem).
@@ -68,12 +69,12 @@ Previous axioms `plant_flat_wf_transfer` and `encoding_semantics` have also been
 
 **Claim 3**: "Via one-way function construction"
 → Check: Is OWF explicitly constructed (Plant)?
-→ Lean: `plant_flat` at Layer2_StructuralOWF/Plant/PlantExponential.lean:200
+→ Lean: `plant_flat` at Layer2_StructuralOWF/Plant/PlantExponential.lean:327
 → Is OWF existence proven, not assumed? YES - constructed, not axiomatized
 
 **Claim 4**: "Information-theoretic lower bound"
 → Check: SCL_node gives information-theoretic bound?
-→ Lean: `theorem SCL_node` at Layer0_Foundations/SCL/SCLNode.lean:297
+→ Lean: `theorem SCL_node` at Layer0_Foundations/SCL/SCLNode.lean:316
 → Statement: `Fintype.card v.State ≥ 2 ^ lambda v`
 → Is it truly info-theoretic or computational? INFO-THEORETIC (counting, not time)
 ```
@@ -96,12 +97,12 @@ Previous axioms `plant_flat_wf_transfer` and `encoding_semantics` have also been
 
 **Promise**: "We construct a language L* in NP"
 → Verify: L* is defined, InNP_Alg L* is proven
-→ Lean: `def LStarLang` at Layer3_InformationBounds/Decision/LStarNP.lean:124
-→ Lean: `theorem LStar_in_NP` at LStarNP.lean:209
+→ Lean: `def LStarLang` at Layer3_InformationBounds/Decision/LStarNP.lean:123
+→ Lean: `theorem LStar_has_witness_structure` at LStarNP.lean:208
 
 **Promise**: "We show L* is not in P"
 → Verify: Exponential lower bound proven (implies ¬InP)
-→ Lean: `f_is_parity_owf_exponential_flat` at Layer2_StructuralOWF/Security/StructuralOWFExponential.lean
+→ Lean: `f_is_structural_owf_exponential_flat` at Layer2_StructuralOWF/Security/StructuralOWFExponential.lean:1333
 → Shows: Inversion requires 2^Ω(n) time, exceeding any polynomial
 
 **Promise**: "The proof is fully formalized in Lean 4"
@@ -126,10 +127,10 @@ Previous axioms `plant_flat_wf_transfer` and `encoding_semantics` have also been
 -- Paper states (example):
 -- Theorem 1: P ≠ NP under standard definitions
 
--- Lean states (StructuralOWFBridge.lean:3237):
+-- Lean states (StructuralOWFBridge.lean:3676):
 theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical
 
--- Definition (ComplexityClasses.lean:108-109):
+-- Definition (ComplexityClasses.lean:114):
 def PeqNP_classical : Prop :=
   ∀ (α : Type) [Sized α] (L : Lang α), InNP_Alg L → InP L
 
@@ -166,16 +167,16 @@ def PeqNP_classical : Prop :=
 
 **Lean does** (verified against PROOF_CONTROL_FLOW.md):
 1. Layer 1-2: Plant construction with FG
-   → `plant_flat` (PlantExponential.lean:200)
-   → `f_is_parity_owf_exponential_flat` (StructuralOWFExponential.lean:1489)
+   → `plant_flat` (PlantExponential.lean:327)
+   → `f_is_structural_owf_exponential_flat` (StructuralOWFExponential.lean:1333)
 
 2. Layer 3-4: Information bounds + TM bridge
-   → `SCL_node` (SCLNode.lean:297) - per-node bound
-   → `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` - TM coverage requirement
+   → `SCL_node` (SCLNode.lean:316) - per-node bound
+   → `not_refuted_implies_indistinguishable` (WC1Bridge.lean:4067) - WC-1 axiom
 
 3. Layer 5: OWFBridge proving chain
-   → `parity_owf_implies_fpnefnp` (StructuralOWFBridge.lean)
-   → `fpnefnp_implies_not_peqnp` (ParametricBitstringBridge.lean:1714)
+   → `structural_owf_implies_fpnefnp` (StructuralOWFBridge.lean:2864)
+   → `fpnefnp_implies_not_peqnp` (ParametricBitstringBridge.lean:1708)
    → `pnenp` → `pnenp_classical` → `P_ne_NP`
 
 # Are these the same? YES - high-level structure matches
@@ -192,8 +193,8 @@ def PeqNP_classical : Prop :=
 **Method**:
 ```lean
 -- Paper claims 2 axioms (AXIOM_FINAL_COUNT.md):
--- 1. algspec_has_tm (Church-Turing bridge, positive)
--- 2. tm_correctness_implies_realizesAllValuesFrom_flat_encoded (Church-Turing bridge, negative)
+-- 1. algspec_has_tm (Church-Turing bridge, positive) - RandAdv.lean:414
+-- 2. not_refuted_implies_indistinguishable (WC-1 bridge) - WC1Bridge.lean:4067
 
 -- Verify via:
 #print axioms P_ne_NP
@@ -201,7 +202,7 @@ def PeqNP_classical : Prop :=
 -- Expected output includes exactly these 2 custom axioms plus standard Lean:
 -- [propext, Classical.choice, Quot.sound,
 --  LStar.Complexity.algspec_has_tm,
---  LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded]
+--  LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable]
 
 -- Check:
 -- 1. Same names and meanings? Verify against docs/AXIOM_FINAL_COUNT.md
@@ -213,8 +214,8 @@ def PeqNP_classical : Prop :=
 **Axiom Source Locations**:
 | # | Axiom | File | Line |
 |---|-------|------|------|
-| 1 | `algspec_has_tm` | RandAdv.lean | 298 |
-| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | 2132 |
+| 1 | `algspec_has_tm` | RandAdv.lean | 414 |
+| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean | 4067 |
 
 ---
 
@@ -235,7 +236,7 @@ theorem classical_implies_parametric :
 -- Main proof:
 theorem pnenp : ¬PeqNP_parametric  -- Proven via OWF construction
 
--- Classical corollary (StructuralOWFBridge.lean:3228):
+-- Classical corollary (StructuralOWFBridge.lean:3667):
 theorem pnenp_classical : ¬PeqNP_classical :=
   fun h => pnenp (classical_implies_parametric h)
 
@@ -268,8 +269,8 @@ def InP {α : Type} [Sized α] (L : Lang α) : Prop :=
     (∀ c₁ c₂ x, A.run c₁ x = A.run c₂ x) ∧  -- Deterministic
     (∀ x, L x ↔ A.run ⟨0, A.coins_pos⟩ x = true)  -- Correct
 
--- InNP_Alg (lines 75-79):
-def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
+-- InNP (line 77):
+def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
   ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T) (C_wit k_wit : Nat),
     (∀ c₁ c₂ p, V.run c₁ p = V.run c₂ p) ∧  -- Deterministic verifier
     (∀ x y, V.run ... = true → size y ≤ C_wit * (size x + 1) ^ k_wit) ∧  -- Poly witness
@@ -370,12 +371,13 @@ Each axiom is independently justifiable (see docs/AXIOM_FINAL_COUNT.md):
    - Every polynomial-time algorithmic specification has TM implementation
    - Risk: Very Low (definitional, universally accepted)
 
-2. **tm_correctness_implies_realizesAllValuesFrom_flat_encoded**: Church-Turing bridge (negative direction: functional impossibility → TM impossibility)
+2. **not_refuted_implies_indistinguishable**: WC-1 bridge (indistinguishability axiom)
    - From A2 injectivity: correctness on planted instances requires visiting
      all 2^R emergent configurations
    - Information-theoretic collision argument (different configs → different seeds)
    - NOT Shannon's theorem specifically; rather, semantic requirement from injectivity
    - Risk: Low (math proven, uniformity requirement blocks non-uniform attacks)
+   - Location: WC1Bridge.lean:4067
 
 **Key Point**: Both axioms are Church-Turing bridges (TM-function correspondence)—
 neither mentions P, NP, or complexity bounds directly.
@@ -494,8 +496,8 @@ See docs/AXIOM_FINAL_COUNT.md for authoritative documentation.
 
 1. **Uniform model enforced**:
    - RandAdv structure requires fixed constants C, k for ALL inputs
-   - `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom has uniformity requirement:
-     `h_uniform_bound : haltTime ≤ C_uniform * (L.n + 1) ^ k_uniform`
+   - `not_refuted_implies_indistinguishable` axiom (WC1Bridge.lean:4067) has uniformity requirement
+     that blocks non-uniform "lucky TMs" that need different parameters per instance
    - This blocks non-uniform "lucky TMs" that need different C, k per instance
 
 2. **Non-uniform circuits explicitly out of scope**:
@@ -932,8 +934,8 @@ Passing this test means the paper is ready for peer review submission.
 
 | # | Axiom | Location | Nature | Risk |
 |---|-------|----------|--------|------|
-| 1 | `algspec_has_tm` | RandAdv.lean:297 | Church-Turing bridge | Very Low |
-| 2 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:2132 | Church-Turing bridge (negative: functional impossibility → TM impossibility) | Low |
+| 1 | `algspec_has_tm` | RandAdv.lean:414 | Church-Turing bridge | Very Low |
+| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 | WC-1 bridge (indistinguishability axiom) | Low |
 
 **Previously Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding`: 145-line theorem (EncodingDiscipline.lean:344-489)

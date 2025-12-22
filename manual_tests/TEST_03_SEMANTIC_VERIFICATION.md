@@ -21,26 +21,26 @@ This would be technically correct but mathematically meaningless.
 ## Key Definitions to Verify
 
 **Complexity Classes** (Layer5_Applications/PvsNP/ComplexityClasses/):
-- `InP` — ComplexityClasses.lean:40-43 — Sipser §7.2
-- `InNP_Alg` — ComplexityClasses.lean:75-79 — Sipser §7.3 (complexity-bounded)
-- `InNP` — NPDefs.lean:43 — Logical NP (no resource bounds, used for `p_subset_np`)
-- `InFP` — ComplexityClasses.lean:50-53 — Arora-Barak §1.4
-- `InFNP` — ComplexityClasses.lean:61-65 — Arora-Barak §2.1
-- `InFP_parametric_bits` — ParametricBitstringBridge.lean:342-348 — Uniform FP
-- `InFNP_parametric_bits` — ParametricBitstringBridge.lean:365-374 — Uniform FNP
+- `InP` — ComplexityClasses.lean:40 — Sipser §7.2
+- `InNP` — ComplexityClasses.lean:77 — Sipser §7.3 (complexity-bounded with RandAdv)
+- `HasWitnessStructure` — NPDefs.lean:35 — Logical NP (no resource bounds)
+- `InFP` — ComplexityClasses.lean:50 — Arora-Barak §1.4
+- `InFNP` — ComplexityClasses.lean:61 — Arora-Barak §2.1
+- `InFP_parametric_bits` — ParametricBitstringBridge.lean — Uniform FP
+- `InFNP_parametric_bits` — ParametricBitstringBridge.lean — Uniform FNP
 
 **OWF Construction** (Layer2_StructuralOWF/):
 - `plant_flat` — Plant/PlantExponential.lean — The OWF candidate function
-- `f_is_parity_owf_exponential_flat` — Security/StructuralOWFExponential.lean — OWF security proof
-- `negligible_parametric` — Security/StructuralOWFExponential.lean:212 — Negligible definition
+- `f_is_structural_owf_exponential_flat` — Security/StructuralOWFExponential.lean:1333 — OWF security proof
+- `negligible_parametric` — Security/StructuralOWFExponential.lean:193 — Negligible definition
 
 **Computational Model** (Layer4_Operational/ and Layer5_Applications/):
-- `RandAdv` — ComplexityClasses/RandAdv.lean:75-207 — Adversary with TM contract
-- `TuringMachine` — TuringMachine/TuringMachineSemantics.lean:50-72 — k-tape TM
+- `RandAdv` — ComplexityClasses/RandAdv.lean:79 — Adversary with TM contract
+- `TuringMachine` — TuringMachine/TuringMachineSemantics.lean:50 — k-tape TM
 - `AlgSpec` — ComplexityClasses/AlgSpec.lean — Algorithmic specification
 
 **Main Theorem**:
-- `pnenp` — PvsNP/PrimaryPath/StructuralOWFBridge.lean:3196 — ¬PeqNP_parametric (P ≠ NP)
+- `pnenp` — PvsNP/PrimaryPath/StructuralOWFBridge.lean:3319 — ¬PeqNP_parametric (P ≠ NP)
 
 ---
 
@@ -107,18 +107,20 @@ structure RandAdv (α β : Type) [Sized α] [Sized β] (T : Nat) where
 
 ### ATTACK 3.2: NP Definition Verification
 
-**Goal**: Verify `InNP_Alg` matches textbook NP
+**Goal**: Verify `InNP` matches textbook NP
 
 **Textbook Definition** (Sipser §7.3):
 > NP = { L | ∃ poly-time verifier V, ∃ polynomial p,
 >        x ∈ L ↔ ∃ witness w with |w| ≤ p(|x|), V(x,w) accepts }
 
-**Lean Definition** (ComplexityClasses.lean):
+**Lean Definition** (ComplexityClasses.lean:77):
 ```lean
-def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
-  ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T) (C_wit k_wit : Nat),
+def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
+  ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T)
+    (C_wit k_wit C_time k_time : Nat),
     (∀ c₁ c₂ p, V.run c₁ p = V.run c₂ p) ∧  -- Deterministic verifier
     (∀ x y, V.run ⟨0, V.coins_pos⟩ (x, y) = true → size y ≤ C_wit * (size x + 1) ^ k_wit) ∧  -- Poly witness
+    (∀ p : α × β, V.time_bound (size p) ≤ C_time * (size p + 1) ^ k_time) ∧  -- Poly time
     (∀ x, L x ↔ ∃ y : β, V.run ⟨0, V.coins_pos⟩ (x, y) = true)  -- Membership
 ```
 
@@ -157,10 +159,10 @@ This says "accepted witnesses are bounded" but NOT "all bounded witnesses exist"
 
 **Codebase Approach**: No standalone "OWF" definition. Instead:
 - **OWF candidate**: `plant_flat` (Layer2_StructuralOWF/Plant/PlantExponential.lean)
-- **Security theorem**: `f_is_parity_owf_exponential_flat` (Layer2_StructuralOWF/Security/StructuralOWFExponential.lean)
-- **Negligible**: `negligible_parametric` (StructuralOWFExponential.lean:212)
+- **Security theorem**: `f_is_structural_owf_exponential_flat` (Layer2_StructuralOWF/Security/StructuralOWFExponential.lean:1333)
+- **Negligible**: `negligible_parametric` (StructuralOWFExponential.lean:193)
 
-**Lean Definition** (StructuralOWFExponential.lean:212):
+**Lean Definition** (StructuralOWFExponential.lean:193):
 ```lean
 def negligible_parametric (k : Nat) (ε : SecurityParam k → ℝ) : Prop :=
   ∀ c : ℕ, ∃ N : ℕ, ∀ (n : SecurityParam k), n.val ≥ N → ε n ≤ 1 / (n.val : ℝ) ^ c
@@ -314,39 +316,38 @@ def InFP_parametric_bits {α : Nat → Type} (olen : Nat → Nat)
 
 **Expected**: If P and NP are defined correctly, P ⊆ NP should be trivially provable.
 
-**IMPORTANT DISTINCTION**: The codebase has TWO NP definitions:
+**IMPORTANT DISTINCTION**: The codebase has TWO NP-related definitions:
 
-1. **`InNP`** (NPDefs.lean:43) — Logical/extensional NP, NO resource bounds:
+1. **`HasWitnessStructure`** (NPDefs.lean:35) — Logical/extensional NP, NO resource bounds:
    ```lean
-   def InNP {α : Type u} (L : Lang α) : Prop := Nonempty (VerifierCert L)
+   def HasWitnessStructure {α : Type u} (L : Lang α) : Prop := Nonempty (VerifierCert L)
    -- VerifierCert = ∃ β V, ∀ x, L x ↔ ∃ w : β, V x w
    ```
 
-2. **`InNP_Alg`** (ComplexityClasses.lean:75-79) — Complexity-theoretic NP with poly bounds:
+2. **`InNP`** (ComplexityClasses.lean:77) — Complexity-theoretic NP with poly bounds:
    ```lean
-   def InNP_Alg {α : Type} [Sized α] (L : Lang α) : Prop :=
-     ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T) (C_wit k_wit : Nat),
+   def InNP {α : Type} [Sized α] (L : Lang α) : Prop :=
+     ∃ (β : Type) (_inst : Sized β) (T : Nat) (V : RandAdv (α × β) Bool T)
+       (C_wit k_wit C_time k_time : Nat),
        (∀ c₁ c₂ p, V.run c₁ p = V.run c₂ p) ∧
        (∀ x y, V.run ⟨0, V.coins_pos⟩ (x, y) = true → size y ≤ C_wit * (size x + 1) ^ k_wit) ∧
+       (∀ p : α × β, V.time_bound (size p) ≤ C_time * (size p + 1) ^ k_time) ∧
        (∀ x, L x ↔ ∃ y : β, V.run ⟨0, V.coins_pos⟩ (x, y) = true)
    ```
 
-**Existing Theorem** (ComplexityClasses.lean:86-96):
+**Existing Theorem** (ComplexityClasses.lean:92):
 ```lean
-theorem p_subset_np {α : Type} [Sized α] (L : Lang α) (h : InP L) : InNP L := by
+theorem p_has_witness_structure {α : Type} [Sized α] (L : Lang α) (h : InP L) : HasWitnessStructure L := by
   -- Uses trivial witness (Unit), P decider becomes verifier
 ```
 
 **Verification Checklist**:
-- [x] `p_subset_np` theorem exists — uses logical `InNP` ✓
+- [x] `p_has_witness_structure` theorem exists — P ⊆ HasWitnessStructure ✓
 - [x] Proof uses Unit witness ✓
 - [x] Uses P decider as NP verifier ✓
 
-**Open Question**: Is there also `InP L → InNP_Alg L`?
-- For complexity-theoretic correctness, need `InP L → InNP_Alg L`
-- The RandAdv-based InP naturally lifts to InNP_Alg (same structure, add Unit witness)
-- Main proof uses parametric versions (`InFP_parametric`, `InFNP_parametric`) which have
-  explicit resource bounds, sidestepping this issue
+**Note**: The main proof uses parametric versions (`InFP_parametric`, `InFNP_parametric`) which have
+explicit resource bounds, establishing the FP≠FNP separation directly.
 
 ---
 
@@ -374,7 +375,7 @@ theorem p_subset_np {α : Type} [Sized α] (L : Lang α) (h : InP L) : InNP L :=
 
 **NP (Sipser §7.3)**:
 - Textbook: ∃ poly-time V, poly p: x∈L ↔ ∃w, |w|≤p(|x|) ∧ V(x,w) accepts
-- Lean: `InNP_Alg` has RandAdv verifier + `size y ≤ C_wit * (size x + 1)^k_wit`
+- Lean: `InNP` has RandAdv verifier + `size y ≤ C_wit * (size x + 1)^k_wit`
 - Match: ✅ Equivalent (witness bound uses → but only constrains accepted witnesses, correct)
 
 **Polynomial Time**:
@@ -452,12 +453,12 @@ Search for academic consensus:
 
 ### PASS Conditions (ALL must be true):
 - [x] InP matches Sipser's P definition — deterministic poly-time decider via RandAdv ✓
-- [x] InNP_Alg matches Sipser's NP definition — poly verifier, poly witness bounds ✓
+- [x] InNP matches Sipser's NP definition — poly verifier, poly witness bounds ✓
 - [x] OWF uses domain-constrained security (stronger than standard) ✓
 - [x] Polynomial time is standard — C*(n+1)^k with fixed C, k ✓
 - [x] TM model has standard computational power — k-tape deterministic TM ✓
 - [x] Adversary is uniform — Sigma type packs n with input ✓
-- [x] P ⊆ NP is provable — p_subset_np theorem exists ✓
+- [x] P ⊆ HasWitnessStructure provable — p_has_witness_structure theorem exists ✓
 
 ### FAIL Conditions (ANY triggers failure):
 - [ ] P definition is too restrictive (e.g., O(n) only) — PASS: arbitrary polynomial
@@ -465,7 +466,7 @@ Search for academic consensus:
 - [ ] OWF uses wrong success criterion — PASS: domain-constrained is standard for planted
 - [ ] Non-uniform adversary (circuit families) — PASS: single M via Sigma type
 - [ ] TM model is weaker than standard — PASS: k-tape TM
-- [ ] P ⊆ NP fails to prove — PASS: theorem exists
+- [ ] P ⊆ NP fails to prove — PASS: p_has_witness_structure theorem exists
 
 ---
 
@@ -478,7 +479,7 @@ Search for academic consensus:
    - Polynomial: `poly_explicit : time_bound (size x) ≤ C * (size x + 1)^k`
    - Decides L: `L x ↔ A.run ... = true`
 
-2. **InNP_Alg** (ComplexityClasses.lean:75-79): Matches Sipser
+2. **InNP** (ComplexityClasses.lean:77): Matches Sipser
    - Poly witness: `size y ≤ C_wit * (size x + 1) ^ k_wit`
    - Poly verifier: RandAdv with poly_explicit
    - Deterministic verifier: coin-independence
@@ -492,7 +493,7 @@ Search for academic consensus:
    - halt_absorbing field ensures proper halting
    - Standard computational power
 
-5. **Negligible** (StructuralOWFExponential.lean:212):
+5. **Negligible** (StructuralOWFExponential.lean:193):
    - `∀ c, ∃ N, ∀ n ≥ N, ε(n) ≤ 1/n^c` — matches textbook
 
 6. **RandAdv Computability** (RandAdv.lean:75-207):
@@ -501,7 +502,7 @@ Search for academic consensus:
    - `halts` guarantees termination
 
 **Main Theorem Location**:
-- `pnenp : ¬PeqNP_parametric` at StructuralOWFBridge.lean:3196
+- `pnenp : ¬BitstringBridge.PeqNP_parametric` at StructuralOWFBridge.lean:3319
 
 ---
 
@@ -545,7 +546,7 @@ Equivalently: ∃ C, k ∈ ℕ, ∀ n, T(n) ≤ C · n^k
 **Textbook Definition**:
 > ε(n) is negligible if ∀ polynomial p, ∃ N, ∀ n > N: ε(n) < 1/p(n)
 
-**Lean Definition** (StructuralOWFExponential.lean:212):
+**Lean Definition** (StructuralOWFExponential.lean:193):
 ```lean
 def negligible_parametric (k : Nat) (ε : SecurityParam k → ℝ) : Prop :=
   ∀ c : ℕ, ∃ N : ℕ, ∀ (n : SecurityParam k), n.val ≥ N → ε n ≤ 1 / (n.val : ℝ) ^ c

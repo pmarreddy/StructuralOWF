@@ -86,7 +86,7 @@ The Lean proof uses **Hartley information** (cardinality-based), NOT Shannon ent
 -- Meaning: State must have ≥ λ bits of Hartley information
 
 -- Key file: Layer0_Foundations/SCL/SCLNode.lean
--- Theorem: SCL_node (lines 297-329)
+-- Theorem: SCL_node (line 316)
 -- Statement: keyed v → Fintype.card v.State ≥ 2^(lambda v)
 
 -- Verification:
@@ -167,7 +167,7 @@ The Lean proof uses **Hartley information** (cardinality-based), NOT Shannon ent
 **Pass Criteria**: All types with `Fintype.card` calls have `[Fintype _]` instances.
 
 **Lean Files to Check**:
-- `Layer0_Foundations/SCL/NodeData.lean:82-110` - SCL_Node_Data structure
+- `Layer0_Foundations/SCL/NodeData.lean:76` - NodeData structure
 
 ---
 
@@ -180,7 +180,7 @@ The Lean proof uses **Hartley information** (cardinality-based), NOT Shannon ent
 -- lambda represents bits that MUST emerge at node v
 -- lambda v = |UnknownIdx| where UnknownIdx = indices not in Known
 
--- Key file: Layer0_Foundations/SCL/NodeData.lean:115-125
+-- Key file: Layer0_Foundations/SCL/NodeData.lean:159
 -- Definition: lambda v := Fintype.card v.UnknownIdx
 
 -- Relationship to paper notation:
@@ -258,7 +258,7 @@ cfg1 ≠ cfg2
 
 **Method**:
 ```lean
--- Key theorem: identityDigestVec_injective (FrontierGate.lean:284-310)
+-- Key theorem: identityDigestVec_injective (FrontierGate.lean:283)
 -- Statement: Function.Injective (@identityDigestVec n)
 -- Proof: Uses bit-level equality and Nat.eq_of_testBit_eq
 
@@ -278,7 +278,7 @@ cfg1 ≠ cfg2
 **Pass Criteria**: Identity digest injectivity is PROVEN (not axiomatized).
 
 **Lean Files to Check**:
-- `Layer2_StructuralOWF/FrontierGate/FrontierGate.lean:284-310`
+- `Layer2_StructuralOWF/FrontierGate/FrontierGate.lean:283`
 
 ---
 
@@ -313,7 +313,7 @@ cfg1 ≠ cfg2
 **Pass Criteria**: Parity = discriminator; A2 injectivity = hardness source.
 
 **Lean Files to Check**:
-- `Layer3_InformationBounds/SegmentReduction/ParityLowerBound.lean:20-44`
+- `Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean` (parity as discriminator documented in comments)
 
 ---
 
@@ -323,7 +323,7 @@ cfg1 ≠ cfg2
 
 **Method**:
 ```lean
--- Key theorem: different_emergent_different_seed (FrontierGate.lean:680-708)
+-- Key theorem: different_emergent_different_seed (FrontierGate.lean:679)
 -- Statement: e1 ≠ e2 → encodeSeed(...,e1) ≠ encodeSeed(...,e2)
 
 -- This is THE SOURCE OF HARDNESS
@@ -345,7 +345,7 @@ cfg1 ≠ cfg2
 **Pass Criteria**: A2 injectivity is construction property; theorem is proven.
 
 **Lean Files to Check**:
-- `Layer2_StructuralOWF/FrontierGate/FrontierGate.lean:680-708`
+- `Layer2_StructuralOWF/FrontierGate/FrontierGate.lean:679`
 - `Layer1_Construction/Core/SeedChain.lean` - encodeSeed_injective
 
 ---
@@ -378,7 +378,7 @@ cfg1 ≠ cfg2
 **Pass Criteria**: Collision existence is PROVEN with 0 custom axioms.
 
 **Lean Files to Check**:
-- `Layer3_InformationBounds/SegmentReduction/ParityLowerBound.lean`
+- `Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean:614`
 - `Layer3_InformationBounds/WorldCommit/FGIndistinguishability.lean`
 
 ---
@@ -573,9 +573,9 @@ The Semantic Conservation Law (SCL) states: `|State| ≥ 2^λ` where `λ = R - q
 Equivalently: `q + log₂|State| ≥ R` (bits resolved + artifact bits ≥ emergence).
 
 **Lean Formalization**:
-- `SCL_node` (SCLNode.lean:297-329): Main theorem
-- `keyed` (NodeData.lean:190): Injectivity requirement
-- `lambda` (NodeData.lean:115-125): Residual bits
+- `SCL_node` (SCLNode.lean:316): Main theorem
+- `keyed` (NodeData.lean:210): Injectivity requirement
+- `lambda` (NodeData.lean:159): Residual bits
 
 ### Attack Vectors
 
@@ -585,7 +585,7 @@ Equivalently: `q + log₂|State| ≥ R` (bits resolved + artifact bits ≥ emerg
 
 **Method**:
 ```lean
--- Key theorem: SCL_node (SCLNode.lean:297-329)
+-- Key theorem: SCL_node (SCLNode.lean:316)
 -- Statement: keyed v → Fintype.card v.State ≥ 2^(lambda v)
 
 -- Paper form: q_v + Φ_v ≥ R_v where Φ_v = log₂|State|
@@ -607,7 +607,7 @@ Equivalently: `q + log₂|State| ≥ R` (bits resolved + artifact bits ≥ emerg
 **Pass Criteria**: SCL_node correctly formalizes paper SCL.
 
 **Lean Files to Check**:
-- `Layer0_Foundations/SCL/SCLNode.lean:297-329`
+- `Layer0_Foundations/SCL/SCLNode.lean:316`
 
 ---
 
@@ -617,7 +617,7 @@ Equivalently: `q + log₂|State| ≥ R` (bits resolved + artifact bits ≥ emerg
 
 **Method**:
 ```lean
--- Key definition: keyed (NodeData.lean:190)
+-- Key definition: keyed (NodeData.lean:210)
 -- keyed v means: The state mapping is injective
 -- Different (history, emergence) pairs → different states
 
@@ -638,7 +638,7 @@ Equivalently: `q + log₂|State| ≥ R` (bits resolved + artifact bits ≥ emerg
 **Pass Criteria**: keyed correctly captures "no information loss" requirement.
 
 **Lean Files to Check**:
-- `Layer0_Foundations/SCL/NodeData.lean:190`
+- `Layer0_Foundations/SCL/NodeData.lean:210`
 
 ---
 
@@ -868,7 +868,8 @@ The final step converts state-space bounds to time bounds:
 **Pass Criteria**: Axiom correctly enforces uniformity.
 
 **Lean Files to Check**:
-- `Layer4_Operational/TimeBridge/TMAdapterExponential.lean:297-317`
+- `Layer4_Operational/TimeBridge/TMAdapterExponential.lean:2151`
+- `Layer4_Operational/TimeBridge/WC1Bridge.lean:4067` (primary path)
 
 ---
 
@@ -878,7 +879,9 @@ The final step converts state-space bounds to time bounds:
 
 The proof uses ONE information-theoretic axiom: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`. This category verifies its soundness.
 
-**Axiom Location**: TMAdapterExponential.lean:297-317
+**Axiom Location**: TMAdapterExponential.lean:2151 (alternative: WC1Bridge.lean:4067 for `not_refuted_implies_indistinguishable`)
+
+**NOTE**: The primary path now uses `not_refuted_implies_indistinguishable` (WC1Bridge.lean:4067) instead of `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`. See docs/AXIOM_FINAL_COUNT.md.
 
 **Axiom Statement** (simplified):
 ```lean
@@ -924,7 +927,8 @@ axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 **Pass Criteria**: Axiom correctly captures the intended principle.
 
 **Lean Files to Check**:
-- `Layer4_Operational/TimeBridge/TMAdapterExponential.lean:297-317`
+- `Layer4_Operational/TimeBridge/TMAdapterExponential.lean:2151`
+- `Layer4_Operational/TimeBridge/WC1Bridge.lean:4067` (primary path uses this axiom)
 
 ---
 
@@ -1220,15 +1224,16 @@ Passing all categories confirms the information-theoretic foundation is sound.
 
 | Concept | Primary File | Lines |
 |---------|--------------|-------|
-| SCL_node | Layer0_Foundations/SCL/SCLNode.lean | 297-329 |
-| keyed | Layer0_Foundations/SCL/NodeData.lean | 190 |
-| lambda | Layer0_Foundations/SCL/NodeData.lean | 115-125 |
-| identityDigestVec | Layer2_StructuralOWF/FrontierGate/FrontierGate.lean | 265-266 |
-| identityDigestVec_injective | Layer2_StructuralOWF/FrontierGate/FrontierGate.lean | 284-310 |
-| different_emergent_different_seed | Layer2_StructuralOWF/FrontierGate/FrontierGate.lean | 680-708 |
-| incomplete_obs_has_collision | Layer3_InformationBounds/SegmentReduction/ParityLowerBound.lean | 619-660 |
-| fg_correctness_requires_complete_observation | Layer3_InformationBounds/WorldCommit/FGIndistinguishability.lean | 371-404 |
-| tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom | Layer4_Operational/TimeBridge/TMAdapterExponential.lean | 2100-2159 |
+| SCL_node | Layer0_Foundations/SCL/SCLNode.lean | 316 |
+| keyed | Layer0_Foundations/SCL/NodeData.lean | 210 |
+| lambda | Layer0_Foundations/SCL/NodeData.lean | 159 |
+| identityDigestVec | Layer2_StructuralOWF/FrontierGate/FrontierGate.lean | 264 |
+| identityDigestVec_injective | Layer2_StructuralOWF/FrontierGate/FrontierGate.lean | 283 |
+| different_emergent_different_seed | Layer2_StructuralOWF/FrontierGate/FrontierGate.lean | 679 |
+| incomplete_obs_has_collision | Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean | 614 |
+| fg_correctness_requires_complete_observation | Layer3_InformationBounds/WorldCommit/FGIndistinguishability.lean | 371 |
+| tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom | Layer4_Operational/TimeBridge/TMAdapterExponential.lean | 2151 |
+| not_refuted_implies_indistinguishable axiom (primary) | Layer4_Operational/TimeBridge/WC1Bridge.lean | 4067 |
 | time_bound_from_coverage | Layer4_Operational/TimeBridge/TMAdapterExponential.lean | 321+ |
 | ObservationModel | Layer3_InformationBounds/Support/ObservationModel.lean | All |
-| ParityLowerBound | Layer3_InformationBounds/SegmentReduction/ParityLowerBound.lean | All |
+| StructuralLowerBound | Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean | All |

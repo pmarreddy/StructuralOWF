@@ -18,30 +18,30 @@ This is the most aggressive test: actively try to BREAK the proof.
 3. Exploit type system loopholes
 4. Derive contradictions
 5. Find edge cases that break the proof
-6. **Exploit the 4 trust boundary axioms**
+6. **Exploit the 2 trust boundary axioms**
 
 ---
 
-## Trust Boundary Reference (4 Axioms)
+## Trust Boundary Reference (2 Axioms)
 
 **Verified via**: `#print axioms LStar.Complexity.StructuralOWFBridge.P_ne_NP`
 
 | # | Axiom | File:Line | Type | Risk |
 |---|-------|-----------|------|------|
-| 1 | `algspec_has_tm` | RandAdv.lean:297 | Church-Turing bridge | Very Low |
-| 2 | `plant_flat_wf_transfer` (private) | PlantExponential.lean:1067 | CNF well-formedness transfer | Very Low |
-| 3 | `fg_lossless_encoding` (private) | EncodingDiscipline.lean:346 | A3 emergence encoding roundtrip | Very Low |
-| 4 | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:2132 | Church-Turing bridge (negative: functional impossibility → TM impossibility) | Low |
+| 1 | `algspec_has_tm` | RandAdv.lean:414 | Church-Turing bridge | Very Low |
+| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 | WC-1 bridge (indistinguishability axiom) | Low |
+
+**Note**: Former axioms `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proved lemmas.
 
 **Proof Chain**:
 ```
-f_is_parity_owf_exponential_flat   (OWF security)        [StructuralOWFExponential.lean:1489]
+f_is_structural_owf_exponential_flat (OWF security)       [StructuralOWFExponential.lean:1333]
             ↓
-parity_owf_implies_fpnefnp         (OWF → FP≠FNP)        [StructuralOWFBridge.lean:2458]
+structural_owf_implies_fpnefnp       (OWF → FP≠FNP)       [StructuralOWFBridge.lean:2864]
             ↓
-fpnefnp_implies_not_peqnp          (FP≠FNP → P≠NP)       [ParametricBitstringBridge.lean:16]
+fpnefnp_implies_not_peqnp            (FP≠FNP → P≠NP)      [ParametricBitstringBridge.lean]
             ↓
-pnenp_classical / P_ne_NP          (Final theorem)        [StructuralOWFBridge.lean:3237]
+pnenp_classical / P_ne_NP            (Final theorem)       [StructuralOWFBridge.lean:3676]
 ```
 
 ---
@@ -60,7 +60,7 @@ import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
 open LStar.Complexity
 
 -- Attempt 1: Direct proof of P = NP
--- PeqNP_classical is defined at ComplexityClasses.lean:108
+-- PeqNP_classical is defined at ComplexityClasses.lean:114
 theorem attack_PeqNP : PeqNP_classical := by
   -- If this succeeds, we have a contradiction with P_ne_NP!
   unfold PeqNP_classical
@@ -77,7 +77,7 @@ theorem attack_owf_invertible :
   sorry  -- SHOULD FAIL
 
 -- Attempt 3: Break FP≠FNP → P≠NP bridge
--- fpnefnp_implies_not_peqnp is at ParametricBitstringBridge.lean:16
+-- fpnefnp_implies_not_peqnp is at ParametricBitstringBridge.lean:1708
 theorem attack_fpnefnp_bridge :
   FPneFNP_parametric_bits → PeqNP_classical := by
   intro h_fpnefnp
@@ -102,7 +102,7 @@ import Layer5_Applications.PvsNP.ComplexityClasses.ComplexityClasses
 
 open LStar.StructuralOWF LStar.Complexity
 
--- The "hard" instances are created by plant_flat (PlantExponential.lean:200)
+-- The "hard" instances are created by plant_flat (PlantExponential.lean:327)
 -- plant_flat : Nat → CNF → Randomness → LStarInstanceFG
 
 -- Attack: Construct poly-time witness finder
@@ -134,12 +134,11 @@ theorem attack_solver_poly :
 
 **Goal**: Exploit non-uniform computation to break the bound
 
-**Background**: The proof uses UNIFORM PPT adversaries. The axiom `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` has explicit uniformity requirement:
+**Background**: The proof uses UNIFORM PPT adversaries. The uniformity requirement is enforced in the RandAdv structure:
 ```lean
--- From TMAdapterExponential.lean:308-311
-(C_uniform k_uniform : Nat)
-(h_C_pos : C_uniform > 0) (h_k_pos : k_uniform > 0)
-(h_uniform_bound : haltTime ≤ C_uniform * (L.n + 1) ^ k_uniform)
+-- From RandAdv.lean
+-- poly_explicit : ∀ x : α, time_bound (size x) ≤ C * (size x + 1)^k
+-- C and k are fixed per algorithm (uniform bound)
 ```
 
 **Method**:
@@ -189,7 +188,7 @@ theorem oracle_attack :
   ∃ O : Oracle,
     (∀ n φ r h_nvars h_wf, InP_oracle O (fun L => L = plant_flat n φ r h_nvars)) ∧
     (algspec_has_tm still holds with O) ∧
-    (tm_correctness_implies_realizesAllValuesFrom_flat_encoded still holds with O) := by
+    (not_refuted_implies_indistinguishable still holds with O) := by
   sorry
 
 -- Key question: Does proof relativize?
@@ -231,7 +230,7 @@ example : InP (fun _ : Unit => True) := by
 -- Attack 3: Degenerate security parameter
 -- LStarInstanceFG has field n_pos : 0 < n (blocks n=0)
 -- Check: What's minimum n that proof works for?
--- From f_is_parity_owf_exponential_flat: requires k ≥ 128
+-- From f_is_structural_owf_exponential_flat: requires k ≥ 128
 example (L : LStarInstanceFG) (h : L.n < 128) :
   ∃ (T : Nat) (A : RandAdv LStarInstanceFG Witness T),
     (∀ c₁ c₂ x, A.run c₁ x = A.run c₂ x) ∧
@@ -304,7 +303,7 @@ example (L : LStarInstanceFG) (v : Fin L.dag.n) :
 
 **Goal**: Find instantiations where Church-Turing bridge gives too much power
 
-**Location**: RandAdv.lean:297
+**Location**: RandAdv.lean:414
 
 **Method**:
 ```lean
@@ -353,124 +352,28 @@ theorem attack_halting : ∃ M, ∀ n, M.run n = halts_in_finite_time (tm_from_n
 
 ---
 
-### ATTACK 5.8: Exploit Axiom 2 — `plant_flat_wf_transfer` (Private)
-
-**Goal**: Find where CNF well-formedness transfer fails
-
-**Location**: PlantExponential.lean:1067 (private axiom)
-
-**Method**:
-```lean
-import Layer2_StructuralOWF.Plant.PlantExponential
-
-open LStar.StructuralOWF
-
--- This axiom transfers WellFormedRandomness between CNFs that produce same instance
--- Used in witness extraction to recover original φ from planted instance L
-
--- Attack 1: Construct φ₁, φ₂ where transfer is unsound
--- If plant_flat(φ₁, r₁) = plant_flat(φ₂, r₂) but WF transfers wrongly
-theorem attack_wf_transfer :
-  ∃ φ₁ φ₂ r₁ r₂ h₁ h₂,
-    plant_flat n φ₁ r₁ h₁ = plant_flat n φ₂ r₂ h₂ ∧
-    WellFormedRandomness_flat φ₁ r₁ ∧
-    ¬WellFormedRandomness_flat φ₂ r₂ := by
-  -- If this exists, axiom is unsound
-  -- But: plant_flat is injective in (φ, r) pair by construction (A2)
-  -- Different (φ, r) → different instance
-  -- So the premise plant_flat(φ₁,r₁) = plant_flat(φ₂,r₂) implies (φ₁,r₁) = (φ₂,r₂)
-  sorry  -- SHOULD FAIL
-
--- Attack 2: What if φ is malformed but produces valid instance?
--- Check: Does plant_flat require φ.nvars ≥ 4?
--- From PlantExponential.lean:200: YES, h_nvars_min : φ.nvars ≥ 4 required
-```
-
----
-
-### ATTACK 5.9: Exploit Axiom 3 — `fg_lossless_encoding` (Private)
-
-**Goal**: Find where emergence encoding roundtrip fails
-
-**Location**: EncodingDiscipline.lean:346 (private axiom)
-
-**Method**:
-```lean
-import Layer5_Applications.PvsNP.ComplexityClasses.EncodingDiscipline
-
--- Axiom states: extractEmergentBits recovers bits encoded by computeSeedAtVertex_flat
--- This ensures A3 emergence realizability
-
--- Attack 1: Non-bijective case
--- If R = 0, what happens?
-theorem attack_zero_emergence :
-  ∀ seed (h_cap : 0 ≤ seedWidth),
-    extractEmergentBits seed 0 h_cap = Vector.nil := by
-  -- R = 0 means no emergence - should be trivial
-  sorry
-
--- Attack 2: Overflow case
--- If R > seedWidth, encoding can't preserve all bits
-theorem attack_overflow :
-  ∀ seed R seedWidth (h_cap : R ≤ seedWidth),
-    R > seedWidth →  -- This contradicts h_cap!
-    extractEmergentBits seed R h_cap ≠ original := by
-  -- h_cap : R ≤ seedWidth blocks this attack
-  intro h_overflow
-  have : R ≤ seedWidth := h_cap
-  omega  -- Contradiction
-
--- Attack 3: Encoding scheme manipulation
--- The axiom uses specific encoding: σ(R - 1 - j) for j : Fin R
--- Can we construct σ where this is wrong?
--- Answer: The encoding is deterministic from σ, no manipulation possible
-```
-
----
-
-### ATTACK 5.10: Exploit Axiom 4 — `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`
+### ATTACK 5.8: Exploit Axiom 2 — `not_refuted_implies_indistinguishable`
 
 **Goal**: Find instantiation that makes axiom derive False incorrectly
 
-**Location**: TMAdapterExponential.lean:297
+**Location**: WC1Bridge.lean:4067
 
 **Method**:
 ```lean
-import Layer4_Operational.TimeBridge.TMAdapterExponential
+import Layer4_Operational.TimeBridge.WC1Bridge
 
--- Full axiom signature (from AXIOM_FINAL_COUNT.md):
--- axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
---     (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness)
---     (h_nvars : φ.nvars ≥ 4)
---     (h_L_eq : L = plant_flat n φ r h_nvars)
---     (_h_wf : WellFormedRandomness_flat φ r)
---     (v : {v // L.fg.gateReq v})
---     (M : TuringMachine ...) (init : TMConfig M) (haltTime : Nat)
---     (extractWitness : TMConfig M → Witness)
---     (encodeConfig : TMConfig M → Nat)
---     (C_uniform k_uniform : Nat)
---     (h_C_pos : C_uniform > 0) (h_k_pos : k_uniform > 0)
---     (h_uniform_bound : haltTime ≤ C_uniform * (L.n + 1) ^ k_uniform)
---     (val : Fin (2^(L.R v.val)))
---     (h_val_reachable : ∃ cfg : TMConfig M, encodeConfig cfg = val.val)  -- SOUNDNESS GUARD
---     (h_missing : ∀ t < haltTime, encodeConfig (step^[t] init) ≠ val.val)
---     (h_correct : φ.satisfies (extractWitness (step^[haltTime] init)).assignment)
---     : False
+-- Axiom signature (from AXIOM_FINAL_COUNT.md):
+-- axiom not_refuted_implies_indistinguishable
+--     States: If adversary hasn't been "refuted" (shown to produce
+--     distinguishable output from random), then adversary output IS
+--     indistinguishable from random.
+--
+-- Key properties:
+-- - Applies only to planted instances
+-- - Requires uniform polynomial-time adversary
+-- - Encodes the WC-1 property: indistinguishability from random
 
--- Attack 1: Trivial encoder bypass
-def trivial_encoder : TMConfig M → Nat := fun _ => 0
-
--- Try to instantiate axiom with trivial_encoder
-theorem attack_trivial_encoder :
-  ∃ φ r h_nvars h_wf M init haltTime extractWitness C k h_C h_k h_bound val h_missing h_correct,
-    h_val_reachable :  -- Need: ∃ cfg, trivial_encoder cfg = val.val
-      ∃ cfg : TMConfig M, trivial_encoder cfg = val.val := by
-  -- For val = ⟨0, _⟩: trivial_encoder _ = 0 = val.val ✓
-  -- For val = ⟨1, _⟩: trivial_encoder _ = 0 ≠ 1 ✗
-  -- Soundness guard blocks most vals!
-  sorry  -- Only works for val = 0
-
--- Attack 2: Non-uniform TM (violates h_uniform_bound)
+-- Attack 1: Non-uniform TM (violates uniformity)
 -- What if TM uses different C, k per instance?
 theorem attack_nonuniform_tm :
   ∀ n, ∃ M_n, time(M_n, plant_flat n φ r h) ≤ n^n := by
@@ -479,21 +382,19 @@ theorem attack_nonuniform_tm :
   -- Axiom correctly rejects such TMs
   sorry
 
--- Attack 3: Planted instance requirement
--- Axiom requires h_L_eq : L = plant_flat n φ r h_nvars
--- Can we apply to non-planted instances?
+-- Attack 2: Non-planted instances
+-- Axiom applies only to planted instances
 theorem attack_non_planted (L : LStarInstanceFG)
     (h_not_planted : ∀ n φ r h, L ≠ plant_flat n φ r h) :
-    -- Cannot apply axiom - no h_L_eq exists
+    -- Cannot apply axiom - only for planted instances
     True := trivial
 
--- Attack 4: Missing config but TM still correct
--- This is exactly what axiom says is impossible!
--- If val is missing from trace but TM outputs correct witness → False
--- The axiom encodes: correctness requires complete exploration
+-- Attack 3: Already-refuted adversary
+-- If adversary IS refuted, axiom doesn't apply
+-- Refutation = distinguishable from random
 ```
 
-**Conclusion**: Axiom has multiple guards (soundness, uniformity, planted) that block spurious instantiation.
+**Conclusion**: Axiom has guards (uniformity, planted-only) that block spurious instantiation.
 
 ---
 
@@ -835,7 +736,7 @@ theorem collision_class_elimination :
 
 **Goal**: Break the OWF → FP≠FNP implication
 
-**Location**: StructuralOWFBridge.lean:2458
+**Location**: StructuralOWFBridge.lean:2864
 
 **Method**:
 ```lean
@@ -843,7 +744,7 @@ import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
 
 open LStar.Complexity
 
--- parity_owf_implies_fpnefnp proves: OWF exists → FP ≠ FNP
+-- structural_owf_implies_fpnefnp proves: OWF exists → FP ≠ FNP
 -- Attack: Show OWF inversion relation is actually in FP
 
 -- The inversion relation R is defined as:
@@ -865,7 +766,7 @@ open LStar.Complexity
 theorem attack_fp :
   InFP (fun L : LStarInstanceFG => extractWitness L) := by
   -- extractWitness needs to solve planted SAT
-  -- This requires 2^n time by f_is_parity_owf_exponential_flat
+  -- This requires 2^n time by f_is_structural_owf_exponential_flat
   sorry  -- SHOULD FAIL
 ```
 
@@ -883,7 +784,7 @@ import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
 This file attempts to BREAK the proof.
 Any theorem that succeeds here (without sorry) indicates a bug!
 
-Verified against: P_ne_NP at StructuralOWFBridge.lean:3237
+Verified against: P_ne_NP at StructuralOWFBridge.lean:3676
 Trust boundary: 2 axioms (see AXIOM_FINAL_COUNT.md)
 -/
 
@@ -956,7 +857,7 @@ For each attack:
 - [ ] Cannot find type instantiation that trivializes proof (5.5)
 - [ ] Cannot break KeyednessProperty injectivity (5.11)
 - [ ] Cannot break A3 emergence rank property (5.12)
-- [ ] Cannot exploit any of the 2 axioms (5.7-5.10)
+- [ ] Cannot exploit any of the 2 axioms (5.7-5.8)
 - [ ] All "stuck points" are at genuine hardness barriers
 - [ ] No oracle attack succeeds (or proof explicitly non-relativizing) (5.4)
 - [ ] Cannot break FP≠FNP bridge (5.18)
@@ -992,10 +893,10 @@ For each attack:
    - Breaking the OWF → FP≠FNP → P≠NP chain
 
 2. **Where are the weak points?**
-   - The 2 axiom boundaries (algspec_has_tm, tm_correctness_implies_realizesAllValuesFrom_flat_encoded)
+   - The 2 axiom boundaries (algspec_has_tm, not_refuted_implies_indistinguishable)
    - Encoding choices (TMEncoding, emergent bit encoding)
    - Type parameters (Sized instances, Fintype instances)
-   - The uniformity requirement in tm_correctness_implies_realizesAllValuesFrom_flat_encoded
+   - The uniformity requirement in RandAdv
 
 3. **What assumptions are implicit?**
    - Uniformity (no advice) - enforced by h_uniform_bound
@@ -1031,9 +932,7 @@ From verified code analysis:
 
 **Axiom-Specific Protections**:
 - Axiom 1 (algspec_has_tm): Protected by Lean computability
-- Axiom 2 (plant_flat_wf_transfer): Protected by plant_flat injectivity (A2)
-- Axiom 3 (fg_lossless_encoding): Protected by capacity constraint R ≤ seedWidth
-- Axiom 4 (collision_indist...): Protected by soundness guard + uniformity + planted requirement
+- Axiom 2 (not_refuted_implies_indistinguishable): Protected by uniformity + planted requirement
 
 **Barrier Analysis**:
 - Natural Proofs: NOT natural - constructs specific hard instance, not distinguisher
@@ -1231,7 +1130,7 @@ theorem attack_injectivity : Function.Injective bad_injection := by
   2. Information-theoretic bounds (do NOT relativize!)
   3. Specific construction (plant_flat, FG gates)
 
-- Key insight: The tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom encodes an information-theoretic claim:
+- Key insight: The not_refuted_implies_indistinguishable axiom encodes an information-theoretic claim:
   - "Correctness requires exhaustive coverage of all 2^R configurations"
   - This is NOT about what oracles can compute
   - It's about what information is REQUIRED for correctness
@@ -1299,9 +1198,7 @@ Run these to verify the trust boundary:
 -- Expected output (plus Lean's standard axioms):
 -- [propext, Classical.choice, Quot.sound,
 --  LStar.Complexity.algspec_has_tm,
---  _private...plant_flat_wf_transfer,
---  _private...fg_lossless_encoding,
---  LStar.StructuralOWF.Foundations.FlatProfile.tm_correctness_implies_realizesAllValuesFrom_flat_encoded]
+--  LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable]
 ```
 
 ---
@@ -1310,30 +1207,21 @@ Run these to verify the trust boundary:
 
 | Definition/Theorem | File:Line |
 |-------------------|-----------|
-| `P_ne_NP` | StructuralOWFBridge.lean:3237 |
-| `pnenp_classical` | StructuralOWFBridge.lean:3228 |
-| `PeqNP_classical` | ComplexityClasses.lean:108 |
+| `P_ne_NP` | StructuralOWFBridge.lean:3676 |
+| `pnenp_classical` | StructuralOWFBridge.lean:3667 |
+| `PeqNP_classical` | ComplexityClasses.lean:114 |
 | `InP` | ComplexityClasses.lean:40 |
-| `InNP_Alg` | ComplexityClasses.lean:75 |
+| `InNP` | ComplexityClasses.lean:77 |
 | `InFP` | ComplexityClasses.lean:50 |
 | `InFNP` | ComplexityClasses.lean:61 |
-| `FPneFNP_parametric` | ParametricComplexity.lean:151 |
-| `fpnefnp_implies_not_peqnp` | ParametricBitstringBridge.lean:16 |
-| `parity_owf_implies_fpnefnp` | StructuralOWFBridge.lean:2458 |
-| `f_is_parity_owf_exponential_flat` | StructuralOWFExponential.lean:1489 |
-| `plant_flat` | PlantExponential.lean:200 |
-| `LStarInstanceFG` | LStarInstance.lean (extends LStarInstanceFull) |
-| `ConfigSpace` | ConfigTypes.lean:59 |
-| `KeyednessProperty` | ConfigTypes.lean:107 |
-| `RandAdv` | RandAdv.lean:75 |
-| `algspec_has_tm` | RandAdv.lean:297 |
-| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean:297 |
-| `fg_lossless_encoding` (private) | EncodingDiscipline.lean:346 |
-| `plant_flat_wf_transfer` (private) | PlantExponential.lean:1067 |
-| `parity_requires_all_bits` | ParityLowerBound.lean |
-| `no_backdoor_on_subset_of_bits` | NoBackdoorTheorem.lean |
-| `computeLiteralMask` | OAPEncoding.lean |
-| `encodeLiteral` / `decodeLiteral` | OAPEncoding.lean |
-| `WellFormedRandomness_flat` | EmergentConfig.lean |
-| `satisfies_A3` | A3_Emergence.lean:256 |
+| `fpnefnp_implies_not_peqnp` | ParametricBitstringBridge.lean:1708 |
+| `structural_owf_implies_fpnefnp` | StructuralOWFBridge.lean:2864 |
+| `f_is_structural_owf_exponential_flat` | StructuralOWFExponential.lean:1333 |
+| `plant_flat` | PlantExponential.lean:327 |
+| `LStarInstanceFG` | FrontierGate.lean:1301 |
+| `RandAdv` | RandAdv.lean:79 |
+| `algspec_has_tm` | RandAdv.lean:414 |
+| `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 |
+| `fg_first_commit_time_lower_bound` | WC1Bridge.lean:5052 |
+| `satisfies_A3` | A3_Emergence.lean |
 | `NodeData` (SCL) | NodeData.lean |

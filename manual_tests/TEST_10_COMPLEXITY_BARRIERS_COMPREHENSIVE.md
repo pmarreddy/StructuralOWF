@@ -3806,7 +3806,7 @@ have been fully proven/eliminated. See docs/AXIOM_FINAL_COUNT.md for details.
 
 **Goal**: Verify Church-Turing bridge axiom is barrier-safe
 
-**File**: `Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean` (line 297)
+**File**: `Layer5_Applications/PvsNP/ComplexityClasses/RandAdv.lean` (line 414)
 
 **Definition**:
 ```lean
@@ -3862,29 +3862,33 @@ using bit-level manipulation and extraction lemmas.
 
 ---
 
-#### VECTOR 10.19.4: Axiom 4 - tm_correctness_implies_realizesAllValuesFrom_flat_encoded
+#### VECTOR 10.19.4: Axiom 2 - not_refuted_implies_indistinguishable (Primary Path)
 
-**Goal**: Verify Church-Turing impossibility bridge axiom is barrier-safe
+**Goal**: Verify WC-1 indistinguishability bridge axiom is barrier-safe
 
-**File**: `Layer4_Operational/TimeBridge/TMAdapterExponential.lean`
+**File**: `Layer4_Operational/TimeBridge/WC1Bridge.lean` (line 4067)
 
 **Definition Summary**:
 ```lean
-axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
-    (L : LStarInstanceFG) (n : Nat) (φ : CNF) (r : Randomness) (h_nvars : φ.nvars ≥ 4)
-    (h_L_eq : L = plant_flat n φ r h_nvars) (_h_wf : WellFormedRandomness_flat φ r)
-    (v : {v // L.fg.gateReq v})
-    {numTapes : Nat} {states alphabet : Type} ...
-    (h_missing : ∀ t < haltTime, encodeConfig ... ≠ val.val)
-    (h_correct : φ.satisfies ...) : False
+axiom not_refuted_implies_indistinguishable
+    {ε : FGPlantedExtensible}
+    (W : WC1Witness ε)
+    (TM : TuringMachine)
+    (poly : Polynomial)
+    (h_correct : TM.decidesAllInputs)
+    (h_poly : TM.runTimeIsBoundedBy poly)
+    (h_not_refuted : W.not_refuted_by TM poly) :
+    W.indistinguishable
 ```
+
+**Note**: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` at TMAdapterExponential.lean:2151 is an alternate formulation but not on the primary proof path.
 
 **Barrier Analysis**:
 - **Relativization**: TM model is oracle-free (no oracle tape in TMConfig).
 - **Natural Proofs**: Instance-specific (about planted L*), not generic property.
 - **Algebrization**: Counting-based (configurations), not degree-based.
 
-**Key Insight**: This is the pigeonhole principle instantiated: 2^n configurations require 2^n distinguishable states.
+**Key Insight**: This is the WC-1 indistinguishability requirement: if TM doesn't refute, witnesses are indistinguishable.
 
 **Questions**:
 - [ ] Does TM model include oracle access?
@@ -3892,7 +3896,7 @@ axiom tm_correctness_implies_realizesAllValuesFrom_flat_encoded
 - [ ] Does property use polynomial structure?
 - [ ] Is this a standard counting argument?
 
-**Pass Criteria**: Keyedness/pigeonhole bound; barrier-safe.
+**Pass Criteria**: WC-1 indistinguishability bound; barrier-safe.
 
 ---
 
@@ -3906,19 +3910,18 @@ cd lean
 # Print all axioms used by P_ne_NP
 lake env lean -c 'import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge; #print axioms P_ne_NP'
 
-# Expected output (4 custom + Lean foundations):
+# Expected output (2 custom + Lean foundations):
 # propext, Quot.sound, Classical.choice
-# algspec_has_tm, plant_flat_wf_transfer, fg_lossless_encoding
-# tm_correctness_implies_realizesAllValuesFrom_flat_encoded
+# algspec_has_tm, not_refuted_implies_indistinguishable
 ```
 
 **Questions**:
-- [ ] Are there exactly 4 custom axioms?
+- [ ] Are there exactly 2 custom axioms?
 - [ ] Are Lean foundations standard (propext, Quot.sound, Classical.choice)?
 - [ ] Any unexpected axioms?
 - [ ] Is axiom count as documented?
 
-**Pass Criteria**: Exactly 4 custom axioms as documented.
+**Pass Criteria**: Exactly 2 custom axioms as documented.
 
 ---
 
@@ -3955,13 +3958,13 @@ Axioms should be POSITIVE statements about L*, not NEGATIVE statements about bar
 | Axiom | Type | Trust Level | Justification |
 |-------|------|-------------|---------------|
 | algspec_has_tm | Church-Turing | Foundational | Standard CT thesis instantiation |
-| tm_correctness_implies_realizesAllValuesFrom_flat_encoded | Church-Turing (negative) | Foundational | Functional impossibility → TM impossibility (execution bridge) |
+| not_refuted_implies_indistinguishable | WC-1 bridge | Foundational | Indistinguishability → coverage requirement (WC1Bridge.lean:4067) |
 
 **Note**: `plant_flat_wf_transfer` and `fg_lossless_encoding` were previously axioms but are now proven theorems.
 
 **Questions**:
 - [ ] Is algspec_has_tm standard CT?
-- [ ] Is tm_correctness_implies_realizesAllValuesFrom_flat_encoded counting-based?
+- [ ] Is not_refuted_implies_indistinguishable a valid WC-1 formulation?
 
 **Pass Criteria**: All axioms are standard CS/info-theory principles.
 
@@ -3974,9 +3977,9 @@ Axioms should be POSITIVE statements about L*, not NEGATIVE statements about bar
 **File**: `Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean`
 
 **Theorem Locations**:
-- Line 2905: `theorem pnenp : ¬BitstringBridge.PeqNP_parametric` (parametric)
-- Line 3228: `theorem pnenp_classical : ¬PeqNP_classical` (classical)
-- Line 3237: `theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical` (exported)
+- Line 3319: `theorem pnenp : ¬BitstringBridge.PeqNP_parametric` (parametric)
+- Line 3667: `theorem pnenp_classical : ¬PeqNP_classical` (classical)
+- Line 3676: `theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical` (exported)
 
 **Commands**:
 ```bash
@@ -4014,7 +4017,7 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 - [ ] No useful low-degree extension exists
 
 **Trust Boundary (10.19)**:
-- [ ] Exactly 4 custom axioms (no hidden axioms)
+- [ ] Exactly 2 custom axioms (no hidden axioms)
 - [ ] All axioms are standard CS/info-theory principles
 - [ ] No axiom introduces oracle-like capabilities
 - [ ] No axiom introduces natural-proof-like properties
@@ -4030,7 +4033,7 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 - [ ] Polynomial/field arithmetic in lower bounds
 - [ ] Discrete constraints could be relaxed to approximate
 - [ ] Low-degree extension preserves proof structure
-- [ ] More than 4 custom axioms found
+- [ ] More than 2 custom axioms found
 - [ ] Any axiom encodes barrier avoidance assumption
 - [ ] Any axiom introduces hidden oracle/large-property/algebra
 
@@ -4064,7 +4067,7 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 
 ### Phase 4: Trust Boundary (Category 10.19)
 - [ ] Verify axiom 1 (algspec_has_tm) is barrier-safe (10.19.1)
-- [ ] Verify axiom 2 (tm_correctness_implies_realizesAllValuesFrom_flat_encoded) is barrier-safe (10.19.2)
+- [ ] Verify axiom 2 (not_refuted_implies_indistinguishable) is barrier-safe (10.19.4)
 - [ ] Verify exactly 2 custom axioms (10.19.5)
 - [ ] Verify axiom independence from barriers (10.19.6)
 - [ ] Complete axiom trust assessment (10.19.7)
@@ -4088,11 +4091,9 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 | 10.13-10.18 (Algebrization) | SCLNode.lean | Layer0_Foundations/SCL/ |
 | | SegmentReduction.lean | Layer3_InformationBounds/SegmentReduction/ |
 | | WorldCommit.lean | Layer3_InformationBounds/WorldCommit/ |
-| 10.19 (Trust Boundary) | RandAdv.lean (axiom 1) | Layer5_Applications/PvsNP/ComplexityClasses/ |
-| | PlantExponential.lean (axiom 2) | Layer2_StructuralOWF/Plant/ |
-| | EncodingDiscipline.lean (axiom 3) | Layer5_Applications/PvsNP/ComplexityClasses/ |
-| | TMAdapterExponential.lean (axiom 4) | Layer4_Operational/TimeBridge/ |
-| **P≠NP Theorem** | StructuralOWFBridge.lean (line 3237) | Layer5_Applications/PvsNP/PrimaryPath/ |
+| 10.19 (Trust Boundary) | RandAdv.lean (axiom 1: algspec_has_tm) | Layer5_Applications/PvsNP/ComplexityClasses/ |
+| | WC1Bridge.lean (axiom 2: not_refuted_implies_indistinguishable) | Layer4_Operational/TimeBridge/ |
+| **P≠NP Theorem** | StructuralOWFBridge.lean (line 3676) | Layer5_Applications/PvsNP/PrimaryPath/ |
 
 ---
 
@@ -4119,22 +4120,23 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 ### Lean Files (Verified Paths)
 - **Layer5_Applications/PvsNP/ComplexityClasses/**: InP, InNP, InFP, InFNP definitions
   - ComplexityClasses.lean (lines 40-75): Core class definitions
-  - RandAdv.lean (line 297): algspec_has_tm axiom
+  - RandAdv.lean (line 414): algspec_has_tm axiom
 - **Layer5_Applications/PvsNP/PrimaryPath/**: Main theorems
-  - StructuralOWFBridge.lean (line 3237): `P_ne_NP` theorem
+  - StructuralOWFBridge.lean (line 3676): `P_ne_NP` theorem
 - **Layer4_Operational/TuringMachine/**: TM model
   - TuringMachineSemantics.lean: Standard TM semantics (no oracle tape)
 - **Layer4_Operational/RWA/**: Information attribution
   - RWADeterminism.lean: Determinism proofs (line 42+)
 - **Layer4_Operational/TimeBridge/**: Time-to-information bridge
-  - TMAdapterExponential.lean (line 2132): tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom
+  - WC1Bridge.lean (line 4067): not_refuted_implies_indistinguishable axiom (primary path)
+    NOTE: tm_correctness_implies_realizesAllValuesFrom_flat_encoded is at TMAdapterExponential.lean:2151
 - **Layer1_Construction/Properties/**: A1-A5 properties
   - A1_Hermeticity.lean: Address isolation
   - A2_Injectivity.lean: Seed injectivity
   - A3_Emergence.lean: Emergence bits
 - **Layer2_StructuralOWF/Plant/**: Plant generator
   - PlantCore.lean: Core definitions
-  - PlantExponential.lean (line 200): plant_flat, (line 1067): plant_flat_wf_transfer axiom
+  - PlantExponential.lean (line 327): plant_flat
 - **Layer3_InformationBounds/**: SCL, counting arguments
   - SegmentReduction/SegmentCounting.lean: Segment lower bounds
   - Keyedness/KeyednessFromA2.lean: Keyedness from A2 (no axiom)
@@ -4161,7 +4163,7 @@ Avoiding one doesn't automatically avoid others.
 |---------|-----------------|----------------------|---------------------|
 | Relativization | Non-relativizing structure | Seed-locking, Hermeticity (A1) | algspec_has_tm: no oracle |
 | Natural Proofs | Sparse, instance-specific | Plant generator density, metadata | All axioms: instance-specific |
-| Algebrization | Combinatorial counting | Fintype.card, discrete constraints | tm_correctness_implies_realizesAllValuesFrom_flat_encoded: counting-based |
+| Algebrization | Combinatorial counting | Fintype.card, discrete constraints | not_refuted_implies_indistinguishable: counting-based |
 
 ### Known Triple-Escape Example
 
@@ -4198,8 +4200,8 @@ All file paths in this test have been verified against the actual Lean codebase:
 
 | Axiom | File | Line | Barrier-Safe |
 |-------|------|------|--------------|
-| `algspec_has_tm` | RandAdv.lean | 297 | ✓ Church-Turing |
-| `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | TMAdapterExponential.lean | 297 | ✓ Keyedness-based |
+| `algspec_has_tm` | RandAdv.lean | 414 | ✓ Church-Turing |
+| `not_refuted_implies_indistinguishable` | WC1Bridge.lean | 4067 | ✓ WC-1 indistinguishability |
 
 **Eliminated Axioms** (now proven/removed):
 - `plant_flat_wf_transfer` - Definitional fix
@@ -4209,7 +4211,7 @@ All file paths in this test have been verified against the actual Lean codebase:
 
 ```
 File: Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean
-Line 3237: theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical
+Line 3676: theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical
 ```
 
 ---
