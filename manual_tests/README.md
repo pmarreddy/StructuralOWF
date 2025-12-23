@@ -21,8 +21,9 @@
 | **09** | TEST_09_THREE_BARRIER_COMPREHENSIVE.md | CRITICAL | 12-18 hrs | All 3 barriers (Storage, Resolution, Elimination) (108 vectors) |
 | **10** | TEST_10_COMPLEXITY_BARRIERS_COMPREHENSIVE.md | CRITICAL | 15-20 hrs | Complexity barriers comprehensive (150+ vectors) |
 | **11** | TEST_11_WC1_BRIDGE.md | CRITICAL | 4-6 hrs | WC-1 bridge integration (11 vectors) |
+| **12** | TEST_12_COMPREHENSIVE_FAILURE_VECTORS.md | CRITICAL | 8-12 hrs | All 15 failure categories (65+ vectors) |
 
-**Total Estimated Time**: 76-116 hours for comprehensive verification (504+ attack vectors)
+**Total Estimated Time**: 84-128 hours for comprehensive verification (569+ attack vectors)
 
 ---
 
@@ -32,15 +33,16 @@
 
 1. **TEST_01: Axiom Audit** (First - if axioms are wrong, nothing else matters)
 2. **TEST_11: WC-1 Bridge** (New axiom architecture - verify before proceeding)
-3. **TEST_06: Historical Failure Modes** (Verify we avoid known barriers and pitfalls)
-4. **TEST_03: Semantic Verification** (Definitions must be correct)
-5. **TEST_07: Information-Theoretic Foundations** (SCL core must be sound)
-6. **TEST_09: Three-Barrier Comprehensive** (All 3 barriers must be sound)
-7. **TEST_10: Complexity Barriers Comprehensive** (Full barrier analysis)
-8. **TEST_02: Non-Vacuity** (Proof must be non-trivial)
-9. **TEST_04: Proof Chain** (All pieces must connect)
-10. **TEST_05: Adversarial Attacks** (Active stress testing)
-11. **TEST_08: Publication Peer Review** (Final publication readiness)
+3. **TEST_12: Comprehensive Failure Vectors** (All 15 failure categories systematically)
+4. **TEST_06: Historical Failure Modes** (Verify we avoid known barriers and pitfalls)
+5. **TEST_03: Semantic Verification** (Definitions must be correct)
+6. **TEST_07: Information-Theoretic Foundations** (SCL core must be sound)
+7. **TEST_09: Three-Barrier Comprehensive** (All 3 barriers must be sound)
+8. **TEST_10: Complexity Barriers Comprehensive** (Full barrier analysis)
+9. **TEST_02: Non-Vacuity** (Proof must be non-trivial)
+10. **TEST_04: Proof Chain** (All pieces must connect)
+11. **TEST_05: Adversarial Attacks** (Active stress testing)
+12. **TEST_08: Publication Peer Review** (Final publication readiness)
 
 ---
 
@@ -124,6 +126,7 @@ After running each test, create a results file:
 | 09 | All 3 barriers (Storage/Resolution/Elimination) block simultaneously, A1-A5 sound |
 | 10 | Complexity barriers comprehensive analysis passes |
 | 11 | WC-1 bridge axiom semantic, time bound 2^R-1 derived, no cheating encodings |
+| 12 | All 15 failure categories verified: Cartesian factoring, OAP, FG, A1-A5, SCL, WC-1, parity, bridges |
 
 ### Any Failure Criteria Triggers Rejection:
 
@@ -337,12 +340,29 @@ After running each test, create a results file:
 - 11.3 SameObservationSameState Property Soundness
 - 11.4 WorstCaseCorrectOnLStar Property Verification
 - 11.5 Time Bound Derivation Chain (2^R - 1)
-- 11.6 tmRefutedWorlds and Nodup Property
+- 11.6 eliminatedWorlds and Nodup Property
 - 11.7 LStarTMEncoding Structure Soundness
 - 11.8 UniformityStructure Integration
 - 11.9 TMIndistinguishable Definition Correctness
 - 11.10 Proof Chain from Axiom to P≠NP
 - 11.11 WorstCaseCorrectOnLStar Monotonicity
+
+**Test 12 - Comprehensive Failure Vectors** (45+ vectors across 15 categories):
+- 12.1 Cartesian Factoring (J.1-PROD) - H1-H5 independence, cut composition
+- 12.2 OAP Bypass - Seed-locking, circular dependency, direct CNF access
+- 12.3 FG Bypass - Cross-segment memoization, emergence rank verification
+- 12.4 A1-A5 Compliance - Hermeticity, Injectivity, Emergence, Closure, Dependency
+- 12.5 SCL Derivation - Pigeonhole application, cut composition soundness
+- 12.6 Elimination Bound - WC-1 "+1" property, CDCL learning analysis
+- 12.7 Parity Mechanism - All-bits requirement, FG digest correctness
+- 12.8 Witness Extraction - Ext polynomial time, Randomness structure
+- 12.9 Time Bound Chain - Correctness→visited→time derivation
+- 12.10 Coin-Fixing (Yao) - Per-instance bound after fixing, composition
+- 12.11 Classical Bridge - OWF→FP≠FNP→P≠NP soundness
+- 12.12 Quantifier Structure - ∀x∀A vs ∃x∀A, uniformity enforcement
+- 12.13 Representation Invariance - Cross-encoding stability (future work)
+- 12.14 Barrier Evasion - Relativization, Natural Proofs, Algebrization
+- 12.15 WC-1 Axiom Validity - Indistinguishability claim, biconditional
 
 ---
 
