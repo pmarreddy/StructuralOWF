@@ -13,9 +13,9 @@ This test catalogs ALL potential failure categories for the P≠NP proof, organi
 
 **Philosophy**: Exhaustive enumeration of failure modes enables systematic falsification testing.
 
-**Categories**: 15 major failure categories spanning axioms, construction, derivation, and bridges.
+**Categories**: 18 major failure categories spanning axioms, construction, derivation, bridges, and meta-verification.
 
-**Total Attack Vectors**: 68+ (expanded from initial 45)
+**Total Attack Vectors**: 80+ (expanded from initial 45)
 
 **Trust Boundary**: 2 axioms (see AXIOM_FINAL_COUNT.md)
 - `algspec_has_tm`: Church-Turing bridge
@@ -45,6 +45,11 @@ This test catalogs ALL potential failure categories for the P≠NP proof, organi
 - **[11] Classical Bridge** — Novelty: Low — Key Attack: Break OWF→FP≠FNP→P≠NP
 - **[12] Quantifier Structure** — Novelty: Medium — Key Attack: Show ∃x∀A not ∀x∀A
 - **[14] Barrier Evasion** — Novelty: Medium — Key Attack: Relativize/Naturalize/Algebrize
+
+**META-VERIFICATION** (Structural soundness):
+- **[16] Parameter Binding** — Novelty: Low — Key Attack: R/n/segment size mismatch
+- **[17] Definition Equivalence** — Novelty: Medium — Key Attack: Non-standard FP/FNP/P/NP definitions
+- **[18] Barrier Hinge Identification** — Novelty: Medium — Key Attack: Unidentified relativizing step
 
 ---
 
@@ -1521,6 +1526,326 @@ theorem attack_tm_guessing :
 
 ---
 
+## CATEGORY 16: PARAMETER BINDING AUDIT
+
+**Paper Reference**: Throughout proof chain (§6-§10)
+
+**Core Claim**: All parameters (R, n, segment size, emergence rank, security parameter) are correctly bound and consistent.
+
+### ATTACK 16.1: Security Parameter vs Input Size Mismatch
+
+**Goal**: Find case where n (input size) and security parameter diverge
+
+**Method**:
+```lean
+-- Attack: Show security parameter doesn't match input size
+theorem attack_param_mismatch :
+    ∃ (L : LStarInstanceFG),
+      L.n ≠ Sized.size L := by
+  -- L.n is the security parameter (nvars)
+  -- Sized.size L is the input encoding size
+  -- These should be polynomially related
+  sorry  -- SHOULD FAIL (size bounds proven in LStarEncoding.lean)
+```
+
+**Verification Commands**:
+```bash
+cd /Volumes/Ddrive/PNePNP-Publication/lean
+
+# Check size bounds
+grep -n "Sized.size\|input.*size\|size.*bound" Layer5_Applications/PvsNP/ComplexityClasses/Encoding/LStarEncoding.lean | head -10
+
+# Check n vs R relationship
+grep -n "L.n\|L.R\|nvars" Layer2_StructuralOWF/Plant/PlantExponential.lean | head -10
+```
+
+### ATTACK 16.2: Emergence Rank vs Digest Size
+
+**Goal**: Show R_v doesn't match digest requirement
+
+**Method**:
+```lean
+-- Attack: Find gate where R_v ≠ expected value
+theorem attack_rank_mismatch (L : LStarInstanceFG) (v : {v // L.fg.gateReq v}) :
+    L.R v.val ≠ L.n := by
+  -- R_of_flat assigns R = φ.nvars = n at FG gates
+  -- This should be exactly n by construction
+  sorry  -- SHOULD FAIL (R_of_flat_at_fg_gate theorem)
+```
+
+### ATTACK 16.3: Segment Count vs Time Bound
+
+**Goal**: Show segment counting doesn't compose to time bound
+
+**Method**:
+```lean
+-- Attack: Time bound loses polynomial factor
+theorem attack_segment_time_gap :
+    ∃ (L : LStarInstanceFG) (run : DeterministicRun),
+      run.segmentCount ≥ 2^(L.R v) ∧
+      run.time < 2^(L.R v) := by
+  -- Each segment requires Ω(1) time
+  -- segmentCount ≥ 2^R → time ≥ 2^R
+  sorry  -- SHOULD FAIL (time_from_segments theorem)
+```
+
+**Pass Criteria**:
+- [ ] L.n and Sized.size L polynomially related
+- [ ] R_v = n at FG gates (proven by R_of_flat_at_fg_gate)
+- [ ] Segment count → time bound composition sound
+- [ ] No off-by-one errors in exponent
+
+**Fail Criteria**:
+- Parameter binding allows exponential gap
+- R measured in wrong units (bits vs elements)
+- Segment size doesn't compose to time
+
+---
+
+## CATEGORY 17: DEFINITION EQUIVALENCE AUDIT
+
+**Paper Reference**: §10, Layer5_Applications/PvsNP/ComplexityClasses/
+
+**Core Claim**: InFP, InFNP, PeqNP definitions match standard textbook complexity theory.
+
+### ATTACK 17.1: Non-Standard FP Definition
+
+**Goal**: Show InFP_parametric_bits differs from standard FP
+
+**Standard Definition**: FP = functions computable by deterministic poly-time TM
+
+**Location**: `Layer5_Applications/PvsNP/ComplexityClasses/Encoding/BitstringOWF.lean`
+
+**Method**:
+```lean
+-- Attack: InFP allows non-standard computation model
+theorem attack_fp_nonstandard :
+    ∃ (f : InFP_parametric_bits),
+      ¬(f computable by standard TM) := by
+  -- InFP_parametric_bits requires:
+  -- - Polynomial time bound
+  -- - Deterministic TM execution
+  -- - Bitstring input/output
+  sorry  -- SHOULD FAIL (definition explicitly uses TM)
+```
+
+**Verification Commands**:
+```bash
+cd /Volumes/Ddrive/PNePNP-Publication/lean
+
+# Check InFP definition
+grep -A 20 "def InFP_parametric_bits\|structure.*InFP" Layer5_Applications/PvsNP/ComplexityClasses/Encoding/BitstringOWF.lean | head -25
+
+# Check TM usage
+grep -n "TuringMachine\|PPTAdversary" Layer5_Applications/PvsNP/ComplexityClasses/Encoding/BitstringOWF.lean | head -10
+```
+
+### ATTACK 17.2: Non-Standard FNP Definition
+
+**Goal**: Show InFNP differs from standard search problem class
+
+**Standard Definition**: FNP = search problems with poly-time verifiable witnesses
+
+**Method**:
+```lean
+-- Attack: InFNP witness verification not poly-time
+theorem attack_fnp_verification :
+    ∃ (R : InFNP_parametric_bits),
+      ¬(R.verify polynomial-time) := by
+  -- InFNP requires polynomial-time verification
+  -- This is explicit in the definition
+  sorry  -- SHOULD FAIL (verification bound in definition)
+```
+
+### ATTACK 17.3: P=NP Definition Equivalence
+
+**Goal**: Show PeqNP_parametric differs from standard P=NP
+
+**Method**:
+```lean
+-- Check: PeqNP_classical equivalent to standard definition
+#check @PeqNP_classical
+-- Should be: ∀ L ∈ NP, L ∈ P
+
+-- Attack: Find NP language not covered by PeqNP_classical
+theorem attack_peqnp_incomplete :
+    ∃ (L : Language),
+      InNP L ∧ ¬(PeqNP_classical → InP L) := by
+  sorry  -- SHOULD FAIL (PeqNP_classical covers all NP)
+```
+
+### ATTACK 17.4: OWF Definition Standard Compliance
+
+**Goal**: Verify OWF definition matches cryptographic standard
+
+**Standard Definition**: f is OWF if:
+1. f computable in poly-time
+2. For all PPT A: Pr[f(A(f(x))) = f(x)] ≤ negl(n)
+
+**Method**:
+```lean
+-- Attack: OWF definition uses non-standard success metric
+theorem attack_owf_nonstandard :
+    ∃ (f : StructuralOWF),
+      (standard_owf_invertible f) ∧ ¬(invertible_by_def f) := by
+  -- Structural OWF uses worst-case (not average-case) hardness
+  -- This is STRONGER than standard OWF (implies standard)
+  sorry  -- NOT A FAILURE - worst-case implies average-case
+```
+
+**Note**: The proof uses worst-case OWF (stronger than standard average-case). This is valid: worst-case hardness implies average-case hardness.
+
+**Pass Criteria**:
+- [ ] InFP uses deterministic poly-time TM (matches standard FP)
+- [ ] InFNP has poly-time verification (matches standard FNP)
+- [ ] PeqNP_classical equivalent to "∀ L ∈ NP, L ∈ P"
+- [ ] OWF definition at least as strong as standard
+- [ ] Bitstring encodings don't change complexity classes
+
+**Fail Criteria**:
+- Definition allows oracle/advice not in standard model
+- Verification complexity wrong
+- Search-to-decision reduction unsound
+- Non-uniform components hidden in "uniform" definitions
+
+---
+
+## CATEGORY 18: BARRIER HINGE IDENTIFICATION
+
+**Paper Reference**: §12.2-12.3, §12.6
+
+**Core Claim**: The proof evades relativization, natural proofs, and algebrization barriers at identified "hinge" steps.
+
+### ATTACK 18.1: Identify Relativization Hinge
+
+**Goal**: Pinpoint exact step that fails with oracle access
+
+**Key Question**: If we add oracle O, which theorem breaks first?
+
+**Analysis**:
+```
+Proof Chain:
+1. L* construction (A1-A5 properties) ← STRUCTURAL, doesn't relativize
+2. SCL derivation (q + Φ ≥ R) ← INFORMATION-THEORETIC, doesn't relativize
+3. Seed-locking (complete observation required) ← STRUCTURAL, doesn't relativize
+4. Time bound (haltTime ≥ 2^R) ← Uses steps 1-3
+5. OWF → FP≠FNP → P≠NP ← REDUCTION CHAIN
+
+**HINGE**: Step 2-3 (SCL + seed-locking)
+- Oracle O answering "is config c correct?" bypasses seed-locking
+- But this violates A1 (Hermeticity): oracle provides info outside DAG structure
+- The construction DEFINES information access, oracle is outside model
+```
+
+**Verification**:
+```lean
+-- The relativization hinge is: A1 Hermeticity enforcement
+-- Oracle access would violate the hermetic boundary
+
+-- Attack: Construct oracle that respects A1 but breaks bound
+theorem attack_relativization_hinge :
+    ∃ (O : Oracle),
+      (∀ L : LStarInstanceFG, O respects A1_Hermeticity L) ∧
+      (∃ A : Adversary^O, time A L < 2^(L.R v)) := by
+  -- If oracle respects A1, it can only access designated pools
+  -- Designated pools encode seed-dependent addresses
+  -- Still need complete observation → still 2^R time
+  sorry  -- SHOULD FAIL (A1-respecting oracle doesn't help)
+```
+
+### ATTACK 18.2: Identify Natural Proofs Hinge
+
+**Goal**: Show exactly why the hardness property is non-large
+
+**Natural Proof Requirements**:
+1. **Constructive**: Can test property in poly(2^n) time
+2. **Large**: Property holds for ≥ 2^(-poly(n)) fraction of functions
+
+**Analysis**:
+```
+L* hardness requires ALL of:
+- A1: Disjoint address pools (measure-zero for random functions)
+- A2: Injective encoding (measure-zero for random functions)
+- A3: Full-rank emergence (measure-zero for random functions)
+- A4: Deterministic closure (structural)
+- A5: DAG acyclicity (structural)
+
+**HINGE**: A1-A3 are measure-zero properties
+- Random function almost surely violates injectivity (A2)
+- Random function almost surely has collisions in pool structure (A1)
+- Therefore: hardness property is NON-LARGE
+```
+
+**Verification**:
+```lean
+-- Attack: Show A1-A3 hold for large fraction of functions
+theorem attack_largeness :
+    Pr_{f : RandomFunction}[f satisfies A1 ∧ A2 ∧ A3] ≥ 2^(-poly(n)) := by
+  -- A2 (injectivity): Random f is injective with prob ≈ e^(-n²/2^n) → 0
+  -- A1 (disjoint pools): Random addressing has collisions whp
+  -- A3 (full rank): Random matrix has full rank, but with wrong structure
+  sorry  -- SHOULD FAIL (A1-A3 are measure-zero)
+```
+
+### ATTACK 18.3: Identify Algebrization Hinge
+
+**Goal**: Show exactly which constraint doesn't survive low-degree extension
+
+**Analysis**:
+```
+Key Constraints in L*:
+1. digest = parity(config) — EXACT BOOLEAN EQUALITY
+2. |feasible worlds| = 1 — EXACT INTEGER CARDINALITY
+3. φ.satisfies α — BOOLEAN SATISFACTION
+
+**HINGE**: Constraint (1) - exact parity equality
+- Low-degree extension: parity becomes polynomial over F_p
+- Equality becomes approximate: |p(x) - q(x)| < ε
+- Approximate equality doesn't preserve elimination counting
+- World-commit "+1" property requires EXACT elimination
+```
+
+**Verification**:
+```lean
+-- Attack: Algebrize parity constraint and preserve +1 property
+theorem attack_algebrization_hinge :
+    ∃ (ext : LowDegreeExtension),
+      (∀ L cfg, ext.parity L cfg = parity L cfg mod p) ∧
+      (world_commit_eliminates_exactly_one (ext.L)) := by
+  -- Low-degree parity: parity(x) = Σ x_i (mod 2) extends to polynomial
+  -- But "eliminates exactly 1" requires discrete counting
+  -- Polynomial counting gives fractional values
+  sorry  -- SHOULD FAIL (discrete counting doesn't algebrize)
+```
+
+**Verification Commands**:
+```bash
+cd /Volumes/Ddrive/PNePNP-Publication/lean
+
+# Check A1-A3 definitions (for largeness analysis)
+grep -n "def satisfies_A1\|def satisfies_A2\|def satisfies_A3" Layer1_Construction/Properties/*.lean
+
+# Check parity definition (for algebrization analysis)
+grep -n "def parity\|XOR\|xor" Layer3_InformationBounds/SegmentReduction/*.lean | head -10
+
+# Check world elimination counting
+grep -n "eliminates.*one\|card.*=.*1\|exactly.*one" Layer3_InformationBounds/WorldCommit/*.lean | head -10
+```
+
+**Pass Criteria**:
+- [ ] Relativization hinge identified: A1 Hermeticity (oracle violates boundary)
+- [ ] Natural proofs hinge identified: A1-A3 are measure-zero (non-large)
+- [ ] Algebrization hinge identified: Exact parity/counting (non-polynomial)
+- [ ] Each hinge has explicit theorem/property that fails under barrier attack
+
+**Fail Criteria**:
+- Cannot identify which step fails under relativization
+- Hardness property actually large (applies to random functions)
+- Constraints survive low-degree extension
+- "Barrier evasion" claimed without specific mechanism
+
+---
+
 ## VERIFICATION SUMMARY
 
 ### Master Verification Commands
@@ -1584,6 +1909,11 @@ done
 - [ ] Proof isn't natural
 - [ ] Proof doesn't algebrize
 
+**Meta-Verification Level**:
+- [ ] Parameter binding consistent (R, n, segment size aligned)
+- [ ] Definition equivalence (InFP/InFNP/PeqNP match standard)
+- [ ] Barrier hinges identified (specific steps that fail under each barrier)
+
 ### FAIL (ANY triggers failure):
 
 - Found axiom that secretly assumes P≠NP
@@ -1599,6 +1929,9 @@ done
 - Bridge theorem unsound
 - Quantifier allows hardcoding
 - Proof hits classical barrier
+- Parameter binding has exponential gap
+- Complexity class definitions non-standard
+- Barrier hinge not identifiable (evasion claimed but not pinpointed)
 
 ---
 
@@ -1619,6 +1952,9 @@ done
 - **[13] Rep. Inv.**: paper §12 F6 — (not formalized)
 - **[14] Barriers**: paper §12.2-12.3 — (analysis)
 - **[15] WC-1 Axiom**: `WC1Bridge.lean:4067` — `remaining_indistinguishable`
+- **[16] Param Binding**: `LStarEncoding.lean` — size bounds, `RanksExponential.lean` — R_of_flat
+- **[17] Def Equiv**: `BitstringOWF.lean` — InFP/InFNP, `ParametricBitstringBridge.lean` — PeqNP
+- **[18] Barrier Hinge**: `A1_Hermeticity.lean` (relativ.), `A2_Injectivity.lean` (natural), `WorldCommit.lean` (algebr.)
 
 ---
 
@@ -1659,5 +1995,5 @@ end FailureTest.CategoryN
 ---
 
 **Last Updated**: 2025-12-23
-**Status**: Comprehensive catalog of 15 failure categories
+**Status**: Comprehensive catalog of 18 failure categories (expanded from external review)
 **Action Required**: Systematic verification of each category

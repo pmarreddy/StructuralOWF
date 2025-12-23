@@ -2477,7 +2477,7 @@ theorem eliminations_bound_on_universe
   -- Apply multiple_eliminations_additive_reduction with W = universe
   have := multiple_eliminations_additive_reduction (L := L) (C := C)
     (eliminations := eliminations_list) (W := (Finset.univ : Finset (CutWorld L C)))
-    (h_all_eliminations_list := h_all_eliminations_list)
+    (h_all_eliminations := h_all_eliminations_list)
   -- Rearrange the result (it already has the desired shape)
   calc (Finset.univ : Finset (CutWorld L C)).card
       ≤ (eliminations_list.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) Finset.univ).card +
@@ -3231,7 +3231,7 @@ theorem elimination_count_exponential_bound
     -- Apply the additive reduction bound to S_bits
     have h_red := multiple_eliminations_additive_reduction
         (L := L) (C := C) (eliminations := eliminations_list)
-        (h_all_eliminations_list := h_all_eliminations_list)
+        (h_all_eliminations := h_all_eliminations_list)
         (W := BitsOnlyWorlds L C π_final)
     have href_len : eliminations_list.length = r := by
       simp only [eliminations_list, r, eliminationCount, List.length_map]

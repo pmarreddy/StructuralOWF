@@ -4033,7 +4033,10 @@ With WorstCaseCorrectOnLStar true, we can derive separation:
 This breaks the circularity via the indistinguishability bridge.
 -/
 
-/-- **BRIDGE AXIOM**: The TM only knows what it has computed.
+/-- **BRIDGE AXIOM (2/2)**: The TM only knows what it has computed.
+
+    **PLAIN ENGLISH**: If a wrong answer remains as a possibility after the TM runs,
+    it's because the TM couldn't distinguish it from the right answer.
 
     **INTUITION**: If a world ω' is not ruled out by the TM's observations,
     then the TM cannot tell ω' apart from the planted world.
