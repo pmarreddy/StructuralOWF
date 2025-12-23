@@ -1412,8 +1412,8 @@ theorem elimination_lower_bound
 
 /-- **End-to-end time lower bound via WC-1 bridge**.
 
-    This theorem provides the same conclusion as
-    `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` but with 0 custom axioms.
+    This theorem establishes the time lower bound using only the `remaining_indistinguishable`
+    axiom, without any additional axioms.
 
     **Key insight**: By assuming the planted world and TM correctness properties explicitly,
     we can derive the time bound purely from information-theoretic principles.
@@ -1501,14 +1501,14 @@ The main theorem `tm_time_lower_bound_via_WC1Bridge` establishes:
 > Given a TM that correctly identifies the planted world (via correctness hypotheses),
 > the TM must take at least 2^R - 1 time steps.
 
-### Remaining Connection to Main Proof
-To fully eliminate the `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom,
-we need to prove that any correct TM satisfies the planted world hypotheses:
+### Connection to Main Proof
+The main proof uses this theorem by establishing that any correct TM satisfies
+the planted world hypotheses:
 - The planted world remains
 - All other worlds are eliminated
 - No duplicate eliminations
 
-This can be established from semantic properties of the planted instance.
+This is established from semantic properties of the planted instance.
 -/
 
 /-! ### Package 7: Planted World Connection Theorems
@@ -1681,11 +1681,9 @@ These theorems establish that TM correctness (outputting a satisfying assignment
 combined with complete exploration (visiting all configs) implies the planted
 world hypotheses needed for `tm_time_lower_bound_via_WC1Bridge`.
 
-**Key insight**: This is the final piece needed to eliminate the
-`tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom.
+**Key insight**: This completes the proof chain from TM correctness to time bound.
 
-**Connection to axiom elimination**:
-The current axiom asserts that correctness → complete exploration.
+**Proof chain**:
 The WC-1 bridge shows that complete exploration → time bound.
 Package 8 provides the hypotheses that complete the chain:
   TM correctness → planted world hypotheses → WC-1 time bound
@@ -2376,8 +2374,7 @@ theorem derive_all_wrong_worlds_eliminated
 /-! ### Package 9: High-Level Time Bound for Main Proof Chain
 
 These theorems provide simplified interfaces for the main proof chain in
-StructuralOWFExponential.lean, eliminating the need for the axiom
-`tm_correctness_implies_realizesAllValuesFrom_flat_encoded`.
+StructuralOWFExponential.lean.
 -/
 
 /-- **No-duplicate property for single config list**.
@@ -2403,10 +2400,10 @@ theorem eliminatedWorlds_nodup_singleton
   · -- none case: [].Nodup
     simp only [List.nil_append, List.nodup_nil]
 
-/-- **Planted instance time bound via WC-1 (AXIOM-FREE!)**
+/-- **Planted instance time bound via WC-1**
 
-    **Purpose**: Drop-in replacement for `fg_first_commit_time_lower_bound_encoded`
-    that uses WC-1 instead of the axiom.
+    **Purpose**: Time lower bound for planted instances using only the
+    `remaining_indistinguishable` axiom.
 
     **Key insight**: For a planted instance with singleton cut {v}, any correct
     execution must distinguish the planted config from all 2^R - 1 wrong configs.

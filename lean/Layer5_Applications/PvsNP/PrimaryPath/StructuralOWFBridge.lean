@@ -1873,7 +1873,7 @@ theorem structural_owf_inversion_not_in_fp
   -- gives polynomial time bound. For large n, poly < exp, contradiction.
   --
   -- Key insight: We don't need the full StructuralOWFAdversary construction.
-  -- Instead, we use fg_first_commit_time_lower_bound_encoded directly.
+  -- The time lower bound follows from WC-1 indistinguishability.
 
   -- Step A: Pick a concrete planted instance at n_test
   -- We need n_test ≥ max(128, N₀, n₀_exp) to satisfy all hypotheses
@@ -1911,7 +1911,7 @@ theorem structural_owf_inversion_not_in_fp
   -- The formal application requires connecting:
   -- 1. M_randadv.run computes f_family (from h_run_eq, h_correct_fp)
   -- 2. f_family correctly inverts for n ≥ N₀ (from h_inverts)
-  -- 3. Correct inversion requires time ≥ 2^n (from fg_first_commit_time_lower_bound_encoded)
+  -- 3. Correct inversion requires time ≥ 2^n (from WC-1 indistinguishability)
   -- 4. M_randadv runs in polynomial time (from h_C_eq, h_k_eq, h_time_fp)
 
   -- The bridge from M_randadv to the time lower bound requires:
@@ -1936,7 +1936,7 @@ theorem structural_owf_inversion_not_in_fp
 
   -- Time contradiction:
   -- Let haltTime = time for M_randadv to halt on planted instance L_test
-  -- - Lower bound: haltTime ≥ 2^(L_test.R v) = 2^n_test (fg_first_commit_time_lower_bound_encoded)
+  -- - Lower bound: haltTime ≥ 2^(L_test.R v) = 2^n_test (via WC-1 indistinguishability)
   -- - Upper bound: haltTime ≤ C_fp * (n_test + 1)^deg_fp (InFP time bound)
   -- - But 2^n_test > C_fp' * n_test^deg_fp' ≥ C_fp * n_test^deg_fp (for n_test ≥ n₀_exp)
   -- - And n_test^deg_fp ≤ (n_test + 1)^deg_fp, so polynomial bound still applies
@@ -1947,7 +1947,7 @@ theorem structural_owf_inversion_not_in_fp
   -- - Per-instance interface: LStarInstanceFG → Witness n_test
   --
   -- The mathematical content is complete. The formalization gap is the
-  -- type-level bridging to apply fg_first_commit_time_lower_bound_encoded.
+  -- type-level bridging to apply the WC-1 time bound.
 
   -- ═══════════════════════════════════════════════════════════════════════════
   -- DIRECT TIME BOUND CONTRADICTION

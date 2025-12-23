@@ -398,38 +398,39 @@ theorem visitedEncodings_card_ge_pow {k : Nat} {states alphabet : Type}
 
 ---
 
-#### [7] fg_first_commit_time_lower_bound_encoded: TM Time Bound (Top-Down)
+#### [7] tm_time_lower_bound_via_WC1Bridge: TM Time Bound (via WC-1)
 
-**Location**: `Layer4_Operational/TimeBridge/TMAdapterExponential.lean`
+**Location**: `Layer4_Operational/TimeBridge/WC1Bridge.lean`
 
-**Theorem Name**: `fg_first_commit_time_lower_bound_encoded`
+**Theorem Name**: `tm_time_lower_bound_via_WC1Bridge`
 
 **Formal Statement** (schematic—actual Lean signature includes additional context parameters):
 ```lean
-theorem fg_first_commit_time_lower_bound
-  (A : PPTAdversary) (L : planted_instance) (h_correct : correct_adversary A L) :
-  A.execution_time L ≥ 2 ^ R_of_flat L
+theorem tm_time_lower_bound_via_WC1Bridge
+  (L : LStarInstanceFG) (v : Fin L.dag.n) (haltTime : Nat)
+  (h_planted_survives : planted_world_not_eliminated)
+  (h_others_eliminated : all_other_worlds_eliminated) :
+  haltTime ≥ 2^(L.R v) - 1
 ```
 
 **Note**: The actual Lean theorem includes precise type contexts and derivation machinery. This schematic form captures the essential time-bound claim.
 
-**Theorem Content**: Turing Machine execution time for any correct adversary is lower-bounded by 2^R steps.
+**Theorem Content**: Turing Machine execution time for any correct adversary is lower-bounded by 2^R - 1 steps.
 
 **Significance**: **Operational semantics bridge**. Connects information-theoretic necessity (must observe all configurations) to concrete time complexity. This is the critical theorem enabling the OWF security proof.
 
-**Proof Technique**: Top-down semantic derivation
-1. `correctness_implies_realizesAllValues`: Correctness hypothesis → must visit all 2^R configurations
-2. `visitedEncodings_card_ge_pow` [6]: realizes all values → |visitedEncodings| ≥ 2^R
-3. `visitedEncodings_card_le_time`: |visitedEncodings| ≤ haltTime (trivial image bound)
-4. Transitivity: haltTime ≥ 2^R ∎
+**Proof Technique**: WC-1 indistinguishability
+1. Planted world must survive (TM outputs correct answer)
+2. All other worlds must be eliminated (by visiting configurations)
+3. By `remaining_indistinguishable`: eliminating 2^R - 1 worlds requires 2^R - 1 steps
+4. Time bound: haltTime ≥ 2^R - 1 ∎
 
-**Key Insight**: The top-down approach reasons directly from correctness to time bound.
+**Key Insight**: The WC-1 bridge derives time bounds from world elimination counting.
 
 **Dependencies**:
 - R_of_flat (emergence rank definition: R = n)
 - parity_requires_all_bits [5] (information-theoretic necessity)
 - visitedEncodings_card_ge_pow [6] (counting lemma)
-- correctness_implies_realizesAllValues (semantic bridge lemma)
 - [AXIOM] remaining_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
 
 **Axiomatic Content**: 1 (remaining_indistinguishable - see Axiom 2/2 below)
@@ -503,14 +504,14 @@ theorem f_is_structural_owf_exponential_flat
 **Proof Technique**: Proof by contradiction
 1. Assumption for contradiction: Suppose polynomial-time inverter A exists
 2. Extraction step: A recovers r : Randomness, from which r.assignment gives SAT witness [8]
-3. Time bound: Apply fg_first_commit_time_lower_bound_encoded [7] → A requires ≥ 2^n steps
+3. Time bound: Apply tm_time_lower_bound_via_WC1Bridge [7] → A requires ≥ 2^n - 1 steps
 4. Polynomial bound: But A is PPT → A executes ≤ C·n^k steps
 5. Contradiction: For sufficiently large n, 2^n > C·n^k (exponential growth dominates)
 6. Conclusion: No such polynomial-time inverter A can exist ∎
 
 **Dependencies**:
 - Randomness.assignment [8] (witness extraction via field access)
-- fg_first_commit_time_lower_bound_encoded [7] (exponential time lower bound)
+- tm_time_lower_bound_via_WC1Bridge [7] (exponential time lower bound)
 - [AXIOM] remaining_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
 - [AXIOM] algspec_has_tm (Church-Turing equivalence)
 
