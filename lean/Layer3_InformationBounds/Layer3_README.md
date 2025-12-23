@@ -64,7 +64,7 @@ Any algorithm attempting to solve L* must use ONE of three strategies:
 
 ### 1. Segment Reduction (SegmentReduction.lean)
 
-**Main Theorem**: `refutation_count_exponential_bound`
+**Main Theorem**: `elimination_count_exponential_bound`
 ```lean
 totalEliminations ≥ 2^(ρ-s) - 1
 where ρ = total FG randomness bits
@@ -75,7 +75,7 @@ where ρ = total FG randomness bits
 ```
 ρ = 256 bits    (total FG emergence across cut)
 s = 0 bits      (pre-final agreement with seed-lock FG)
-Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
+Bound: eliminationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 → Must explore ~10^77 configurations (exponential information barrier!)
 → Time: If each test takes 1 nanosecond → 10^68 seconds ≈ 10^60 universe ages
 ```
@@ -86,20 +86,20 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 - **BitsOnlyWorlds**: Separate bit vs. digest constraints
 - **|S_bits| ≤ 2^ρ**: Safe upper bound (proven exactly as 2^(ρ-s))
 - **FeasibleUnder ⊆ S_bits**: Digest constraints only remove possibilities
-- **Refutations reduce by ≤ r**: Each test eliminates ≤ 1 world
+- **Eliminations reduce by ≤ r**: Each test eliminates ≤ 1 world
 
 **Innovation**: Avoids per-segment halving (would require balance infrastructure). Uses aggregate upper bound instead.
 
 ### 2. World Commitment (WorldCommit.lean)
 
-**Main Theorem**: WC-1 property—refutation excludes exactly ONE world from feasible set.
+**Main Theorem**: WC-1 property—elimination excludes exactly ONE world from feasible set.
 
 **Why it matters**: Enables tight segment bounds. No bulk pruning—exponential testing required.
 
 **Proof technique**: Canonical world selection via deterministic ordering.
 - **findMinimumWorld**: Select canonical minimum from nonempty Finset (List.mergeSort)
 - **CommitSelector**: Deterministic committed world from ExecutionPrefix
-- **WC-1 theorem**: Set arithmetic + constraint satisfaction (refutation removes exactly 1)
+- **WC-1 theorem**: Set arithmetic + constraint satisfaction (elimination removes exactly 1)
 
 **Design philosophy**: Simplicity first—avoid complex typeclass engineering. Direct List-based minimum finding without LinearOrder instance.
 
@@ -167,7 +167,7 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
    FeasibleUnder(all constraints) ⊆ S_bits  (digest constraints only remove)
    ```
 
-4. **refutation_count_exponential_bound** (SegmentReduction.lean)
+4. **elimination_count_exponential_bound** (SegmentReduction.lean)
    ```lean
    totalEliminations ≥ 2^(ρ-s) - 1  (exponential lower bound)
    ```
@@ -183,11 +183,11 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 
 ### World Commitment
 
-6. **world_commit_refutation_excludes_one** (WorldCommit.lean)
+6. **world_commit_elimination_excludes_one** (WorldCommit.lean)
    ```lean
-   theorem world_commit_refutation_excludes_one : ...
+   theorem world_commit_elimination_excludes_one : ...
    ```
-   Proves WC-1 property: Each refutation excludes exactly one world from the feasible set.
+   Proves WC-1 property: Each elimination excludes exactly one world from the feasible set.
 
 ### FG Path Set Sizing
 
@@ -229,7 +229,7 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 - **NoBackdoorTheorem.lean**: Absence of algorithmic backdoors in planted instances
 
 ### SegmentReduction/ (7 files)
-- **SegmentReduction.lean**: Main theorem (refutationCount ≥ 2^(ρ-s) - 1)
+- **SegmentReduction.lean**: Main theorem (eliminationCount ≥ 2^(ρ-s) - 1)
 - **CanonicalKeyednessBounds.lean**: Keyedness for canonical witnesses
 - **SegmentBoundaries.lean**: Segment boundary definitions
 - **SegmentCounting.lean**: Segment counting infrastructure
@@ -269,7 +269,7 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 
 **Remaining Axioms** (Semantic → Operational bridges, Layer 4):
 - **algspec_has_tm**: Church-Turing bridge
-- **not_refuted_implies_indistinguishable**: WC-1 bridge (indistinguishability axiom; separation and time bound DERIVED)
+- **remaining_indistinguishable**: WC-1 bridge (indistinguishability axiom; separation and time bound DERIVED)
 
 **All core information-theoretic theorems are proven** (no axioms in Layer 3 itself).
 
@@ -281,8 +281,8 @@ Bound: refutationCount ≥ 2^(256-0) - 1 = 2^256 - 1 ≈ 1.16×10^77
 
 **Layer 3 theorems**:
 ```
-SegmentReduction: refutationCount ≥ 2^(ρ-s) - 1  (information bound)
-WorldCommit: Each refutation excludes exactly 1 world (WC-1)
+SegmentReduction: eliminationCount ≥ 2^(ρ-s) - 1  (information bound)
+WorldCommit: Each elimination excludes exactly 1 world (WC-1)
 KeyednessFromA2: Distinct configs remain distinguishable (keyedness)
 ```
 
@@ -310,7 +310,7 @@ Layer 2 (Plant) → Layer 3 (Info bound) → Layer 4 (Time bound) → Layer 5 (P
 
 ### Q: Why does WC-1 (exact -1 exclusion) matter?
 
-**A**: Without WC-1, refutations might eliminate multiple worlds (bulk pruning), allowing polynomial-time solving. WC-1 ensures each test removes exactly 1 world → exponential testing required.
+**A**: Without WC-1, eliminations might remove multiple worlds (bulk pruning), allowing polynomial-time solving. WC-1 ensures each test removes exactly 1 world → exponential testing required.
 
 ### Q: How do we prove the algorithm is FORCED to use single-world elimination?
 
@@ -328,7 +328,7 @@ Layer 2 (Plant) → Layer 3 (Info bound) → Layer 4 (Time bound) → Layer 5 (P
 
 3. **Constraint Decomposition** (CDT_Lemmas.lean):
    - Constraint matching decomposes to unit refutations
-   - Each UnitRefute removes exactly 1 world (WC-1)
+   - Each UnitElimination removes exactly 1 world (WC-1)
 
 **The Chain**:
 ```

@@ -125,7 +125,7 @@ square_le_pow_two_from_asymptotics : k² ≤ 2^k for k ≥ 7  (0 axioms!)
 1. **Layer 0**: SCL_node theorem establishes |State| ≥ 2^λ bound
 2. **Layer 1**: A1-A5 properties ensure SCL applies to L* construction
 3. **Layer 2**: PlantExponential.lean instantiates with R_v = n (this file)
-4. **Layer 3**: SegmentReduction uses λ = n → 2^n refutations lower bound
+4. **Layer 3**: SegmentReduction uses λ = n → 2^n eliminations lower bound
 5. **Layer 4**: TMAdapterExponential translates to execution time ≥ 2^n
 6. **Layer 5**: OWFExponential.lean proves Plant_flat is one-way → P≠NP ∎
 

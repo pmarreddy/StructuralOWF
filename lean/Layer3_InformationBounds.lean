@@ -15,7 +15,7 @@ import Layer3_InformationBounds.WorldCommit.FGPathSetSizing
 import Layer3_InformationBounds.WorldCommit.FGIndistinguishability
 import Layer3_InformationBounds.WorldCommit.CDT_Lemmas
 
--- SegmentReduction (main theorem: refutationCount ≥ 2^(ρ-s))
+-- SegmentReduction (main theorem: eliminationCount ≥ 2^(ρ-s))
 import Layer3_InformationBounds.SegmentReduction.SegmentReduction
 import Layer3_InformationBounds.SegmentReduction.SegmentCounting
 import Layer3_InformationBounds.SegmentReduction.SegmentBoundaries

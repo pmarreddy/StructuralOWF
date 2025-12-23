@@ -1048,7 +1048,7 @@ lake build Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
 2. `Classical.choice` (Lean foundation)
 3. `Quot.sound` (Lean foundation)
 4. `algspec_has_tm` (Church-Turing bridge) - RandAdv.lean:414
-5. `not_refuted_implies_indistinguishable` (WC-1 bridge) - WC1Bridge.lean:4067
+5. `remaining_indistinguishable` (WC-1 bridge) - WC1Bridge.lean:4067
 
 **Custom Axioms**: 2 (items 4-5 above)
 
@@ -1077,10 +1077,10 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
 
 ---
 
-#### VECTOR 12.3: not_refuted_implies_indistinguishable Doesn't Assume P≠NP
+#### VECTOR 12.3: remaining_indistinguishable Doesn't Assume P≠NP
 ```lean
 -- WC1Bridge.lean:4067
-axiom not_refuted_implies_indistinguishable
+axiom remaining_indistinguishable
     (L : LStarInstanceFG) (M : TuringMachine) ...
 ```
 
@@ -1141,7 +1141,7 @@ grep -rn "NP-complete\|hard\|difficult" --include="*.lean" Layer1_Construction/ 
 #### VECTOR 12.4: All Axioms Operate at Semantic Layer
 **Manual Check**: Both axioms operate at the semantic/operational layer:
 - TM semantics (algspec_has_tm) - Church-Turing bridge
-- Indistinguishability (not_refuted_implies_indistinguishable) - WC-1 bridge
+- Indistinguishability (remaining_indistinguishable) - WC-1 bridge
 
 **Note**: Former axioms `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proven theorems.
 
@@ -2186,7 +2186,7 @@ The proof uses the **exponential profile** with 2 axioms:
 #### VECTOR 29.1: Exponential Profile Axioms
 **Exponential Profile** (plant_flat with R = n):
 1. `algspec_has_tm` - Church-Turing bridge (RandAdv.lean:414)
-2. `not_refuted_implies_indistinguishable` - WC-1 bridge (WC1Bridge.lean:4067)
+2. `remaining_indistinguishable` - WC-1 bridge (WC1Bridge.lean:4067)
 
 ---
 
@@ -2209,7 +2209,7 @@ grep -n "plant_flat" Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.l
 
 #### VECTOR 29.4: Axiom Count Consistency
 **Manual Check**: Exponential profile has 2 axioms:
-- algspec_has_tm + not_refuted_implies_indistinguishable
+- algspec_has_tm + remaining_indistinguishable
 
 **Pass Criteria**: Axiom count is 2.
 
@@ -2350,7 +2350,7 @@ This test covers **190+ attack vectors across 29 categories** of historical P≠
 
 **Trust Boundary (2 Axioms - Exponential Profile)**:
 1. `algspec_has_tm` - Church-Turing bridge (RandAdv.lean:414)
-2. `not_refuted_implies_indistinguishable` - WC-1 bridge (WC1Bridge.lean:4067)
+2. `remaining_indistinguishable` - WC-1 bridge (WC1Bridge.lean:4067)
 
 **Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding` - Now proved lemma

@@ -40,7 +40,7 @@ theorem fpnefnp_implies_not_peqnp
                 ↓
 ┌────────────────────────────────────────────────────────────┐
 │  LAYER 3: Information Bounds                               │
-│  → Segment reduction: refutations ≥ 2^(ρ-s) - 1            │
+│  → Segment reduction: eliminations ≥ 2^(ρ-s) - 1            │
 │  → Seed-lock: s = 0 proven → bound = 2^ρ                   │
 └────────────────────────────────────────────────────────────┘
                 ↓
@@ -182,7 +182,7 @@ This is EXACTLY the P vs NP asymmetry:
 
 **Trust Boundary**: 2 axioms
 - **algspec_has_tm** (RandAdv.lean) — Church-Turing bridge
-- **not_refuted_implies_indistinguishable** (WC1Bridge.lean) — WC-1 indistinguishability bridge
+- **remaining_indistinguishable** (WC1Bridge.lean) — WC-1 indistinguishability bridge
 
 ---
 

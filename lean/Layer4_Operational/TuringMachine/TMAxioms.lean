@@ -26,8 +26,8 @@ abstract complexity-theoretic framework.
 
 **Axioms**:
 1. `algspec_has_tm` (RandAdv.lean) - Church-Turing bridge
-2. `not_refuted_implies_indistinguishable` (WC1Bridge.lean)
-   WC-1 bridge: asserts indistinguishability (unrefuted worlds are TM-indistinguishable from planted).
+2. `remaining_indistinguishable` (WC1Bridge.lean)
+   WC-1 bridge: asserts indistinguishability (remaining worlds are TM-indistinguishable from planted).
    Separation and time bound `≥ 2^R - 1` are DERIVED from indistinguishability.
 
 **Proven Theorem** (eliminated from axiom count):
@@ -578,7 +578,7 @@ theorem plant_equality_tm_exists
 - `plant_equality_tm_exists` - TM existence via Church-Turing bridge
 
 **Axiomatic Components** (other files):
-- `not_refuted_implies_indistinguishable` (WC1Bridge.lean) - WC-1 bridge (indistinguishability axiom)
+- `remaining_indistinguishable` (WC1Bridge.lean) - WC-1 bridge (indistinguishability axiom)
 - `algspec_has_tm` (RandAdv.lean)
 
 **Proven Components** (Layers 0-3):

@@ -3862,7 +3862,7 @@ using bit-level manipulation and extraction lemmas.
 
 ---
 
-#### VECTOR 10.19.4: Axiom 2 - not_refuted_implies_indistinguishable (Primary Path)
+#### VECTOR 10.19.4: Axiom 2 - remaining_indistinguishable (Primary Path)
 
 **Goal**: Verify WC-1 indistinguishability bridge axiom is barrier-safe
 
@@ -3870,14 +3870,14 @@ using bit-level manipulation and extraction lemmas.
 
 **Definition Summary**:
 ```lean
-axiom not_refuted_implies_indistinguishable
+axiom remaining_indistinguishable
     {ε : FGPlantedExtensible}
     (W : WC1Witness ε)
     (TM : TuringMachine)
     (poly : Polynomial)
     (h_correct : TM.decidesAllInputs)
     (h_poly : TM.runTimeIsBoundedBy poly)
-    (h_not_refuted : W.not_refuted_by TM poly) :
+    (h_remaining : W.remaining_in TM poly) :
     W.indistinguishable
 ```
 
@@ -3912,7 +3912,7 @@ lake env lean -c 'import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBrid
 
 # Expected output (2 custom + Lean foundations):
 # propext, Quot.sound, Classical.choice
-# algspec_has_tm, not_refuted_implies_indistinguishable
+# algspec_has_tm, remaining_indistinguishable
 ```
 
 **Questions**:
@@ -3958,13 +3958,13 @@ Axioms should be POSITIVE statements about L*, not NEGATIVE statements about bar
 | Axiom | Type | Trust Level | Justification |
 |-------|------|-------------|---------------|
 | algspec_has_tm | Church-Turing | Foundational | Standard CT thesis instantiation |
-| not_refuted_implies_indistinguishable | WC-1 bridge | Foundational | Indistinguishability → coverage requirement (WC1Bridge.lean:4067) |
+| remaining_indistinguishable | WC-1 bridge | Foundational | Indistinguishability → coverage requirement (WC1Bridge.lean:4067) |
 
 **Note**: `plant_flat_wf_transfer` and `fg_lossless_encoding` were previously axioms but are now proven theorems.
 
 **Questions**:
 - [ ] Is algspec_has_tm standard CT?
-- [ ] Is not_refuted_implies_indistinguishable a valid WC-1 formulation?
+- [ ] Is remaining_indistinguishable a valid WC-1 formulation?
 
 **Pass Criteria**: All axioms are standard CS/info-theory principles.
 
@@ -4067,7 +4067,7 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 
 ### Phase 4: Trust Boundary (Category 10.19)
 - [ ] Verify axiom 1 (algspec_has_tm) is barrier-safe (10.19.1)
-- [ ] Verify axiom 2 (not_refuted_implies_indistinguishable) is barrier-safe (10.19.4)
+- [ ] Verify axiom 2 (remaining_indistinguishable) is barrier-safe (10.19.4)
 - [ ] Verify exactly 2 custom axioms (10.19.5)
 - [ ] Verify axiom independence from barriers (10.19.6)
 - [ ] Complete axiom trust assessment (10.19.7)
@@ -4092,7 +4092,7 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 | | SegmentReduction.lean | Layer3_InformationBounds/SegmentReduction/ |
 | | WorldCommit.lean | Layer3_InformationBounds/WorldCommit/ |
 | 10.19 (Trust Boundary) | RandAdv.lean (axiom 1: algspec_has_tm) | Layer5_Applications/PvsNP/ComplexityClasses/ |
-| | WC1Bridge.lean (axiom 2: not_refuted_implies_indistinguishable) | Layer4_Operational/TimeBridge/ |
+| | WC1Bridge.lean (axiom 2: remaining_indistinguishable) | Layer4_Operational/TimeBridge/ |
 | **P≠NP Theorem** | StructuralOWFBridge.lean (line 3676) | Layer5_Applications/PvsNP/PrimaryPath/ |
 
 ---
@@ -4128,7 +4128,7 @@ grep -n "theorem P_ne_NP\|theorem pnenp" Layer5_Applications/PvsNP/PrimaryPath/S
 - **Layer4_Operational/RWA/**: Information attribution
   - RWADeterminism.lean: Determinism proofs (line 42+)
 - **Layer4_Operational/TimeBridge/**: Time-to-information bridge
-  - WC1Bridge.lean (line 4067): not_refuted_implies_indistinguishable axiom (primary path)
+  - WC1Bridge.lean (line 4067): remaining_indistinguishable axiom (primary path)
     NOTE: tm_correctness_implies_realizesAllValuesFrom_flat_encoded is at TMAdapterExponential.lean:2151
 - **Layer1_Construction/Properties/**: A1-A5 properties
   - A1_Hermeticity.lean: Address isolation
@@ -4163,7 +4163,7 @@ Avoiding one doesn't automatically avoid others.
 |---------|-----------------|----------------------|---------------------|
 | Relativization | Non-relativizing structure | Seed-locking, Hermeticity (A1) | algspec_has_tm: no oracle |
 | Natural Proofs | Sparse, instance-specific | Plant generator density, metadata | All axioms: instance-specific |
-| Algebrization | Combinatorial counting | Fintype.card, discrete constraints | not_refuted_implies_indistinguishable: counting-based |
+| Algebrization | Combinatorial counting | Fintype.card, discrete constraints | remaining_indistinguishable: counting-based |
 
 ### Known Triple-Escape Example
 
@@ -4201,7 +4201,7 @@ All file paths in this test have been verified against the actual Lean codebase:
 | Axiom | File | Line | Barrier-Safe |
 |-------|------|------|--------------|
 | `algspec_has_tm` | RandAdv.lean | 414 | ✓ Church-Turing |
-| `not_refuted_implies_indistinguishable` | WC1Bridge.lean | 4067 | ✓ WC-1 indistinguishability |
+| `remaining_indistinguishable` | WC1Bridge.lean | 4067 | ✓ WC-1 indistinguishability |
 
 **Eliminated Axioms** (now proven/removed):
 - `plant_flat_wf_transfer` - Definitional fix

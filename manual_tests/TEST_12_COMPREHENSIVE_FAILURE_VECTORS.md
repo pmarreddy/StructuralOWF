@@ -15,33 +15,36 @@ This test catalogs ALL potential failure categories for the P≠NP proof, organi
 
 **Categories**: 15 major failure categories spanning axioms, construction, derivation, and bridges.
 
-**Total Attack Vectors**: 65+ (expanded from initial 45)
+**Total Attack Vectors**: 68+ (expanded from initial 45)
 
 **Trust Boundary**: 2 axioms (see AXIOM_FINAL_COUNT.md)
 - `algspec_has_tm`: Church-Turing bridge
-- `not_refuted_implies_indistinguishable`: WC-1 indistinguishability bridge
+- `remaining_indistinguishable`: WC-1 indistinguishability bridge
 
 ---
 
 ## Quick Reference: Failure Category Summary
 
-| # | Category | Risk | Novelty | Key Attack |
-|---|----------|------|---------|------------|
-| 1 | Cartesian Factoring (J.1) | CRITICAL | Highest | Break H1-H5 independence |
-| 2 | OAP Bypass | CRITICAL | High | Solve CNF without seeds |
-| 3 | FG Bypass | HIGH | High | Amortize parity computations |
-| 4 | A1-A5 Compliance | HIGH | Medium | Show L* violates axioms |
-| 5 | SCL Derivation | HIGH | Medium | Break pigeonhole argument |
-| 6 | Elimination Bound | HIGH | Medium | Extract >1 bit per rejection |
-| 7 | Parity Mechanism | MEDIUM | Low | Show FG ≠ parity |
-| 8 | Witness Extraction | MEDIUM | Medium | Show Ext not poly-time |
-| 9 | Time Bound Chain | HIGH | Medium | Gap in derivation |
-| 10 | Coin-Fixing (Yao) | MEDIUM | Low | Break randomized bound |
-| 11 | Classical Bridge | MEDIUM | Low | Break OWF→FP≠FNP→P≠NP |
-| 12 | Quantifier Structure | MEDIUM | Medium | Show ∃x∀A not ∀x∀A |
-| 13 | Representation Invariance | HIGH | High | Encoding-specific compression |
-| 14 | Barrier Evasion | MEDIUM | Medium | Relativize/Naturalize/Algebrize |
-| 15 | WC-1 Axiom Validity | CRITICAL | High | Falsify indistinguishability |
+**CRITICAL Risk** (Highest priority):
+- **[1] Cartesian Factoring (J.1)** — Novelty: Highest — Key Attack: Break H1-H5 independence
+- **[2] OAP Bypass** — Novelty: High — Key Attack: Solve CNF without seeds
+- **[15] WC-1 Axiom Validity** — Novelty: High — Key Attack: Falsify indistinguishability
+
+**HIGH Risk**:
+- **[3] FG Bypass** — Novelty: High — Key Attack: Amortize parity computations
+- **[4] A1-A5 Compliance** — Novelty: Medium — Key Attack: Show L* violates axioms
+- **[5] SCL Derivation** — Novelty: Medium — Key Attack: Break pigeonhole argument
+- **[6] Elimination Bound** — Novelty: Medium — Key Attack: Extract >1 bit per rejection
+- **[9] Time Bound Chain** — Novelty: Medium — Key Attack: Gap in derivation
+- **[13] Representation Invariance** — Novelty: High — Key Attack: Encoding-specific compression
+
+**MEDIUM Risk**:
+- **[7] Parity Mechanism** — Novelty: Low — Key Attack: Show FG ≠ parity
+- **[8] Witness Extraction** — Novelty: Medium — Key Attack: Show Ext not poly-time
+- **[10] Coin-Fixing (Yao)** — Novelty: Low — Key Attack: Break randomized bound
+- **[11] Classical Bridge** — Novelty: Low — Key Attack: Break OWF→FP≠FNP→P≠NP
+- **[12] Quantifier Structure** — Novelty: Medium — Key Attack: Show ∃x∀A not ∀x∀A
+- **[14] Barrier Evasion** — Novelty: Medium — Key Attack: Relativize/Naturalize/Algebrize
 
 ---
 
@@ -192,34 +195,41 @@ theorem attack_oap_bypass (L : LStarInstanceFG) :
 - Mask structure predictable without seeds
 - Encoding scheme has exploitable patterns
 
-### ATTACK 2.2: Seed-Lock Security Bug
+### ATTACK 2.2: Seed-Lock Bypass
 
-**Location**: `Layer3_InformationBounds/Keyedness/SeedLockProperties.lean:215`
+**Location**: `Layer3_InformationBounds/Keyedness/SeedLockProperties.lean`
 
-**WARNING FOUND**: The code contains a comment:
-> "→ Security BROKEN (can brute force 4 chars instead of 8)"
+**Note on "Security BROKEN" Comment**: The file contains pedagogical documentation at line 215 explaining *why* the information barrier matters:
+```
+Without information barrier = Partial password verification works
+  → Security BROKEN (can brute force 4 chars instead of 8)
+```
+This is an **explanatory example** describing a hypothetical broken system to illustrate the security model—NOT an actual vulnerability in the construction. The comment demonstrates the consequence if the barrier were absent.
 
-**Verification Required**:
-```bash
-cd /Volumes/Ddrive/PNePNP-Publication/lean
+**Actual Attack Goal**: Show seed-locking can be bypassed in the real construction
 
-# Find the security warning
-grep -n "Security BROKEN\|brute force" Layer3_InformationBounds/**/*.lean
-
-# Check context - is this a simplified example or the real construction?
-grep -B 20 -A 20 "Security BROKEN" Layer3_InformationBounds/Keyedness/SeedLockProperties.lean
+**Method**:
+```lean
+-- Attack: Bypass seed-lock mechanism
+theorem attack_seedlock_bypass (L : LStarInstanceFG) :
+    ∃ (partial_obs : PartialObservation L),
+      partial_obs.observed_bits < L.R L.gate ∧
+      can_determine_correct_config partial_obs := by
+  -- Seed-locking theorem proves: incomplete observation → collision exists
+  -- Therefore: cannot determine unique correct config
+  sorry  -- SHOULD FAIL (seedLock_forces_complete_observation)
 ```
 
 **Pass Criteria**:
-- [ ] "Security BROKEN" comment refers to toy/simplified example only
-- [ ] Full construction has no such shortcut
+- [x] Pedagogical "Security BROKEN" comment is documentation only (VERIFIED)
+- [ ] Full construction enforces seed-locking via `seedLock_forces_complete_observation`
 - [ ] Seed-locking enforced by type system
 - [ ] No seed-independent CNF access possible
 
 **Fail Criteria**:
-- Security bug in full construction
-- Seed-lock can be bypassed
+- Seed-lock can be bypassed in actual construction
 - CNF accessible without overlay engagement
+- Partial observation suffices for correct config determination
 
 ### ATTACK 2.3: Mask Structure Predictability
 
@@ -573,7 +583,7 @@ theorem attack_cdcl_pruning :
 
 ### ATTACK 6.2: Verify WC-1 "+1" Property
 
-**Goal**: Confirm each UnitRefute eliminates exactly 1 world
+**Goal**: Confirm each UnitElimination eliminates exactly 1 world
 
 **Location**: `Layer3_InformationBounds/WorldCommit/WorldCommit.lean`
 
@@ -584,12 +594,12 @@ theorem attack_cdcl_pruning :
 #print axioms world_commit_refutation_excludes_one
 -- Should depend only on standard axioms
 
--- Attack: Find UnitRefute that eliminates 0 or 2 worlds
+-- Attack: Find UnitElimination that eliminates 0 or 2 worlds
 theorem attack_wc1_not_one (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
     (ω : CutWorld L C) (feasible : Finset (CutWorld L C)) :
     let new_feasible := feasible.filter (· ≠ ω)
     new_feasible.card ≠ feasible.card - 1 := by
-  -- UnitRefute(ω) excludes exactly ω from feasible set
+  -- UnitElimination(ω) excludes exactly ω from feasible set
   -- If ω ∈ feasible: removes 1
   -- If ω ∉ feasible: removes 0 (but then it wasn't counted)
   sorry  -- SHOULD FAIL
@@ -605,23 +615,20 @@ grep -n "world_commit_refutation_excludes_one" Layer3_InformationBounds/WorldCom
 # Verify it's a theorem (not axiom)
 grep -B 5 "world_commit_refutation_excludes_one" Layer3_InformationBounds/WorldCommit/WorldCommit.lean | grep "theorem\|axiom"
 
-# Check axioms it depends on
-cat > /tmp/wc1_axioms.lean << 'EOF'
-import Layer3_InformationBounds.WorldCommit.WorldCommit
-#print axioms LStar.StructuralOWF.Foundations.world_commit_refutation_excludes_one
-EOF
-lake env lean /tmp/wc1_axioms.lean 2>&1
+# Check axioms it depends on (run from lean/ directory)
+echo 'import Layer3_InformationBounds.WorldCommit.WorldCommit
+#print axioms LStar.StructuralOWF.Foundations.world_commit_refutation_excludes_one' | lake env lean --stdin
 ```
 
 **Pass Criteria**:
 - [ ] `world_commit_refutation_excludes_one` is PROVEN (0 custom axioms)
-- [ ] Each UnitRefute removes exactly 1 world
+- [ ] Each UnitElimination removes exactly 1 world
 - [ ] CDCL learning accounted for in lane analysis
 - [ ] No bulk elimination possible
 
 **Fail Criteria**:
 - WC-1 is axiom (not theorem)
-- UnitRefute can remove ≠1 world
+- UnitElimination can remove ≠1 world
 - Bulk elimination mechanism found
 
 ### ATTACK 6.3: Strictly Increasing Refutation Times
@@ -676,6 +683,49 @@ theorem attack_cdcl_super_pruning :
   -- BUT: Clause still counts toward Φ (space complexity)
   -- Net effect: Φ increases, so q + Φ ≥ R still satisfied
   sorry  -- SHOULD FAIL (CDCL in lane 1, clauses count toward Φ)
+```
+
+### ATTACK 6.6: UnitElimination Granularity
+
+**Goal**: Show eliminatedWorlds construction allows bulk elimination
+
+**Location**: `Layer3_InformationBounds/WorldCommit/WorldCommit.lean`
+
+**Key Definition**: `eliminatedWorlds` uses `min'` selection:
+```lean
+-- eliminatedWorlds is built by selecting the MINIMUM world at each step
+-- This ensures exactly one world is eliminated per configuration observation
+```
+
+**Method**:
+```lean
+-- Attack: Show min' selection can eliminate multiple worlds
+theorem attack_bulk_elimination (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
+    (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w))) :
+    ∃ cfg ∈ configs,
+      (eliminatedWorlds L C (configs ++ [cfg])).card >
+      (eliminatedWorlds L C configs).card + 1 := by
+  -- min' selects exactly one world per config observation
+  -- Adding one config eliminates at most one world
+  -- Cannot eliminate 2+ worlds with single observation
+  sorry  -- SHOULD FAIL (min' ensures single elimination)
+```
+
+**Why Single Elimination**:
+- `min'` is a function, not a relation: returns exactly one element
+- Each config observation produces exactly one `min'` world
+- No mechanism for bulk elimination exists in the construction
+- This is a structural property of the eliminatedWorlds definition
+
+**Verification Commands**:
+```bash
+cd /Volumes/Ddrive/PNePNP-Publication/lean
+
+# Check eliminatedWorlds definition uses min'
+grep -A 20 "def eliminatedWorlds" Layer3_InformationBounds/WorldCommit/WorldCommit.lean
+
+# Verify min' returns single element
+grep -n "Finset.min'" Layer3_InformationBounds/WorldCommit/WorldCommit.lean
 ```
 
 ---
@@ -1148,7 +1198,7 @@ theorem attack_oracle_bypass :
     ∃ O : Oracle,
       (∀ L : LStarInstanceFG, L easy relative to O) ∧
       (algspec_has_tm still holds with O) ∧
-      (not_refuted_implies_indistinguishable still holds with O) := by
+      (remaining_indistinguishable still holds with O) := by
   -- Oracle O would need to answer "what is the planted assignment?"
   -- This bypasses Hermeticity (A1): oracle is "outside" the DAG
   -- But A1 is about the INSTANCE structure, not computation model
@@ -1282,27 +1332,27 @@ theorem attack_parity_algebrization :
 
 **Paper Reference**: WC1Bridge.lean:4067, PROOF_CONTROL_FLOW.md
 
-**Core Axiom**: `not_refuted_implies_indistinguishable`
+**Core Axiom**: `remaining_indistinguishable`
 
 ### ATTACK 15.1: Falsify Indistinguishability Claim
 
-**Goal**: Find case where unrefuted world IS distinguishable
+**Goal**: Find case where remaining world IS distinguishable
 
 **Method**:
 ```lean
--- Axiom: ω' ∉ tmRefutedWorlds → TMIndistinguishable(ω', ω_planted)
+-- Axiom: ω' ∉ eliminatedWorlds → TMIndistinguishable(ω', ω_planted)
 
 -- Attack: Find world that wasn't refuted but IS distinguishable
 theorem attack_axiom_falsification
     (L : LStarInstanceFG) (M : TuringMachine ...) (v : Fin L.dag.n)
     (enc : LStarTMEncoding L M v) (haltTime : Nat)
     (cfg_planted : Fin (2^(L.R v))) (ω' : CutWorld L {v})
-    (h_not_refuted : ω' ∉ tmRefutedWorlds L {v} configs) :
+    (h_remaining : ω' ∉ eliminatedWorlds L {v} configs) :
     ¬TMIndistinguishable L M v enc.extractConfigAtV enc.initForPlanting
         haltTime (ω'.assignment v h_v_in) cfg_planted := by
   -- This would contradict the axiom
   -- For this to succeed, need:
-  -- 1. ω' not refuted (h_not_refuted)
+  -- 1. ω' remaining (h_remaining)
   -- 2. TM distinguishes ω' from planted (different output)
   -- But if TM distinguishes, how did it NOT refute ω'?
   sorry  -- SHOULD FAIL (axiom captures operational semantics)
@@ -1315,27 +1365,24 @@ theorem attack_axiom_falsification
 **Location**: `WC1Bridge.lean:4348-4461`
 
 **Key Theorems**:
-- `indistinguishable_implies_not_refuted` — DERIVED (0 custom axioms!)
-- `not_refuted_iff_indistinguishable` — biconditional (uses axiom for → only)
+- `indistinguishable_implies_remaining` — DERIVED (0 custom axioms!)
+- `remaining_iff_indistinguishable` — biconditional (uses axiom for → only)
 
 **Verification Commands**:
 ```bash
 cd /Volumes/Ddrive/PNePNP-Publication/lean
 
 # Check reverse direction is theorem (not axiom)
-grep -n "theorem indistinguishable_implies_not_refuted" Layer4_Operational/TimeBridge/WC1Bridge.lean
+grep -n "theorem indistinguishable_implies_remaining" Layer4_Operational/TimeBridge/WC1Bridge.lean
 
-# Check its axiom dependencies
-cat > /tmp/reverse_check.lean << 'EOF'
-import Layer4_Operational.TimeBridge.WC1Bridge
-#print axioms LStar.StructuralOWF.Foundations.indistinguishable_implies_not_refuted
-EOF
-lake env lean /tmp/reverse_check.lean 2>&1
+# Check its axiom dependencies (run from lean/ directory)
+echo 'import Layer4_Operational.TimeBridge.WC1Bridge
+#print axioms LStar.StructuralOWF.Foundations.indistinguishable_implies_remaining' | lake env lean --stdin
 ```
 
 **Pass Criteria**:
-- [ ] `not_refuted_implies_indistinguishable` is semantically sound
-- [ ] `indistinguishable_implies_not_refuted` is PROVEN (0 custom axioms)
+- [ ] `remaining_indistinguishable` is semantically sound
+- [ ] `indistinguishable_implies_remaining` is PROVEN (0 custom axioms)
 - [ ] Biconditional shows axiom is "tight"
 - [ ] Derivation chain from axiom to time bound is sound
 
@@ -1359,16 +1406,16 @@ def cheating_TM : TuringMachine := {
 
 theorem attack_instantiation :
     ∃ (L : LStarInstanceFG) (M : TuringMachine) (ω' : CutWorld L C),
-      (ω' ∉ tmRefutedWorlds L C (execution_trace M L)) ∧
+      (ω' ∉ eliminatedWorlds L C (execution_trace M L)) ∧
       (M.output L ω' ≠ M.output L ω_planted) := by
-  -- tmRefutedWorlds is built from execution trace
+  -- eliminatedWorlds is built from execution trace
   -- If M outputs differently, it MUST have observed distinguishing info
   -- That info appears in trace → ω' gets refuted
   sorry  -- SHOULD FAIL (output difference implies refutation)
 ```
 
 **Semantic Gap Analysis**: The axiom bridges:
-- `tmRefutedWorlds` (trace-based construction)
+- `eliminatedWorlds` (trace-based construction)
 - `TMIndistinguishable` (output comparison)
 
 The gap is: can TM produce different outputs without the trace containing distinguishing observations?
@@ -1396,6 +1443,13 @@ theorem attack_semantic_gap :
 
 **Goal**: Construct LStarTMEncoding that allows cheating
 
+**LStarTMEncoding Structural Guards** (from WC1Bridge.lean):
+The encoding structure has explicit guardrails that prevent cheating:
+- `sameObservationSameState`: Same observation sequence → same TM state (prevents hidden channels)
+- `encoding_coherence`: Forces standard encoding of L* instances
+- `h_extract_tape0` / `ExtractReadsOnlyTape0`: Extraction reads only tape 0 (no side channels)
+- `HaltPreservesTape0`: Halting preserves tape 0 contents
+
 **Method**:
 ```lean
 -- Attack: Malicious encoding that bypasses time bound
@@ -1417,12 +1471,32 @@ theorem attack_cheating_enc :
   -- - sameObservationSameState (prevents hidden state)
   -- - encoding_coherence (forces standard encoding)
   -- - h_extract_tape0 (extract reads only tape 0)
+  -- - HaltPreservesTape0 (halting preserves tape 0)
   sorry  -- SHOULD FAIL (structure prevents cheating)
+```
+
+**Verification Commands**:
+```bash
+cd /Volumes/Ddrive/PNePNP-Publication/lean
+
+# Check LStarTMEncoding structure fields
+grep -A 30 "structure LStarTMEncoding" Layer4_Operational/TimeBridge/WC1Bridge.lean | head -40
+
+# Check guard properties
+grep -n "sameObservationSameState\|ExtractReadsOnlyTape0\|HaltPreservesTape0" Layer4_Operational/TimeBridge/WC1Bridge.lean
 ```
 
 ### ATTACK 15.6: TM Semantics Escape
 
 **Goal**: Exploit TM semantics to bypass observation requirement
+
+**WorstCaseCorrectOnLStar Requirement** (from WC1Bridge.lean):
+The adversary model requires **worst-case correctness**:
+```lean
+WorstCaseCorrectOnLStar L M v enc.extractConfigAtV enc.initForPlanting haltTime
+-- Definition: TM outputs correct config for ALL plantings (not just some distribution)
+```
+This is the correct model for OWF security: the inverter must succeed on ALL instances, not just typical ones.
 
 **Method**:
 ```lean
@@ -1439,6 +1513,12 @@ theorem attack_tm_guessing :
   sorry  -- SHOULD FAIL (WorstCaseCorrectOnLStar requires all-instance correctness)
 ```
 
+**Why Worst-Case (not Average-Case)**:
+- OWF security requires: adversary fails on SOME instance (not just fails on average)
+- Therefore proof uses worst-case: must succeed on ALL instances
+- This is standard cryptographic security notion (contrapositive of OWF definition)
+- If TM could "guess" on some instances, it would violate worst-case correctness
+
 ---
 
 ## VERIFICATION SUMMARY
@@ -1452,11 +1532,8 @@ cd /Volumes/Ddrive/PNePNP-Publication/lean
 lake build
 
 # 2. Check axiom count for P_ne_NP (should be exactly 2 custom)
-cat > /tmp/axiom_check.lean << 'EOF'
-import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
-#print axioms LStar.Complexity.StructuralOWFBridge.P_ne_NP
-EOF
-lake env lean /tmp/axiom_check.lean 2>&1 | grep -E "algspec_has_tm|not_refuted_implies_indistinguishable"
+echo 'import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
+#print axioms LStar.Complexity.StructuralOWFBridge.P_ne_NP' | lake env lean --stdin 2>&1 | grep -E "algspec_has_tm|remaining_indistinguishable"
 
 # 3. Check for sorries in critical files
 find Layer{2,3,4,5}_* -name "*.lean" -exec grep -l "sorry" {} \; 2>/dev/null
@@ -1481,7 +1558,7 @@ done
 **Axiom Level**:
 - [ ] Exactly 2 custom axioms in P≠NP dependency
 - [ ] `algspec_has_tm` is standard Church-Turing
-- [ ] `not_refuted_implies_indistinguishable` is semantically sound
+- [ ] `remaining_indistinguishable` is semantically sound
 - [ ] Reverse direction is derived (not axiom)
 
 **Construction Level**:
@@ -1527,23 +1604,21 @@ done
 
 ## FILE REFERENCE MAP
 
-| Category | Key File | Line |
-|----------|----------|------|
-| Cartesian (1) | Appendix J (paper) | Theorem J.1-PROD |
-| OAP (2) | PlantCore.lean | plant_flat |
-| FG (3) | FrontierGate.lean | R_of_flat |
-| A1-A5 (4) | A*_*.lean | satisfies_A* |
-| SCL (5) | SCLNode.lean | SCL_node |
-| WC-1 +1 (6) | WorldCommit.lean | world_commit_refutation_excludes_one |
-| Parity (7) | StructuralLowerBound.lean | parity_requires_all_bits |
-| Ext (8) | RandomnessTypes.lean | r.assignment |
-| Time (9) | TMAdapterExponential.lean | fg_first_commit_time_lower_bound |
-| Coin (10) | paper §9.4 | Yao's principle |
-| Bridge (11) | StructuralOWFBridge.lean | structural_owf_implies_fpnefnp |
-| Quantifier (12) | TMAdapterExponential.lean | ∀x* |
-| Rep. Inv. (13) | paper §12 F6 | (not formalized) |
-| Barriers (14) | paper §12.2-12.3 | (analysis) |
-| WC-1 Axiom (15) | WC1Bridge.lean:4067 | not_refuted_implies_indistinguishable |
+- **[1] Cartesian Factoring**: Appendix J (paper) — `Theorem J.1-PROD`
+- **[2] OAP**: `PlantCore.lean` — `plant_flat`
+- **[3] FG**: `FrontierGate.lean` — `R_of_flat`
+- **[4] A1-A5**: `A*_*.lean` — `satisfies_A*`
+- **[5] SCL**: `SCLNode.lean` — `SCL_node`
+- **[6] WC-1 +1**: `WorldCommit.lean` — `world_commit_refutation_excludes_one`
+- **[7] Parity**: `StructuralLowerBound.lean` — `parity_requires_all_bits`
+- **[8] Ext**: `RandomnessTypes.lean` — `r.assignment`
+- **[9] Time**: `TMAdapterExponential.lean` — `fg_first_commit_time_lower_bound`
+- **[10] Coin**: paper §9.4 — Yao's principle
+- **[11] Bridge**: `StructuralOWFBridge.lean` — `structural_owf_implies_fpnefnp`
+- **[12] Quantifier**: `TMAdapterExponential.lean` — `∀x*`
+- **[13] Rep. Inv.**: paper §12 F6 — (not formalized)
+- **[14] Barriers**: paper §12.2-12.3 — (analysis)
+- **[15] WC-1 Axiom**: `WC1Bridge.lean:4067` — `remaining_indistinguishable`
 
 ---
 

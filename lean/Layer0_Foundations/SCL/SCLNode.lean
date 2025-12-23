@@ -164,7 +164,7 @@ Equivalence: Take log₂ of Lean form → recover paper form:
 **Where This Is Used** (proof chain):
 1. **Layer 0 (here)**: Per-node bound |State| ≥ 2^λ
 2. **Layer 0 (SCL_cut)**: Compose across cut → |GlobalState| ≥ 2^(Σλᵢ)
-3. **Layer 3 (SegmentReduction)**: Apply to L* instance → 2^(ρ-s) refutations
+3. **Layer 3 (SegmentReduction)**: Apply to L* instance → 2^(ρ-s) eliminations
 4. **Layer 4 (TM time bound)**: States → time → haltTime ≥ 2^n
 5. **Layer 5 (P≠NP)**: Contradiction with polynomial time ∎
 

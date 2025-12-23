@@ -49,7 +49,7 @@ In Layer 4, TimeBridge translates TM steps to information cost.
 What are the assumptions? Is there a gap between operational
 semantics and information flow?
 
-The not_refuted_implies_indistinguishable axiom (WC-1 bridge) asserts
+The remaining_indistinguishable axiom (WC-1 bridge) asserts
 only indistinguishability; separation and time bound are DERIVED from this.
 Is this structure cleaner than directly asserting time bounds?
 ```

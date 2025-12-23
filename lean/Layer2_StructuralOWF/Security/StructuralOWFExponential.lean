@@ -175,8 +175,8 @@ Same principle: Plant_flat is triple-locked OWF
 
 **Axioms** (2 total):
 1. **`algspec_has_tm`** (RandAdv.lean) — Church-Turing bridge
-2. **`not_refuted_implies_indistinguishable`** (WC1Bridge.lean) — WC-1 indistinguishability bridge
-   - Asserts indistinguishability: unrefuted worlds are TM-indistinguishable from planted
+2. **`remaining_indistinguishable`** (WC1Bridge.lean) — WC-1 indistinguishability bridge
+   - Asserts indistinguishability: remaining (not eliminated) worlds are TM-indistinguishable from planted
    - Separation and time bound `≥ 2^R - 1` derived from indistinguishability via counting
 
 Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds.
@@ -1326,7 +1326,7 @@ dense-solution formulas where random guessing succeeds. See CNFFamily.BoundedSol
 
 **Remaining non-Mathlib axioms** (trust boundary):
 1. `algspec_has_tm` (Church–Turing bridge for adversary specs)
-2. `not_refuted_implies_indistinguishable` (WC-1 bridge axiom)
+2. `remaining_indistinguishable` (WC-1 bridge axiom)
 
 **Reference**: Adapted from Security.lean `f_is_one_way_from_fg_rand_family_axiom_free`.
 -/
@@ -2664,13 +2664,13 @@ theorem f_is_structural_owf_exponential_true
 
 /-! ## WC-1 Bridge Axiom
 
-The WC-1 bridge axiom `not_refuted_implies_indistinguishable` asserts:
-- If a world is not refuted by the TM's run, it is TM-indistinguishable from planted
+The WC-1 bridge axiom `remaining_indistinguishable` asserts:
+- If a world remains (is not eliminated by TM's run), it is TM-indistinguishable from planted
 
 **Separation and time bound derivation** (proven, not axiomatic):
-1. `indistinguishability_implies_all_wrong_refuted`: all wrong worlds refuted (by contradiction)
-2. `separation_implies_refuted_length`: separation → refuted.length = 2^R - 1
-3. `tmRefutedWorlds_length_le_configs`: refuted.length ≤ configs.length
+1. `indistinguishability_implies_all_wrong_eliminated`: all wrong worlds eliminated (by contradiction)
+2. `separation_implies_eliminated_length`: separation → eliminated.length = 2^R - 1
+3. `eliminatedWorlds_length_le_configs`: eliminated.length ≤ configs.length
 4. `configsFromTMRun_length_le`: configs.length ≤ haltTime
 5. `tm_time_lower_bound_operational`: haltTime ≥ 2^R - 1
 -/

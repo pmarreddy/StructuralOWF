@@ -1486,7 +1486,7 @@ def HasWitnessUniqueness (φ : CNF) (L : LStarInstanceFG) : Prop :=
 - **WorldCompatibility**: Strong predicate connecting φ, worlds, and verified witnesses
 
 **Why Critical**:
-- **ConfigMatch→UnitRefute equivalence**: Core of segment reduction proof architecture
+- **ConfigMatch→UnitElimination equivalence**: Core of segment reduction proof architecture
 - **Planted instance characterization**: Distinguishes planted from general instances
 - **Simplifies refutation counting**: Unique compatible world → deterministic feasible world
 - **Used in**: Main path (exponential profile) proof chain
@@ -1683,7 +1683,7 @@ theorem refutation_count_exponential_bound
 
 **Proof Technique**: World commitment protocol (WC-1 theorem) + Cartesian factorization
 - Start with 2^ρ feasible worlds
-- Each UnitRefute constraint eliminates exactly 1 world (WC-1)
+- Each UnitElimination constraint eliminates exactly 1 world (WC-1)
 - Count refutations = count eliminated worlds
 - Result: exponential segment boundaries (Appendix C)
 
@@ -1697,8 +1697,8 @@ theorem refutation_count_exponential_bound
 ```
 L with R_fg = 10 (10 emergent bits at FG gate)
 π with 1000 computed configs
-- 950 configs have digest mismatch → refuted
-- 50 configs match expected digest → not refuted
+- 950 configs have digest mismatch → eliminated
+- 50 configs match expected digest → remain
 refutationCount(L, C_fg, π) = 950
 Segment reduction: If ρ-s = 10, then 950 ≥ 2^10 - 1 = 1023 (contradiction if time < 1024!)
 ```
@@ -2073,8 +2073,8 @@ def TMIndistinguishable
 ```
 
 **Mathematical Object**: Two worlds are TM-indistinguishable if planting either gives same TM output
-- **Bridge**: Connects WC-1 refutation model to TM behavior
-- **Usage**: World "not refuted" should be indistinguishable from planted world
+- **Bridge**: Connects WC-1 elimination model to TM behavior
+- **Usage**: World "remaining" (not eliminated) should be indistinguishable from planted world
 
 ---
 
@@ -2100,26 +2100,26 @@ structure LStarAdversary
 
 ---
 
-**Definition**: `UnitRefuteHistory` (Layer4_Operational/TimeBridge/WC1Bridge.lean)
+**Definition**: `EliminationHistory` (Layer4_Operational/TimeBridge/WC1Bridge.lean)
 
 ```lean
-structure UnitRefuteHistory (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) where
+structure EliminationHistory (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) where
   execution_prefix : ExecutionPrefixReal L
-  refuted_worlds : List (CutWorld L C)
-  refutation_times : List Nat
-  h_times_length : refutation_times.length = refuted_worlds.length
-  h_times_increasing : refutation_times.Pairwise (· < ·)
-  h_times_bounded : ∀ t ∈ refutation_times, t < execution_prefix.time
-  h_refuted_were_feasible : ∀ (i : Nat) (h : i < refuted_worlds.length),
-    refuted_worlds.get ⟨i, h⟩ ∈ NormalForm.FeasibleUnder (...)
+  eliminated_worlds : List (CutWorld L C)
+  elimination_times : List Nat
+  h_times_length : elimination_times.length = eliminated_worlds.length
+  h_times_increasing : elimination_times.Pairwise (· < ·)
+  h_times_bounded : ∀ t ∈ elimination_times, t < execution_prefix.time
+  h_each_was_feasible : ∀ (i : Nat) (h : i < eliminated_worlds.length),
+    eliminated_worlds.get ⟨i, h⟩ ∈ NormalForm.FeasibleUnder (...)
 ```
 
-**Mathematical Object**: Tracks incremental world refutations via WC-1 protocol
-- **Key insight**: Each UnitRefute step eliminates exactly 1 world (proven from WC-1!)
-- **h_refuted_were_feasible**: Each refuted world was feasible before being refuted
-- **Why Critical**: Enables time bound derivation: k refutations → time ≥ k
+**Mathematical Object**: Tracks incremental world eliminations via WC-1 protocol
+- **Key insight**: Each UnitElimination step eliminates exactly 1 world (proven from WC-1!)
+- **h_each_was_feasible**: Each eliminated world was feasible before being eliminated
+- **Why Critical**: Enables time bound derivation: k eliminations → time ≥ k
 
-**Theorem**: `time_bounds_refutations` proves execution_prefix.time ≥ refuted_worlds.length (0 axioms!)
+**Theorem**: `time_bounds_eliminations` proves execution_prefix.time ≥ eliminated_worlds.length (0 axioms!)
 
 ---
 
@@ -3058,7 +3058,7 @@ theorem P_ne_NP_complete :
   - Encoding semantics — proven as theorem
 - **Axioms** (2 total):
   - `algspec_has_tm` — Church-Turing bridge (RandAdv.lean)
-  - `not_refuted_implies_indistinguishable` — WC-1 indistinguishability bridge (→ direction; ← derivable)
+  - `remaining_indistinguishable` — WC-1 indistinguishability bridge (→ direction; ← derivable)
 - **Design**: Separation and time bound derived from indistinguishability; biconditional proven
 
 ---
@@ -3329,7 +3329,7 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 57. **LStarTMEncoding** - Encoding structure connecting TM to L* instance
 58. **TMIndistinguishable** - Two worlds TM-indistinguishable if same output
 59. **LStarAdversary** - Uniform L* solver with encoding structure
-60. **UnitRefuteHistory** - Tracks incremental world refutations via WC-1
+60. **EliminationHistory** - Tracks incremental world eliminations via WC-1
 61. **HaltPreservesTape0** - TM doesn't modify tape 0 in halt state
 62. **ExtractReadsOnlyTape0** - Config extraction depends only on tape 0
 63. **algspec_has_lstar_structure** - Derives L* encoding from UniformityStructure
@@ -3337,8 +3337,8 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 
 **WC-1 Bridge Theorems** (derived, not definitions):
 - **time_bounds_refutations** - THEOREM: execution time ≥ refutation count (0 axioms!)
-- **indistinguishable_implies_not_refuted** - THEOREM: reverse direction (←) derivable from WC correctness (0 axioms!)
-- **not_refuted_iff_indistinguishable** - THEOREM: biconditional shows axiom is tight (uses axiom for → only)
+- **indistinguishable_implies_remaining** - THEOREM: reverse direction (←) derivable from WC correctness (0 axioms!)
+- **remaining_iff_indistinguishable** - THEOREM: biconditional shows axiom is tight (uses axiom for → only)
 
 **Supporting Infrastructure** (13 additional definitions - proof fails without):
 
@@ -3367,7 +3367,7 @@ def negligible_parametric (k : Nat) (ε : LStar.Base.SecurityParam k → ℝ) : 
 
 **Trust Boundary**: 2 axioms (verified via `#print axioms P_ne_NP`)
 1. `algspec_has_tm` (RandAdv.lean) — Church-Turing bridge
-2. `not_refuted_implies_indistinguishable` (WC1Bridge.lean) — WC-1 indistinguishability bridge
+2. `remaining_indistinguishable` (WC1Bridge.lean) — WC-1 indistinguishability bridge
 
 **Coherence**: All definitions match textbook formulations in their respective fields.
 
@@ -4148,7 +4148,7 @@ def RunSearchComplete {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
 
 **Critical Definitions** (36 core, §1-§5): Make-or-break definitions (proof collapses without them)
 - Added 3 critical definitions (2025-11-17): decodeSeed, satisfies_A2, satisfies_A3
-- Added 10 WC-1 bridge definitions (2025-12-22): WorstCaseCorrectOnLStar, SameObservationSameState, LStarTMEncoding, TMIndistinguishable, LStarAdversary, UnitRefuteHistory, HaltPreservesTape0, ExtractReadsOnlyTape0, algspec_has_lstar_structure, TraceMonotone
+- Added 10 WC-1 bridge definitions (2025-12-22): WorstCaseCorrectOnLStar, SameObservationSameState, LStarTMEncoding, TMIndistinguishable, LStarAdversary, EliminationHistory, HaltPreservesTape0, ExtractReadsOnlyTape0, algspec_has_lstar_structure, TraceMonotone
 
 **Supporting Definitions** (13 additional, §10): Essential infrastructure (proof incomplete without them)
 
@@ -4250,7 +4250,7 @@ def RunSearchComplete {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
   - `LStarTMEncoding` - Encoding structure connecting TM to L* instance
   - `TMIndistinguishable` - World indistinguishability predicate
   - `LStarAdversary` - Uniform L* solver with encoding structure
-  - `UnitRefuteHistory` - Tracks incremental world refutations via WC-1
+  - `EliminationHistory` - Tracks incremental world refutations via WC-1
   - `HaltPreservesTape0` - TM doesn't modify tape 0 in halt state
   - `ExtractReadsOnlyTape0` - Config extraction depends only on tape 0
   - `algspec_has_lstar_structure` - Derives L* encoding from UniformityStructure

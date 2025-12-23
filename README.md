@@ -104,7 +104,7 @@ The proof relies on only **2 custom axioms**:
 | Axiom | Nature | Risk |
 |-------|--------|------|
 | `algspec_has_tm` | Church-Turing bridge | Very Low |
-| `not_refuted_implies_indistinguishable` | WC-1 indistinguishability bridge | Low |
+| `remaining_indistinguishable` | WC-1 indistinguishability bridge | Low |
 
 ### Axiom Details
 
@@ -113,8 +113,8 @@ The proof relies on only **2 custom axioms**:
    - Preserves polynomial constants C and k
    - Universally accepted CS principle (Church 1936, Turing 1936)
 
-2. **`not_refuted_implies_indistinguishable`** (WC-1 Bridge)
-   - Asserts that unrefuted worlds are TM-indistinguishable from the planted world
+2. **`remaining_indistinguishable`** (WC-1 Bridge)
+   - Asserts that remaining (non-eliminated) worlds are TM-indistinguishable from the planted world
    - Separation properties and time bound `haltTime ≥ 2^R - 1` are derived from this
    - Encapsulates the principle that distinguishing 2^R possibilities requires ≥ 2^R - 1 observations
 

@@ -18,7 +18,7 @@ Any uniform PPT inverter 𝓘 succeeding with non‑negligible probability can b
 
 **Significance and Barrier Circumvention.** The approach shifts from analyzing algorithm behavior within specific computational models to analyzing what problem structure requires for correctness. The Semantic Conservation Law **articulates a common pattern** across diverse lower bound techniques—decision trees, communication complexity, pebbling games, branching programs/OBDDs, resolution, backtracking, dynamic programming, streaming—as structural parallels exhibiting configuration‑space incompressibility. This work **formalizes the TM observation paradigm** (bits observed = q, configs visited = 2^Φ) in Lean, bridging SCL to information theory and enabling unconditional complexity bounds. The other paradigm correspondences are conceptual (see §11.4 for precise status). The framework derives bounds from structural correctness requirements rather than algorithm‑specific analyses, using pigeonhole counting and information-theoretic conservation laws—not barrier‑sensitive techniques like relativization or natural proofs. (See §11.4 for complete paradigm catalog and formalization status.)
 
-**Machine Verification.** Complete formalization in Lean 4: approximately 90,000 lines across 90+ publication-ready files with minimal trust boundary (two operational axioms). The axioms are: (1) `algspec_has_tm`—a Church-Turing bridge asserting any polynomial-time algorithmic specification has a TM implementation; and (2) `not_refuted_implies_indistinguishable`—a WC-1 bridge asserting that if a world is not refuted by the TM's run trace, then the TM cannot distinguish it from the planted world. The key innovation: **separation properties and the time bound `haltTime ≥ 2^R - 1` are DERIVED** from indistinguishability, not directly asserted. Derivation: indistinguishability implies all wrong worlds refuted (by contradiction), separation implies refuted.length = 2^R - 1, WC-1 structure implies refuted.length ≤ configs.length ≤ haltTime. Axiom audits via `#print axioms` provide complete transparency. The Lean code is the authoritative proof; this paper provides mathematical intuition and proof narrative.
+**Machine Verification.** Complete formalization in Lean 4: approximately 90,000 lines across 90+ publication-ready files with minimal trust boundary (two operational axioms). The axioms are: (1) `algspec_has_tm`—a Church-Turing bridge asserting any polynomial-time algorithmic specification has a TM implementation; and (2) `remaining_indistinguishable`—a WC-1 bridge asserting that if a world remains (not eliminated by the TM's run trace), then the TM cannot distinguish it from the planted world. The key innovation: **separation properties and the time bound `haltTime ≥ 2^R - 1` are DERIVED** from indistinguishability, not directly asserted. Derivation: indistinguishability implies all wrong worlds eliminated (by contradiction), separation implies eliminated.length = 2^R - 1, WC-1 structure implies eliminated.length ≤ configs.length ≤ haltTime. Axiom audits via `#print axioms` provide complete transparency. The Lean code is the authoritative proof; this paper provides mathematical intuition and proof narrative.
 
 **Model Scope.** Classical uniform model: deterministic k-tape Turing machines with constant tapes and alphabet. Randomized PPT adversaries handled by coin-fixing (Yao); all bounds apply per fixed run. Results apply to uniform classical models.
 
@@ -118,7 +118,7 @@ Execute `#print axioms <theorem_name>` at each step to verify trust boundary.
 **Approach B: Trust Boundary Audit** (verify axiom usage):
 1. Start: `StructuralOWFExponential.lean` (uses 2 axioms)
 2. Verify Axiom 1: `algspec_has_tm` (Church-Turing bridge—any AlgSpec has TM implementation)
-3. Verify Axiom 2: `not_refuted_implies_indistinguishable` (WC-1 bridge—indistinguishability axiom; separation and time bound derived)
+3. Verify Axiom 2: `remaining_indistinguishable` (WC-1 bridge—indistinguishability axiom; separation and time bound derived)
 4. Conclusion: 2 axioms total, minimal trust boundary
 
 **Axiom Design**: Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly. The separation emerges from the construction, and the time bound is derived from counting.
@@ -5650,7 +5650,7 @@ For any r′ ∈ D(φ) with f(r′) = x*, the extractor Ext(r′, x*) produces a
 - *Proven (0 axioms)*: No function can determine correct parity from incomplete observation. Incomplete observation implies indistinguishable configurations with different parities (`parity_lower_bound_at_fg_gate`).
 - *Church-Turing bridge*: TMs compute functions. They have no capabilities beyond function evaluation, so they cannot bypass proven information-theoretic limits.
 
-**Formalization note (WC-1 Bridge).** The Lean formalization axiomatizes this connection via `not_refuted_implies_indistinguishable` (WC1Bridge.lean): if a world is not refuted by the TM's run, it is TM-indistinguishable from planted. **Separation properties and the time bound `haltTime ≥ 2^R - 1` are DERIVED** from indistinguishability (proven: `indistinguishability_implies_all_wrong_refuted`, `separation_implies_refuted_length`, `tmRefutedWorlds_length_le_configs`, `tm_time_lower_bound_operational`). This is weaker than directly asserting separation—the axiom only claims indistinguishability, and contradiction with worst-case correctness derives separation. The formalization's trust boundary consists of: (1) `algspec_has_tm`—algorithms have TM implementations, and (2) `not_refuted_implies_indistinguishable`—unrefuted worlds are TM-indistinguishable from planted.
+**Formalization note (WC-1 Bridge).** The Lean formalization axiomatizes this connection via `remaining_indistinguishable` (WC1Bridge.lean): if a world remains (is not eliminated by the TM's run), it is TM-indistinguishable from planted. **Separation properties and the time bound `haltTime ≥ 2^R - 1` are DERIVED** from indistinguishability (proven: `indistinguishability_implies_all_wrong_eliminated`, `separation_implies_eliminated_length`, `eliminatedWorlds_length_le_configs`, `tm_time_lower_bound_operational`). This is weaker than directly asserting separation—the axiom only claims indistinguishability, and contradiction with worst-case correctness derives separation. The formalization's trust boundary consists of: (1) `algspec_has_tm`—algorithms have TM implementations, and (2) `remaining_indistinguishable`—remaining worlds are TM-indistinguishable from planted.
 
 **Lemma 9.DOM (Domain-Constrained Inversion).**
 For any r′ ∈ D(φ) with f(r′) = x*, the assignment r′.assignment satisfies φ. That is, successful inversion implies SAT-solving.
@@ -8740,7 +8740,7 @@ Constraint family and normalization (scope over C).
 
 - We restrict cut-level constraints admitted into NF_C to two canonical forms:
   1) Bit determinations (unit equalities) that increase q on C; and
-  2) UnitRefute(ω): a unit exclusion of a single cut-world ω (fixed assignment to unresolved cut bits).
+  2) UnitElimination(ω): a unit exclusion of a single cut-world ω (fixed assignment to unresolved cut bits).
   General overlay/gate constraints may exist globally but are not admitted into NF_C unless they reduce to (1) or (2) over C.
 
 - Normalization NF_C eliminates duplicates and keeps only these canonical forms with a deterministic order.
@@ -8757,7 +8757,7 @@ Procedure:
    For each constraint c ∈ Cons_C(π):
      a) If c is a unit equality (v_i = b for v_i ∈ C, b ∈ {0,1}):
         Add (i, b) to BitDet  // bit determination
-     b) If c is a canonical UnitRefute(ω) over C (unit exclusion of a single cut-world ω):
+     b) If c is a canonical UnitElimination(ω) over C (unit exclusion of a single cut-world ω):
         Add w to Refuted  // w is a fixed assignment to unresolved cut bits
      c) Otherwise: discard c (not admitted to NF_C)
 
@@ -8799,7 +8799,7 @@ The NP verifier recomputes NF_C(Cons_C(π)) by:
 All steps polynomial-time; normalization deterministic. ∎
 
 **Lemma CDT-1' (No unbacked cut consequences).**
-For the published constraint family and normalization NF_C defined above, if a cut-level consequence becomes derivable from transcript prefix π without additional designated artifacts being revealed or produced, then it must be either (i) a bit determination already reflected as Δq on C, or (ii) a UnitRefute(ω) for some world ω already present in NF_C. Hence NF_C can only grow when (i) Δq on C increases, or (ii) a new designated artifact is produced (gate/digest) that supports a new UnitRefute or bit determination, implying a tag change and designated cost.
+For the published constraint family and normalization NF_C defined above, if a cut-level consequence becomes derivable from transcript prefix π without additional designated artifacts being revealed or produced, then it must be either (i) a bit determination already reflected as Δq on C, or (ii) a UnitElimination(ω) for some world ω already present in NF_C. Hence NF_C can only grow when (i) Δq on C increases, or (ii) a new designated artifact is produced (gate/digest) that supports a new UnitElimination or bit determination, implying a tag change and designated cost.
 
 *Proof.* We prove this by analyzing the three sources from which constraints in NF_C can arise:
 
@@ -8829,7 +8829,7 @@ The gate digest itself does not directly enter NF_C as a constraint unless it **
   - Parity contradictions: for a published gate parity over S(P(v)), the digest fixes ⊕_{(v',j,ℓ)∈S(P(v))} e_{v',j,ℓ}; any w whose induced cut-bits force the opposite parity is infeasible.
   - Rank/linear constraints: with rank(H_u)=R_u, linear consequences from gate outputs imply linear relations on cut bits; any w violating these relations is infeasible.
   - Seed/consistency propagation: a digest fixing a child seed/value forces a cut assignment incompatible with w.
-The verifier checks such a proof object and admits it as UnitRefute(ω) into NF_C.
+The verifier checks such a proof object and admits it as UnitElimination(ω) into NF_C.
 
 Crucially, producing such a proof requires:
 
@@ -8837,7 +8837,7 @@ Crucially, producing such a proof requires:
 - The digest to reference designated artifacts (the XOR over S(P))
 - The verifier to check the proof (polynomial time, but the algorithm must exhibit it)
 
-If GateDigest_v is **fresh** (differs from the previous value on the current seed chain), then by Lemma C.2.2 the seed-chain tag changes, ending the segment and pricing the digest computation. If GateDigest_v is unchanged but leads to a new UnitRefute(ω), this refutation updates NF_C → ConstraintDigest_C changes → tag changes → segment ends. [YES]
+If GateDigest_v is **fresh** (differs from the previous value on the current seed chain), then by Lemma C.2.2 the seed-chain tag changes, ending the segment and pricing the digest computation. If GateDigest_v is unchanged but leads to a new UnitElimination(ω), this refutation updates NF_C → ConstraintDigest_C changes → tag changes → segment ends. [YES]
 
 **Case 3c:** GateDigest_v is unchanged and implies no new consequences beyond what Δq and prior NF_C already capture. Then NF_C does not grow from this digest. [YES]
 
@@ -8851,7 +8851,7 @@ Verifier check. The NP verifier:
 
 - Recomputes NF_C(Cons_C(π)) from transcripted designated reads and gate objects; checks ConstraintDigest_C consistency.
 - Uses CommitSelector(π)|_C := lexicographically least assignment to unresolved cut bits consistent with NF_C(Cons_C(π)) and revealed bits; sets WorldCommit_C := H(CommitSelector(π)|_C).
-- Verifies that any non-accepting segment that does not change NF_C or q ends with a valid Refute(WorldCommit_C) certificate. The certificate is a standardized object referencing at least one designated gate/digest artifact and proving that the committed world contradicts these artifacts given NF_C and revealed bits. The certificate is admitted into NF_C only as a UnitRefute for that world, excluding exactly one world over C. The verifier checks all conditions in polynomial time.
+- Verifies that any non-accepting segment that does not change NF_C or q ends with a valid Refute(WorldCommit_C) certificate. The certificate is a standardized object referencing at least one designated gate/digest artifact and proving that the committed world contradicts these artifacts given NF_C and revealed bits. The certificate is admitted into NF_C only as a UnitElimination for that world, excluding exactly one world over C. The verifier checks all conditions in polynomial time.
 
 Lemma index (C.2):
 
@@ -8866,7 +8866,7 @@ Lemma index (C.2):
 - Resolution prefix across C: the projection of the tag to nodes of C, including ConstraintDigest_C and WorldCommit_C.
 - Rollback segment: a maximal contiguous subrun during which the resolution prefix is constant. Segment boundaries occur exactly when this projection changes (Keyedness + CDT).
 
-**NF_C scope note.** The feasible-world count for SC is computed vs. NF_C ∪ {q}, where NF_C admits only (i) unit equalities (bit determinations) and (ii) UnitRefute(ω) operations. This is an over-approximation of the true semantic feasible set - the actual set of consistent worlds may be smaller due to additional constraints not captured in NF_C. Using an over-approximation only strengthens the m-bound, as it conservatively counts more worlds as feasible, making the required number of segments m_seg ≥ 2^(ρ-s) a lower bound.
+**NF_C scope note.** The feasible-world count for SC is computed vs. NF_C ∪ {q}, where NF_C admits only (i) unit equalities (bit determinations) and (ii) UnitElimination(ω) operations. This is an over-approximation of the true semantic feasible set - the actual set of consistent worlds may be smaller due to additional constraints not captured in NF_C. Using an over-approximation only strengthens the m-bound, as it conservatively counts more worlds as feasible, making the required number of segments m_seg ≥ 2^(ρ-s) a lower bound.
 
 **Lemma C.2.2 (Gate/Constraint update implies tag change).** If during a subrun the machine computes any fresh GateDigest_v whose value differs from its previous value on the current chain, or if NF_C(Cons_C(π)) over the bottleneck cut C changes, then the resolution prefix across C changes, hence the seed-chain tag changes. Therefore any subrun adding cut-relevant information (either by new bit determination or constraint growth) ends the current rollback segment.
 
@@ -8875,7 +8875,7 @@ Let π be a transcript prefix with resolution prefix across cut C including Worl
 
 1. **Exactly one world excluded:** The refutation eliminates world ω* and no other worlds from the feasible set 𝒰(π).
 
-2. **NF_C update:** The certificate is admitted into NF_C as a UnitRefute(ω*) entry, which updates ConstraintDigest_C and ends the segment.
+2. **NF_C update:** The certificate is admitted into NF_C as a UnitElimination(ω*) entry, which updates ConstraintDigest_C and ends the segment.
 
 3. **Verifier-checkable:** The NP verifier checks that the certificate references designated artifacts (gate digests, revealed bits) and that these artifacts contradict ω* given NF_C and q.
 
@@ -8888,13 +8888,13 @@ Because the verifier fixes the target world by deterministic recomputation (inde
 - Recomputes ω* from current NF_C and q
 - Verifies WorldCommit_C = H(ω*)
 - Checks that referenced artifacts contradict ω*
-- Admits UnitRefute(ω*) into NF_C, excluding exactly this one world
+- Admits UnitElimination(ω*) into NF_C, excluding exactly this one world
 
-Therefore the refutation excludes exactly one world from 𝒰(π), namely ω*, and the NF_C update (adding UnitRefute(ω*)) changes ConstraintDigest_C, forcing a new segment by Lemma C.2.2. ∎
+Therefore the refutation excludes exactly one world from 𝒰(π), namely ω*, and the NF_C update (adding UnitElimination(ω*)) changes ConstraintDigest_C, forcing a new segment by Lemma C.2.2. ∎
 
 **Lemma C.2.3 (One extra elimination per segment beyond Δq).** Consider a non-accepting rollback segment T. Let t be the increase in functionally determined cut information during T (Δq across C; not just RWA reads). Then, relative to the segment start, the number of feasible worlds across C decreases by at most a factor 2^t and at most one additional world (the committed one) is excluded by the terminal refutation of T.
 
-*Proof.* Fix C and let 𝒰(π) be the feasible-worlds set at prefix π. Let π_in and π_out mark T's endpoints, and let π_last be the point after the last Δq event on C within T. By SCL, each unit of Δq halves |𝒰|; thus |𝒰(π_last)| = |𝒰(π_in)|/2^t. By CDT-1′, with NF_C and q fixed on C between π_last and the terminal action, the feasible set cannot shrink in the suffix: 𝒰(π_out^−) = 𝒰(π_last). By WC-1, the terminal action refutes exactly one committed world (WorldCommit_C), excluding at most one additional world at that boundary (which also updates NF_C as a UnitRefute and ends the segment). Hence |𝒰(π_out)| ≥ |𝒰(π_in)|/2^t − 1. ∎
+*Proof.* Fix C and let 𝒰(π) be the feasible-worlds set at prefix π. Let π_in and π_out mark T's endpoints, and let π_last be the point after the last Δq event on C within T. By SCL, each unit of Δq halves |𝒰|; thus |𝒰(π_last)| = |𝒰(π_in)|/2^t. By CDT-1′, with NF_C and q fixed on C between π_last and the terminal action, the feasible set cannot shrink in the suffix: 𝒰(π_out^−) = 𝒰(π_last). By WC-1, the terminal action refutes exactly one committed world (WorldCommit_C), excluding at most one additional world at that boundary (which also updates NF_C as a UnitElimination and ends the segment). Hence |𝒰(π_out)| ≥ |𝒰(π_in)|/2^t − 1. ∎
 
 **Lemma C.2 (Segment counting).** Let C be an s→t cut with effective residual ρ := Σ_{v∈C}(R_v − q_v). Run a deterministic solver A on x* and partition the run into rollback segments T₁,...,T_m.
 
@@ -10175,7 +10175,7 @@ Time conversions (sequential k-tape TM)
 
 Verification (NP membership)
 
-- Verifier recomputes Seeds and GateDigest_v; recomputes NF_C and WorldCommit_C at boundaries; checks ConstraintDigest_C and UnitRefute certificates; all in polynomial time
+- Verifier recomputes Seeds and GateDigest_v; recomputes NF_C and WorldCommit_C at boundaries; checks ConstraintDigest_C and UnitElimination certificates; all in polynomial time
 - Complexity bound: O(n log n) with caching, O(n²) naive (see Lemma 10.2.1)
 
 Typical QP-sharp calibration (illustrative)

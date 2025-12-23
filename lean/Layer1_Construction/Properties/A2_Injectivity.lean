@@ -142,8 +142,8 @@ This is the same principle as Cartesian coordinates:
 2. **Layer 1 (Bridge)**: A2 → keyedness (distinct assignments → distinct states)
 3. **Layer 0 (SCL_node)**: keyedness → |State| ≥ 2^λ (pigeonhole)
 4. **Layer 0 (SCL_cut)**: Compose across nodes → exponential global bound
-5. **Layer 3 (SegmentReduction)**: Apply to L* → refutation count ≥ 2^(ρ-s)
-6. **Layer 4 (Time bounds)**: Refutations → time steps → exponential lower bound
+5. **Layer 3 (SegmentReduction)**: Apply to L* → elimination count ≥ 2^(ρ-s)
+6. **Layer 4 (Time bounds)**: Eliminations → time steps → exponential lower bound
 7. **Layer 5 (P≠NP)**: Contradiction with polynomial time ∎
 
 See: `Layer1_Construction/Bridge/LStarToNodeData.lean` (A2 → keyedness theorem)

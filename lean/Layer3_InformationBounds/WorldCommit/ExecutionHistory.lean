@@ -26,18 +26,18 @@ lemma suffix_tail {α : Type _} {l full : List α} (h : l <:+ full) : l.tail <:+
     -- full = t ++ (hd :: tl), so tl is suffix with prefix (t ++ [hd])
     exact ⟨t ++ [hd], by simp [←ht]⟩
 
-/-! ## ExecutionHistory: Time Bounds from Refutation Counting
+/-! ## ExecutionHistory: Time Bounds from Elimination Counting
 
-**Purpose**: Formalize WorldCommit protocol's per-world refutation mechanism → time bounds.
+**Purpose**: Formalize WorldCommit protocol's per-world elimination mechanism → time bounds.
 
 **WorldCommit Protocol (W = 1)** (WorldCommit.lean):
-- Each refutation adds exactly one UnitRefute(ω*) to constraint system
-- WC-1: Exactly 1 world excluded per refutation (protocol specification)
+- Each elimination adds exactly one UnitElimination(ω*) to constraint system
+- WC-1: Exactly 1 world excluded per elimination (protocol specification)
 - Sequential world checking via CommitSelector (computational constraint)
 
 **Proof chain** (§7, Appendix C):
 ```
-refutations = 2^{ρ-s}     [SegmentReduction.lean]
+eliminations = 2^{ρ-s}     [SegmentReduction.lean]
     ↓ WC-1: W = 1
 boundaries ≥ 2^{ρ-s}      [This file]
     ↓ each boundary = 1 time step
@@ -46,7 +46,7 @@ time ≥ 2^{ρ-s}            [This file]
 
 **Infrastructure**: Includes List.IsPrefix lemmas for monotonicity proofs.
 
-**Main results**: time_bound_from_refutations (refutations → boundaries → time lower bound)
+**Main results**: time_bound_from_eliminations (eliminations → boundaries → time lower bound)
 
 **Trust boundary**: 0 axioms, 0 sorries - FULLY PROVEN
 
@@ -55,7 +55,7 @@ See Layer3_InformationBounds/Layer3_README.md §World Commitment.
 ## Implementation
 
 - ExecutionHistory structure
-- boundaries_from_refutations (proven with WC-1)
+- boundaries_from_eliminations (proven with WC-1)
 - time_from_boundaries (proven)
 -/
 
@@ -261,7 +261,7 @@ noncomputable def ExecutionHistory.final (hist : ExecutionHistory L) : Execution
 
 /-! ## Key Structural Lemmas -/
 
-/-- **Refutation growth implies boundary**: If refutationCount grows, there's a boundary.
+/-- **Elimination growth implies boundary**: If eliminationCount grows, there's a boundary.
 
     This is the key lemma from SegmentReduction.lean that we'll use inductively.
 -/
@@ -269,10 +269,10 @@ theorem growth_implies_boundary_exists
     (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
     (π₁ π₂ : ExecutionPrefixReal L)
     (h_prefix : isPrefixOf L π₁ π₂)
-    (h_growth : refutationCount L C π₁ < refutationCount L C π₂)
+    (h_growth : eliminationCount L C π₁ < eliminationCount L C π₂)
     : SegmentBoundary L C π₁ π₂ :=
   -- This theorem exists in SegmentReduction.lean in this file
-  refutation_growth_implies_boundaries L C π₁ π₂ h_prefix h_growth
+  elimination_growth_implies_boundaries L C π₁ π₂ h_prefix h_growth
 
 /-! ## Main Theorems -/
 
@@ -350,8 +350,8 @@ theorem time_mono_chain
 
 /-- **Total eliminations are monotonic**: More observations → more world eliminations.
 
-    This is the foundational monotonicity property. refutationCount (which counts only
-    digest refutations) is NOT monotonic because worlds can move from "refuted by digest"
+    This is the foundational monotonicity property. eliminationCount (which counts only
+    digest eliminations) is NOT monotonic because worlds can move from "eliminated by digest"
     to "excluded by bits". But totalEliminations IS monotonic.
 
     **Proof**: More constraints → fewer surviving worlds → more total eliminations.
@@ -517,26 +517,26 @@ theorem totalEliminations_monotone
 
 **Key Insight**: The WorldCommit protocol forces W = 1 (one world per boundary).
 
-**From world_commit_refutation_excludes_one theorem**:
+**From world_commit_elimination_excludes_one theorem**:
 ```lean
-theorem world_commit_refutation_excludes_one :
+theorem world_commit_elimination_excludes_one :
   |Feasible_before| = |Feasible_after| + 1
 ```
 
 **Why W = 1 (not information-theoretic)**:
 - One digest mathematically identifies many wrong configs (2^{R_v} possibilities)
-- But protocol forces sequential checking: propose ω*, check, refute, repeat
-- Each boundary adds UnitRefute(ω*), which excludes exactly ω* by definition
+- But protocol forces sequential checking: propose ω*, check, eliminate, repeat
+- Each boundary adds UnitElimination(ω*), which excludes exactly ω* by definition
 - **This is computational, not information-theoretic!**
 
 **Proof Strategy** (when connecting to TMToExecutionPrefix):
-The property "each boundary refutes exactly 1 world" is captured by the h_wc1
-hypothesis in boundaries_equal_refutations_wc1 and refutations_to_time_proven.
+The property "each boundary eliminates exactly 1 world" is captured by the h_wc1
+hypothesis in boundaries_equal_eliminations_wc1 and eliminations_to_time_proven.
 
 When these theorems are applied in TMToExecutionPrefix.lean, h_wc1 is proven by:
-1. world_commit_refutation_excludes_one (see WorldCommit.lean) gives W = 1 for protocol steps
+1. world_commit_elimination_excludes_one (see WorldCommit.lean) gives W = 1 for protocol steps
 2. Showing ExecutionPrefixReal transitions correspond to protocol steps
-3. Therefore: boundary + growth → refutation_count increases by exactly 1
+3. Therefore: boundary + growth → elimination_count increases by exactly 1
 
 This connection is the "bridge" that happens in TMToExecutionPrefix.lean, not here.
 -/
@@ -544,9 +544,9 @@ This connection is the "bridge" that happens in TMToExecutionPrefix.lean, not he
 /-- **Transitive totalEliminations monotonicity** (proven - not axiom)
 
     This theorem uses the PROVEN totalEliminations_monotone from SegmentReduction.lean,
-    not the FALSE axiom refutationCount_monotone.
+    not the FALSE axiom eliminationCount_monotone.
 
-    **Proof**: Identical structure to refutationCount_mono_chain, but uses
+    **Proof**: Identical structure to eliminationCount_mono_chain, but uses
     totalEliminations_monotone (proven) instead of the false axiom.
 
     **This enables AIRTIGHT proof chain** without false axioms! -/
@@ -566,7 +566,7 @@ theorem totalEliminations_mono_chain
           reconstructedCfg L C π₁ v h_v h_complete₁ =
           reconstructedCfg L C π₂ v h_v h_complete₂)
     : totalEliminations L C π ≤ totalEliminations L C (states.getLast h_nonempty) := by
-  -- IDENTICAL proof structure to refutationCount_mono_chain
+  -- IDENTICAL proof structure to eliminationCount_mono_chain
   -- but uses totalEliminations_monotone (proven in SegmentReduction.lean)
   induction states generalizing π with
   | nil => contradiction
@@ -639,10 +639,10 @@ theorem totalEliminations_mono_chain
 /-! ### Auxiliary lemma for boundaries ≥ eliminations (Sound Version)
 
 This is the sound version using totalEliminations (proven monotonic),
-not refutationCount (which can decrease).
+not eliminationCount (which can decrease).
 
-Same structure as the deprecated boundaryCount_ge_refutation_diff_aux, but uses
-totalEliminations_monotone (proven) instead of refutationCount_monotone (false).
+Same structure as the deprecated boundaryCount_ge_elimination_diff_aux, but uses
+totalEliminations_monotone (proven) instead of eliminationCount_monotone (false).
 
 We use a `mutual...end` block to solve Lean 4 elaboration order issues.
 -/
@@ -675,7 +675,7 @@ theorem boundaryCount_ge_eliminations_diff_aux
       totalEliminations L C (states.getLast h_nonempty) -
       totalEliminations L C (states.head (List.ne_nil_of_length_pos (List.length_pos_iff.mpr h_nonempty)))
     := by
-  -- IDENTICAL structure to boundaryCount_ge_refutation_diff_aux
+  -- IDENTICAL structure to boundaryCount_ge_elimination_diff_aux
   -- but uses totalEliminations throughout (proven monotonic)
   match states with
   | [] => contradiction
@@ -1179,7 +1179,7 @@ theorem eliminations_to_time_proven_adjacent
 /-- **Main theorem**: eliminations → time (no false axioms)
 
     Eliminates false axiom by using totalEliminations (proven monotonic)
-    instead of refutationCount (false monotonicity).
+    instead of eliminationCount (false monotonicity).
 
     See documentation below (after mutual block) for full details. -/
 theorem eliminations_to_time_proven
@@ -1232,8 +1232,8 @@ end  -- mutual
 
 /-! ### Main Theorem: eliminations_to_time_proven
 
-**This theorem replaces refutations_to_time_proven with a sound version
-that does not rely on the false axiom `refutationCount_monotone`.**
+**This theorem replaces eliminations_to_time_proven with a sound version
+that does not rely on the false axiom `eliminationCount_monotone`.**
 
 **Statement**: eliminations ≥ R → time ≥ R (with W = 1 from WC-1)
 
@@ -1248,9 +1248,9 @@ time ≥ initial_time + R                      [this file, proven]
 
 Zero false axioms, zero admits.
 
-**Key difference from refutations_to_time_proven**: Uses totalEliminations
-(proven monotonic in SegmentReduction.lean) instead of refutationCount
-(which relies on false axiom refutationCount_monotone).
+**Key difference from eliminations_to_time_proven**: Uses totalEliminations
+(proven monotonic in SegmentReduction.lean) instead of eliminationCount
+(which relies on false axiom eliminationCount_monotone).
 
 **NOTE**: The theorem is defined inside the mutual block above (see above)
 to avoid Lean 4 elaboration ordering issues.
@@ -1262,14 +1262,14 @@ To use this theorem to eliminate the axiom:
 
 1. Build ExecutionHistory from TM execution
 2. Prove h_wc1 from WorldCommit protocol properties:
-   - WorldCommit.world_commit_refutation_excludes_one (see WorldCommit.lean)
-   - Shows each protocol step refutes exactly 1 world (W = 1)
+   - WorldCommit.world_commit_elimination_excludes_one (see WorldCommit.lean)
+   - Shows each protocol step eliminates exactly 1 world (W = 1)
 3. Prove h_time_boundary from observation model:
    - Each segment boundary corresponds to an observation
    - Each observation takes at least one TM step
    - Therefore: boundary → time increases by ≥ 1
-4. Apply refutations_to_time_proven
-5. Conclusion: time ≥ refutations
+4. Apply eliminations_to_time_proven
+5. Conclusion: time ≥ eliminations
 -/
 
 /-! ## Digest Boundary Theorems (for W=1 Proof)
@@ -1281,7 +1281,7 @@ To use this theorem to eliminate the axiom:
 **DIFFERENCE**: Uses DigestBoundary instead of SegmentBoundary predicate.
 
 **WHY NEEDED**: Bit boundaries can eliminate many worlds, but digest boundaries
-correspond to WC-1 refutations (exactly 1 world per boundary when growth occurs).
+correspond to WC-1 eliminations (exactly 1 world per boundary when growth occurs).
 -/
 
 /-- **Auxiliary lemma: time increases through DIGEST boundary chain**.
@@ -1377,7 +1377,7 @@ No custom axioms are introduced.
 #print axioms ExecutionHistory
 #print axioms growth_implies_boundary_exists
 #print axioms totalEliminations_monotone
-#print axioms world_commit_refutation_excludes_one
+#print axioms world_commit_elimination_excludes_one
 #print axioms totalEliminations_mono_chain
 #print axioms boundaries_equal_eliminations_wc1
 #print axioms time_from_boundaries

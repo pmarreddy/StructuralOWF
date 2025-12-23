@@ -106,12 +106,12 @@ def SegmentBoundary (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
 
 **PURPOSE**: Separate digest observations from bit observations to enable clean W=1 proof.
 
-**KEY INSIGHT**: Only digest observations correspond to WorldCommit refutations.
-- Digest boundary: New gate config computed → WC protocol refutes ≤ 1 world (WC-1)
-- Bit boundary: New bit revealed → only filters initial_feasible (no refutations)
+**KEY INSIGHT**: Only digest observations correspond to WorldCommit eliminations.
+- Digest boundary: New gate config computed → WC protocol eliminates ≤ 1 world (WC-1)
+- Bit boundary: New bit revealed → only filters initial_feasible (no eliminations)
 
 **WHY NEEDED**: Bit boundaries can eliminate many worlds at once (when bit filters
-initial set), but WC-1 only guarantees W=1 for digest-based refutations.
+initial set), but WC-1 only guarantees W=1 for digest-based eliminations.
 
 By counting only digest boundaries, we get clean W=1 from the WorldCommit protocol.
 -/

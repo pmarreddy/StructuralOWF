@@ -219,9 +219,9 @@ noncomputable instance cutWorldDecidableEq (L : LStarInstanceFG) (C : Finset (Fi
 
 /-! ## Lexicographic Ordering on Worlds
 
-**PURPOSE**: Define total order for canonical world sorting (used in NF_C refutation lists).
+**PURPOSE**: Define total order for canonical world sorting (used in NF_C elimination lists).
 
-**Why we need this**: normalize function needs to sort refuted worlds to ensure uniqueness.
+**Why we need this**: normalize function needs to sort eliminated worlds to ensure uniqueness.
 
 **Strategy**: Use Fintype enumeration - every world has a unique index via the Pi type equivalence.
 
@@ -255,7 +255,7 @@ noncomputable instance cutWorldOrd (L : LStarInstanceFG) (C : Finset (Fin L.dag.
 
 **WHY NEEDED**: `extractViolatorsForConfig` needs to pick a CANONICAL violator
 (the least one) to enable provable coverage: after m steps, exactly m distinct
-worlds are refuted. Using `List.head?` on `Finset.toList` picks an arbitrary
+worlds are eliminated. Using `List.head?` on `Finset.toList` picks an arbitrary
 element, but using `Finset.min'` with this order picks the canonical minimum.
 
 **CONSTRUCTION**: Use Fintype enumeration index as the ordering key.

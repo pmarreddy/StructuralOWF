@@ -2010,7 +2010,7 @@ theorem structural_owf_inversion_not_in_fp
   -- (by R = n_test in exponential profile). Correct inversion on all of them
   -- requires distinguishing all 2^n_test cases.
 
-  -- By WC-1 bridge (not_refuted_implies_indistinguishable),
+  -- By WC-1 bridge (remaining_indistinguishable),
   -- any algorithm with incomplete observation (< n bits) cannot distinguish all configs.
   -- Polynomial time gives at most poly(n) observations (state space).
   -- For n = n_test ≥ n₀_exp: poly(n_test) < 2^n_test (exponential dominance).
@@ -3307,7 +3307,7 @@ Main result: ¬PeqNP_parametric (P ≠ NP in the parametric formulation).
 
 **Trust Boundary**: 2 axioms
 1. `algspec_has_tm` — Church-Turing bridge
-2. `not_refuted_implies_indistinguishable` — WC-1 indistinguishability bridge
+2. `remaining_indistinguishable` — WC-1 indistinguishability bridge
 
 Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds.
 

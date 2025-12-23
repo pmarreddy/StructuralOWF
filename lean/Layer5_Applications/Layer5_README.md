@@ -175,7 +175,7 @@ literally a single TM taking 1^n as input. This is morally equivalent for the se
 ### Trust Boundary
 
 **1 custom axiom** (strict subset of P≠NP's 2 axioms):
-- `not_refuted_implies_indistinguishable` — WC-1 bridge (indistinguishability axiom; separation and time bound DERIVED)
+- `remaining_indistinguishable` — WC-1 bridge (indistinguishability axiom; separation and time bound DERIVED)
 
 OWF existence does NOT require the AlgSpec→TM bridge axiom (`algspec_has_tm`).
 
@@ -307,7 +307,7 @@ Zero-knowledge proofs:
 'P_ne_NP' depends on axioms:
   [propext, Classical.choice, Quot.sound,    ← Standard Lean
    algspec_has_tm,                           ← Church-Turing bridge
-   not_refuted_implies_indistinguishable]    ← WC-1 indistinguishability bridge
+   remaining_indistinguishable]    ← WC-1 indistinguishability bridge
 ```
 
 ### The 2 Axioms
@@ -315,14 +315,14 @@ Zero-knowledge proofs:
 | # | Axiom | File | Nature | Risk |
 |---|-------|------|--------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean | Church-Turing bridge | Very Low |
-| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean | WC-1 indistinguishability bridge | Low |
+| 2 | `remaining_indistinguishable` | WC1Bridge.lean | WC-1 indistinguishability bridge | Low |
 
 ### Axiom Details
 
 1. **`algspec_has_tm`**: Church-Turing thesis — any algorithm has a TM implementation.
 
-2. **`not_refuted_implies_indistinguishable`**: WC-1 bridge — asserts indistinguishability (→ direction):
-   - Unrefuted worlds are TM-indistinguishable from the planted world
+2. **`remaining_indistinguishable`**: WC-1 bridge — asserts indistinguishability (→ direction):
+   - Remaining (not eliminated) worlds are TM-indistinguishable from the planted world
    - Separation and time bound `≥ 2^R - 1` derived from indistinguishability via counting
    - Reverse direction (←) derivable from WC correctness; biconditional proven in `WC1Bridge.lean`
 

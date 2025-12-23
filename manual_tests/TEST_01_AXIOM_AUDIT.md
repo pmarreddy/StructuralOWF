@@ -34,7 +34,7 @@ The axiom audit is the single most important verification step. If ANY axiom is:
 | # | Axiom | File | Type | Risk |
 |---|-------|------|------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean:414 | Church-Turing bridge | Very Low |
-| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 | WC-1 indistinguishability bridge | Low |
+| 2 | `remaining_indistinguishable` | WC1Bridge.lean:4067 | WC-1 indistinguishability bridge | Low |
 
 **Note**: See `docs/AXIOM_FINAL_COUNT.md` for authoritative axiom documentation.
 
@@ -74,7 +74,7 @@ grep -rn "sorryAx" --include="*.lean" | grep -v ".lake"
  Classical.choice,
  Quot.sound,
  LStar.Complexity.algspec_has_tm,
- LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable]
+ LStar.StructuralOWF.Foundations.remaining_indistinguishable]
 ```
 
 **Red Flags**:
@@ -117,10 +117,10 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
   - **Analysis**: No - if SAT had a poly-time algorithm, this axiom would give you the TM for it
 - **VERDICT**: SAFE (definitional, not computational)
 
-#### Axiom 2: `not_refuted_implies_indistinguishable` (WC1Bridge.lean:4067)
+#### Axiom 2: `remaining_indistinguishable` (WC1Bridge.lean:4067)
 
 ```lean
-axiom not_refuted_implies_indistinguishable
+axiom remaining_indistinguishable
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG)
@@ -134,7 +134,7 @@ axiom not_refuted_implies_indistinguishable
         ⟨v, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
     (h_v_in : v ∈ ({v} : Finset (Fin L.dag.n)))
     (ω' : CutWorld L {v})
-    (h_not_refuted : ω' ∉ tmRefutedWorlds L {v} configs)
+    (h_remaining : ω' ∉ eliminatedWorlds L {v} configs)
     : TMIndistinguishable L M v enc.extractConfigAtV enc.initForPlanting haltTime
         (ω'.assignment v h_v_in) cfg_planted
 ```
@@ -169,7 +169,7 @@ grep -B5 -A30 "^axiom " Layer4_Operational/TimeBridge/WC1Bridge.lean | grep -i "
 
 **Expected**: No matches. Axioms should be about:
 - Encodings (algspec_has_tm)
-- Indistinguishability (not_refuted_implies_indistinguishable)
+- Indistinguishability (remaining_indistinguishable)
 - NOT about complexity classes directly
 
 **Verification Checklist**:
@@ -205,20 +205,20 @@ theorem axioms_inconsistent : False := by
 ```lean
 -- For each axiom, verify it doesn't derive False alone
 #check @algspec_has_tm  -- Should not have False in its conclusion
-#check @not_refuted_implies_indistinguishable  -- Concludes TMIndistinguishable, not False
+#check @remaining_indistinguishable  -- Concludes TMIndistinguishable, not False
 ```
 
 **Test 3: Mutual Contradiction Check**
 ```lean
--- Can we satisfy the preconditions of not_refuted_implies_indistinguishable
+-- Can we satisfy the preconditions of remaining_indistinguishable
 -- using outputs from algspec_has_tm?
 --
 -- algspec_has_tm: AlgSpec → TM
--- not_refuted_implies_indistinguishable: TM + unrefuted world → TMIndistinguishable
+-- remaining_indistinguishable: TM + remaining world → TMIndistinguishable
 --
 -- For contradiction: need to show EVERY TM from algspec_has_tm
--- has all wrong worlds unrefuted AND produces correct output (impossible)
--- The derivation chain shows: if TM is worst-case correct, all wrong worlds ARE refuted
+-- has all wrong worlds remaining AND produces correct output (impossible)
+-- The derivation chain shows: if TM is worst-case correct, all wrong worlds ARE eliminated
 ```
 
 **Verification Checklist**:
@@ -274,9 +274,9 @@ def identity_spec : AlgSpec Nat Nat 10 where
 -- This should typecheck and produce an existential
 ```
 
-**Test for not_refuted_implies_indistinguishable**:
+**Test for remaining_indistinguishable**:
 ```lean
--- The axiom states: unrefuted world → TMIndistinguishable
+-- The axiom states: remaining world → TMIndistinguishable
 -- This means: if a world is not ruled out by configs, TM cannot distinguish it
 --
 -- For planted instances with correct TMs, all wrong worlds must be refuted
@@ -305,7 +305,7 @@ done
 
 **Dependency Matrix (Expected)**:
 
-| Theorem | algspec_has_tm | not_refuted_implies_indistinguishable |
+| Theorem | algspec_has_tm | remaining_indistinguishable |
 |---------|----------------|---------------------------------------|
 | P_ne_NP | ✅ | ✅ |
 | pnenp_classical | ✅ | ✅ |
@@ -357,18 +357,18 @@ Then the axioms DON'T imply P≠NP!
 
 **Analysis**:
 - **algspec_has_tm**: Holds in any model of computation (Church-Turing thesis)
-- **not_refuted_implies_indistinguishable**: The key axiom
+- **remaining_indistinguishable**: The key axiom
 
-**For not_refuted_implies_indistinguishable in a P=NP world**:
+**For remaining_indistinguishable in a P=NP world**:
 - If P=NP, there exists a poly-time SAT solver
 - For planted instances, this solver must refute all wrong worlds to be correct
-- The axiom says: unrefuted world → indistinguishable from planted
+- The axiom says: remaining world → indistinguishable from planted
 - By contrapositive with worst-case correctness: all wrong worlds must be refuted
 - Derived consequence: haltTime ≥ 2^R - 1 (via WC-1 structure theorems)
 
 **Key insight**: In a P=NP world, a poly-time SAT solver for planted instances would either:
-1. Refute ALL 2^R - 1 wrong worlds (requiring ≥ 2^R - 1 time) - but 2^R > poly(n), so impossible
-2. Leave some wrong world unrefuted but still be correct - violating indistinguishability + worst-case correctness
+1. Eliminate ALL 2^R - 1 wrong worlds (requiring ≥ 2^R - 1 time) - but 2^R > poly(n), so impossible
+2. Leave some wrong world remaining but still be correct - violating indistinguishability + worst-case correctness
 
 This is the crux: the axiom captures indistinguishability, from which the time bound is DERIVED.
 
@@ -378,14 +378,14 @@ This is the crux: the axiom captures indistinguishability, from which the time b
 
 **Goal**: Determine if axioms are derivable from each other
 
-**Note**: There are exactly 2 axioms (`algspec_has_tm` and `not_refuted_implies_indistinguishable`).
+**Note**: There are exactly 2 axioms (`algspec_has_tm` and `remaining_indistinguishable`).
 
 **Method**:
 ```lean
 -- Can we prove axiom 2 from axiom 1?
 theorem axiom2_from_axiom1 :
   (∀ A, algspec_has_tm A) →
-  not_refuted_implies_indistinguishable = _ := by
+  remaining_indistinguishable = _ := by
   sorry  -- SHOULD FAIL - different domains (Church-Turing vs indistinguishability)
 ```
 
@@ -462,7 +462,7 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 -- Test: Does algspec_has_tm work with Empty input?
 -- Answer: No - Empty has no values, so AlgSpec on Empty is vacuous
 
--- Test: Does not_refuted_implies_indistinguishable work with R = 0?
+-- Test: Does remaining_indistinguishable work with R = 0?
 -- Answer: If R = 0, then 2^R = 1, so there's only 1 config value
 -- This is handled by the plant_flat construction requiring h_nvars ≥ 4
 -- The LStarInstanceFG structure comes from plant_flat which ensures sufficient size
@@ -486,7 +486,7 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 
 # All axioms are public:
 # - LStar.Complexity.algspec_has_tm
-# - LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable
+# - LStar.StructuralOWF.Foundations.remaining_indistinguishable
 ```
 
 **Red Flag**: Any private axiom not documented in trust boundary.
@@ -502,11 +502,11 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 | Axiom | Contribution | Could prove P≠NP alone? |
 |-------|--------------|-------------------------|
 | algspec_has_tm | TM bridge | No (Church-Turing) |
-| not_refuted_implies_indistinguishable | Indistinguishability | No (needs construction + derivation) |
+| remaining_indistinguishable | Indistinguishability | No (needs construction + derivation) |
 
 **Key insight**: No single axiom implies P≠NP. The separation emerges from COMBINING:
 1. The L* construction (creates planted instances)
-2. The indistinguishability axiom (unrefuted → indistinguishable)
+2. The indistinguishability axiom (remaining → indistinguishable)
 3. Derived theorems (all wrong worlds must be refuted, WC-1 structure, time bound)
 4. The TM bridge (AlgSpec → RandAdv)
 
@@ -518,8 +518,8 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 
 **Method**:
 ```lean
--- For not_refuted_implies_indistinguishable:
--- The axiom states: unrefuted world → TMIndistinguishable
+-- For remaining_indistinguishable:
+-- The axiom states: remaining world → TMIndistinguishable
 -- This means: if a world isn't ruled out by configs, TM cannot distinguish it
 
 -- The axiom is designed so that for PLANTED instances with CORRECT TM output,
@@ -529,7 +529,7 @@ grep -rn "Classical\." --include="*.lean" | grep -v ".lake" | head -50
 -- Test: Construct a TM that refutes all wrong worlds
 -- Such TM satisfies worst-case correctness - consistent
 
--- Test: Construct a TM that leaves some wrong world unrefuted but is still correct
+-- Test: Construct a TM that leaves some wrong world remaining but is still correct
 -- By indistinguishability + worst-case correctness, this leads to contradiction
 -- If we could construct such a TM, the derivation chain would be unsound
 ```
@@ -553,14 +553,14 @@ import Layer5_Applications.PvsNP.ComplexityClasses.RandAdv
 import Layer4_Operational.TimeBridge.WC1Bridge
 
 #print axioms LStar.Complexity.algspec_has_tm
-#print axioms LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable
+#print axioms LStar.StructuralOWF.Foundations.remaining_indistinguishable
 EOF
 lake env lean /tmp/per_axiom.lean 2>&1
 ```
 
 **Expected**:
 - `algspec_has_tm` → `[propext, Quot.sound, algspec_has_tm]` (no Classical.choice)
-- `not_refuted_implies_indistinguishable` → `[propext, Classical.choice, Quot.sound, not_refuted_implies_indistinguishable]`
+- `remaining_indistinguishable` → `[propext, Classical.choice, Quot.sound, remaining_indistinguishable]`
 
 ---
 
@@ -637,7 +637,7 @@ Compare findings with:
 ## Pass/Fail Criteria
 
 ### PASS Conditions (ALL must be true):
-- [ ] Exactly 2 custom axioms used by P_ne_NP (algspec_has_tm, not_refuted_implies_indistinguishable)
+- [ ] Exactly 2 custom axioms used by P_ne_NP (algspec_has_tm, remaining_indistinguishable)
 - [ ] All axioms are documented
 - [ ] No axiom directly assumes P≠NP
 - [ ] No axiom restricts polynomial-time computation
@@ -664,7 +664,7 @@ From previous audits:
 - **Eliminated**: `tm_overhead`, `encoding_semantics`, `plant_flat_wf_transfer`, `fg_lossless_encoding` (now theorems)
 - **Current (verified 2025-12-22)**:
   1. `algspec_has_tm` (Church-Turing bridge)
-  2. `not_refuted_implies_indistinguishable` (WC-1 indistinguishability bridge)
+  2. `remaining_indistinguishable` (WC-1 indistinguishability bridge)
 - **Vestigial**: `planted_revealedBits_empty` (not in P_ne_NP chain)
 - **Not in chain**: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` (exists but unused by P_ne_NP)
 
@@ -678,21 +678,21 @@ From previous audits:
 2. **Polynomial Preservation**: If AlgSpec has poly bound C*n^k, TM can simulate with same bound
 3. **No Restriction**: This doesn't say what CAN'T be computed, only what CAN
 
-### Why `not_refuted_implies_indistinguishable` is Sound
+### Why `remaining_indistinguishable` is Sound
 
 1. **Indistinguishability Principle**: If you haven't observed information ruling out a world, you cannot distinguish it
 2. **Operational Definition**: Configs are DEFINED via actual TM run trace (not existentially quantified)
 3. **Derivation Chain**: Separation and time bound are DERIVED, not assumed:
    - `indistinguishability_implies_all_wrong_refuted`: All wrong worlds must be refuted (by contradiction with worst-case correctness)
-   - `tmRefutedWorlds_length_le_configs`: Each config adds ≤1 world (WC-1 structure)
-   - `separation_implies_refuted_length`: Separation → refuted.length = 2^R - 1
+   - `eliminatedWorlds_length_le_configs`: Each config adds ≤1 world (WC-1 structure)
+   - `separation_implies_eliminated_length`: Separation → refuted.length = 2^R - 1
    - `tm_time_lower_bound_operational`: haltTime ≥ 2^R - 1
 
 ### Why These Don't Assume P≠NP
 
 A hypothetical P=NP world:
 - `algspec_has_tm`: Still true (poly-time SAT solver would get a TM)
-- `not_refuted_implies_indistinguishable`: Still true (indistinguishability principle unchanged)
+- `remaining_indistinguishable`: Still true (indistinguishability principle unchanged)
 
 The P≠NP conclusion comes from COMBINING these with the FG construction,
 not from the axioms themselves. The construction creates instances where
@@ -706,7 +706,7 @@ from existing—the construction makes such algorithms incorrect on planted inst
 | Axiom | File | Line | Namespace |
 |-------|------|------|-----------|
 | `algspec_has_tm` | RandAdv.lean | 414 | `LStar.Complexity` |
-| `not_refuted_implies_indistinguishable` | WC1Bridge.lean | 4067 | `LStar.StructuralOWF.Foundations` |
+| `remaining_indistinguishable` | WC1Bridge.lean | 4067 | `LStar.StructuralOWF.Foundations` |
 
 **Not in P_ne_NP Chain** (exists but unused):
 - `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` - TMAdapterExponential.lean:2151

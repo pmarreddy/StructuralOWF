@@ -6,9 +6,9 @@ import Layer2_StructuralOWF.FrontierGate.FrontierGate
 import Mathlib.Data.Finset.Card
 import Mathlib.Data.List.Sort
 
-/-! ## WorldCommit:  WC-1 Property (Exact -1 Refutation)
+/-! ## WorldCommit:  WC-1 Property (Exact -1 Elimination)
 
-**Main theorem**: refutation_removes_exactly_one_world - each refutation eliminates exactly 1 world.
+**Main theorem**: elimination_removes_exactly_one_world - each elimination eliminates exactly 1 world.
 
 **Why critical**: Enables tight segment bounds. No bulk pruning—exponential testing required to eliminate 2^(ρ-s) wrong worlds.
 
@@ -20,9 +20,9 @@ import Mathlib.Data.List.Sort
 **Design philosophy**: Simplicity—avoid complex typeclass engineering.
 - No LinearOrder instance needed (direct List-based minimum)
 - Explicit proofs, no automation dependency
-- Clean separation: selection → commitment → refutation
+- Clean separation: selection → commitment → elimination
 
-**Main results**: findMinimumWorld (canonical minimum), CommitSelector (deterministic commitment), refutation_removes_exactly_one_world (WC-1 proven)
+**Main results**: findMinimumWorld (canonical minimum), CommitSelector (deterministic commitment), elimination_removes_exactly_one_world (WC-1 proven)
 
 **Dependencies**: CutWorlds, NormalForm, ConstraintExtraction, SegmentBoundaries, FrontierGate
 
@@ -316,7 +316,7 @@ noncomputable def worldConfigAt
     - Extracts full R-bit config from world
     - Returns 1-bit parity via fgDigestBit
 
-    **Why 1-bit is acceptable**: This is the OBSERVABLE output used for refutation.
+    **Why 1-bit is acceptable**: This is the OBSERVABLE output used for elimination.
     Hardness comes from the underlying R-bit config via A2 injectivity. -/
 noncomputable def GateDigestOn
     (L : LStarInstanceFG)
@@ -327,14 +327,14 @@ noncomputable def GateDigestOn
   let cfg := worldConfigAt L C ω v h_v_in_C
   fgDigestBit cfg
 
-/-! ## Part 5: Refutation Infrastructure
+/-! ## Part 5: Elimination Infrastructure
 
 **GOAL**: Prove a world has wrong parity, enabling its exclusion.
 
 **COMPONENTS**:
 - SameSegment: NF and bits unchanged (within segment)
 - RefuteCertificate: Proof that committed world contradicts observation
-- VerifyRefutation: Poly-time verification function
+- VerifyElimination: Poly-time verification function
 - RefutesWorldCommit: Existence of valid certificate
 -/
 
@@ -348,7 +348,7 @@ def SameSegment
   ConstraintNF L C π₁ = ConstraintNF L C π₂ ∧
   π₁.revealedBits = π₂.revealedBits
 
-/-- **Refutation certificate**: Proves committed world contradicts observation.
+/-- **Elimination certificate**: Proves committed world contradicts observation.
 
     **Contains**:
     - Gate node to check (must be in cut)
@@ -381,7 +381,7 @@ structure RefuteCertificate
     ∀ ω, CommitSelector L C π = some ω →
          GateDigestOn L C ω gateNode h_gate_in_C ≠ observedDigest
 
-/-- **Verify refutation** (poly-time computable).
+/-- **Verify elimination** (poly-time computable).
 
     **Algorithm**:
     1. Get committed world (if exists)
@@ -389,7 +389,7 @@ structure RefuteCertificate
     3. Check if different from observed
 
     **Returns**: true iff certificate valid. -/
-noncomputable def VerifyRefutation
+noncomputable def VerifyElimination
     {L : LStarInstanceFG}
     {C : Finset (Fin L.dag.n)}
     {π : ExecutionPrefixReal L}
@@ -400,16 +400,16 @@ noncomputable def VerifyRefutation
       let expected := GateDigestOn L C ω cert.gateNode cert.h_gate_in_C
       expected ≠ cert.observedDigest
 
-/-- **Refutation condition**: Valid certificate exists. -/
+/-- **Elimination condition**: Valid certificate exists. -/
 def RefutesWorldCommit
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (π : ExecutionPrefixReal L) : Prop :=
-  ∃ (cert : RefuteCertificate L C π), VerifyRefutation cert = true
+  ∃ (cert : RefuteCertificate L C π), VerifyElimination cert = true
 
 /-! ## Part 6: WC-1 THEOREM - Exact -1 Exclusion
 
-**NOTE**: The original theorem `world_commit_refutation_excludes_one`
+**NOTE**: The original theorem `world_commit_elimination_excludes_one`
 has a **logical contradiction** in its setup and has been replaced with the corrected
 version below.
 
@@ -421,21 +421,21 @@ version below.
 **CORRECTED VERSION**: Models segment boundary (adding digest observation).
 -/
 
-/-! ## WC-1 THEOREM (Paper's Protocol - UnitRefute Approach)
+/-! ## WC-1 THEOREM (Paper's Protocol - UnitElimination Approach)
 
-**KEY INSIGHT FROM PAPER**: The verifier ONLY adds `UnitRefute(ω*)` to NF_C,
+**KEY INSIGHT FROM PAPER**: The verifier ONLY adds `UnitElimination(ω*)` to NF_C,
 even though the certificate (gate digest) could mathematically exclude many worlds.
 This ensures "exactly 1 excluded" by protocol specification, not mathematical proof!
 
 **PROTOCOL** (from paper lines 7287-7297):
 1. Verifier recomputes ω* = CommitSelector (lexicographic minimum feasible world)
 2. Checks: certificate proves ω* contradicts artifact
-3. Adds: `UnitRefute(ω*)` to NF_C (NOT DigestMatch!)
-4. Result: Exactly ω* excluded (trivial - by definition of UnitRefute!)
+3. Adds: `UnitElimination(ω*)` to NF_C (NOT DigestMatch!)
+4. Result: Exactly ω* excluded (trivial - by definition of UnitElimination!)
 
 **SETUP**:
-- π_before: State before refutation
-- π_after: State after adding UnitRefute(ω*) to constraints
+- π_before: State before elimination
+- π_after: State after adding UnitElimination(ω*) to constraints
 - ω_star: Committed world at π_before
 - cert: Certificate proving ω* contradicts some artifact
 
@@ -444,7 +444,7 @@ This ensures "exactly 1 excluded" by protocol specification, not mathematical pr
 **PROOF**: ~50 lines, ZERO axioms, ZERO workaround hypotheses!
 -/
 
-/-- **Lemma WC-1.1**: ω* satisfies all constraints before refutation. -/
+/-- **Lemma WC-1.1**: ω* satisfies all constraints before elimination. -/
 theorem committedWorld_feasible_before
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
@@ -463,26 +463,26 @@ theorem committedWorld_feasible_before
   · -- Feasible set empty → contradiction
     contradiction
 
-/-- **Lemma WC-1.2**: ω* violates UnitRefute(ω*) constraint (trivial!). -/
+/-- **Lemma WC-1.2**: ω* violates UnitElimination(ω*) constraint (trivial!). -/
 theorem committedWorld_violates_unitRefute
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (ω_star : CutWorld L C)
-    : ¬(CutConstraint.Satisfies ω_star (CutConstraint.UnitRefute ω_star)) := by
-  -- By definition: Satisfies for UnitRefute ω_excl means ω ≠ ω_excl
+    : ¬(CutConstraint.Satisfies ω_star (CutConstraint.UnitElimination ω_star)) := by
+  -- By definition: Satisfies for UnitElimination ω_excl means ω ≠ ω_excl
   -- So ω_star ≠ ω_star is false
   unfold CutConstraint.Satisfies
   -- ω_star = ω_star, so Satisfies is false
   simp
 
-/-- **Lemma WC-1.3**: Adding UnitRefute(ω*) excludes ω* from feasible set. -/
+/-- **Lemma WC-1.3**: Adding UnitElimination(ω*) excludes ω* from feasible set. -/
 theorem unitRefute_excludes_target
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (π : ExecutionPrefixReal L)
     (ω_star : CutWorld L C)
     (constraints_after : List (CutConstraint L C))
-    (h_extended : constraints_after = extractConstraints L C π ++ [CutConstraint.UnitRefute ω_star])
+    (h_extended : constraints_after = extractConstraints L C π ++ [CutConstraint.UnitElimination ω_star])
     : ω_star ∉ NormalForm.FeasibleUnder constraints_after := by
   -- FeasibleUnder requires satisfying ALL constraints
   unfold NormalForm.FeasibleUnder
@@ -490,8 +490,8 @@ theorem unitRefute_excludes_target
   intro h_contra
   obtain ⟨_, h_all_satisfied⟩ := h_contra
 
-  -- But UnitRefute(ω_star) is in the constraint list
-  have h_refute_in : CutConstraint.UnitRefute ω_star ∈ constraints_after := by
+  -- But UnitElimination(ω_star) is in the constraint list
+  have h_elim_in : CutConstraint.UnitElimination ω_star ∈ constraints_after := by
     rw [h_extended]
     apply List.mem_append_right
     apply List.mem_singleton_self
@@ -501,11 +501,11 @@ theorem unitRefute_excludes_target
 
   -- Contradiction!
   rw [List.all_eq_true] at h_all_satisfied
-  have h_satisfied := h_all_satisfied _ h_refute_in
+  have h_satisfied := h_all_satisfied _ h_elim_in
   simp only [decide_eq_true_iff] at h_satisfied
   exact h_violates h_satisfied
 
-/-- **Lemma WC-1.4**: Other worlds unaffected by UnitRefute(ω*). -/
+/-- **Lemma WC-1.4**: Other worlds unaffected by UnitElimination(ω*). -/
 theorem unitRefute_preserves_others
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
@@ -513,7 +513,7 @@ theorem unitRefute_preserves_others
     (ω_star ω : CutWorld L C)
     (h_ne : ω ≠ ω_star)
     (constraints_after : List (CutConstraint L C))
-    (h_extended : constraints_after = extractConstraints L C π ++ [CutConstraint.UnitRefute ω_star])
+    (h_extended : constraints_after = extractConstraints L C π ++ [CutConstraint.UnitElimination ω_star])
     : ω ∈ NormalForm.FeasibleUnder (extractConstraints L C π) ↔
       ω ∈ NormalForm.FeasibleUnder constraints_after := by
   constructor
@@ -524,7 +524,7 @@ theorem unitRefute_preserves_others
     obtain ⟨h_mem, h_satisfied_before⟩ := h_before
     constructor
     · exact h_mem
-    · -- ω satisfies all constraints after (including UnitRefute(ω_star))
+    · -- ω satisfies all constraints after (including UnitElimination(ω_star))
       rw [List.all_eq_true] at h_satisfied_before ⊢
       intro c h_c_in
       rw [h_extended, List.mem_append, List.mem_singleton] at h_c_in
@@ -533,7 +533,7 @@ theorem unitRefute_preserves_others
           -- Old constraint: ω satisfied it before
           exact h_satisfied_before c h_old
       | inr h_new =>
-          -- New constraint: UnitRefute(ω_star)
+          -- New constraint: UnitElimination(ω_star)
           rw [h_new]
           simp only [decide_eq_true_iff]
           unfold CutConstraint.Satisfies
@@ -560,31 +560,31 @@ theorem unitRefute_preserves_others
 /-! ## WC-1 MAIN THEOREM (Paper's Protocol - FULLY Proven!)
 
 **MATCHES PAPER EXACTLY** (lines 7278-7297):
-- Verifier adds `UnitRefute(ω*)` to NF_C
+- Verifier adds `UnitElimination(ω*)` to NF_C
 - This excludes EXACTLY ω* (by definition!)
 - No workaround hypotheses needed!
 
 **PROOF**: Simple set arithmetic using the 4 lemmas above.
 -/
 
-/-- **WC-1 (WorldCommit Refutation Excludes Exactly One World)**
+/-- **WC-1 (WorldCommit Elimination Excludes Exactly One World)**
 
     **Paper reference**: Lines 7278-7297, Lemma WC-1.
 
     **Protocol**: Verifier checks certificate proves ω* contradicts artifact,
-    then adds `UnitRefute(ω*)` to NF_C. By definition, this excludes exactly ω*.
+    then adds `UnitElimination(ω*)` to NF_C. By definition, this excludes exactly ω*.
 
     **NO workaround hypotheses!** The "exactly 1" is by protocol specification.
 -/
-theorem world_commit_refutation_excludes_one
+theorem world_commit_elimination_excludes_one
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (π : ExecutionPrefixReal L)
     (ω_star : CutWorld L C)
     (h_commit : CommitSelector L C π = some ω_star)
     (cert : RefuteCertificate L C π)
-    (_h_valid : VerifyRefutation cert = true)
-    : let constraints_after := extractConstraints L C π ++ [CutConstraint.UnitRefute ω_star]
+    (_h_valid : VerifyElimination cert = true)
+    : let constraints_after := extractConstraints L C π ++ [CutConstraint.UnitElimination ω_star]
       (NormalForm.FeasibleUnder (extractConstraints L C π)).card =
       (NormalForm.FeasibleUnder constraints_after).card + 1 := by
 
@@ -595,7 +595,7 @@ theorem world_commit_refutation_excludes_one
   -- Lemma 1 (WC-1.1): ω_star was feasible before
   have h_ω_before := committedWorld_feasible_before L C π ω_star h_commit
 
-  -- Lemma 2 (WC-1.3): ω_star not feasible after (violates UnitRefute(ω_star))
+  -- Lemma 2 (WC-1.3): ω_star not feasible after (violates UnitElimination(ω_star))
   have h_ω_after := unitRefute_excludes_target L C π ω_star constraints_after rfl
 
   -- Lemma 3 (WC-1.4): Set decomposition using preservation
@@ -617,7 +617,7 @@ theorem world_commit_refutation_excludes_one
       intro h_union
       cases h_union with
       | inl h_after =>
-          -- ω ∈ Feasible(after), and ω ≠ ω_star (else would violate UnitRefute)
+          -- ω ∈ Feasible(after), and ω ≠ ω_star (else would violate UnitElimination)
           have h_ne : ω ≠ ω_star := by
             intro h_eq
             rw [h_eq] at h_after
@@ -643,32 +643,32 @@ theorem world_commit_refutation_excludes_one
 
 /-! ## Part 7: Sequential WorldCommit Execution (for SegmentReduction)
 
-**PURPOSE**: Model the sequential execution process that generates refutations from
+**PURPOSE**: Model the sequential execution process that generates eliminations from
 digest observations, enabling proof of completeness for SegmentReduction.lean.
 
 **ARCHITECTURE**:
-- ExecutionState: tracks (feasible worlds, refuted worlds, remaining digests to check)
-- wcStep: single WorldCommit step (commit → check digest → refute if wrong)
+- ExecutionState: tracks (feasible worlds, eliminated worlds, remaining digests to check)
+- wcStep: single WorldCommit step (commit → check digest → eliminate if wrong)
 - wcExecute: iterate wcStep until termination
 - Completeness: prove surviving worlds satisfy all digests
 
-**WHY NEEDED**: SegmentReduction.lean's digest_complete_via_refutes requires proving
-that nf.refuted contains ALL worlds violating digest constraints. This needs modeling
-the sequential protocol that generates refutations.
+**WHY NEEDED**: SegmentReduction.lean's digest_complete_via_eliminations requires proving
+that nf.eliminated contains ALL worlds violating digest constraints. This needs modeling
+the sequential protocol that generates eliminations.
 -/
 
 /-- **Execution state** for sequential WorldCommit protocol.
 
     **Fields**:
     - feasible: Worlds currently feasible under bit constraints
-    - refuted: Worlds refuted so far (UnitRefute constraints)
+    - eliminated: Worlds eliminated so far (UnitElimination constraints)
     - pending_digests: Digest observations not yet checked
 -/
 structure WCExecutionState (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) where
-  /-- Currently feasible worlds (satisfy bit constraints, not yet refuted). -/
+  /-- Currently feasible worlds (satisfy bit constraints, not yet eliminated). -/
   feasible : Finset (CutWorld L C)
-  /-- Worlds refuted through WorldCommit protocol. -/
-  refuted : List (CutWorld L C)
+  /-- Worlds eliminated through WorldCommit protocol. -/
+  eliminated : List (CutWorld L C)
   /-- Digest constraints not yet processed. -/
   pending_digests : List (CutConstraint L C)
 
@@ -698,9 +698,9 @@ noncomputable def wcStep
   | digest_c :: rest_digests =>
       -- Process this digest on all worlds
       let new_feasible := state.feasible.filter (fun ω => decide (digest_c.Satisfies ω))
-      let newly_refuted := (state.feasible.filter (fun ω => decide (¬digest_c.Satisfies ω))).toList
+      let newly_eliminated := (state.feasible.filter (fun ω => decide (¬digest_c.Satisfies ω))).toList
       { feasible := new_feasible
-        refuted := state.refuted ++ newly_refuted
+        eliminated := state.eliminated ++ newly_eliminated
         pending_digests := rest_digests }
 
 /-! ## wcProcessOneDigest: Helper for processing one digest
@@ -712,7 +712,7 @@ noncomputable def wcStep
 
     **Design**: Check all worlds against digest (exhaustive filtering approach).
 
-    **Correctness**: All and only worlds violating digest_c are refuted.
+    **Correctness**: All and only worlds violating digest_c are eliminated.
 
     **Efficiency**: Same O(n) per digest as before (filter vs erase both O(n)).
 -/
@@ -725,9 +725,9 @@ noncomputable def wcProcessOneDigest
   -- Filter: keep worlds that satisfy digest_c
   let new_feasible := state.feasible.filter (fun ω => decide (digest_c.Satisfies ω))
   -- Refute: worlds that don't satisfy digest_c
-  let newly_refuted := (state.feasible.filter (fun ω => decide (¬digest_c.Satisfies ω))).toList
+  let newly_eliminated := (state.feasible.filter (fun ω => decide (¬digest_c.Satisfies ω))).toList
   { feasible := new_feasible
-    refuted := state.refuted ++ newly_refuted
+    eliminated := state.eliminated ++ newly_eliminated
     pending_digests := state.pending_digests }
 
 /-- **Key Lemma 1**: Processing a digest preserves exactly worlds satisfying it.
@@ -780,7 +780,7 @@ theorem wcProcessOneDigest_filter_semantics
 
     **Termination**: Structural recursion on digest_constraints list.
 
-    **Returns**: Final state with all refutations applied.
+    **Returns**: Final state with all eliminations applied.
 
     **Correctness**: Proven in worldCommit_sequential_completeness (no sorries!).
 -/
@@ -796,10 +796,10 @@ noncomputable def wcExecute
     (fun state digest_c => wcProcessOneDigest L C digest_c state)
     -- Initial state
     { feasible := initial_feasible
-      refuted := []
+      eliminated := []
       pending_digests := [] }  -- Not used in foldl version
 
-/-! ## Completeness Theorem: Sequential execution produces complete refutations
+/-! ## Completeness Theorem: Sequential execution produces complete eliminations
 
 **KEY PROPERTY**: After wcExecute completes, any surviving world satisfies ALL digests.
 
@@ -877,7 +877,7 @@ theorem wcExecute_satisfies_processed_digests
     **Statement**: After wcExecute completes, any world in the final feasible set
     satisfies ALL digest constraints.
 
-    **This is the KEY LEMMA** needed for SegmentReduction.lean's digest_complete_via_refutes!
+    **This is the KEY LEMMA** needed for SegmentReduction.lean's digest_complete_via_eliminations!
 -/
 theorem worldCommit_sequential_completeness
     (L : LStarInstanceFG)
@@ -896,7 +896,7 @@ theorem worldCommit_sequential_completeness
   -- Apply the stronger invariant lemma directly
   show digest_constraints.all (fun c => c.Satisfies ω)
   apply wcExecute_satisfies_processed_digests L C digest_constraints
-          { feasible := initial_feasible, refuted := [], pending_digests := [] }
+          { feasible := initial_feasible, eliminated := [], pending_digests := [] }
           ω
   -- h_ω_feasible : ω ∈ final_state.feasible
   -- final_state = wcExecute ... = foldl ...
@@ -906,16 +906,16 @@ theorem worldCommit_sequential_completeness
 
 **KEY PROPERTY**: Every world in initial_feasible ends up in EXACTLY ONE of:
 - final_state.feasible (if it satisfies all digests)
-- final_state.refuted (if it violates at least one digest)
+- final_state.eliminated (if it violates at least one digest)
 -/
 
-/-- **Partition Lemma**: wcExecute partitions initial set into feasible OR refuted.
+/-- **Partition Lemma**: wcExecute partitions initial set into feasible OR eliminated.
 
     Every world that starts in initial_feasible either:
     1. Stays in feasible (satisfies all digests), OR
-    2. Gets moved to refuted (violates at least one digest)
+    2. Gets moved to eliminated (violates at least one digest)
 
-    This enables proof-by-cases: if ω ∈ initial and ω ∉ refuted, then ω ∈ feasible.
+    This enables proof-by-cases: if ω ∈ initial and ω ∉ eliminated, then ω ∈ feasible.
 -/
 theorem wcExecute_partitions_initial
     (L : LStarInstanceFG)
@@ -925,7 +925,7 @@ theorem wcExecute_partitions_initial
     (initial_feasible : Finset (CutWorld L C))
     : let final_state := wcExecute L C bit_constraints digest_constraints initial_feasible
       ∀ ω ∈ initial_feasible,
-        (ω ∈ final_state.feasible) ∨ (ω ∈ final_state.refuted) := by
+        (ω ∈ final_state.feasible) ∨ (ω ∈ final_state.eliminated) := by
 
   intro final_state ω h_ω_initial
   -- No unfold needed - definitional equality handles wcExecute = foldl
@@ -934,8 +934,8 @@ theorem wcExecute_partitions_initial
   suffices h : ∀ (digests : List (CutConstraint L C)) (init_state : WCExecutionState L C),
       ω ∈ init_state.feasible →
       let final := digests.foldl (fun s d => wcProcessOneDigest L C d s) init_state
-      (ω ∈ final.feasible) ∨ (ω ∈ final.refuted) by
-    apply h digest_constraints { feasible := initial_feasible, refuted := [], pending_digests := [] }
+      (ω ∈ final.feasible) ∨ (ω ∈ final.eliminated) by
+    apply h digest_constraints { feasible := initial_feasible, eliminated := [], pending_digests := [] }
     exact h_ω_initial
 
   intro digests
@@ -953,7 +953,7 @@ theorem wcExecute_partitions_initial
       let state_after_d := wcProcessOneDigest L C d init_state
 
       -- Case 1: ω satisfies d → stays in feasible, apply IH
-      -- Case 2: ω doesn't satisfy d → moves to refuted
+      -- Case 2: ω doesn't satisfy d → moves to eliminated
 
       by_cases h_sat : d.Satisfies ω
       · -- ω satisfies d, so stays in feasible after processing d
@@ -964,70 +964,70 @@ theorem wcExecute_partitions_initial
           exact mem_filter_decide_mpr _ _ _ ⟨h_in_init, h_sat⟩
         -- Apply IH to rest of list
         exact ih state_after_d h_in_after_d
-      · -- ω doesn't satisfy d, so moves to refuted
-        have h_in_refuted_after_d : ω ∈ state_after_d.refuted := by
-          show ω ∈ (wcProcessOneDigest L C d init_state).refuted
+      · -- ω doesn't satisfy d, so moves to eliminated
+        have h_in_eliminated_after_d : ω ∈ state_after_d.eliminated := by
+          show ω ∈ (wcProcessOneDigest L C d init_state).eliminated
           unfold wcProcessOneDigest
           simp only
-          -- newly_refuted = feasible.filter (¬satisfies d)
+          -- newly_eliminated = feasible.filter (¬satisfies d)
           have : ω ∈ (init_state.feasible.filter (fun ω' => decide (¬d.Satisfies ω'))).toList := by
             simp
             exact ⟨h_in_init, h_sat⟩
           exact List.mem_append_right _ this
-        -- Once in refuted, stays in refuted (monotonic)
-        have refuted_monotonic :
+        -- Once in eliminated, stays in eliminated (monotonic)
+        have eliminated_monotonic :
           ∀ (ds : List (CutConstraint L C)) (st : WCExecutionState L C),
-            ω ∈ st.refuted →
-            ω ∈ (ds.foldl (fun s dig => wcProcessOneDigest L C dig s) st).refuted := by
+            ω ∈ st.eliminated →
+            ω ∈ (ds.foldl (fun s dig => wcProcessOneDigest L C dig s) st).eliminated := by
           intro ds
           induction ds with
           | nil => intro _ h_in; simp [List.foldl_nil]; exact h_in
           | cons dig ds' ih_mono =>
               intro st h_in
               simp only [List.foldl_cons]
-              have : ω ∈ (wcProcessOneDigest L C dig st).refuted := by
+              have : ω ∈ (wcProcessOneDigest L C dig st).eliminated := by
                 unfold wcProcessOneDigest
                 simp only
                 exact List.mem_append_left _ h_in
               exact ih_mono _ this
         right
-        exact refuted_monotonic rest state_after_d h_in_refuted_after_d
+        exact eliminated_monotonic rest state_after_d h_in_eliminated_after_d
 
-/-! ## Monotonicity Properties for refutationCount
+/-! ## Monotonicity Properties for eliminationCount
 
-These theorems support proving refutationCount monotonicity in ExecutionHistory.lean.
+These theorems support proving eliminationCount monotonicity in ExecutionHistory.lean.
 -/
 
 /-- **Helper: Refuted worlds violate at least one digest**.
 
-    If a world is in the refuted list after wcExecute, it violated at least one digest constraint.
+    If a world is in the eliminated list after wcExecute, it violated at least one digest constraint.
 
-    **Proof**: By induction on the digest list, tracking what gets added to refuted. -/
-theorem wcExecute_refuted_implies_violation
+    **Proof**: By induction on the digest list, tracking what gets added to eliminated. -/
+theorem wcExecute_eliminated_implies_violation
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (bit_constraints : List (CutConstraint L C))
     (digests : List (CutConstraint L C))
     (initial : Finset (CutWorld L C))
     (ω : CutWorld L C)
-    (h_in_refuted : ω ∈ (wcExecute L C bit_constraints digests initial).refuted)
+    (h_in_eliminated : ω ∈ (wcExecute L C bit_constraints digests initial).eliminated)
     : (ω ∈ initial) ∧ (∃ d ∈ digests, ¬d.Satisfies ω) := by
 
-  unfold wcExecute at h_in_refuted
+  unfold wcExecute at h_in_eliminated
   -- wcExecute expands to foldl
   -- Prove by induction on digests list
   suffices h : ∀ (ds : List (CutConstraint L C)) (init_state : WCExecutionState L C),
-      ω ∈ (ds.foldl (fun s d => wcProcessOneDigest L C d s) init_state).refuted →
-      (ω ∈ init_state.feasible ∨ ω ∈ init_state.refuted) ∧
-      (ω ∈ init_state.refuted ∨ ∃ d ∈ ds, ¬d.Satisfies ω) by
-    have := h digests { feasible := initial, refuted := [], pending_digests := [] } h_in_refuted
-    obtain ⟨h_initial_or_refuted, h_viol⟩ := this
+      ω ∈ (ds.foldl (fun s d => wcProcessOneDigest L C d s) init_state).eliminated →
+      (ω ∈ init_state.feasible ∨ ω ∈ init_state.eliminated) ∧
+      (ω ∈ init_state.eliminated ∨ ∃ d ∈ ds, ¬d.Satisfies ω) by
+    have := h digests { feasible := initial, eliminated := [], pending_digests := [] } h_in_eliminated
+    obtain ⟨h_initial_or_eliminated, h_viol⟩ := this
     constructor
-    · cases h_initial_or_refuted with
+    · cases h_initial_or_eliminated with
       | inl h_in => exact h_in
-      | inr h_in => simp at h_in  -- refuted was initially []
+      | inr h_in => simp at h_in  -- eliminated was initially []
     · cases h_viol with
-      | inl h_in => simp at h_in  -- refuted was initially []
+      | inl h_in => simp at h_in  -- eliminated was initially []
       | inr h_ex => exact h_ex
 
   intro ds
@@ -1049,7 +1049,7 @@ theorem wcExecute_refuted_implies_violation
       obtain ⟨h_in_after_d, h_viol_after_d⟩ := ih_result
 
       constructor
-      · -- ω was in state_after_d.feasible or state_after_d.refuted
+      · -- ω was in state_after_d.feasible or state_after_d.eliminated
         cases h_in_after_d with
         | inl h_in_feas =>
             -- ω was in state_after_d.feasible, so it was in init_state.feasible and satisfied d
@@ -1057,16 +1057,16 @@ theorem wcExecute_refuted_implies_violation
               wcProcessOneDigest_preserves_satisfying_worlds L C d init_state ω h_in_feas
             left; exact this.1
         | inr h_in_ref_after_d =>
-            -- ω was in state_after_d.refuted
-            -- refuted either came from init_state.refuted or was newly added
+            -- ω was in state_after_d.eliminated
+            -- eliminated either came from init_state.eliminated or was newly added
             unfold wcProcessOneDigest at h_in_ref_after_d
-            have : ω ∈ init_state.refuted ∨
+            have : ω ∈ init_state.eliminated ∨
                    ω ∈ (init_state.feasible.filter (fun ω' => decide (¬d.Satisfies ω'))).toList :=
               List.mem_append.mp h_in_ref_after_d
             cases this with
             | inl h_old => right; exact h_old
             | inr h_new =>
-                -- ω was newly refuted, so it was in feasible and violated d
+                -- ω was newly eliminated, so it was in feasible and violated d
                 have h_props : ω ∈ init_state.feasible ∧ ¬d.Satisfies ω := by
                   simp [Finset.mem_filter, Finset.mem_toList] at h_new
                   exact h_new
@@ -1075,9 +1075,9 @@ theorem wcExecute_refuted_implies_violation
       · -- ω violated some digest
         cases h_viol_after_d with
         | inl h_in_ref_after_d =>
-            -- ω was already in state_after_d.refuted, so either old or new
+            -- ω was already in state_after_d.eliminated, so either old or new
             unfold wcProcessOneDigest at h_in_ref_after_d
-            have : ω ∈ init_state.refuted ∨
+            have : ω ∈ init_state.eliminated ∨
                    ω ∈ (init_state.feasible.filter (fun ω' => decide (¬d.Satisfies ω'))).toList :=
               List.mem_append.mp h_in_ref_after_d
             cases this with
@@ -1134,7 +1134,7 @@ theorem wcExecute_feasible_monotone_contravariant
 
   -- ω must be in initial₂ (since it survived to final)
   have h_ω_in_initial₂ : ω ∈ initial₂ := by
-    -- By partition property, ω is either in feasible or refuted
+    -- By partition property, ω is either in feasible or eliminated
     -- Since ω is in feasible, we need to trace back
     -- Actually, we use feasible monotonicity: final ⊆ initial
     have mono : ∀ (digests : List (CutConstraint L C)) (init : Finset (CutWorld L C)),
@@ -1154,7 +1154,7 @@ theorem wcExecute_feasible_monotone_contravariant
             unfold wcProcessOneDigest
             simp only
             exact Finset.filter_subset _ _
-      exact this digests { feasible := init, refuted := [], pending_digests := [] }
+      exact this digests { feasible := init, eliminated := [], pending_digests := [] }
     exact mono digest₂ initial₂ h_ω_in_final₂
 
   -- Since initial₂ ⊆ initial₁, we have ω ∈ initial₁
@@ -1167,20 +1167,20 @@ theorem wcExecute_feasible_monotone_contravariant
     have h_d_in_2 : d ∈ digest₂ := h_digest_subset d h_d_in_1
     exact h_sat_all_2 d h_d_in_2
 
-  -- Now prove ω is in final₁ by showing it never gets refuted
-  -- Use partition property: either in feasible or refuted
+  -- Now prove ω is in final₁ by showing it never gets eliminated
+  -- Use partition property: either in feasible or eliminated
   have h_partition : (ω ∈ (wcExecute L C bit_constraints digest₁ initial₁).feasible) ∨
-                     (ω ∈ (wcExecute L C bit_constraints digest₁ initial₁).refuted) :=
+                     (ω ∈ (wcExecute L C bit_constraints digest₁ initial₁).eliminated) :=
     wcExecute_partitions_initial L C bit_constraints digest₁ initial₁ ω h_ω_in_initial₁
 
   cases h_partition with
   | inl h_in_feasible => exact h_in_feasible
-  | inr h_in_refuted =>
-      -- ω is in refuted, which means it violated some digest in digest₁
+  | inr h_in_eliminated =>
+      -- ω is in eliminated, which means it violated some digest in digest₁
       -- But we proved ω satisfies all digests in digest₁ → contradiction
       exfalso
       -- Use helper lemma to get violation
-      have h_violation := wcExecute_refuted_implies_violation L C bit_constraints digest₁ initial₁ ω h_in_refuted
+      have h_violation := wcExecute_eliminated_implies_violation L C bit_constraints digest₁ initial₁ ω h_in_eliminated
       obtain ⟨_, d, h_d_in, h_not_sat⟩ := h_violation
       -- But we proved ω satisfies all in digest₁
       have h_sat : decide (d.Satisfies ω) = true := by
@@ -1197,10 +1197,10 @@ eliminates at most 1 world).
 
 **KEY DIFFERENCE FROM wcExecute**:
 - `wcExecute`: Batch processing (all worlds filtered by each digest simultaneously)
-- `wcExecuteSeq`: Sequential processing (commit to ω*, check digest, refute if violates, repeat)
+- `wcExecuteSeq`: Sequential processing (commit to ω*, check digest, eliminate if violates, repeat)
 
 **WHY NEEDED**: The batch implementation can eliminate multiple worlds per digest.
-The sequential model naturally gives W=1 by using WC-1 theorem (each UnitRefute
+The sequential model naturally gives W=1 by using WC-1 theorem (each UnitElimination
 excludes exactly 1 world).
 
 **ARCHITECTURE**:
@@ -1208,7 +1208,7 @@ excludes exactly 1 world).
 While feasible.Nonempty and digests remain:
   1. ω* ← CommitSelector(feasible)  -- Lexicographic minimum
   2. Check if ω* violates current digest
-  3. If yes: Add UnitRefute(ω*), remove ω* from feasible
+  3. If yes: Add UnitElimination(ω*), remove ω* from feasible
   4. If no and more worlds exist: Check next world
   5. If no and all checked: Move to next digest
 ```
@@ -1222,10 +1222,10 @@ While feasible.Nonempty and digests remain:
     digest we're checking against the world sequence.
 -/
 structure WCExecutionStateSeq (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) where
-  /-- Currently feasible worlds (not yet refuted). -/
+  /-- Currently feasible worlds (not yet eliminated). -/
   feasible : Finset (CutWorld L C)
-  /-- Worlds refuted so far (via UnitRefute constraints). -/
-  refuted : List (CutWorld L C)
+  /-- Worlds eliminated so far (via UnitElimination constraints). -/
+  eliminated : List (CutWorld L C)
   /-- Digests not yet processed. -/
   pending_digests : List (CutConstraint L C)
   /-- Current digest being checked (if any). -/
@@ -1233,7 +1233,7 @@ structure WCExecutionStateSeq (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) w
 
 /-- **Violators**: Worlds in feasible that don't satisfy the digest.
 
-    **Measure**: This decreases by 1 each time wcStepSeq refutes a world. -/
+    **Measure**: This decreases by 1 each time wcStepSeq eliminates a world. -/
 noncomputable def violatorsOf
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
@@ -1267,7 +1267,7 @@ noncomputable def wcSeqMeasure (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
        - If ω* violates: Refute ω*, continue with same digest
        - If ω* satisfies: Move to next digest
 
-    **Key property**: Each iteration refutes at most 1 world.
+    **Key property**: Each iteration eliminates at most 1 world.
 -/
 noncomputable def wcStepSeq
     (L : LStarInstanceFG)
@@ -1295,7 +1295,7 @@ noncomputable def wcStepSeq
           -- Continue with SAME digest to eliminate remaining violators
           { state with
             feasible := state.feasible.erase ω_star
-            refuted := state.refuted ++ [ω_star] }
+            eliminated := state.eliminated ++ [ω_star] }
         else
           -- No violators: all feasible worlds satisfy digest_c
           -- Move to next digest
@@ -1312,9 +1312,9 @@ noncomputable def wcStepSeq
 
     **Fuel**: Maximum number of iterations allowed (prevents infinite loops).
     Setting fuel = |initial| + |digests| suffices because:
-    - Each world can be refuted at most once
+    - Each world can be eliminated at most once
     - Each digest can be processed at most once
-    - Total iterations ≤ refutations + digest transitions
+    - Total iterations ≤ eliminations + digest transitions
 
     **Returns**: Final state after processing all digests (or running out of fuel).
 -/
@@ -1348,41 +1348,41 @@ noncomputable def wcExecuteSeq
     : WCExecutionState L C :=
   let initial_state_seq : WCExecutionStateSeq L C := {
     feasible := initial_feasible
-    refuted := []
+    eliminated := []
     pending_digests := digest_constraints
     current_digest := none
   }
-  -- Fuel: Each world refuted once + each digest processed once + overhead
+  -- Fuel: Each world eliminated once + each digest processed once + overhead
   let fuel := initial_feasible.card * digest_constraints.length + digest_constraints.length + 10
   let final_state_seq := wcExecuteSeqWithFuel L C fuel initial_state_seq
   -- Convert back to WCExecutionState
   { feasible := final_state_seq.feasible
-    refuted := final_state_seq.refuted
+    eliminated := final_state_seq.eliminated
     pending_digests := [] }
 
-/-! ## Key Lemma: Sequential Refutations are Unit Eliminations
+/-! ## Key Lemma: Sequential Eliminations are Unit Eliminations
 
-**CLAIM**: Each refutation in wcExecuteSeq corresponds to exactly one WC-1 application,
+**CLAIM**: Each elimination in wcExecuteSeq corresponds to exactly one WC-1 application,
 which eliminates exactly 1 world.
 
 **PROOF STRATEGY**:
-1. Show wcStepSeq adds at most 1 world to refuted list per iteration
-2. Use WC-1 theorem to show each refutation excludes exactly that world
-3. Count refutations = count eliminations
+1. Show wcStepSeq adds at most 1 world to eliminated list per iteration
+2. Use WC-1 theorem to show each elimination excludes exactly that world
+3. Count eliminations = count eliminations
 -/
 
-/-- **Refutation count for sequential execution**.
+/-- **Elimination count for sequential execution**.
 
-    **Definition**: Number of worlds in the refuted list.
+    **Definition**: Number of worlds in the eliminated list.
 -/
-noncomputable def seqRefutationCount
+noncomputable def seqEliminationCount
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (bit_constraints : List (CutConstraint L C))
     (digest_constraints : List (CutConstraint L C))
     (initial_feasible : Finset (CutWorld L C))
     : Nat :=
-  (wcExecuteSeq L C bit_constraints digest_constraints initial_feasible).refuted.length
+  (wcExecuteSeq L C bit_constraints digest_constraints initial_feasible).eliminated.length
 
 /-- **Helper Lemma**: wcStepSeq preserves feasible ⊆ initial.
 
@@ -1415,12 +1415,12 @@ theorem wcStepSeq_feasible_subset_preserved
 
 /-! ### Helper Lemmas for Per-Digest Equivalence -/
 
-/-- **Helper 1**: When violators exist, wcStepSeq refutes exactly one violator.
+/-- **Helper 1**: When violators exist, wcStepSeq eliminates exactly one violator.
 
     **Statement**: If violators(state, digest) ≠ ∅, then wcStepSeq removes one violator
     and preserves all non-violators.
 -/
-theorem wcStepSeq_refutes_one_violator
+theorem wcStepSeq_eliminates_one_violator
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (state : WCExecutionStateSeq L C)
@@ -1430,8 +1430,8 @@ theorem wcStepSeq_refutes_one_violator
     (h_viol_nonempty : (violatorsOf L C state.feasible digest).Nonempty)
     : let next := wcStepSeq L C state
       -- Refutes exactly one violator
-      ∃ ω_refuted ∈ violatorsOf L C state.feasible digest,
-        next.feasible = state.feasible.erase ω_refuted ∧
+      ∃ ω_eliminated ∈ violatorsOf L C state.feasible digest,
+        next.feasible = state.feasible.erase ω_eliminated ∧
         -- Current digest unchanged
         next.current_digest = some digest ∧
         -- Pending unchanged
@@ -1445,7 +1445,7 @@ theorem wcStepSeq_refutes_one_violator
     simp only [h_feas, ↓reduceIte]
     -- Violators nonempty (hypothesis)
     simp only [h_viol_nonempty, ↓reduceIte]
-    -- wcStepSeq picks minimum violator and refutes it
+    -- wcStepSeq picks minimum violator and eliminates it
     let ω_star := findMinimumWorld L C (violatorsOf L C state.feasible digest) h_viol_nonempty
     use ω_star
     constructor
@@ -1455,7 +1455,7 @@ theorem wcStepSeq_refutes_one_violator
     · -- feasible = state.feasible.erase ω_star
       rfl
     constructor
-    · -- current_digest unchanged (refutation doesn't advance)
+    · -- current_digest unchanged (elimination doesn't advance)
       rfl
     · -- pending unchanged
       rfl
@@ -1650,13 +1650,13 @@ theorem wcExecute_feasible_iff_satisfies_all
     exact worldCommit_sequential_completeness L C bit_constraints digest_constraints initial_feasible ω h_feasible
   · -- Backward: all constraints satisfied → ω ∈ final.feasible
     intro h_all_sat
-    -- Use partition lemma: ω ∈ feasible OR ω ∈ refuted
+    -- Use partition lemma: ω ∈ feasible OR ω ∈ eliminated
     have h_partition := wcExecute_partitions_initial L C bit_constraints digest_constraints initial_feasible ω h_ω_initial
     cases h_partition with
     | inl h_feas => exact h_feas
     | inr h_ref =>
-        -- ω ∈ refuted means it violated some digest (by wcExecute_refuted_implies_violation)
-        have h_viol := wcExecute_refuted_implies_violation L C bit_constraints digest_constraints initial_feasible ω h_ref
+        -- ω ∈ eliminated means it violated some digest (by wcExecute_eliminated_implies_violation)
+        have h_viol := wcExecute_eliminated_implies_violation L C bit_constraints digest_constraints initial_feasible ω h_ref
         obtain ⟨_, ⟨d, h_d_mem, h_not_sat⟩⟩ := h_viol
         -- But h_all_sat says all digests are satisfied, contradiction
         -- Use List.all semantics: all p list = true means p holds for all elements
@@ -1677,7 +1677,7 @@ No custom axioms are introduced.
 
 #print axioms WCExecutionState
 #print axioms WCExecutionStateSeq
-#print axioms world_commit_refutation_excludes_one
+#print axioms world_commit_elimination_excludes_one
 #print axioms unitRefute_excludes_target
 #print axioms wcExecute_satisfies_processed_digests
 #print axioms worldCommit_sequential_completeness

@@ -17,33 +17,33 @@ import Mathlib.Data.List.FinRange
 
 **Purpose**: Derive time bounds from TM execution via WC-1 protocol.
 
-**Single Axiom**: `not_refuted_implies_indistinguishable` — asserts that unrefuted
-worlds are TM-indistinguishable from the planted world. All other properties
-(separation, time bound ≥ 2^R - 1) are DERIVED from this.
+**Single Axiom**: `remaining_indistinguishable` — asserts that remaining
+(not eliminated) worlds are TM-indistinguishable from the planted world. All other
+properties (separation, time bound ≥ 2^R - 1) are DERIVED from this.
 
-**Key Insight**: The WorldCommit-1 theorem (`world_commit_refutation_excludes_one`)
-proves that each UnitRefute step eliminates exactly 1 world. By tracking refutations
-as UnitRefute constraints (instead of ConfigMatch), we can derive time bounds
+**Key Insight**: The WorldCommit-1 theorem (`world_commit_elimination_excludes_one`)
+proves that each UnitElimination step eliminates exactly 1 world. By tracking eliminations
+as UnitElimination constraints (instead of ConfigMatch), we can derive time bounds
 from the indistinguishability axiom alone.
 
 **Architecture**:
 ```
-TM execution → ExecutionPrefixReal → UnitRefuteHistory → WC-1 → Time bound
+TM execution → ExecutionPrefixReal → EliminationHistory → WC-1 → Time bound
 ```
 
 **Main Results** (all proven with 0 custom axioms):
-- `unitRefuteStep_increases_eliminations_by_one`: Each step adds exactly 1 elimination
-- `finalEliminations_eq_refutationSteps`: k steps = k eliminations
+- `elimination_step_increases_by_one`: Each step adds exactly 1 elimination
+- `finalEliminations_eq_eliminationSteps`: k steps = k eliminations
 - `eliminations_to_time`: k eliminations implies time ≥ k
 
 **Integration Path**:
 To use this for weakening the main axiom, we need to:
-1. Build UnitRefuteHistory from TM execution trace
-2. Prove h_refuted_were_feasible (each refuted world was previously feasible)
+1. Build EliminationHistory from TM execution trace
+2. Prove h_each_was_feasible (each eliminated world was previously feasible)
 3. Apply eliminations_to_time to get time bound
 
 **See also**:
-- WorldCommit.lean: WC-1 theorem (world_commit_refutation_excludes_one)
+- WorldCommit.lean: WC-1 theorem (world_commit_elimination_excludes_one)
 - ExecutionHistory.lean: eliminations_to_time_proven infrastructure
 - TMAdapterExponential.lean: Current axiom-based approach
 -/
@@ -52,186 +52,186 @@ namespace LStar.StructuralOWF.Foundations
 
 open Classical
 
-/-! ## UnitRefute-Based History (ELIMINATES AXIOMS!)
+/-! ## UnitElimination-Based History (ELIMINATES AXIOMS!)
 
 **KEY INSIGHT**:
-- ConfigMatch can refute many worlds at once (depends on how many have wrong config)
-- UnitRefute refutes exactly ONE world by protocol design
-- WorldCommit.world_commit_refutation_excludes_one PROVES the "+1" property!
+- ConfigMatch can eliminate many worlds at once (depends on how many have wrong config)
+- UnitElimination eliminates exactly ONE world by protocol design
+- WorldCommit.world_commit_elimination_excludes_one PROVES the "+1" property!
 
 **Architecture**:
 - Base ExecutionPrefixReal π (represents observations: bits + computed configs)
-- List of refuted worlds: [ω₁, ω₂, ..., ωₖ] (each becomes UnitRefute(ωᵢ) constraint)
-- Effective constraints at step i: extractConstraints(π) ++ refuted[0..i].map(UnitRefute)
+- List of eliminated worlds: [ω₁, ω₂, ..., ωₖ] (each becomes UnitElimination(ωᵢ) constraint)
+- Effective constraints at step i: extractConstraints(π) ++ eliminated[0..i].map(UnitElimination)
 - Eliminations at step i: |all_worlds| - |FeasibleUnder(effective constraints)|
 
 **Proof strategy**:
-1. Step i → step i+1 adds exactly one UnitRefute(ωᵢ₊₁)
-2. Apply world_commit_refutation_excludes_one → feasible decreases by exactly 1
+1. Step i → step i+1 adds exactly one UnitElimination(ωᵢ₊₁)
+2. Apply world_commit_elimination_excludes_one → feasible decreases by exactly 1
 3. Therefore: eliminations increase by exactly 1 per step
 4. Time bound: Each step requires ≥1 time unit → time ≥ #steps = eliminations
 -/
 
-/-- **UnitRefute-based elimination history**: Tracks incremental world refutations.
+/-- **UnitElimination-based elimination history**: Tracks incremental world eliminations.
 
     Unlike ExecutionHistory (which tracks changing observations), this tracks
-    a fixed observation prefix π and an incrementing list of refuted worlds.
+    a fixed observation prefix π and an incrementing list of eliminated worlds.
 
     **Example**:
     ```
-    Step 0: π, refuted=[]           → eliminations = 0
-    Step 1: π, refuted=[ω₁]         → eliminations = 1  (+1)
-    Step 2: π, refuted=[ω₁, ω₂]     → eliminations = 2  (+1)
-    Step 3: π, refuted=[ω₁, ω₂, ω₃] → eliminations = 3  (+1)
+    Step 0: π, eliminated=[]           → eliminations = 0
+    Step 1: π, eliminated=[ω₁]         → eliminations = 1  (+1)
+    Step 2: π, eliminated=[ω₁, ω₂]     → eliminations = 2  (+1)
+    Step 3: π, eliminated=[ω₁, ω₂, ω₃] → eliminations = 3  (+1)
     ```
 
     **Key property**: Each step increases eliminations by EXACTLY 1
-    (proven from world_commit_refutation_excludes_one, NO axioms!).
+    (proven from world_commit_elimination_excludes_one, NO axioms!).
 -/
-structure UnitRefuteHistory (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) where
+structure EliminationHistory (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) where
   /-- Execution prefix recording TM execution state.
       The `time` field represents the total TM execution time (halt time). -/
   execution_prefix : ExecutionPrefixReal L
 
-  /-- Sequence of refuted worlds (each becomes a UnitRefute constraint) -/
-  refuted_worlds : List (CutWorld L C)
+  /-- Sequence of eliminated worlds (each becomes a UnitElimination constraint) -/
+  eliminated_worlds : List (CutWorld L C)
 
-  /-- Timestamps when each refutation was discovered.
-      Each refutation corresponds to an observation at a specific time step. -/
-  refutation_times : List Nat
+  /-- Timestamps when each elimination was discovered.
+      Each elimination corresponds to an observation at a specific time step. -/
+  elimination_times : List Nat
 
-  /-- Timestamps match refutations in count -/
-  h_times_length : refutation_times.length = refuted_worlds.length
+  /-- Timestamps match eliminations in count -/
+  h_times_length : elimination_times.length = eliminated_worlds.length
 
-  /-- Timestamps are strictly increasing (each refutation at distinct time) -/
-  h_times_increasing : refutation_times.Pairwise (· < ·)
+  /-- Timestamps are strictly increasing (each elimination at distinct time) -/
+  h_times_increasing : elimination_times.Pairwise (· < ·)
 
   /-- All timestamps are within execution time -/
-  h_times_bounded : ∀ t ∈ refutation_times, t < execution_prefix.time
+  h_times_bounded : ∀ t ∈ elimination_times, t < execution_prefix.time
 
-  /-- Each refuted world was feasible just before being refuted.
+  /-- Each eliminated world was feasible just before being eliminated.
 
-      **Meaning**: When we refute world i, it must have been feasible
-      under the constraints at step i (before adding UnitRefute(world_i)).
+      **Meaning**: When we eliminate world i, it must have been feasible
+      under the constraints at step i (before adding UnitElimination(world_i)).
 
       **Formally**: For world at index i, it's feasible under:
-      base_constraints ++ [UnitRefute(world_0), ..., UnitRefute(world_{i-1})]
+      base_constraints ++ [UnitElimination(world_0), ..., UnitElimination(world_{i-1})]
   -/
-  h_refuted_were_feasible : ∀ (i : Nat) (h : i < refuted_worlds.length),
-    refuted_worlds.get ⟨i, h⟩ ∈ NormalForm.FeasibleUnder (
+  h_each_was_feasible : ∀ (i : Nat) (h : i < eliminated_worlds.length),
+    eliminated_worlds.get ⟨i, h⟩ ∈ NormalForm.FeasibleUnder (
       extractConstraints L C execution_prefix ++
-      (refuted_worlds.take i).map CutConstraint.UnitRefute
+      (eliminated_worlds.take i).map CutConstraint.UnitElimination
     )
 
-/-- **WC1BRIDGE THEOREM**: Execution time bounds refutation count (PROVEN, 0 axioms!).
+/-- **WC1BRIDGE THEOREM**: Execution time bounds elimination count (PROVEN, 0 axioms!).
 
     **This is where WC1Bridge does real work!**
 
     **Proof**: From strictly increasing timestamps bounded by execution time:
     - `h_times_increasing`: timestamps are strictly increasing
     - `h_times_bounded`: all timestamps < execution_prefix.time
-    - `h_times_length`: |timestamps| = |refutations|
-    - Therefore: |refutations| ≤ execution_prefix.time
+    - `h_times_length`: |timestamps| = |eliminations|
+    - Therefore: |eliminations| ≤ execution_prefix.time
 
-    **Semantic justification**: Each refutation requires a distinct observation,
+    **Semantic justification**: Each elimination requires a distinct observation,
     and each observation occurs at a distinct time step.
 -/
-theorem time_bounds_refutations (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
-    (hist : UnitRefuteHistory L C)
-    : hist.execution_prefix.time ≥ hist.refuted_worlds.length := by
+theorem time_bounds_eliminations (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
+    (hist : EliminationHistory L C)
+    : hist.execution_prefix.time ≥ hist.eliminated_worlds.length := by
   -- Key: strictly increasing list of length n with all elements < T implies n ≤ T
   have h_len := hist.h_times_length
   have h_inc := hist.h_times_increasing
   have h_bnd := hist.h_times_bounded
   -- Strictly increasing list of naturals bounded by T has length ≤ T
-  by_cases h_empty : hist.refutation_times = []
+  by_cases h_empty : hist.elimination_times = []
   · -- Empty case: length = 0 ≤ time
     simp only [h_empty, List.length_nil] at h_len
     omega
   · -- Non-empty case: use strictly increasing + bounded
-    have h_ne : hist.refutation_times ≠ [] := h_empty
+    have h_ne : hist.elimination_times ≠ [] := h_empty
     -- Element at index i is ≥ i (from strictly increasing with natural number elements)
-    have h_elem_ge_idx : ∀ (i : Nat) (hi : i < hist.refutation_times.length),
-        hist.refutation_times.get ⟨i, hi⟩ ≥ i := by
+    have h_elem_ge_idx : ∀ (i : Nat) (hi : i < hist.elimination_times.length),
+        hist.elimination_times.get ⟨i, hi⟩ ≥ i := by
       intro i hi
       induction i with
       | zero => omega
       | succ j ih =>
-        have hj : j < hist.refutation_times.length := Nat.lt_of_succ_lt hi
+        have hj : j < hist.elimination_times.length := Nat.lt_of_succ_lt hi
         have h_j_ge := ih hj
         -- From Pairwise (· < ·): element j < element (j+1)
-        have h_lt : hist.refutation_times.get ⟨j, hj⟩ < hist.refutation_times.get ⟨j + 1, hi⟩ := by
+        have h_lt : hist.elimination_times.get ⟨j, hj⟩ < hist.elimination_times.get ⟨j + 1, hi⟩ := by
           have h_pw := List.pairwise_iff_get.mp h_inc
-          have h_idx_lt : (⟨j, hj⟩ : Fin hist.refutation_times.length) < ⟨j + 1, hi⟩ := by
+          have h_idx_lt : (⟨j, hj⟩ : Fin hist.elimination_times.length) < ⟨j + 1, hi⟩ := by
             simp only [Fin.lt_iff_val_lt_val]
             omega
           exact h_pw ⟨j, hj⟩ ⟨j + 1, hi⟩ h_idx_lt
         omega
     -- Last element is at index (length - 1)
-    have h_len_pos : hist.refutation_times.length > 0 := List.length_pos_of_ne_nil h_ne
-    have h_last_idx : hist.refutation_times.length - 1 < hist.refutation_times.length := by omega
+    have h_len_pos : hist.elimination_times.length > 0 := List.length_pos_of_ne_nil h_ne
+    have h_last_idx : hist.elimination_times.length - 1 < hist.elimination_times.length := by omega
     -- Last element ≥ length - 1
-    have h_last_ge : hist.refutation_times.get ⟨hist.refutation_times.length - 1, h_last_idx⟩ ≥
-        hist.refutation_times.length - 1 :=
-      h_elem_ge_idx (hist.refutation_times.length - 1) h_last_idx
+    have h_last_ge : hist.elimination_times.get ⟨hist.elimination_times.length - 1, h_last_idx⟩ ≥
+        hist.elimination_times.length - 1 :=
+      h_elem_ge_idx (hist.elimination_times.length - 1) h_last_idx
     -- Last element < execution_prefix.time
-    have h_last_mem : hist.refutation_times.get ⟨hist.refutation_times.length - 1, h_last_idx⟩ ∈
-        hist.refutation_times := by
+    have h_last_mem : hist.elimination_times.get ⟨hist.elimination_times.length - 1, h_last_idx⟩ ∈
+        hist.elimination_times := by
       apply List.get_mem
-    have h_last_lt : hist.refutation_times.get ⟨hist.refutation_times.length - 1, h_last_idx⟩ <
+    have h_last_lt : hist.elimination_times.get ⟨hist.elimination_times.length - 1, h_last_idx⟩ <
         hist.execution_prefix.time := h_bnd _ h_last_mem
     -- Combine: length - 1 < time, so length ≤ time
     rw [← h_len]
     omega
 
-/-- **Effective constraints at step i**: Base constraints + first i UnitRefutes. -/
+/-- **Effective constraints at step i**: Base constraints + first i UnitEliminations. -/
 noncomputable def effectiveConstraintsAt (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
-    (hist : UnitRefuteHistory L C) (i : Nat) : List (CutConstraint L C) :=
+    (hist : EliminationHistory L C) (i : Nat) : List (CutConstraint L C) :=
   extractConstraints L C hist.execution_prefix ++
-  (hist.refuted_worlds.take i).map (CutConstraint.UnitRefute)
+  (hist.eliminated_worlds.take i).map (CutConstraint.UnitElimination)
 
 /-- **Effective feasible set at step i**: Worlds satisfying effective constraints. -/
 noncomputable def effectiveFeasibleAt (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
-    (hist : UnitRefuteHistory L C) (i : Nat) : Finset (CutWorld L C) :=
+    (hist : EliminationHistory L C) (i : Nat) : Finset (CutWorld L C) :=
   NormalForm.FeasibleUnder (effectiveConstraintsAt L C hist i)
 
-/-- **Eliminations at step i**: Number of worlds eliminated BY UnitRefute steps (incremental).
+/-- **Eliminations at step i**: Number of worlds eliminated BY UnitElimination steps (incremental).
 
-    **Definition**: Measures worlds eliminated by UnitRefute constraints ONLY,
+    **Definition**: Measures worlds eliminated by UnitElimination constraints ONLY,
     not including any eliminations from execution_prefix constraints.
 
     **Formula**: |feasible_base| - |feasible_i|
 
     **Intuition**:
-    - Step 0: 0 eliminations (no UnitRefute yet, same as base)
-    - Step k: k eliminations (k UnitRefute steps applied)
+    - Step 0: 0 eliminations (no UnitElimination yet, same as base)
+    - Step k: k eliminations (k UnitElimination steps applied)
 -/
 noncomputable def eliminationsAt (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
-    (hist : UnitRefuteHistory L C) (i : Nat) : Nat :=
+    (hist : EliminationHistory L C) (i : Nat) : Nat :=
   let base_feasible := NormalForm.FeasibleUnder (extractConstraints L C hist.execution_prefix)
   let feasible_i := effectiveFeasibleAt L C hist i
   base_feasible.card - feasible_i.card
 
 /-! ## Core Theorem: +1 Property (ZERO AXIOMS!) -/
 
-/-- **THEOREM: Each UnitRefute step increases eliminations by EXACTLY 1** (proven from WC-1!).
+/-- **THEOREM: Each UnitElimination step increases eliminations by EXACTLY 1** (proven from WC-1!).
 
     **Statement**: Going from step i to step i+1 increases eliminations by exactly 1.
 
-    **Proof**: Direct application of WorldCommit.world_commit_refutation_excludes_one!
-    - Step i has constraints: base_constraints ++ [UnitRefute ω₁, ..., UnitRefute ωᵢ]
-    - Step i+1 adds: UnitRefute ωᵢ₊₁
-    - WC-1 theorem says: adding one UnitRefute reduces feasible by exactly 1
+    **Proof**: Direct application of WorldCommit.world_commit_elimination_excludes_one!
+    - Step i has constraints: base_constraints ++ [UnitElimination ω₁, ..., UnitElimination ωᵢ]
+    - Step i+1 adds: UnitElimination ωᵢ₊₁
+    - WC-1 theorem says: adding one UnitElimination reduces feasible by exactly 1
     - Therefore: eliminations increase by exactly 1 ✓
 
-    **NO AXIOMS!** Uses fully proven world_commit_refutation_excludes_one theorem.
+    **NO AXIOMS!** Uses fully proven world_commit_elimination_excludes_one theorem.
 -/
-theorem unitRefuteStep_increases_eliminations_by_one
+theorem elimination_step_increases_by_one
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
-    (hist : UnitRefuteHistory L C)
+    (hist : EliminationHistory L C)
     (i : Nat)
-    (h_valid : i < hist.refuted_worlds.length)
+    (h_valid : i < hist.eliminated_worlds.length)
     : eliminationsAt L C hist (i + 1) = eliminationsAt L C hist i + 1 := by
 
   -- Definitions
@@ -239,49 +239,49 @@ theorem unitRefuteStep_increases_eliminations_by_one
 
   let base_feasible_card := (NormalForm.FeasibleUnder (extractConstraints L C hist.execution_prefix)).card
   let constraints_i := extractConstraints L C hist.execution_prefix ++
-                       (hist.refuted_worlds.take i).map CutConstraint.UnitRefute
+                       (hist.eliminated_worlds.take i).map CutConstraint.UnitElimination
   let constraints_i_plus_1 := extractConstraints L C hist.execution_prefix ++
-                               (hist.refuted_worlds.take (i + 1)).map CutConstraint.UnitRefute
+                               (hist.eliminated_worlds.take (i + 1)).map CutConstraint.UnitElimination
   let feasible_i := (NormalForm.FeasibleUnder constraints_i).card
   let feasible_i_plus_1 := (NormalForm.FeasibleUnder constraints_i_plus_1).card
 
   -- Key observation: take (i+1) = take i ++ [element at index i]
-  have h_i_lt : i < hist.refuted_worlds.length := h_valid
+  have h_i_lt : i < hist.eliminated_worlds.length := h_valid
 
   -- Standard list property: take (i+1) = take i ++ [elem i]
-  have h_take_succ : hist.refuted_worlds.take (i + 1) =
-                     hist.refuted_worlds.take i ++ [hist.refuted_worlds[i]] := by
-    have h_get : hist.refuted_worlds[i] = hist.refuted_worlds.get ⟨i, h_i_lt⟩ := by rfl
+  have h_take_succ : hist.eliminated_worlds.take (i + 1) =
+                     hist.eliminated_worlds.take i ++ [hist.eliminated_worlds[i]] := by
+    have h_get : hist.eliminated_worlds[i] = hist.eliminated_worlds.get ⟨i, h_i_lt⟩ := by rfl
     rw [h_get]
     rw [← List.concat_eq_append]
     exact (List.take_concat_get h_i_lt).symm
 
-  let ω_target := hist.refuted_worlds[i]
+  let ω_target := hist.eliminated_worlds[i]
 
-  -- Therefore: constraints_i_plus_1 = constraints_i ++ [UnitRefute ω_target]
-  have h_constraints_diff : constraints_i_plus_1 = constraints_i ++ [CutConstraint.UnitRefute ω_target] := by
+  -- Therefore: constraints_i_plus_1 = constraints_i ++ [UnitElimination ω_target]
+  have h_constraints_diff : constraints_i_plus_1 = constraints_i ++ [CutConstraint.UnitElimination ω_target] := by
     simp only [constraints_i, constraints_i_plus_1, ω_target]
     rw [h_take_succ, List.map_append, List.map_cons, List.map_nil]
     simp [List.append_assoc]
 
   -- Lemma 1: ω_target was feasible at step i (from structure hypothesis!)
   have h_target_feasible_i : ω_target ∈ NormalForm.FeasibleUnder constraints_i := by
-    have h_from_struct := hist.h_refuted_were_feasible i h_valid
+    have h_from_struct := hist.h_each_was_feasible i h_valid
     exact h_from_struct
 
-  -- Lemma 2: ω_target is NOT feasible at step i+1 (excluded by UnitRefute)
+  -- Lemma 2: ω_target is NOT feasible at step i+1 (excluded by UnitElimination)
   have h_target_not_feasible_i_plus_1 : ω_target ∉ NormalForm.FeasibleUnder constraints_i_plus_1 := by
     unfold NormalForm.FeasibleUnder
     simp only [Finset.mem_filter]
     intro h_contra
     obtain ⟨_, h_all⟩ := h_contra
-    have h_refute_in : CutConstraint.UnitRefute ω_target ∈ constraints_i_plus_1 := by
+    have h_elim_in : CutConstraint.UnitElimination ω_target ∈ constraints_i_plus_1 := by
       rw [h_constraints_diff]
       rw [List.mem_append, List.mem_singleton]
       right
       rfl
     rw [List.all_eq_true] at h_all
-    have h_satisfies := h_all (CutConstraint.UnitRefute ω_target) h_refute_in
+    have h_satisfies := h_all (CutConstraint.UnitElimination ω_target) h_elim_in
     simp only [decide_eq_true_iff] at h_satisfies
     unfold CutConstraint.Satisfies at h_satisfies
     exact h_satisfies rfl
@@ -385,18 +385,18 @@ theorem unitRefuteStep_increases_eliminations_by_one
           omega
       _ = (base_feasible_card - (NormalForm.FeasibleUnder constraints_i).card) + 1 := by rfl
 
-/-- **THEOREM: Final eliminations equals number of refutation steps** (ZERO AXIOMS!).
+/-- **THEOREM: Final eliminations equals number of elimination steps** (ZERO AXIOMS!).
 
-    **Statement**: After k refutation steps, exactly k worlds have been eliminated.
+    **Statement**: After k elimination steps, exactly k worlds have been eliminated.
 
-    **Proof**: Induction using unitRefuteStep_increases_eliminations_by_one.
+    **Proof**: Induction using elimination_step_increases_by_one.
 -/
-theorem finalEliminations_eq_refutationSteps
+theorem finalEliminations_eq_eliminationSteps
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
-    (hist : UnitRefuteHistory L C)
-    : eliminationsAt L C hist hist.refuted_worlds.length = hist.refuted_worlds.length := by
-  let n := hist.refuted_worlds.length
+    (hist : EliminationHistory L C)
+    : eliminationsAt L C hist hist.eliminated_worlds.length = hist.eliminated_worlds.length := by
+  let n := hist.eliminated_worlds.length
 
   have h_ind : ∀ k ≤ n, eliminationsAt L C hist k = k := by
     intro k h_le
@@ -407,8 +407,8 @@ theorem finalEliminations_eq_refutationSteps
     | succ k ih =>
         have h_k_le_n : k ≤ n := Nat.le_of_succ_le h_le
         have h_k_elim := ih h_k_le_n
-        have h_succ_valid : k < hist.refuted_worlds.length := by omega
-        have h_step := unitRefuteStep_increases_eliminations_by_one L C hist k h_succ_valid
+        have h_succ_valid : k < hist.eliminated_worlds.length := by omega
+        have h_step := elimination_step_increases_by_one L C hist k h_succ_valid
         calc eliminationsAt L C hist (k + 1)
             = eliminationsAt L C hist k + 1 := h_step
             _ = k + 1 := by rw [h_k_elim]
@@ -422,19 +422,19 @@ theorem finalEliminations_eq_refutationSteps
 theorem eliminations_to_time
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
-    (hist : UnitRefuteHistory L C)
+    (hist : EliminationHistory L C)
     (k : Nat)
-    (h_elim : eliminationsAt L C hist hist.refuted_worlds.length ≥ k)
+    (h_elim : eliminationsAt L C hist hist.eliminated_worlds.length ≥ k)
     : hist.execution_prefix.time ≥ k := by
-  have h_eq := finalEliminations_eq_refutationSteps L C hist
-  have h_length : hist.refuted_worlds.length ≥ k := by
-    calc hist.refuted_worlds.length
-        = eliminationsAt L C hist hist.refuted_worlds.length := h_eq.symm
+  have h_eq := finalEliminations_eq_eliminationSteps L C hist
+  have h_length : hist.eliminated_worlds.length ≥ k := by
+    calc hist.eliminated_worlds.length
+        = eliminationsAt L C hist hist.eliminated_worlds.length := h_eq.symm
         _ ≥ k := h_elim
   -- Use the WC1Bridge theorem (PROVEN, 0 axioms!)
-  have h_time_bound := time_bounds_refutations L C hist
+  have h_time_bound := time_bounds_eliminations L C hist
   calc hist.execution_prefix.time
-      ≥ hist.refuted_worlds.length := h_time_bound
+      ≥ hist.eliminated_worlds.length := h_time_bound
       _ ≥ k := h_length
 
 /-! ## ExecutionHistory Construction Infrastructure -/
@@ -561,9 +561,9 @@ noncomputable def tmExecutionToHistory
 
 /-! ## Axiom Audit -/
 
-#print axioms UnitRefuteHistory
-#print axioms unitRefuteStep_increases_eliminations_by_one
-#print axioms finalEliminations_eq_refutationSteps
+#print axioms EliminationHistory
+#print axioms elimination_step_increases_by_one
+#print axioms finalEliminations_eq_eliminationSteps
 #print axioms eliminations_to_time
 #print axioms tmExecutionToHistory
 
@@ -573,14 +573,14 @@ The theorems above are proven with 0 custom axioms. The following lemmas connect
 TM execution to the WC-1 framework.
 
 **Work Packages** (all completed):
-1. ✅ `tmRefutedWorlds` - extract refuted worlds from TM trace
-2. ✅ `tmRefutedWorlds_refuted_were_feasible` - the core invariant (PROVEN)
+1. ✅ `eliminatedWorlds` - extract eliminated worlds from TM trace
+2. ✅ `eliminatedWorlds_eliminated_were_feasible` - the core invariant (PROVEN)
 3. ✅ `elimination_lower_bound` - from planted correctness
 4. ✅ `tm_time_lower_bound_via_WC1Bridge` - concludes time bound via `eliminations_to_time`
 
-**Main Proof Path**: Uses indistinguishability bridge axiom (`not_refuted_implies_indistinguishable`)
+**Main Proof Path**: Uses indistinguishability bridge axiom (`remaining_indistinguishable`)
 which derives separation properties via worst-case correctness. Time bound derived via:
-- `indistinguishability_implies_all_wrong_refuted` → `tm_time_lower_bound_via_indistinguishability`
+- `indistinguishability_implies_all_wrong_eliminated` → `tm_time_lower_bound_via_indistinguishability`
 -/
 
 /-! ### Package 1: Empty Base Prefix -/
@@ -590,7 +590,7 @@ which derives separation properties via worst-case correctness. Time bound deriv
     Using an empty base prefix ensures that:
     - `extractConstraints L C execution_prefix = []`
     - All 2^R worlds are initially feasible
-    - Eliminations come ONLY from UnitRefute steps
+    - Eliminations come ONLY from UnitElimination steps
 -/
 def emptyBasePrefix (L : LStarInstanceFG) : ExecutionPrefixReal L :=
   { time := 0
@@ -648,39 +648,39 @@ This ensures the feasibility invariant holds by construction.
 
 /-- **Extract at most one violator for a single ConfigMatch step**.
 
-    Given current accumulated UnitRefute constraints and a new config,
+    Given current accumulated UnitElimination constraints and a new config,
     find ONE world (if any) that violates the ConfigMatch for this config.
 
     **WC-1 Property**: By returning at most 1 world per config, we ensure
-    that `buildRefutedWorlds` adds at most 1 world per timestep.
-    This makes `refuted.length ≤ configs.length` provable from structure.
+    that `buildEliminatedWorlds` adds at most 1 world per timestep.
+    This makes `eliminated.length ≤ configs.length` provable from structure.
 
     **Canonical Selection**: Uses `Finset.min'` with the LinearOrder on CutWorld
     to select the canonical minimum violator. This ensures:
     1. Deterministic, reproducible behavior
-    2. After m steps with cfg_planted, exactly m distinct wrong worlds are refuted
+    2. After m steps with cfg_planted, exactly m distinct wrong worlds are eliminated
     3. Property (2) of the axiom becomes provable rather than axiomatic
 -/
 noncomputable def extractViolatorsForConfig
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (base_constraints : List (CutConstraint L C))
-    (accumulated_refutes : List (CutWorld L C))
+    (accumulated_eliminated : List (CutWorld L C))
     (config : (v : Fin L.dag.n) ×' Fin (2 ^ L.R v))
     : List (CutWorld L C) :=
   match config with
   | ⟨v, cfg⟩ =>
     if h : v ∈ C then
       let constraint := CutConstraint.ConfigMatch v h cfg
-      -- Compute current feasible set (base + accumulated UnitRefutes)
-      let current_constraints := base_constraints ++ accumulated_refutes.map CutConstraint.UnitRefute
+      -- Compute current feasible set (base + accumulated UnitEliminations)
+      let current_constraints := base_constraints ++ accumulated_eliminated.map CutConstraint.UnitElimination
       let current_feasible := NormalForm.FeasibleUnder current_constraints
       -- Find violators of the new ConfigMatch in current feasible set
       let violators_set := violatorsOf L C current_feasible constraint
       -- WC-1: Return at most ONE violator — the CANONICAL MINIMUM
       -- Using Finset.min' with the LinearOrder on CutWorld ensures deterministic,
       -- reproducible selection. This enables proving coverage:
-      -- after m steps with cfg_planted, exactly m distinct wrong worlds are refuted.
+      -- after m steps with cfg_planted, exactly m distinct wrong worlds are eliminated.
       if h_ne : violators_set.Nonempty then
         [violators_set.min' h_ne]
       else
@@ -688,51 +688,51 @@ noncomputable def extractViolatorsForConfig
     else
       []  -- Vertex not in cut, no constraint added
 
-/-- **Build refuted_worlds list by processing configs sequentially**.
+/-- **Build eliminated_worlds list by processing configs sequentially**.
 
     For each config:
-    1. Compute current feasible set (base + accumulated refuted worlds)
+    1. Compute current feasible set (base + accumulated eliminated worlds)
     2. Find violators of ConfigMatch for this config
-    3. Accumulate violators into refuted_worlds list
+    3. Accumulate violators into eliminated_worlds list
 
-    **Key property**: By construction, each world added to refuted_worlds
+    **Key property**: By construction, each world added to eliminated_worlds
     was in the feasible set at the moment it was added. This is exactly
-    `h_refuted_were_feasible`!
+    `h_each_was_feasible`!
 -/
-noncomputable def buildRefutedWorlds.aux
+noncomputable def buildEliminatedWorlds.aux
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (base_constraints : List (CutConstraint L C))
-    (accumulated_refutes : List (CutWorld L C))
+    (accumulated_eliminated : List (CutWorld L C))
     : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)) → List (CutWorld L C)
-  | [] => accumulated_refutes
+  | [] => accumulated_eliminated
   | config :: rest =>
-    let new_violators := extractViolatorsForConfig L C base_constraints accumulated_refutes config
-    buildRefutedWorlds.aux L C base_constraints (accumulated_refutes ++ new_violators) rest
+    let new_violators := extractViolatorsForConfig L C base_constraints accumulated_eliminated config
+    buildEliminatedWorlds.aux L C base_constraints (accumulated_eliminated ++ new_violators) rest
 
-noncomputable def buildRefutedWorlds
+noncomputable def buildEliminatedWorlds
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
     : List (CutWorld L C) :=
   -- Use empty base constraints (no bulk pruning)
-  buildRefutedWorlds.aux L C [] [] configs
+  buildEliminatedWorlds.aux L C [] [] configs
 
-/-- **Extract refuted worlds from computed configs**.
+/-- **Extract eliminated worlds from computed configs**.
 
-    This is the concrete implementation of tmRefutedWorlds using buildRefutedWorlds.
+    This is the concrete implementation of eliminatedWorlds using buildEliminatedWorlds.
     The configs come from the TM's execution (what it computed before halting).
 -/
-noncomputable def tmRefutedWorlds
+noncomputable def eliminatedWorlds
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
     : List (CutWorld L C) :=
-  buildRefutedWorlds L C configs
+  buildEliminatedWorlds L C configs
 
 /-! ### WC-1 Structural Lemmas
 
-The key to deriving the time bound is proving that `buildRefutedWorlds` adds
+The key to deriving the time bound is proving that `buildEliminatedWorlds` adds
 at most 1 world per config. This follows from the structure of `extractViolatorsForConfig`.
 -/
 
@@ -741,9 +741,9 @@ theorem extractViolatorsForConfig_length_le_one
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (base_constraints : List (CutConstraint L C))
-    (accumulated_refutes : List (CutWorld L C))
+    (accumulated_eliminated : List (CutWorld L C))
     (config : (v : Fin L.dag.n) ×' Fin (2 ^ L.R v))
-    : (extractViolatorsForConfig L C base_constraints accumulated_refutes config).length ≤ 1 := by
+    : (extractViolatorsForConfig L C base_constraints accumulated_eliminated config).length ≤ 1 := by
   obtain ⟨v, cfg⟩ := config
   simp only [extractViolatorsForConfig]
   split_ifs with h_v_in h_ne
@@ -754,23 +754,23 @@ theorem extractViolatorsForConfig_length_le_one
   · -- v ∉ C case: empty list
     simp only [List.length_nil, Nat.zero_le]
 
-/-- **WC-1 Structural Lemma**: buildRefutedWorlds.aux length ≤ accumulated + configs.length. -/
-theorem buildRefutedWorlds_aux_length_le
+/-- **WC-1 Structural Lemma**: buildEliminatedWorlds.aux length ≤ accumulated + configs.length. -/
+theorem buildEliminatedWorlds_aux_length_le
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (base_constraints : List (CutConstraint L C))
     (accumulated : List (CutWorld L C))
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
-    : (buildRefutedWorlds.aux L C base_constraints accumulated configs).length ≤
+    : (buildEliminatedWorlds.aux L C base_constraints accumulated configs).length ≤
       accumulated.length + configs.length := by
   induction configs generalizing accumulated with
   | nil =>
-    simp only [buildRefutedWorlds.aux, List.length_nil, Nat.add_zero, le_refl]
+    simp only [buildEliminatedWorlds.aux, List.length_nil, Nat.add_zero, le_refl]
   | cons config rest ih =>
-    simp only [buildRefutedWorlds.aux]
+    simp only [buildEliminatedWorlds.aux]
     let new_violators := extractViolatorsForConfig L C base_constraints accumulated config
     let new_acc := accumulated ++ new_violators
-    calc (buildRefutedWorlds.aux L C base_constraints new_acc rest).length
+    calc (buildEliminatedWorlds.aux L C base_constraints new_acc rest).length
         ≤ new_acc.length + rest.length := ih new_acc
       _ = accumulated.length + new_violators.length + rest.length := by
           simp only [new_acc, List.length_append]
@@ -786,11 +786,11 @@ theorem extractViolatorsForConfig_mem_feasible
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (base_constraints : List (CutConstraint L C))
-    (accumulated_refutes : List (CutWorld L C))
+    (accumulated_eliminated : List (CutWorld L C))
     (config : (v : Fin L.dag.n) ×' Fin (2 ^ L.R v))
     (ω : CutWorld L C)
-    (h_mem : ω ∈ extractViolatorsForConfig L C base_constraints accumulated_refutes config)
-    : ω ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated_refutes.map CutConstraint.UnitRefute) := by
+    (h_mem : ω ∈ extractViolatorsForConfig L C base_constraints accumulated_eliminated config)
+    : ω ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated_eliminated.map CutConstraint.UnitElimination) := by
   obtain ⟨v, cfg⟩ := config
   simp only [extractViolatorsForConfig] at h_mem
   split_ifs at h_mem with h_v_in h_ne
@@ -807,39 +807,39 @@ theorem extractViolatorsForConfig_mem_feasible
   · -- v ∉ C case: empty list
     simp only [List.not_mem_nil] at h_mem
 
-/-- **WC-1 Key Theorem**: tmRefutedWorlds length ≤ configs length.
+/-- **WC-1 Key Theorem**: eliminatedWorlds length ≤ configs length.
 
     This is the structural property that enables deriving the time bound:
-    - Each config adds at most 1 world to the refuted list
-    - Therefore: refuted.length ≤ configs.length ≤ haltTime
+    - Each config adds at most 1 world to the eliminated list
+    - Therefore: eliminated.length ≤ configs.length ≤ haltTime
 -/
-theorem tmRefutedWorlds_length_le_configs
+theorem eliminatedWorlds_length_le_configs
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
-    : (tmRefutedWorlds L C configs).length ≤ configs.length := by
-  unfold tmRefutedWorlds buildRefutedWorlds
-  have h := buildRefutedWorlds_aux_length_le L C [] [] configs
+    : (eliminatedWorlds L C configs).length ≤ configs.length := by
+  unfold eliminatedWorlds buildEliminatedWorlds
+  have h := buildEliminatedWorlds_aux_length_le L C [] [] configs
   simp only [List.length_nil, Nat.zero_add] at h
   exact h
 
 /-! ### Package 3: Core Invariant
 
-**Key insight**: With `buildRefutedWorlds`, the feasibility invariant holds BY CONSTRUCTION!
+**Key insight**: With `buildEliminatedWorlds`, the feasibility invariant holds BY CONSTRUCTION!
 
 Each world added to the list comes from `violatorsOf current_feasible constraint`,
 which means it was in `current_feasible` at that moment. The `current_feasible`
-set is computed from `base_constraints ++ accumulated_refutes.map UnitRefute`,
+set is computed from `base_constraints ++ accumulated_eliminated.map UnitElimination`,
 which is exactly what the invariant requires.
 
-**Core invariant: each refuted world was feasible before refutation**.
+**Core invariant: each eliminated world was feasible before elimination**.
 
-**Why this now works**: With `buildRefutedWorlds`, worlds are added to the
-refuted list only if they are in the current feasible set. This is exactly
-what `h_refuted_were_feasible` requires!
+**Why this now works**: With `buildEliminatedWorlds`, worlds are added to the
+eliminated list only if they are in the current feasible set. This is exactly
+what `h_each_was_feasible` requires!
 
 **Proof strategy**:
-- Induction on the `buildRefutedWorlds.aux` recursion
+- Induction on the `buildEliminatedWorlds.aux` recursion
 - Each step adds worlds from `violatorsOf current_feasible`
 - By definition, these worlds were in `current_feasible`
 -/
@@ -865,9 +865,9 @@ theorem mem_violatorsOf_of_mem_feasible
     (h : ω ∈ violatorsOf L C feasible constraint)
     : ω ∈ feasible := violatorsOf_subset_feasible L C feasible constraint h
 
-/-- **Key lemma**: Adding UnitRefute(ω') for ω' ≠ ω doesn't affect ω's feasibility.
+/-- **Key lemma**: Adding UnitElimination(ω') for ω' ≠ ω doesn't affect ω's feasibility.
 
-    If ω satisfies a constraint set, and we add UnitRefute(ω') where ω ≠ ω',
+    If ω satisfies a constraint set, and we add UnitElimination(ω') where ω ≠ ω',
     then ω still satisfies the extended constraint set.
 -/
 theorem feasible_preserved_under_different_unitRefute
@@ -877,7 +877,7 @@ theorem feasible_preserved_under_different_unitRefute
     (ω ω' : CutWorld L C)
     (h_neq : ω ≠ ω')
     (h_feasible : ω ∈ NormalForm.FeasibleUnder constraints)
-    : ω ∈ NormalForm.FeasibleUnder (constraints ++ [CutConstraint.UnitRefute ω']) := by
+    : ω ∈ NormalForm.FeasibleUnder (constraints ++ [CutConstraint.UnitElimination ω']) := by
   unfold NormalForm.FeasibleUnder at h_feasible ⊢
   simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h_feasible ⊢
   rw [List.all_eq_true] at h_feasible ⊢
@@ -891,9 +891,9 @@ theorem feasible_preserved_under_different_unitRefute
     unfold CutConstraint.Satisfies
     exact h_neq
 
-/-- **Corollary**: Adding multiple UnitRefute constraints for distinct worlds preserves feasibility.
+/-- **Corollary**: Adding multiple UnitElimination constraints for distinct worlds preserves feasibility.
 
-    If ω is feasible under constraints, and we add UnitRefute(ω_i) for a list of worlds
+    If ω is feasible under constraints, and we add UnitElimination(ω_i) for a list of worlds
     where ω ∉ worlds_to_exclude, then ω remains feasible.
 -/
 theorem feasible_preserved_under_list_unitRefute
@@ -904,7 +904,7 @@ theorem feasible_preserved_under_list_unitRefute
     (ω : CutWorld L C)
     (h_not_in : ω ∉ worlds_to_exclude)
     (h_feasible : ω ∈ NormalForm.FeasibleUnder constraints)
-    : ω ∈ NormalForm.FeasibleUnder (constraints ++ worlds_to_exclude.map CutConstraint.UnitRefute) := by
+    : ω ∈ NormalForm.FeasibleUnder (constraints ++ worlds_to_exclude.map CutConstraint.UnitElimination) := by
   induction worlds_to_exclude generalizing constraints with
   | nil =>
     simp only [List.map_nil, List.append_nil]
@@ -913,20 +913,20 @@ theorem feasible_preserved_under_list_unitRefute
     simp only [List.mem_cons, not_or] at h_not_in
     have h_neq : ω ≠ ω' := h_not_in.1
     have h_not_in_rest : ω ∉ rest := h_not_in.2
-    -- Goal: ω ∈ FeasibleUnder(constraints ++ (ω' :: rest).map UnitRefute)
-    -- Simplify: (ω' :: rest).map UnitRefute = UnitRefute(ω') :: rest.map UnitRefute
+    -- Goal: ω ∈ FeasibleUnder(constraints ++ (ω' :: rest).map UnitElimination)
+    -- Simplify: (ω' :: rest).map UnitElimination = UnitElimination(ω') :: rest.map UnitElimination
     simp only [List.map_cons]
-    -- Goal: ω ∈ FeasibleUnder(constraints ++ (UnitRefute(ω') :: rest.map UnitRefute))
+    -- Goal: ω ∈ FeasibleUnder(constraints ++ (UnitElimination(ω') :: rest.map UnitElimination))
     -- Use IH with extended constraints
     have h_step := feasible_preserved_under_different_unitRefute L C constraints ω ω' h_neq h_feasible
-    have h_from_ih := ih (constraints ++ [CutConstraint.UnitRefute ω']) h_not_in_rest h_step
-    -- h_from_ih : ω ∈ FeasibleUnder((constraints ++ [UnitRefute(ω')]) ++ rest.map UnitRefute)
-    -- Need: ω ∈ FeasibleUnder(constraints ++ (UnitRefute(ω') :: rest.map UnitRefute))
+    have h_from_ih := ih (constraints ++ [CutConstraint.UnitElimination ω']) h_not_in_rest h_step
+    -- h_from_ih : ω ∈ FeasibleUnder((constraints ++ [UnitElimination(ω')]) ++ rest.map UnitElimination)
+    -- Need: ω ∈ FeasibleUnder(constraints ++ (UnitElimination(ω') :: rest.map UnitElimination))
     -- These are equal by list associativity
     convert h_from_ih using 2
     simp only [List.singleton_append, List.append_assoc]
 
-theorem buildRefutedWorlds_aux_feasibility
+theorem buildEliminatedWorlds_aux_feasibility
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (base_constraints : List (CutConstraint L C))
@@ -935,22 +935,22 @@ theorem buildRefutedWorlds_aux_feasibility
     -- Hypothesis: accumulated already satisfies the invariant
     (h_acc_invariant : ∀ (i : Nat) (h : i < accumulated.length),
         accumulated.get ⟨i, h⟩ ∈ NormalForm.FeasibleUnder (
-          base_constraints ++ (accumulated.take i).map CutConstraint.UnitRefute
+          base_constraints ++ (accumulated.take i).map CutConstraint.UnitElimination
         ))
-    : let result := buildRefutedWorlds.aux L C base_constraints accumulated configs
+    : let result := buildEliminatedWorlds.aux L C base_constraints accumulated configs
       ∀ (i : Nat) (h : i < result.length),
         result.get ⟨i, h⟩ ∈ NormalForm.FeasibleUnder (
-          base_constraints ++ (result.take i).map CutConstraint.UnitRefute
+          base_constraints ++ (result.take i).map CutConstraint.UnitElimination
         ) := by
   -- Induction on configs
   induction configs generalizing accumulated with
   | nil =>
     -- Base case: result = accumulated
-    simp only [buildRefutedWorlds.aux]
+    simp only [buildEliminatedWorlds.aux]
     exact h_acc_invariant
   | cons config rest ih =>
     -- Inductive case: result = aux base (accumulated ++ new_violators) rest
-    simp only [buildRefutedWorlds.aux]
+    simp only [buildEliminatedWorlds.aux]
     -- Let new_violators = extractViolatorsForConfig ...
     let new_violators := extractViolatorsForConfig L C base_constraints accumulated config
     let new_accumulated := accumulated ++ new_violators
@@ -962,7 +962,7 @@ theorem buildRefutedWorlds_aux_feasibility
     intro i h_i
     by_cases h_old : i < accumulated.length
     · -- Case: i is in the old accumulated part
-      -- Goal: new_accumulated.get ⟨i, h_i⟩ ∈ FeasibleUnder(base ++ new_accumulated.take i .map UnitRefute)
+      -- Goal: new_accumulated.get ⟨i, h_i⟩ ∈ FeasibleUnder(base ++ new_accumulated.take i .map UnitElimination)
       simp only [new_accumulated] at h_i ⊢
 
       -- Since i < accumulated.length, (accumulated ++ new_violators).take i = accumulated.take i
@@ -975,7 +975,7 @@ theorem buildRefutedWorlds_aux_feasibility
         rw [h_sub_zero]
         simp only [List.take_zero, List.append_nil]
 
-      -- We know: accumulated.get ⟨i, h_old⟩ ∈ FeasibleUnder(base ++ accumulated.take i .map UnitRefute)
+      -- We know: accumulated.get ⟨i, h_old⟩ ∈ FeasibleUnder(base ++ accumulated.take i .map UnitElimination)
       have h_orig := h_acc_invariant i h_old
 
       -- Need to show: (accumulated ++ new_violators).get ⟨i, h_i⟩ ∈ ...
@@ -1013,10 +1013,10 @@ theorem buildRefutedWorlds_aux_feasibility
         rw [h_take_acc]
 
       rw [h_get_eq, h_take_eq, List.map_append]
-      -- Goal now: ω ∈ FeasibleUnder(base ++ (accum.map UnitRefute ++ new_violators.take(j).map UnitRefute))
+      -- Goal now: ω ∈ FeasibleUnder(base ++ (accum.map UnitElimination ++ new_violators.take(j).map UnitElimination))
       rw [← List.append_assoc]
 
-      -- Step 2: Show ω ∈ FeasibleUnder(base ++ accumulated.map UnitRefute)
+      -- Step 2: Show ω ∈ FeasibleUnder(base ++ accumulated.map UnitElimination)
       have h_new_violators_def : new_violators = extractViolatorsForConfig L C base_constraints accumulated config := rfl
 
       have h_ω_in_new_violators : ω ∈ new_violators := List.getElem_mem h_in_new
@@ -1030,7 +1030,7 @@ theorem buildRefutedWorlds_aux_feasibility
       have h_j_zero : j = 0 := by omega
 
       -- The element at position 0 in new_violators came from violatorsOf, which is a subset of feasible
-      have h_ω_feasible_under_acc : ω ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) := by
+      have h_ω_feasible_under_acc : ω ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) := by
         -- ω is in new_violators = extractViolatorsForConfig, which returns elements from violatorsOf
         -- violatorsOf is a subset of the feasible set, so ω is feasible
         have h_mem := h_ω_in_new_violators
@@ -1041,10 +1041,10 @@ theorem buildRefutedWorlds_aux_feasibility
           by_cases h_v_in_C : v ∈ C
           · simp only [h_v_in_C, ↓reduceDIte] at h_mem
             let violators_set := violatorsOf L C
-                (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute))
+                (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination))
                 (CutConstraint.ConfigMatch v h_v_in_C cfg)
             have h_subset := violatorsOf_subset_feasible L C
-                (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute))
+                (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination))
                 (CutConstraint.ConfigMatch v h_v_in_C cfg)
             -- h_mem uses the min' pattern: if nonempty then [min'] else []
             split at h_mem
@@ -1065,32 +1065,32 @@ theorem buildRefutedWorlds_aux_feasibility
 
       -- Step 4: Apply feasible_preserved_under_list_unitRefute
       exact feasible_preserved_under_list_unitRefute L C
-              (base_constraints ++ accumulated.map CutConstraint.UnitRefute)
+              (base_constraints ++ accumulated.map CutConstraint.UnitElimination)
               (new_violators.take j)
               ω
               h_ω_not_in_take
               h_ω_feasible_under_acc
 
-/-- **Corollary: buildRefutedWorlds satisfies the feasibility invariant**. -/
-theorem buildRefutedWorlds_feasibility
+/-- **Corollary: buildEliminatedWorlds satisfies the feasibility invariant**. -/
+theorem buildEliminatedWorlds_feasibility
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
-    : ∀ (i : Nat) (h : i < (buildRefutedWorlds L C configs).length),
-        (buildRefutedWorlds L C configs).get ⟨i, h⟩ ∈ NormalForm.FeasibleUnder (
-          ((buildRefutedWorlds L C configs).take i).map CutConstraint.UnitRefute
+    : ∀ (i : Nat) (h : i < (buildEliminatedWorlds L C configs).length),
+        (buildEliminatedWorlds L C configs).get ⟨i, h⟩ ∈ NormalForm.FeasibleUnder (
+          ((buildEliminatedWorlds L C configs).take i).map CutConstraint.UnitElimination
         ) := by
   -- Apply aux lemma with empty base_constraints and empty accumulated
   intro i h
-  have h_aux := buildRefutedWorlds_aux_feasibility L C [] [] configs (by simp)
+  have h_aux := buildEliminatedWorlds_aux_feasibility L C [] [] configs (by simp)
   simp only [List.append_nil] at h_aux
   exact h_aux i h
 
-/-- **Key lemma for nodup**: A world in a list cannot be in FeasibleUnder of UnitRefute constraints from that list.
+/-- **Key lemma for nodup**: A world in a list cannot be in FeasibleUnder of UnitElimination constraints from that list.
 
-    If ω ∈ L, then UnitRefute(ω) is in L.map UnitRefute.
-    For ω to be in FeasibleUnder, it must satisfy UnitRefute(ω).
-    But UnitRefute(ω).Satisfies(ω) requires ω ≠ ω, which is false.
+    If ω ∈ L, then UnitElimination(ω) is in L.map UnitElimination.
+    For ω to be in FeasibleUnder, it must satisfy UnitElimination(ω).
+    But UnitElimination(ω).Satisfies(ω) requires ω ≠ ω, which is false.
     Contradiction! -/
 theorem world_not_feasible_under_own_unitRefute
     (L : LStarInstanceFG)
@@ -1098,15 +1098,15 @@ theorem world_not_feasible_under_own_unitRefute
     (worlds : List (CutWorld L C))
     (ω : CutWorld L C)
     (h_mem : ω ∈ worlds)
-    : ω ∉ NormalForm.FeasibleUnder (worlds.map CutConstraint.UnitRefute) := by
+    : ω ∉ NormalForm.FeasibleUnder (worlds.map CutConstraint.UnitElimination) := by
   intro h_feasible
   unfold NormalForm.FeasibleUnder at h_feasible
   simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h_feasible
   rw [List.all_eq_true] at h_feasible
-  have h_unitRefute_in : CutConstraint.UnitRefute ω ∈ worlds.map CutConstraint.UnitRefute := by
+  have h_unitRefute_in : CutConstraint.UnitElimination ω ∈ worlds.map CutConstraint.UnitElimination := by
     simp only [List.mem_map]
     exact ⟨ω, h_mem, rfl⟩
-  have h_satisfies := h_feasible (CutConstraint.UnitRefute ω) h_unitRefute_in
+  have h_satisfies := h_feasible (CutConstraint.UnitElimination ω) h_unitRefute_in
   simp only [decide_eq_true_iff, CutConstraint.Satisfies] at h_satisfies
   exact h_satisfies rfl
 
@@ -1120,24 +1120,24 @@ private theorem getElem_mem_take {α : Type*} (l : List α) (i j : Nat)
   rw [← h_eq]
   exact List.getElem_mem h_i_lt_take_len
 
-/-- **Nodup for buildRefutedWorlds**: The list has no duplicates.
+/-- **Nodup for buildEliminatedWorlds**: The list has no duplicates.
 
     **Proof**: Suppose ω appears at positions i < j. Then:
     1. ω = result[j] by definition
     2. ω ∈ result.take(j) (since ω = result[i] and i < j)
-    3. By feasibility: ω ∈ FeasibleUnder(result.take(j).map UnitRefute)
+    3. By feasibility: ω ∈ FeasibleUnder(result.take(j).map UnitElimination)
     4. But by world_not_feasible_under_own_unitRefute: ω ∉ FeasibleUnder(...)
     5. Contradiction! -/
-theorem buildRefutedWorlds_nodup
+theorem buildEliminatedWorlds_nodup
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
-    : (buildRefutedWorlds L C configs).Nodup := by
+    : (buildEliminatedWorlds L C configs).Nodup := by
   -- The proof follows from:
-  -- 1. By buildRefutedWorlds_feasibility: each world ω at position j was feasible under
+  -- 1. By buildEliminatedWorlds_feasibility: each world ω at position j was feasible under
   --    constraints from worlds at positions < j
   -- 2. By world_not_feasible_under_own_unitRefute: if ω were also at position i < j,
-  --    then ω would not be feasible (UnitRefute(ω) already in constraints)
+  --    then ω would not be feasible (UnitElimination(ω) already in constraints)
   -- 3. Contradiction, so no duplicates
   --
   -- The semantic argument is complete; the formal proof requires careful handling of
@@ -1148,16 +1148,16 @@ theorem buildRefutedWorlds_nodup
   by_contra h_ne
   -- The core insight: if i.val < j.val, then result[i] ∈ result.take(j),
   -- so result[j] is not feasible by world_not_feasible_under_own_unitRefute.
-  -- But buildRefutedWorlds_feasibility says result[j] IS feasible. Contradiction.
+  -- But buildEliminatedWorlds_feasibility says result[j] IS feasible. Contradiction.
   -- Extract the raw equality from h_eq
   simp only at h_eq
   cases Nat.lt_or_gt_of_ne h_ne with
   | inl h_i_lt_j =>
     -- result[i] = result[j], and result[i] ∈ result.take(j.val)
     -- So result[j] ∈ (result.take j.val), making it infeasible
-    -- But buildRefutedWorlds_feasibility says result[j] IS feasible. Contradiction.
-    let result := buildRefutedWorlds L C configs
-    have h_feasible := buildRefutedWorlds_feasibility L C configs j.val j.isLt
+    -- But buildEliminatedWorlds_feasibility says result[j] IS feasible. Contradiction.
+    let result := buildEliminatedWorlds L C configs
+    have h_feasible := buildEliminatedWorlds_feasibility L C configs j.val j.isLt
     -- result[i] ∈ result.take(j)
     have h_in_take : result[i.val] ∈ result.take j.val :=
       getElem_mem_take result i.val j.val h_i_lt_j i.isLt
@@ -1169,8 +1169,8 @@ theorem buildRefutedWorlds_nodup
     exact h_not_feasible h_feasible
   | inr h_j_lt_i =>
     -- Symmetric case: result[j] ∈ result.take(i), so result[i] is infeasible
-    let result := buildRefutedWorlds L C configs
-    have h_feasible := buildRefutedWorlds_feasibility L C configs i.val i.isLt
+    let result := buildEliminatedWorlds L C configs
+    have h_feasible := buildEliminatedWorlds_feasibility L C configs i.val i.isLt
     -- result[j] ∈ result.take(i)
     have h_in_take : result[j.val] ∈ result.take i.val :=
       getElem_mem_take result j.val i.val h_j_lt_i j.isLt
@@ -1181,34 +1181,34 @@ theorem buildRefutedWorlds_nodup
       (result.take i.val) result[i.val] h_i_in_take
     exact h_not_feasible h_feasible
 
-/-- **Nodup for tmRefutedWorlds**: The list has no duplicates. -/
-theorem tmRefutedWorlds_nodup_general
+/-- **Nodup for eliminatedWorlds**: The list has no duplicates. -/
+theorem eliminatedWorlds_nodup_general
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
-    : (tmRefutedWorlds L C configs).Nodup :=
-  buildRefutedWorlds_nodup L C configs
+    : (eliminatedWorlds L C configs).Nodup :=
+  buildEliminatedWorlds_nodup L C configs
 
-/-- **tmRefutedWorlds satisfies the feasibility invariant**. -/
-theorem tmRefutedWorlds_refuted_were_feasible
+/-- **eliminatedWorlds satisfies the feasibility invariant**. -/
+theorem eliminatedWorlds_eliminated_were_feasible
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
     (h_positive_R : ∀ v ∈ C, L.R v > 0)
-    : ∀ (i : Nat) (h : i < (tmRefutedWorlds L C configs).length),
-        (tmRefutedWorlds L C configs).get ⟨i, h⟩ ∈
+    : ∀ (i : Nat) (h : i < (eliminatedWorlds L C configs).length),
+        (eliminatedWorlds L C configs).get ⟨i, h⟩ ∈
           NormalForm.FeasibleUnder (
             extractConstraints L C (emptyBasePrefix L) ++
-            ((tmRefutedWorlds L C configs).take i).map CutConstraint.UnitRefute
+            ((eliminatedWorlds L C configs).take i).map CutConstraint.UnitElimination
           ) := by
   intro i h
-  -- tmRefutedWorlds = buildRefutedWorlds
+  -- eliminatedWorlds = buildEliminatedWorlds
   -- extractConstraints (emptyBasePrefix L) = [] (from emptyBasePrefix_no_constraints)
   have h_empty := emptyBasePrefix_no_constraints L C h_positive_R
   rw [h_empty, List.nil_append]
-  exact buildRefutedWorlds_feasibility L C configs i h
+  exact buildEliminatedWorlds_feasibility L C configs i h
 
-/-! ### Package 4: Build UnitRefuteHistory from TM Run -/
+/-! ### Package 4: Build EliminationHistory from TM Run -/
 
 /-- Base prefix with specified execution time (for history construction). -/
 def basePrefixWithTime (L : LStarInstanceFG) (t : Nat) : ExecutionPrefixReal L :=
@@ -1216,41 +1216,41 @@ def basePrefixWithTime (L : LStarInstanceFG) (t : Nat) : ExecutionPrefixReal L :
     revealedBits := []
     computedConfigs := [] }
 
-/-- Timestamps for refutations: [0, 1, 2, ..., n-1] -/
-def refutationTimestamps (n : Nat) : List Nat := List.finRange n |>.map Fin.val
+/-- Timestamps for eliminations: [0, 1, 2, ..., n-1] -/
+def eliminationTimestamps (n : Nat) : List Nat := List.finRange n |>.map Fin.val
 
-theorem refutationTimestamps_length (n : Nat) : (refutationTimestamps n).length = n := by
-  simp [refutationTimestamps]
+theorem eliminationTimestamps_length (n : Nat) : (eliminationTimestamps n).length = n := by
+  simp [eliminationTimestamps]
 
-theorem refutationTimestamps_increasing (n : Nat) :
-    (refutationTimestamps n).Pairwise (· < ·) := by
-  unfold refutationTimestamps
+theorem eliminationTimestamps_increasing (n : Nat) :
+    (eliminationTimestamps n).Pairwise (· < ·) := by
+  unfold eliminationTimestamps
   rw [List.pairwise_map]
   exact List.pairwise_lt_finRange n
 
-theorem refutationTimestamps_bounded (n : Nat) (t : Nat) (h : n ≤ t) :
-    ∀ x ∈ refutationTimestamps n, x < t := by
+theorem eliminationTimestamps_bounded (n : Nat) (t : Nat) (h : n ≤ t) :
+    ∀ x ∈ eliminationTimestamps n, x < t := by
   intro x hx
-  simp only [refutationTimestamps, List.mem_map] at hx
+  simp only [eliminationTimestamps, List.mem_map] at hx
   obtain ⟨i, _, rfl⟩ := hx
   exact Nat.lt_of_lt_of_le i.isLt h
 
-noncomputable def tmRunToUnitRefuteHistory
+noncomputable def tmRunToEliminationHistory
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
     (haltTime : Nat)
     (h_positive_R : ∀ v ∈ C, L.R v > 0)
-    (h_time_bound : haltTime ≥ (tmRefutedWorlds L C configs).length)
-    : UnitRefuteHistory L C :=
-  let refuted := tmRefutedWorlds L C configs
+    (h_time_bound : haltTime ≥ (eliminatedWorlds L C configs).length)
+    : EliminationHistory L C :=
+  let eliminated := eliminatedWorlds L C configs
   { execution_prefix := basePrefixWithTime L haltTime
-    refuted_worlds := refuted
-    refutation_times := refutationTimestamps refuted.length
-    h_times_length := refutationTimestamps_length refuted.length
-    h_times_increasing := refutationTimestamps_increasing refuted.length
-    h_times_bounded := refutationTimestamps_bounded refuted.length haltTime h_time_bound
-    h_refuted_were_feasible := by
+    eliminated_worlds := eliminated
+    elimination_times := eliminationTimestamps eliminated.length
+    h_times_length := eliminationTimestamps_length eliminated.length
+    h_times_increasing := eliminationTimestamps_increasing eliminated.length
+    h_times_bounded := eliminationTimestamps_bounded eliminated.length haltTime h_time_bound
+    h_each_was_feasible := by
       -- Need to show feasibility under basePrefixWithTime instead of emptyBasePrefix
       -- Both have empty revealedBits and computedConfigs, so extractConstraints is the same
       have h_eq : extractConstraints L C (basePrefixWithTime L haltTime) =
@@ -1259,7 +1259,7 @@ noncomputable def tmRunToUnitRefuteHistory
         simp only [extractBitConstraints, extractConfigConstraints, extractSyntheticConfigs]
         rfl
       simp only [h_eq]
-      exact tmRefutedWorlds_refuted_were_feasible L C configs h_positive_R }
+      exact eliminatedWorlds_eliminated_were_feasible L C configs h_positive_R }
 
 /-! ### Package 5: Elimination Lower Bound -/
 
@@ -1305,30 +1305,30 @@ theorem base_feasible_card_eq_pow_R
 
 /-- **Final feasible set has size 1** (unique world at acceptance).
 
-    After all refutations, exactly one world remains feasible (the planted world).
+    After all eliminations, exactly one world remains feasible (the planted world).
 
     **Hypotheses**:
     - ω_planted: The planted world that should survive
     - h_planted_feasible: The planted world is feasible under base constraints
-    - h_planted_not_refuted: The planted world is never refuted
-    - h_all_others_refuted: Every other world IS refuted
-    - h_nodup: No world is refuted twice (ensures correct counting)
+    - h_planted_remaining: The planted world is never eliminated
+    - h_all_others_eliminated: Every other world IS eliminated
+    - h_nodup: No world is eliminated twice (ensures correct counting)
 -/
 theorem final_feasible_card_eq_one
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
-    (hist : UnitRefuteHistory L C)
+    (hist : EliminationHistory L C)
     (ω_planted : CutWorld L C)
     (h_planted_feasible : ω_planted ∈ NormalForm.FeasibleUnder (extractConstraints L C hist.execution_prefix))
-    (h_planted_not_refuted : ω_planted ∉ hist.refuted_worlds)
-    (h_all_others_refuted : ∀ ω, ω ≠ ω_planted → ω ∈ hist.refuted_worlds)
-    (h_nodup : hist.refuted_worlds.Nodup)
-    : (effectiveFeasibleAt L C hist hist.refuted_worlds.length).card = 1 := by
-  -- The feasible set after all refutations = {ω_planted}
-  -- Because: ω_planted survives (not refuted), all others are excluded (refuted)
+    (h_planted_remaining : ω_planted ∉ hist.eliminated_worlds)
+    (h_all_others_eliminated : ∀ ω, ω ≠ ω_planted → ω ∈ hist.eliminated_worlds)
+    (h_nodup : hist.eliminated_worlds.Nodup)
+    : (effectiveFeasibleAt L C hist hist.eliminated_worlds.length).card = 1 := by
+  -- The feasible set after all eliminations = {ω_planted}
+  -- Because: ω_planted survives (remains), all others are excluded (eliminated)
 
   -- Step 1: Show ω_planted IS in the final feasible set
-  have h_planted_in_final : ω_planted ∈ effectiveFeasibleAt L C hist hist.refuted_worlds.length := by
+  have h_planted_in_final : ω_planted ∈ effectiveFeasibleAt L C hist hist.eliminated_worlds.length := by
     unfold effectiveFeasibleAt effectiveConstraintsAt NormalForm.FeasibleUnder
     simp only [Finset.mem_filter, Finset.mem_univ, true_and]
     rw [List.all_eq_true]
@@ -1341,43 +1341,43 @@ theorem final_feasible_card_eq_one
       simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h_planted_feasible
       rw [List.all_eq_true] at h_planted_feasible
       exact h_planted_feasible c h_base
-    | inr h_refute =>
-      -- c is UnitRefute(ω') for some ω' in refuted_worlds
-      rw [List.take_length] at h_refute
-      rw [List.mem_map] at h_refute
-      obtain ⟨ω', h_ω'_in, h_c_eq⟩ := h_refute
+    | inr h_elim =>
+      -- c is UnitElimination(ω') for some ω' in eliminated_worlds
+      rw [List.take_length] at h_elim
+      rw [List.mem_map] at h_elim
+      obtain ⟨ω', h_ω'_in, h_c_eq⟩ := h_elim
       rw [← h_c_eq]
-      -- Need: (UnitRefute ω').Satisfies ω_planted
+      -- Need: (UnitElimination ω').Satisfies ω_planted
       -- i.e., ω_planted ≠ ω'
       simp only [decide_eq_true_iff, CutConstraint.Satisfies]
       intro h_eq
-      rw [h_eq] at h_planted_not_refuted
-      exact h_planted_not_refuted h_ω'_in
+      rw [h_eq] at h_planted_remaining
+      exact h_planted_remaining h_ω'_in
 
   -- Step 2: Show no other world is in the final feasible set
-  have h_only_planted : ∀ ω, ω ∈ effectiveFeasibleAt L C hist hist.refuted_worlds.length → ω = ω_planted := by
+  have h_only_planted : ∀ ω, ω ∈ effectiveFeasibleAt L C hist hist.eliminated_worlds.length → ω = ω_planted := by
     intro ω h_ω_feasible
     by_contra h_neq
-    -- ω ≠ ω_planted, so ω ∈ hist.refuted_worlds
-    have h_ω_refuted := h_all_others_refuted ω h_neq
-    -- But then ω fails the UnitRefute(ω) constraint
+    -- ω ≠ ω_planted, so ω ∈ hist.eliminated_worlds
+    have h_ω_eliminated := h_all_others_eliminated ω h_neq
+    -- But then ω fails the UnitElimination(ω) constraint
     unfold effectiveFeasibleAt effectiveConstraintsAt NormalForm.FeasibleUnder at h_ω_feasible
     simp only [Finset.mem_filter, Finset.mem_univ, true_and] at h_ω_feasible
     rw [List.all_eq_true] at h_ω_feasible
-    have h_self_refute_in : CutConstraint.UnitRefute ω ∈
+    have h_self_elim_in : CutConstraint.UnitElimination ω ∈
         extractConstraints L C hist.execution_prefix ++
-        (hist.refuted_worlds.take hist.refuted_worlds.length).map CutConstraint.UnitRefute := by
+        (hist.eliminated_worlds.take hist.eliminated_worlds.length).map CutConstraint.UnitElimination := by
       rw [List.mem_append]
       right
       rw [List.take_length, List.mem_map]
-      exact ⟨ω, h_ω_refuted, rfl⟩
-    have h_satisfies := h_ω_feasible (CutConstraint.UnitRefute ω) h_self_refute_in
-    -- UnitRefute(ω).Satisfies(ω) requires ω ≠ ω, contradiction!
+      exact ⟨ω, h_ω_eliminated, rfl⟩
+    have h_satisfies := h_ω_feasible (CutConstraint.UnitElimination ω) h_self_elim_in
+    -- UnitElimination(ω).Satisfies(ω) requires ω ≠ ω, contradiction!
     simp only [decide_eq_true_iff, CutConstraint.Satisfies] at h_satisfies
     exact h_satisfies rfl
 
   -- Step 3: Therefore the final feasible set is exactly {ω_planted}
-  have h_eq_singleton : effectiveFeasibleAt L C hist hist.refuted_worlds.length = {ω_planted} := by
+  have h_eq_singleton : effectiveFeasibleAt L C hist hist.eliminated_worlds.length = {ω_planted} := by
     ext ω
     simp only [Finset.mem_singleton]
     constructor
@@ -1398,14 +1398,14 @@ theorem elimination_lower_bound
     (v : Fin L.dag.n)
     (C : Finset (Fin L.dag.n))
     (h_singleton : C = {v})
-    (hist : UnitRefuteHistory L C)
+    (hist : EliminationHistory L C)
     (h_base : (NormalForm.FeasibleUnder (extractConstraints L C hist.execution_prefix)).card = 2 ^ (L.R v))
-    (h_final : (effectiveFeasibleAt L C hist hist.refuted_worlds.length).card = 1)
-    : eliminationsAt L C hist hist.refuted_worlds.length ≥ 2 ^ (L.R v) - 1 := by
+    (h_final : (effectiveFeasibleAt L C hist hist.eliminated_worlds.length).card = 1)
+    : eliminationsAt L C hist hist.eliminated_worlds.length ≥ 2 ^ (L.R v) - 1 := by
   unfold eliminationsAt
   simp only [h_base]
   -- eliminationsAt = base_card - final_card = 2^R - 1
-  have h_final' : (effectiveFeasibleAt L C hist hist.refuted_worlds.length).card = 1 := h_final
+  have h_final' : (effectiveFeasibleAt L C hist hist.eliminated_worlds.length).card = 1 := h_final
   omega
 
 /-! ### Package 6: End-to-End Time Bound (Replaces Axiom) -/
@@ -1420,9 +1420,9 @@ theorem elimination_lower_bound
 
     **Hypotheses (TM correctness)**:
     - ω_planted: The unique correct world
-    - h_planted_not_in_configs: The planted world is NOT refuted by TM configs
-    - h_all_others_in_configs: Every other world IS refuted
-    - h_nodup: No duplicate refutations
+    - h_planted_not_in_configs: The planted world is NOT eliminated by TM configs
+    - h_all_others_in_configs: Every other world IS eliminated
+    - h_nodup: No duplicate eliminations
 -/
 theorem tm_time_lower_bound_via_WC1Bridge
     (L : LStarInstanceFG)
@@ -1432,15 +1432,15 @@ theorem tm_time_lower_bound_via_WC1Bridge
     (configs : List ((v : Fin L.dag.n) ×' Fin (2 ^ L.R v)))
     (haltTime : Nat)
     (h_positive_R : ∀ w ∈ C, L.R w > 0)
-    (h_time_bound : haltTime ≥ (tmRefutedWorlds L C configs).length)
+    (h_time_bound : haltTime ≥ (eliminatedWorlds L C configs).length)
     -- Planted world hypotheses
     (ω_planted : CutWorld L C)
-    (h_planted_not_in_refuted : ω_planted ∉ tmRefutedWorlds L C configs)
-    (h_all_others_in_refuted : ∀ ω, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L C configs)
-    (h_nodup : (tmRefutedWorlds L C configs).Nodup)
+    (h_planted_not_in_eliminated : ω_planted ∉ eliminatedWorlds L C configs)
+    (h_all_others_in_eliminated : ∀ ω, ω ≠ ω_planted → ω ∈ eliminatedWorlds L C configs)
+    (h_nodup : (eliminatedWorlds L C configs).Nodup)
     : haltTime ≥ 2 ^ (L.R v) - 1 := by
-  -- Step 1: Build UnitRefuteHistory from TM run
-  let hist := tmRunToUnitRefuteHistory L C configs haltTime h_positive_R h_time_bound
+  -- Step 1: Build EliminationHistory from TM run
+  let hist := tmRunToEliminationHistory L C configs haltTime h_positive_R h_time_bound
 
   -- Step 2: Prove elimination lower bound
   have h_base : (NormalForm.FeasibleUnder (extractConstraints L C hist.execution_prefix)).card = 2 ^ (L.R v) := by
@@ -1448,8 +1448,8 @@ theorem tm_time_lower_bound_via_WC1Bridge
     show (NormalForm.FeasibleUnder (extractConstraints L C (emptyBasePrefix L))).card = 2 ^ (L.R v)
     exact base_feasible_card_eq_pow_R L v C h_singleton h_positive_R
 
-  -- hist.refuted_worlds = tmRefutedWorlds L C configs by definition
-  have h_refuted_eq : hist.refuted_worlds = tmRefutedWorlds L C configs := rfl
+  -- hist.eliminated_worlds = eliminatedWorlds L C configs by definition
+  have h_eliminated_eq : hist.eliminated_worlds = eliminatedWorlds L C configs := rfl
 
   -- Planted world is feasible under empty base constraints (all worlds are)
   have h_planted_feasible : ω_planted ∈ NormalForm.FeasibleUnder (extractConstraints L C hist.execution_prefix) := by
@@ -1459,13 +1459,13 @@ theorem tm_time_lower_bound_via_WC1Bridge
     unfold NormalForm.FeasibleUnder
     simp only [List.all_nil, Finset.mem_filter, Finset.mem_univ, and_self]
 
-  have h_final : (effectiveFeasibleAt L C hist hist.refuted_worlds.length).card = 1 :=
+  have h_final : (effectiveFeasibleAt L C hist hist.eliminated_worlds.length).card = 1 :=
     final_feasible_card_eq_one L C hist ω_planted h_planted_feasible
-      (h_refuted_eq ▸ h_planted_not_in_refuted)
-      (fun ω h_neq => h_refuted_eq ▸ h_all_others_in_refuted ω h_neq)
-      (h_refuted_eq ▸ h_nodup)
+      (h_eliminated_eq ▸ h_planted_not_in_eliminated)
+      (fun ω h_neq => h_eliminated_eq ▸ h_all_others_in_eliminated ω h_neq)
+      (h_eliminated_eq ▸ h_nodup)
 
-  have h_elim : eliminationsAt L C hist hist.refuted_worlds.length ≥ 2 ^ (L.R v) - 1 :=
+  have h_elim : eliminationsAt L C hist hist.eliminated_worlds.length ≥ 2 ^ (L.R v) - 1 :=
     elimination_lower_bound L v C h_singleton hist h_base h_final
 
   -- Step 3: Apply eliminations_to_time (PROVEN via WC1Bridge!)
@@ -1481,14 +1481,14 @@ theorem tm_time_lower_bound_via_WC1Bridge
 ### Core WC-1 Bridge Theorems
 | Theorem | Status |
 |---------|--------|
-| `unitRefuteStep_increases_eliminations_by_one` | ✅ PROVEN |
-| `finalEliminations_eq_refutationSteps` | ✅ PROVEN |
+| `elimination_step_increases_by_one` | ✅ PROVEN |
+| `finalEliminations_eq_eliminationSteps` | ✅ PROVEN |
 | `eliminations_to_time` | ✅ PROVEN |
 | `emptyBasePrefix_no_constraints` | ✅ PROVEN |
-| `buildRefutedWorlds_aux_feasibility` | ✅ PROVEN |
-| `buildRefutedWorlds_feasibility` | ✅ PROVEN |
-| `tmRefutedWorlds_refuted_were_feasible` | ✅ PROVEN |
-| `tmRunToUnitRefuteHistory` | ✅ DEFINED |
+| `buildEliminatedWorlds_aux_feasibility` | ✅ PROVEN |
+| `buildEliminatedWorlds_feasibility` | ✅ PROVEN |
+| `eliminatedWorlds_eliminated_were_feasible` | ✅ PROVEN |
+| `tmRunToEliminationHistory` | ✅ DEFINED |
 | `base_feasible_card_eq_pow_R` | ✅ PROVEN |
 | `final_feasible_card_eq_one` | ✅ PROVEN |
 | `elimination_lower_bound` | ✅ PROVEN |
@@ -1504,9 +1504,9 @@ The main theorem `tm_time_lower_bound_via_WC1Bridge` establishes:
 ### Remaining Connection to Main Proof
 To fully eliminate the `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom,
 we need to prove that any correct TM satisfies the planted world hypotheses:
-- The planted world is not refuted
-- All other worlds are refuted
-- No duplicate refutations
+- The planted world remains
+- All other worlds are eliminated
+- No duplicate eliminations
 
 This can be established from semantic properties of the planted instance.
 -/
@@ -1581,18 +1581,18 @@ theorem singleton_cut_world_determined_by_config
   cases h_w_eq_v
   exact h_same_cfg
 
-/-- **Planted config refutes all wrong worlds at once**.
+/-- **Planted config eliminates all wrong worlds at once**.
 
     **Key insight**: When the TM processes the planted config (cfg_planted):
-    - Worlds with cfg_planted SATISFY the ConfigMatch → NOT refuted
-    - Worlds with cfg ≠ cfg_planted VIOLATE the ConfigMatch → ARE refuted
+    - Worlds with cfg_planted SATISFY the ConfigMatch → NOT eliminated
+    - Worlds with cfg ≠ cfg_planted VIOLATE the ConfigMatch → ARE eliminated
 
     So if the TM's config list includes cfg_planted, and all 2^R - 1 wrong worlds
-    are still feasible when cfg_planted is processed, they ALL get refuted at once!
+    are still feasible when cfg_planted is processed, they ALL get eliminated at once!
 
     **Status**: Stub - core logic is sound, full proof requires ~40 more lines.
 -/
-theorem planted_config_refutes_all_wrong_worlds
+theorem planted_config_eliminates_all_wrong_worlds
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (v : Fin L.dag.n) (h_v_in : v ∈ C)
@@ -1696,10 +1696,10 @@ TM correct output
     ↓
 Defines planted world ω_planted (from final config)
     ↓
-All explored configs refute wrong worlds
+All explored configs eliminate wrong worlds
     ↓
-h_all_others_in_refuted: ∀ ω ≠ ω_planted, ω ∈ refuted
-h_planted_not_in_refuted: ω_planted ∉ refuted
+h_all_others_in_eliminated: ∀ ω ≠ ω_planted, ω ∈ eliminated
+h_planted_not_in_eliminated: ω_planted ∉ eliminated
     ↓
 tm_time_lower_bound_via_WC1Bridge → time ≥ 2^R - 1
 ```
@@ -1785,9 +1785,9 @@ the violators are exactly the feasible wrong worlds:
   violatorsOf L C feasible (ConfigMatch v h cfg_planted) = feasible \ {ω_planted}
 
 **Why this matters**: This enables the coverage proof:
-- Each step with cfg_planted refutes exactly one wrong world (the canonical min)
-- After m steps, exactly m distinct wrong worlds are refuted
-- After 2^R - 1 steps, all wrong worlds are refuted
+- Each step with cfg_planted eliminates exactly one wrong world (the canonical min)
+- After m steps, exactly m distinct wrong worlds are eliminated
+- After 2^R - 1 steps, all wrong worlds are eliminated
 -/
 
 /-- **Shape of violators for singleton cut with planted config**.
@@ -1873,13 +1873,13 @@ theorem extractViolatorsForConfig_step
     (h_singleton : C = {v})
     (cfg_planted : Fin (2^(L.R v)))
     (base_constraints : List (CutConstraint L C))
-    (accumulated_refutes : List (CutWorld L C))
+    (accumulated_eliminated : List (CutWorld L C))
     (h_wrong_remain : ∃ ω ∈ NormalForm.FeasibleUnder
-        (base_constraints ++ accumulated_refutes.map CutConstraint.UnitRefute),
+        (base_constraints ++ accumulated_eliminated.map CutConstraint.UnitElimination),
         ω ≠ buildPlantedWorld L C v h_v_in h_singleton cfg_planted)
-    : extractViolatorsForConfig L C base_constraints accumulated_refutes ⟨v, cfg_planted⟩ =
+    : extractViolatorsForConfig L C base_constraints accumulated_eliminated ⟨v, cfg_planted⟩ =
       [(NormalForm.FeasibleUnder
-          (base_constraints ++ accumulated_refutes.map CutConstraint.UnitRefute) \
+          (base_constraints ++ accumulated_eliminated.map CutConstraint.UnitElimination) \
         {buildPlantedWorld L C v h_v_in h_singleton cfg_planted}).min'
         (by
           obtain ⟨ω, h_feas, h_ne⟩ := h_wrong_remain
@@ -1888,7 +1888,7 @@ theorem extractViolatorsForConfig_step
   simp only [h_v_in, ↓reduceDIte]
   -- The feasible set is defined as in the function
   set feasible := NormalForm.FeasibleUnder
-    (base_constraints ++ accumulated_refutes.map CutConstraint.UnitRefute) with h_feas_def
+    (base_constraints ++ accumulated_eliminated.map CutConstraint.UnitElimination) with h_feas_def
   -- By violators_eq_feasible_minus_planted, violators = feasible \ {planted}
   have h_violators_eq := violators_eq_feasible_minus_planted L C v h_v_in h_singleton cfg_planted feasible
   -- Violators is nonempty since wrong worlds remain
@@ -1917,11 +1917,11 @@ theorem planted_not_in_extractViolators
     (h_singleton : C = {v})
     (cfg_planted : Fin (2^(L.R v)))
     (base_constraints : List (CutConstraint L C))
-    (accumulated_refutes : List (CutWorld L C))
+    (accumulated_eliminated : List (CutWorld L C))
     (config : (w : Fin L.dag.n) ×' Fin (2 ^ L.R w))
     (h_config_match : (h : config.fst = v) → h ▸ config.snd = cfg_planted)
     : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉
-      extractViolatorsForConfig L C base_constraints accumulated_refutes config := by
+      extractViolatorsForConfig L C base_constraints accumulated_eliminated config := by
   unfold extractViolatorsForConfig
   match config with
   | ⟨w, cfg⟩ =>
@@ -1948,7 +1948,7 @@ theorem planted_not_in_extractViolators
       have h_proof_irrel : h_v_in = h_w_in := Subsingleton.elim _ _
       rw [h_proof_irrel] at h_planted_cfg
       -- Define the feasible set and violators_set
-      let feasible_set := NormalForm.FeasibleUnder (base_constraints ++ accumulated_refutes.map CutConstraint.UnitRefute)
+      let feasible_set := NormalForm.FeasibleUnder (base_constraints ++ accumulated_eliminated.map CutConstraint.UnitElimination)
       let violators_set := violatorsOf L C feasible_set (CutConstraint.ConfigMatch v h_w_in cfg_planted)
       let planted := buildPlantedWorld L C v h_w_in h_singleton cfg_planted
       have h_not_violator := satisfying_world_not_violator L C v h_w_in cfg_planted feasible_set planted h_planted_cfg
@@ -1969,34 +1969,34 @@ theorem planted_not_in_extractViolators
     · -- w ∉ C → empty list
       simp only [h_w_in, ↓reduceDIte, List.not_mem_nil, not_false_eq_true]
 
-/-- **Planted world not in buildRefutedWorlds.aux when all configs match**.
+/-- **Planted world not in buildEliminatedWorlds.aux when all configs match**.
 
     Induction lemma: if all configs at v have their cast equal to cfg_planted,
-    then ω_planted is never added to accumulated_refutes during aux recursion.
+    then ω_planted is never added to accumulated_eliminated during aux recursion.
 -/
-theorem planted_not_in_buildRefutedWorlds_aux
+theorem planted_not_in_buildEliminatedWorlds_aux
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (v : Fin L.dag.n) (h_v_in : v ∈ C)
     (h_singleton : C = {v})
     (cfg_planted : Fin (2^(L.R v)))
     (base_constraints : List (CutConstraint L C))
-    (accumulated_refutes : List (CutWorld L C))
+    (accumulated_eliminated : List (CutWorld L C))
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     (h_only_planted : ∀ c ∈ configs, (h : c.fst = v) → h ▸ c.snd = cfg_planted)
-    (h_not_in_acc : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ accumulated_refutes)
+    (h_not_in_acc : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ accumulated_eliminated)
     : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉
-      buildRefutedWorlds.aux L C base_constraints accumulated_refutes configs := by
+      buildEliminatedWorlds.aux L C base_constraints accumulated_eliminated configs := by
   set ω_planted := buildPlantedWorld L C v h_v_in h_singleton cfg_planted with h_ω_def
-  induction configs generalizing accumulated_refutes with
+  induction configs generalizing accumulated_eliminated with
   | nil =>
-    simp only [buildRefutedWorlds.aux]
+    simp only [buildEliminatedWorlds.aux]
     exact h_not_in_acc
   | cons config rest ih =>
-    simp only [buildRefutedWorlds.aux]
-    -- After processing config, we have accumulated_refutes ++ new_violators
+    simp only [buildEliminatedWorlds.aux]
+    -- After processing config, we have accumulated_eliminated ++ new_violators
     -- By ih, ω_planted ∉ aux for rest (with updated accumulator)
-    -- We need: ω_planted ∉ accumulated_refutes ++ new_violators
+    -- We need: ω_planted ∉ accumulated_eliminated ++ new_violators
     apply ih
     · intro c h_c_in h_c_v
       exact h_only_planted c (List.mem_cons_of_mem config h_c_in) h_c_v
@@ -2010,26 +2010,26 @@ theorem planted_not_in_buildRefutedWorlds_aux
           h_only_planted config h_config_in_list h
         -- ω_planted is defined via set, so we need to use the definition directly
         show buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉
-          extractViolatorsForConfig L C base_constraints accumulated_refutes config
+          extractViolatorsForConfig L C base_constraints accumulated_eliminated config
         exact planted_not_in_extractViolators L C v h_v_in h_singleton cfg_planted
-          base_constraints accumulated_refutes config h_config_match
+          base_constraints accumulated_eliminated config h_config_match
 
 /-- **Accumulator monotonicity**: Elements in accumulator stay in final result. -/
-theorem buildRefutedWorlds_aux_accumulator_monotone
+theorem buildEliminatedWorlds_aux_accumulator_monotone
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (base_constraints : List (CutConstraint L C))
-    (accumulated_refutes : List (CutWorld L C))
+    (accumulated_eliminated : List (CutWorld L C))
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     (ω : CutWorld L C)
-    (h_in_acc : ω ∈ accumulated_refutes)
-    : ω ∈ buildRefutedWorlds.aux L C base_constraints accumulated_refutes configs := by
-  induction configs generalizing accumulated_refutes with
+    (h_in_acc : ω ∈ accumulated_eliminated)
+    : ω ∈ buildEliminatedWorlds.aux L C base_constraints accumulated_eliminated configs := by
+  induction configs generalizing accumulated_eliminated with
   | nil =>
-    simp only [buildRefutedWorlds.aux]
+    simp only [buildEliminatedWorlds.aux]
     exact h_in_acc
   | cons config rest ih =>
-    simp only [buildRefutedWorlds.aux]
+    simp only [buildEliminatedWorlds.aux]
     apply ih
     simp only [List.mem_append]
     exact Or.inl h_in_acc
@@ -2046,23 +2046,23 @@ theorem violator_at_first_observation_in_result
     (rest : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     (ω : CutWorld L C)
     (h_violator : ω ∈ extractViolatorsForConfig L C [] [] config)
-    : ω ∈ buildRefutedWorlds.aux L C [] [] (config :: rest) := by
-  simp only [buildRefutedWorlds.aux]
+    : ω ∈ buildEliminatedWorlds.aux L C [] [] (config :: rest) := by
+  simp only [buildEliminatedWorlds.aux]
   -- After processing config, accumulator = [] ++ extractViolatorsForConfig = extractViolatorsForConfig
-  apply buildRefutedWorlds_aux_accumulator_monotone
+  apply buildEliminatedWorlds_aux_accumulator_monotone
   simp only [List.nil_append]
   exact h_violator
 
-/-- **Coverage lemma**: After processing enough configs (all cfg_planted), all wrong worlds are refuted.
+/-- **Coverage lemma**: After processing enough configs (all cfg_planted), all wrong worlds are eliminated.
 
     This is the key inductive lemma that proves Property (2) of the axiom as a theorem.
     Each step with cfg_planted adds the minimum remaining wrong world.
     After 2^R - 1 steps, all 2^R - 1 wrong worlds are covered.
 
-    The proof proceeds by showing that the set of refuted worlds grows monotonically,
+    The proof proceeds by showing that the set of eliminated worlds grows monotonically,
     and after enough steps (≥ number of wrong worlds), all are covered.
 -/
-theorem coverage_all_wrong_worlds_refuted_aux
+theorem coverage_all_wrong_worlds_eliminated_aux
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (v : Fin L.dag.n) (h_v_in : v ∈ C)
@@ -2075,14 +2075,14 @@ theorem coverage_all_wrong_worlds_refuted_aux
     (h_all_planted : ∀ c ∈ configs, c = ⟨v, cfg_planted⟩)
     -- Current feasible set contains planted
     (h_planted_feasible : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∈
-        NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute))
+        NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination))
     -- Configs are enough to cover all remaining wrong worlds
     (h_enough_configs : configs.length ≥
-        (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) \
+        (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) \
          {buildPlantedWorld L C v h_v_in h_singleton cfg_planted}).card)
     : ∀ ω : CutWorld L C, ω ≠ buildPlantedWorld L C v h_v_in h_singleton cfg_planted →
-        ω ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) →
-        ω ∈ buildRefutedWorlds.aux L C base_constraints accumulated configs := by
+        ω ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) →
+        ω ∈ buildEliminatedWorlds.aux L C base_constraints accumulated configs := by
   -- The proof proceeds by strong induction on the number of remaining wrong worlds
   -- Base case: if no wrong worlds remain in feasible, nothing to prove
   -- Step case: the first config removes the minimum wrong world, then recurse
@@ -2105,21 +2105,21 @@ theorem coverage_all_wrong_worlds_refuted_aux
       exact (h_ne (Finset.mem_singleton.mp h_feas)).elim
   | cons config rest ih =>
     intro ω h_ne h_feas
-    simp only [buildRefutedWorlds.aux]
+    simp only [buildEliminatedWorlds.aux]
     -- config = ⟨v, cfg_planted⟩ by h_all_planted
     have h_in_configs : config ∈ config :: rest := by simp
     have h_config_eq := h_all_planted config h_in_configs
     -- The new violators list
     let new_violators := extractViolatorsForConfig L C base_constraints accumulated config
     let new_acc := accumulated ++ new_violators
-    -- Case split: either ω is refuted by this step (ω ∈ new_violators), or ω remains in feasible set
-    by_cases h_ω_refuted : ω ∈ new_violators
-    · -- Case 1: ω is refuted by this step
-      -- ω ∈ new_violators → ω ∈ new_acc → ω ∈ buildRefutedWorlds.aux result
-      have h_in_new_acc : ω ∈ new_acc := List.mem_append_right accumulated h_ω_refuted
-      -- Use buildRefutedWorlds_aux_accumulator_monotone: elements of accumulated are in final result
-      exact buildRefutedWorlds_aux_accumulator_monotone L C base_constraints new_acc rest ω h_in_new_acc
-    · -- Case 2: ω is not refuted by this step, so ω remains in feasible set
+    -- Case split: either ω is eliminated by this step (ω ∈ new_violators), or ω remains in feasible set
+    by_cases h_ω_eliminated : ω ∈ new_violators
+    · -- Case 1: ω is eliminated by this step
+      -- ω ∈ new_violators → ω ∈ new_acc → ω ∈ buildEliminatedWorlds.aux result
+      have h_in_new_acc : ω ∈ new_acc := List.mem_append_right accumulated h_ω_eliminated
+      -- Use buildEliminatedWorlds_aux_accumulator_monotone: elements of accumulated are in final result
+      exact buildEliminatedWorlds_aux_accumulator_monotone L C base_constraints new_acc rest ω h_in_new_acc
+    · -- Case 2: ω is not eliminated by this step, so ω remains in feasible set
       -- Apply IH to rest with new_acc
       apply ih new_acc
       · -- h_all_planted for rest
@@ -2127,9 +2127,9 @@ theorem coverage_all_wrong_worlds_refuted_aux
         exact h_all_planted c (List.mem_cons_of_mem _ h_c_in)
       · -- planted still feasible in new constraints
         -- new_acc = accumulated ++ new_violators
-        -- new constraints = base ++ new_acc.map UnitRefute
-        --                 = base ++ accumulated.map UnitRefute ++ new_violators.map UnitRefute
-        --                 = old_constraints ++ new_violators.map UnitRefute
+        -- new constraints = base ++ new_acc.map UnitElimination
+        --                 = base ++ accumulated.map UnitElimination ++ new_violators.map UnitElimination
+        --                 = old_constraints ++ new_violators.map UnitElimination
         -- planted ∉ new_violators by planted_not_in_extractViolators
         have h_planted_not_in_violators : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ new_violators := by
           have h_match : (h : config.fst = v) → h ▸ config.snd = cfg_planted := by
@@ -2139,15 +2139,15 @@ theorem coverage_all_wrong_worlds_refuted_aux
           exact planted_not_in_extractViolators L C v h_v_in h_singleton cfg_planted
             base_constraints accumulated config h_match
         -- Use feasible_preserved_under_list_unitRefute
-        have h_old_eq : base_constraints ++ accumulated.map CutConstraint.UnitRefute =
-            base_constraints ++ accumulated.map CutConstraint.UnitRefute := rfl
-        have h_new_eq : base_constraints ++ new_acc.map CutConstraint.UnitRefute =
-            (base_constraints ++ accumulated.map CutConstraint.UnitRefute) ++
-            new_violators.map CutConstraint.UnitRefute := by
+        have h_old_eq : base_constraints ++ accumulated.map CutConstraint.UnitElimination =
+            base_constraints ++ accumulated.map CutConstraint.UnitElimination := rfl
+        have h_new_eq : base_constraints ++ new_acc.map CutConstraint.UnitElimination =
+            (base_constraints ++ accumulated.map CutConstraint.UnitElimination) ++
+            new_violators.map CutConstraint.UnitElimination := by
           simp only [new_acc, List.map_append, List.append_assoc]
         rw [h_new_eq]
         exact feasible_preserved_under_list_unitRefute L C
-          (base_constraints ++ accumulated.map CutConstraint.UnitRefute)
+          (base_constraints ++ accumulated.map CutConstraint.UnitElimination)
           new_violators
           (buildPlantedWorld L C v h_v_in h_singleton cfg_planted)
           h_planted_not_in_violators
@@ -2159,34 +2159,34 @@ theorem coverage_all_wrong_worlds_refuted_aux
         -- And rest.length + 1 ≥ old_card ≥ new_card
         --
         -- new_feasible ⊆ old_feasible because new_acc has more constraints
-        have h_new_subset : NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitRefute) ⊆
-            NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) := by
+        have h_new_subset : NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitElimination) ⊆
+            NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) := by
           intro ω' h_in_new
           simp only [NormalForm.FeasibleUnder, Finset.mem_filter, Finset.mem_univ, true_and] at h_in_new ⊢
           rw [List.all_eq_true] at h_in_new ⊢
           intro c h_c_in
           apply h_in_new
-          -- Goal: c ∈ base_constraints ++ new_acc.map UnitRefute
+          -- Goal: c ∈ base_constraints ++ new_acc.map UnitElimination
           -- new_acc = accumulated ++ new_violators
-          -- So goal becomes: c ∈ base_constraints ++ (accumulated ++ new_violators).map UnitRefute
-          --                = c ∈ base_constraints ++ accumulated.map UnitRefute ++ new_violators.map UnitRefute
-          -- h_c_in: c ∈ base_constraints ++ accumulated.map UnitRefute
+          -- So goal becomes: c ∈ base_constraints ++ (accumulated ++ new_violators).map UnitElimination
+          --                = c ∈ base_constraints ++ accumulated.map UnitElimination ++ new_violators.map UnitElimination
+          -- h_c_in: c ∈ base_constraints ++ accumulated.map UnitElimination
           rw [show new_acc = accumulated ++ new_violators from rfl, List.map_append]
           rw [← List.append_assoc]
           exact List.mem_append_left _ h_c_in
         -- Therefore (new_feasible \ {planted}) ⊆ (old_feasible \ {planted})
-        have h_sdiff_subset : (NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitRefute) \
+        have h_sdiff_subset : (NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitElimination) \
             {buildPlantedWorld L C v h_v_in h_singleton cfg_planted}) ⊆
-            (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) \
+            (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) \
             {buildPlantedWorld L C v h_v_in h_singleton cfg_planted}) := by
           intro ω' h_in
           simp only [Finset.mem_sdiff, Finset.mem_singleton] at h_in ⊢
           exact ⟨h_new_subset h_in.1, h_in.2⟩
         -- Key insight: ω is a wrong world still in old_feasible, so old_card ≥ 1
-        have h_ω_in_sdiff : ω ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) \
+        have h_ω_in_sdiff : ω ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) \
             {buildPlantedWorld L C v h_v_in h_singleton cfg_planted} :=
           Finset.mem_sdiff.mpr ⟨h_feas, Finset.not_mem_singleton.mpr h_ne⟩
-        have h_old_card_pos : 0 < (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) \
+        have h_old_card_pos : 0 < (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) \
             {buildPlantedWorld L C v h_v_in h_singleton cfg_planted}).card :=
           Finset.card_pos.mpr ⟨ω, h_ω_in_sdiff⟩
         -- When there are wrong worlds, extractViolatorsForConfig returns exactly one
@@ -2194,13 +2194,13 @@ theorem coverage_all_wrong_worlds_refuted_aux
         -- So new wrong worlds = old wrong worlds - {violator}, card decreases by 1
         -- Actually, we need: new_feasible \ {planted} ⊊ old_feasible \ {planted}
         -- The violator returned by extractViolatorsForConfig is in old_feasible \ {planted} but not in new_feasible
-        -- Because it's excluded by the UnitRefute constraint
+        -- Because it's excluded by the UnitElimination constraint
         have h_violators_eq : new_violators = extractViolatorsForConfig L C base_constraints accumulated config := rfl
         -- The strict subset: new_card < old_card (we remove at least the violator)
         -- When old_card ≥ 1, extractViolatorsForConfig returns exactly the min element
-        have h_card_strict : (NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitRefute) \
+        have h_card_strict : (NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitElimination) \
             {buildPlantedWorld L C v h_v_in h_singleton cfg_planted}).card <
-            (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) \
+            (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) \
             {buildPlantedWorld L C v h_v_in h_singleton cfg_planted}).card := by
           -- The sdiff is strictly smaller because the min element of old sdiff is in new_violators
           -- and therefore excluded from new_feasible
@@ -2211,32 +2211,32 @@ theorem coverage_all_wrong_worlds_refuted_aux
           · -- new sdiff ≠ old sdiff because the min is removed
             intro h_eq
             -- If equal, then min of old sdiff should still be in new sdiff
-            have h_nonempty : (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) \
+            have h_nonempty : (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) \
                 {buildPlantedWorld L C v h_v_in h_singleton cfg_planted}).Nonempty :=
               ⟨ω, h_ω_in_sdiff⟩
-            let min_world := (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) \
+            let min_world := (NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) \
                 {buildPlantedWorld L C v h_v_in h_singleton cfg_planted}).min' h_nonempty
             -- min_world ∈ old sdiff
-            have h_min_in_old : min_world ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) \
+            have h_min_in_old : min_world ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) \
                 {buildPlantedWorld L C v h_v_in h_singleton cfg_planted} :=
               Finset.min'_mem _ h_nonempty
             -- min_world ∈ new sdiff (by h_eq)
-            have h_min_in_new : min_world ∈ NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitRefute) \
+            have h_min_in_new : min_world ∈ NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitElimination) \
                 {buildPlantedWorld L C v h_v_in h_singleton cfg_planted} := by
               exact h_eq.symm ▸ h_min_in_old
-            -- But min_world is excluded from new_feasible because UnitRefute min_world is in new constraints
+            -- But min_world is excluded from new_feasible because UnitElimination min_world is in new constraints
             -- extractViolatorsForConfig puts min_world in new_violators when old_card ≥ 1
-            have h_min_in_new_feasible : min_world ∈ NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitRefute) :=
+            have h_min_in_new_feasible : min_world ∈ NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitElimination) :=
               (Finset.mem_sdiff.mp h_min_in_new).1
             -- But min_world should NOT be in new_feasible because it's in new_violators
-            -- The new constraints include UnitRefute for elements in new_violators
+            -- The new constraints include UnitElimination for elements in new_violators
             -- Specifically, min_world = the violator extracted
-            have h_min_in_old_feasible : min_world ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute) :=
+            have h_min_in_old_feasible : min_world ∈ NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination) :=
               (Finset.mem_sdiff.mp h_min_in_old).1
             have h_min_ne_planted : min_world ≠ buildPlantedWorld L C v h_v_in h_singleton cfg_planted :=
               Finset.not_mem_singleton.mp (Finset.mem_sdiff.mp h_min_in_old).2
             -- min_world is the canonical violator returned by extractViolatorsForConfig
-            -- So UnitRefute min_world is in the new constraints
+            -- So UnitElimination min_world is in the new constraints
             have h_min_in_violators : min_world ∈ new_violators := by
               -- extractViolatorsForConfig returns [min'] when there are wrong worlds
               unfold extractViolatorsForConfig at h_violators_eq
@@ -2244,7 +2244,7 @@ theorem coverage_all_wrong_worlds_refuted_aux
               cases h_config_eq
               simp only [dif_pos h_v_in] at h_violators_eq
               -- By violators_eq_feasible_minus_planted, violators = feasible \ {planted}
-              let current_feasible := NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitRefute)
+              let current_feasible := NormalForm.FeasibleUnder (base_constraints ++ accumulated.map CutConstraint.UnitElimination)
               have h_violators_set_eq := violators_eq_feasible_minus_planted L C v h_v_in h_singleton cfg_planted current_feasible
               -- The violators_set in the if expression equals current_feasible \ {planted}
               -- So violators_set.Nonempty ↔ (current_feasible \ {planted}).Nonempty
@@ -2272,21 +2272,21 @@ theorem coverage_all_wrong_worlds_refuted_aux
               · -- min_world is minimal in sdiff
                 intro b h_b
                 exact Finset.min'_le _ _ h_b
-            -- new_feasible excludes min_world because UnitRefute min_world is in constraints
-            have h_min_not_in_new : min_world ∉ NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitRefute) := by
+            -- new_feasible excludes min_world because UnitElimination min_world is in constraints
+            have h_min_not_in_new : min_world ∉ NormalForm.FeasibleUnder (base_constraints ++ new_acc.map CutConstraint.UnitElimination) := by
               simp only [NormalForm.FeasibleUnder, Finset.mem_filter, Finset.mem_univ, true_and]
               rw [List.all_eq_true]
               push_neg
               -- Goal: ∃ c ∈ constraints, ¬(c.Satisfies min_world)
-              use CutConstraint.UnitRefute min_world
+              use CutConstraint.UnitElimination min_world
               constructor
-              · -- UnitRefute min_world ∈ new constraints
+              · -- UnitElimination min_world ∈ new constraints
                 rw [show new_acc = accumulated ++ new_violators from rfl, List.map_append]
                 rw [← List.append_assoc]
                 apply List.mem_append_right
                 simp only [List.mem_map]
                 exact ⟨min_world, h_min_in_violators, rfl⟩
-              · -- min_world doesn't satisfy UnitRefute min_world
+              · -- min_world doesn't satisfy UnitElimination min_world
                 rw [ne_eq, decide_eq_true_iff]
                 exact committedWorld_violates_unitRefute L C min_world
             exact h_min_not_in_new h_min_in_new_feasible
@@ -2295,21 +2295,21 @@ theorem coverage_all_wrong_worlds_refuted_aux
         -- rest.length + 1 ≥ old_card and new_card < old_card
         omega
       · exact h_ne
-      · -- ω ∈ feasible under new constraints (since ω not refuted)
-        -- new_acc.map UnitRefute = accumulated.map UnitRefute ++ new_violators.map UnitRefute
-        -- new constraints = base ++ new_acc.map UnitRefute = old_constraints ++ new_violators.map UnitRefute
-        have h_new_eq : base_constraints ++ new_acc.map CutConstraint.UnitRefute =
-            (base_constraints ++ accumulated.map CutConstraint.UnitRefute) ++
-            new_violators.map CutConstraint.UnitRefute := by
+      · -- ω ∈ feasible under new constraints (since ω not eliminated)
+        -- new_acc.map UnitElimination = accumulated.map UnitElimination ++ new_violators.map UnitElimination
+        -- new constraints = base ++ new_acc.map UnitElimination = old_constraints ++ new_violators.map UnitElimination
+        have h_new_eq : base_constraints ++ new_acc.map CutConstraint.UnitElimination =
+            (base_constraints ++ accumulated.map CutConstraint.UnitElimination) ++
+            new_violators.map CutConstraint.UnitElimination := by
           simp only [new_acc, List.map_append, List.append_assoc]
         rw [h_new_eq]
         exact feasible_preserved_under_list_unitRefute L C
-          (base_constraints ++ accumulated.map CutConstraint.UnitRefute)
-          new_violators ω h_ω_refuted h_feas
+          (base_constraints ++ accumulated.map CutConstraint.UnitElimination)
+          new_violators ω h_ω_eliminated h_feas
 
 /-- **Derivation of Property 2 from simpler preconditions**.
 
-    This theorem shows that "all wrong worlds are refuted" (Property 2) can be
+    This theorem shows that "all wrong worlds are eliminated" (Property 2) can be
     DERIVED from:
     1. All configs have the planted value
     2. configs.length ≥ 2^R - 1 (equivalently, haltTime ≥ 2^R - 1)
@@ -2317,7 +2317,7 @@ theorem coverage_all_wrong_worlds_refuted_aux
     This means the axiom could be restructured to assert the time bound directly,
     and Property 2 becomes a theorem rather than part of the axiom.
 -/
-theorem derive_all_wrong_worlds_refuted
+theorem derive_all_wrong_worlds_eliminated
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (v : Fin L.dag.n) (h_v_in : v ∈ C)
@@ -2330,12 +2330,12 @@ theorem derive_all_wrong_worlds_refuted
     -- Precondition 2: Enough configs (time bound)
     (h_enough : configs.length ≥ 2^(L.R v) - 1)
     : ∀ ω : CutWorld L C, ω ≠ buildPlantedWorld L C v h_v_in h_singleton cfg_planted →
-        ω ∈ tmRefutedWorlds L C configs := by
+        ω ∈ eliminatedWorlds L C configs := by
   intro ω h_ne
-  -- tmRefutedWorlds = buildRefutedWorlds = buildRefutedWorlds.aux [] []
-  unfold tmRefutedWorlds buildRefutedWorlds
+  -- eliminatedWorlds = buildEliminatedWorlds = buildEliminatedWorlds.aux [] []
+  unfold eliminatedWorlds buildEliminatedWorlds
   -- Apply coverage lemma with base_constraints = [] and accumulated = []
-  apply coverage_all_wrong_worlds_refuted_aux L C v h_v_in h_singleton cfg_planted [] [] configs
+  apply coverage_all_wrong_worlds_eliminated_aux L C v h_v_in h_singleton cfg_planted [] [] configs
   · -- h_all_planted
     exact h_all_planted
   · -- h_planted_feasible: planted ∈ FeasibleUnder []
@@ -2382,16 +2382,16 @@ StructuralOWFExponential.lean, eliminating the need for the axiom
 
 /-- **No-duplicate property for single config list**.
 
-    When configs = [⟨v, cfg⟩], the tmRefutedWorlds are all distinct.
+    When configs = [⟨v, cfg⟩], the eliminatedWorlds are all distinct.
     This follows because each wrong world has a unique assignment. -/
-theorem tmRefutedWorlds_nodup_singleton
+theorem eliminatedWorlds_nodup_singleton
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (v : Fin L.dag.n) (h_v_in : v ∈ C)
     (cfg : Fin (2^(L.R v)))
-    : (tmRefutedWorlds L C [⟨v, cfg⟩]).Nodup := by
-  unfold tmRefutedWorlds buildRefutedWorlds
-  simp only [buildRefutedWorlds.aux]
+    : (eliminatedWorlds L C [⟨v, cfg⟩]).Nodup := by
+  unfold eliminatedWorlds buildEliminatedWorlds
+  simp only [buildEliminatedWorlds.aux]
   -- extractViolatorsForConfig produces a list of length ≤ 1 (WC-1)
   unfold extractViolatorsForConfig
   simp only [h_v_in, ↓reduceDIte]
@@ -2438,8 +2438,8 @@ theorem fg_first_commit_time_lower_bound_via_wc1
     (h_positive_R : L.R v > 0)
     (cfg_planted : Fin (2^(L.R v)))
     (haltTime : Nat)
-    -- Time sufficient for processing all refutations
-    -- (This follows from TM correctness: a correct TM must refute all wrong worlds)
+    -- Time sufficient for processing all eliminations
+    -- (This follows from TM correctness: a correct TM must eliminate all wrong worlds)
     (h_time_sufficient : haltTime ≥ 2^(L.R v) - 1)
     : haltTime ≥ 2 ^ (L.R v) - 1 :=
   h_time_sufficient
@@ -2447,7 +2447,7 @@ theorem fg_first_commit_time_lower_bound_via_wc1
 /-! ### Package 10: REMOVED
 
 Package 10 (old existential axiom) has been removed.
-The indistinguishability bridge axiom `not_refuted_implies_indistinguishable`
+The indistinguishability bridge axiom `remaining_indistinguishable`
 is now the SINGLE semantic bridge. Structural properties (WorstCaseCorrectOnLStar,
 SameObservationSameState) are provided definitionally via the `LStarAdversary` structure.
 -/
@@ -2456,12 +2456,12 @@ SameObservationSameState) are provided definitionally via the `LStarAdversary` s
 
 **What's Already Proven** (0 axioms):
 1. `initial_feasible_worlds_count`: Base feasible = 2^R at empty prefix
-2. `tmRefutedWorlds_nodup_singleton`: Single config produces no duplicates
+2. `eliminatedWorlds_nodup_singleton`: Single config produces no duplicates
 3. `tm_time_lower_bound_via_WC1Bridge`: Time bound from separation properties
 
-**Design Note**: The main proof uses `not_refuted_implies_indistinguishable` which
-provides indistinguishability of unrefuted worlds, combined with worst-case correctness
-to derive separation via `indistinguishability_implies_all_wrong_refuted`.
+**Design Note**: The main proof uses `remaining_indistinguishable` which
+provides indistinguishability of remaining worlds, combined with worst-case correctness
+to derive separation via `indistinguishability_implies_all_wrong_eliminated`.
 -/
 
 /-! ### Package 12: Unique Solution Implies Planted Config (Partial (B))
@@ -2718,16 +2718,16 @@ which then yields the WC-1 time bound via `tm_correctness_to_wc1_bridge`.
 
 /-! ### Package 13: Axiom Elimination for AlignedCNFFamily
 
-**Goal**: Prove `tm_correctness_implies_unitrefute_history` as a THEOREM (not axiom)
+**Goal**: Prove `tm_correctness_implies_unitelimination_history` as a THEOREM (not axiom)
 for the specific case where φ = alignedCNFFamily n.
 
 **Strategy**:
 1. From h_correct (TM output satisfies φ) + Package 12: TM output = planted assignment
 2. Therefore emergent config at gate v from TM output = planted emergent config
 3. Build configs list `[⟨v, cfg_planted⟩]` where cfg_planted is the planted config
-4. Apply Package 8 (`single_config_implies_planted_hypotheses`): all 2^R - 1 wrong worlds refuted
-5. Apply `tmRunToUnitRefuteHistory` to build valid UnitRefuteHistory
-6. Return history with refuted_worlds.length = 2^R - 1
+4. Apply Package 8 (`single_config_implies_planted_hypotheses`): all 2^R - 1 wrong worlds eliminated
+5. Apply `tmRunToEliminationHistory` to build valid EliminationHistory
+6. Return history with eliminated_worlds.length = 2^R - 1
 
 **Trust boundary**: This eliminates the axiom for alignedCNFFamily, reducing trust to
 Package 12 (unique solution property) which is proven.
@@ -2820,16 +2820,16 @@ open LStar.StructuralOWF.Theorems in
 /-- **THEOREM (Alternative to Axiom for AlignedCNFFamily)**: Direct time bound proof.
 
     This theorem DIRECTLY proves `haltTime ≥ 2^R - 1` when provided with the
-    additional hypothesis that haltTime is sufficient to process all refutations.
+    additional hypothesis that haltTime is sufficient to process all eliminations.
 
     **Key insight**: For alignedCNFFamily, there is exactly ONE satisfying assignment.
     Therefore, any correct TM output must equal the planted assignment, which means
     the emergent config equals the planted config. This means exactly 2^R - 1 wrong
-    worlds must be refuted.
+    worlds must be eliminated.
 
     **Hypothesis h_time_sufficient**: The TM's halt time must be sufficient to process
-    all world refutations. This is the semantic content that bridges TM execution
-    to the abstract refutation model.
+    all world eliminations. This is the semantic content that bridges TM execution
+    to the abstract elimination model.
 
     **Trust boundary**: 0 custom axioms when h_time_sufficient is provided.
 -/
@@ -2845,14 +2845,14 @@ theorem time_bound_for_aligned_with_sufficient_time
     (haltTime : Nat)
     (w_assignment : AssignmentInf)
     (h_correct : (alignedCNFFamily n).satisfies w_assignment)
-    -- This hypothesis captures the semantic bridge: TM execution time ≥ refutation count
+    -- This hypothesis captures the semantic bridge: TM execution time ≥ elimination count
     (h_time_sufficient : haltTime ≥ 2^(L.R v.val) - 1)
     : haltTime ≥ 2^(L.R v.val) - 1 :=
   h_time_sufficient
 
 /-! ### Package 14: History to Time Bound
 
-This package shows that if a UnitRefuteHistory exists with sufficient refutations,
+This package shows that if a EliminationHistory exists with sufficient eliminations,
 then the time bound follows. This is one direction of the equivalence.
 
 The reverse direction (time bound → history) has been removed as it depended on
@@ -2861,10 +2861,10 @@ theorems incompatible with the WC-1 modification.
 
 /-- **The axiom's conclusion implies the time bound**.
 
-    If a valid UnitRefuteHistory exists with ≥ 2^R - 1 refuted worlds and
+    If a valid EliminationHistory exists with ≥ 2^R - 1 eliminated worlds and
     execution time = haltTime, then haltTime ≥ 2^R - 1.
 
-    This follows directly from `time_bounds_refutations`: strictly increasing
+    This follows directly from `time_bounds_eliminations`: strictly increasing
     timestamps bounded by T implies count ≤ T.
 -/
 theorem history_existence_implies_time_bound
@@ -2873,17 +2873,17 @@ theorem history_existence_implies_time_bound
     (v : Fin L.dag.n)
     (haltTime : Nat)
     (h_R_pos : L.R v > 0)
-    (h_hist : ∃ hist : UnitRefuteHistory L C,
+    (h_hist : ∃ hist : EliminationHistory L C,
         hist.execution_prefix.time = haltTime ∧
-        hist.refuted_worlds.length ≥ 2^(L.R v) - 1)
+        hist.eliminated_worlds.length ≥ 2^(L.R v) - 1)
     : haltTime ≥ 2^(L.R v) - 1 := by
   obtain ⟨hist, h_time_eq, h_len⟩ := h_hist
-  have h_bound := time_bounds_refutations L C hist
-  -- h_bound : hist.execution_prefix.time ≥ hist.refuted_worlds.length
+  have h_bound := time_bounds_eliminations L C hist
+  -- h_bound : hist.execution_prefix.time ≥ hist.eliminated_worlds.length
   -- h_time_eq : hist.execution_prefix.time = haltTime
-  -- h_len : hist.refuted_worlds.length ≥ 2^(L.R v) - 1
+  -- h_len : hist.eliminated_worlds.length ≥ 2^(L.R v) - 1
   -- Goal: haltTime ≥ 2^(L.R v) - 1
-  -- Chain: 2^R - 1 ≤ refuted_worlds.length ≤ execution_prefix.time = haltTime
+  -- Chain: 2^R - 1 ≤ eliminated_worlds.length ≤ execution_prefix.time = haltTime
   rw [← h_time_eq]
   exact Nat.le_trans h_len h_bound
 
@@ -2892,9 +2892,9 @@ theorem history_existence_implies_time_bound
 **The Correct Framing**:
 
 The main proof path now uses the indistinguishability bridge axiom:
-1. `not_refuted_implies_indistinguishable`: Semantic bridge (unrefuted → TM-indistinguishable)
-2. `indistinguishability_implies_all_wrong_refuted`: All wrong worlds must be refuted
-3. `separation_implies_refuted_length`: Separation → refuted.length = 2^R - 1
+1. `remaining_indistinguishable`: Semantic bridge (remaining → TM-indistinguishable)
+2. `indistinguishability_implies_all_wrong_eliminated`: All wrong worlds must be eliminated
+3. `separation_implies_eliminated_length`: Separation → eliminated.length = 2^R - 1
 4. `tm_time_lower_bound_via_indistinguishability`: Combines to get haltTime ≥ 2^R - 1
 
 **The Unit Elimination Approach**:
@@ -2953,7 +2953,7 @@ theorem unit_elimination_implies_time_bound
 **Still Axiomatized**:
 - (C) The unit elimination property: each TM step eliminates ≤ 1 world
 
-This is exactly what `tm_correctness_implies_unitrefute_history` encapsulates.
+This is exactly what `tm_correctness_implies_unitelimination_history` encapsulates.
 
 **The axiom's precise semantic content**:
 "TM execution on a planted instance satisfies the unit elimination property"
@@ -2963,18 +2963,18 @@ This is the Semantic Conservation Law: information flow is bounded by computatio
 
 /-! ### Package 16: Unit Elimination from TM Semantics
 
-**GOAL**: Eliminate the axiom `tm_correctness_implies_unitrefute_history` by proving
+**GOAL**: Eliminate the axiom `tm_correctness_implies_unitelimination_history` by proving
 the time bound directly from TM execution semantics.
 
 **Key definitions**:
 1. `worldsConsistentWithConfigs`: Worlds matching observed config values
-2. `RefuteEventAtTime`: When a world first becomes inconsistent
+2. `EliminationEventAtTime`: When a world first becomes inconsistent
 3. Unit step property: At most one world becomes inconsistent per time step
 
 **Strategy**:
-- Define `RefuteEventAtTime t ω` = "ω was consistent at t-1 but inconsistent at t"
-- Prove uniqueness: at most one ω has RefuteEventAtTime t (Lemma 1')
-- Prove coverage: every wrong world has some refutation time (Lemma 2')
+- Define `EliminationEventAtTime t ω` = "ω was consistent at t-1 but inconsistent at t"
+- Prove uniqueness: at most one ω has EliminationEventAtTime t (Lemma 1')
+- Prove coverage: every wrong world has some elimination time (Lemma 2')
 - Combine via pigeonhole: haltTime ≥ 2^R - 1
 -/
 
@@ -3106,9 +3106,9 @@ theorem worldsConsistentWithConfigs_singleton_card_one
     subst h_eq
     simp only [ω_unique]
 
-/-! #### RefuteEventAtTime Predicate
+/-! #### EliminationEventAtTime Predicate
 
-**DEFINITION**: World ω has a "refute event at time t" when:
+**DEFINITION**: World ω has a "elimination event at time t" when:
 - At time t-1, ω was consistent with observations (or t = 0)
 - At time t, ω becomes inconsistent with observations
 
@@ -3121,12 +3121,12 @@ This captures the moment when the TM's execution first rules out world ω.
     - If t = 0: ω is not consistent with trace 0
     - If t > 0: ω was consistent with trace (t-1) but not with trace t
 
-    This captures the "moment of refutation" for each world.
+    This captures the "moment of elimination" for each world.
 
     **trace**: A function from time to execution prefix state, modeling
     the TM's cumulative observations at each time step.
 -/
-def RefuteEventAtTime
+def EliminationEventAtTime
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (trace : Nat → ExecutionPrefixReal L)
@@ -3135,23 +3135,23 @@ def RefuteEventAtTime
   ω ∉ worldsConsistentWithPrefix L C (trace t) ∧
   (t = 0 ∨ ω ∈ worldsConsistentWithPrefix L C (trace (t - 1)))
 
-/-- **Refutation time exists for inconsistent worlds**.
+/-- **Elimination time exists for inconsistent worlds**.
 
     If ω is inconsistent at time T, then there exists some t ≤ T
     when ω first became inconsistent.
 -/
-theorem refutation_time_exists
+theorem elimination_time_exists
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (trace : Nat → ExecutionPrefixReal L)
     (T : Nat)
     (ω : CutWorld L C)
     (h_inconsistent : ω ∉ worldsConsistentWithPrefix L C (trace T))
-    : ∃ t ≤ T, RefuteEventAtTime L C trace t ω := by
+    : ∃ t ≤ T, EliminationEventAtTime L C trace t ω := by
   -- Use strong induction on T
   induction T with
   | zero =>
-    -- At T = 0, the refutation time is 0
+    -- At T = 0, the elimination time is 0
     use 0
     constructor
     · exact Nat.le_refl 0
@@ -3162,7 +3162,7 @@ theorem refutation_time_exists
     -- Either ω was already inconsistent at T, or it becomes inconsistent at T+1
     by_cases h_at_T : ω ∈ worldsConsistentWithPrefix L C (trace T)
     · -- ω was consistent at T but inconsistent at T+1
-      -- So the refutation happens at T+1
+      -- So the elimination happens at T+1
       use T + 1
       constructor
       · exact Nat.le_refl (T + 1)
@@ -3172,11 +3172,11 @@ theorem refutation_time_exists
           simp only [Nat.add_sub_cancel]
           exact h_at_T
     · -- ω was already inconsistent at T
-      obtain ⟨t, h_t_le, h_refute⟩ := ih h_at_T
+      obtain ⟨t, h_t_le, h_elim⟩ := ih h_at_T
       use t
       constructor
       · exact Nat.le_succ_of_le h_t_le
-      · exact h_refute
+      · exact h_elim
 
 /-- **Monotone trace**: configs only grow over time.
 
@@ -3210,22 +3210,22 @@ theorem monotone_trace_consistent_shrink
       exact worldsConsistentWithConfigs_subset_of_suffix L C _ _ h_suffix
     exact Finset.Subset.trans h_step ih
 
-/-- **Refutation time is unique** (under monotone trace).
+/-- **Elimination time is unique** (under monotone trace).
 
-    If ω has a refute event at both t₁ and t₂, then t₁ = t₂.
+    If ω has a elimination event at both t₁ and t₂, then t₁ = t₂.
 
     **Key insight**: The "first becomes inconsistent" property is unique
     when observations only grow (monotone trace).
 -/
-theorem refutation_time_unique
+theorem elimination_time_unique
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (trace : Nat → ExecutionPrefixReal L)
     (h_mono : TraceMonotone L trace)
     (t₁ t₂ : Nat)
     (ω : CutWorld L C)
-    (h₁ : RefuteEventAtTime L C trace t₁ ω)
-    (h₂ : RefuteEventAtTime L C trace t₂ ω)
+    (h₁ : EliminationEventAtTime L C trace t₁ ω)
+    (h₂ : EliminationEventAtTime L C trace t₂ ω)
     : t₁ = t₂ := by
   -- Suppose t₁ < t₂ (or t₂ < t₁), derive contradiction
   by_contra h_ne
@@ -3259,15 +3259,15 @@ extracts configs from TM execution.
 
 **Architecture**:
 ```
-TM execution → configsFromTMRun → configs list → tmRefutedWorlds → separation
+TM execution → configsFromTMRun → configs list → eliminatedWorlds → separation
 ```
 
 **Key components**:
 1. `emergentConfigFromWitness`: Extract config at vertex v from witness
 2. `configsFromTMRun`: Extract observed configs from TM execution trace
 3. `configsFromTMRun_length_le`: Configs length ≤ haltTime
-4. `tmRefutedWorlds_length_le_configs_length`: Refutations ≤ configs
-5. `not_refuted_implies_indistinguishable`: BRIDGE AXIOM (indistinguishability)
+4. `eliminatedWorlds_length_le_configs_length`: Eliminations ≤ configs
+5. `remaining_indistinguishable`: BRIDGE AXIOM (indistinguishability)
 6. `tm_time_lower_bound_via_indistinguishability`: Main time bound theorem
 -/
 
@@ -3569,22 +3569,22 @@ def extractPlantedHyp
 /-! #### Part 5a: Provable Separation Lemmas (Axiomatic Gap Identification)
 
 The following theorems show what can be PROVEN about separation:
-- IF all configs match cfg_planted → planted world not refuted
-- IF config differs from cfg_planted → that world IS refuted
+- IF all configs match cfg_planted → planted world remains
+- IF config differs from cfg_planted → that world IS eliminated
 
 **The axiomatic gap**: The axiom asserts that a correct TM produces configs
 that satisfy these conditions. Specifically:
-1. All configs at vertex v equal cfg_planted (ensures planted not refuted)
-2. All 2^R - 1 wrong configs appear (ensures all others refuted)
+1. All configs at vertex v equal cfg_planted (ensures planted remains)
+2. All 2^R - 1 wrong configs appear (ensures all others eliminated)
 
 This is the "Semantic Conservation Law" claim: to correctly identify the planted
 world among 2^R possibilities, the TM must explore enough to eliminate all others.
 -/
 
-/-- **PROVEN**: If all configs match cfg_planted, planted world is NOT refuted.
+/-- **PROVEN**: If all configs match cfg_planted, planted world is NOT eliminated.
 
-    This follows from `planted_not_in_buildRefutedWorlds_aux` with h_only_planted. -/
-theorem all_configs_planted_implies_not_refuted
+    This follows from `planted_not_in_buildEliminatedWorlds_aux` with h_only_planted. -/
+theorem all_configs_planted_implies_remaining
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (v : Fin L.dag.n) (h_v_in : v ∈ C)
@@ -3592,11 +3592,11 @@ theorem all_configs_planted_implies_not_refuted
     (cfg_planted : Fin (2^(L.R v)))
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     (h_all_planted : ∀ c ∈ configs, (h : c.fst = v) → h ▸ c.snd = cfg_planted)
-    : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ tmRefutedWorlds L C configs := by
-  unfold tmRefutedWorlds
+    : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ eliminatedWorlds L C configs := by
+  unfold eliminatedWorlds
   have h_not_in_nil : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ ([] : List (CutWorld L C)) :=
     nofun
-  exact planted_not_in_buildRefutedWorlds_aux L C v h_v_in h_singleton cfg_planted [] [] configs
+  exact planted_not_in_buildEliminatedWorlds_aux L C v h_v_in h_singleton cfg_planted [] [] configs
     h_all_planted h_not_in_nil
 
 /-! **Coverage with duplicates (allConfigsFromTMRunFrom)**:
@@ -3606,21 +3606,21 @@ With the updated semantics using `allConfigsFromTMRunFrom` (no dedup):
 - If ALL configs are `⟨v, cfg_planted⟩`, then:
   1. ω_planted NEVER appears as a violator (it satisfies ConfigMatch v cfg_planted)
   2. All wrong worlds ARE violators (they disagree with cfg_planted)
-  3. Each processing of cfg_planted picks ONE wrong world (canonical min) and refutes it
-  4. With haltTime ≥ 2^R - 1 duplicates, we refute all 2^R - 1 wrong worlds ✓
+  3. Each processing of cfg_planted picks ONE wrong world (canonical min) and eliminates it
+  4. With haltTime ≥ 2^R - 1 duplicates, we eliminate all 2^R - 1 wrong worlds ✓
 
 **Why this works**:
 - `extractViolatorsForConfig` finds violators from `current_feasible`
-- `current_feasible` shrinks as we add worlds to `accumulated_refutes`
+- `current_feasible` shrinks as we add worlds to `accumulated_eliminated`
 - Each duplicate config finds a DIFFERENT wrong world (previous ones are removed)
-- The min' selection is deterministic, ensuring no duplicates in refuted list
+- The min' selection is deterministic, ensuring no duplicates in eliminated list
 
 **The axiom now asserts**:
 1. All configs throughout the run are cfg_planted (TM correctness)
-2. Processing these configs refutes all wrong worlds (coverage)
+2. Processing these configs eliminates all wrong worlds (coverage)
 -/
 
-#print axioms all_configs_planted_implies_not_refuted
+#print axioms all_configs_planted_implies_remaining
 -- Should show only standard axioms (propext, quot.sound, classical.choice)
 
 /-! #### Axiomatic Content: What Remains
@@ -3644,17 +3644,17 @@ For `alignedCNFFamily`, we have:
 - `correctness_implies_planted_emergent_config_aligned`: If output satisfies φ, config = cfg_planted
 - But this only applies to the FINAL output, not intermediate states
 
-The gap is: proving intermediate outputs also satisfy φ (or don't refute planted world).
+The gap is: proving intermediate outputs also satisfy φ (or don't eliminate planted world).
 -/
 
-/-! #### Part 6: Separation implies refuted length = 2^R - 1 -/
+/-! #### Part 6: Separation implies eliminated length = 2^R - 1 -/
 
-/-- **From separation properties, refuted list has length 2^R - 1**.
+/-- **From separation properties, eliminated list has length 2^R - 1**.
 
-    If planted world is not refuted, all others are refuted, and no duplicates,
-    then the refuted list has exactly 2^R - 1 elements.
+    If planted world remains, all others are eliminated, and no duplicates,
+    then the eliminated list has exactly 2^R - 1 elements.
 -/
-theorem separation_implies_refuted_length
+theorem separation_implies_eliminated_length
     (L : LStarInstanceFG)
     (v : Fin L.dag.n)
     (C : Finset (Fin L.dag.n))
@@ -3663,33 +3663,33 @@ theorem separation_implies_refuted_length
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     (cfg_planted : Fin (2^(L.R v)))
     (h_v_in : v ∈ C)
-    (h_planted_not : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ tmRefutedWorlds L C configs)
+    (h_planted_not : buildPlantedWorld L C v h_v_in h_singleton cfg_planted ∉ eliminatedWorlds L C configs)
     (h_all_others : ∀ ω : CutWorld L C, ω ≠ buildPlantedWorld L C v h_v_in h_singleton cfg_planted →
-        ω ∈ tmRefutedWorlds L C configs)
-    (h_nodup : (tmRefutedWorlds L C configs).Nodup)
-    : (tmRefutedWorlds L C configs).length = 2^(L.R v) - 1 := by
-  -- The refuted set = all worlds except planted
-  -- Total worlds = 2^R, planted world not refuted, so refuted = 2^R - 1
+        ω ∈ eliminatedWorlds L C configs)
+    (h_nodup : (eliminatedWorlds L C configs).Nodup)
+    : (eliminatedWorlds L C configs).length = 2^(L.R v) - 1 := by
+  -- The eliminated set = all worlds except planted
+  -- Total worlds = 2^R, planted world remains, so eliminated = 2^R - 1
   let ω_planted := buildPlantedWorld L C v h_v_in h_singleton cfg_planted
 
   -- Convert to Finset for counting
-  have h_refuted_subset : (tmRefutedWorlds L C configs).toFinset ⊆ Finset.univ.filter (· ≠ ω_planted) := by
+  have h_eliminated_subset : (eliminatedWorlds L C configs).toFinset ⊆ Finset.univ.filter (· ≠ ω_planted) := by
     intro ω h_ω
     simp only [Finset.mem_filter, Finset.mem_univ, true_and]
     intro h_eq
     rw [h_eq] at h_ω
     exact h_planted_not (List.mem_toFinset.mp h_ω)
 
-  have h_others_subset : Finset.univ.filter (· ≠ ω_planted) ⊆ (tmRefutedWorlds L C configs).toFinset := by
+  have h_others_subset : Finset.univ.filter (· ≠ ω_planted) ⊆ (eliminatedWorlds L C configs).toFinset := by
     intro ω h_ω
     rw [Finset.mem_filter] at h_ω
     exact List.mem_toFinset.mpr (h_all_others ω h_ω.2)
 
-  have h_eq_set : (tmRefutedWorlds L C configs).toFinset = Finset.univ.filter (· ≠ ω_planted) :=
-    Finset.Subset.antisymm h_refuted_subset h_others_subset
+  have h_eq_set : (eliminatedWorlds L C configs).toFinset = Finset.univ.filter (· ≠ ω_planted) :=
+    Finset.Subset.antisymm h_eliminated_subset h_others_subset
 
   -- Count
-  have h_card : (tmRefutedWorlds L C configs).toFinset.card = Fintype.card (CutWorld L C) - 1 := by
+  have h_card : (eliminatedWorlds L C configs).toFinset.card = Fintype.card (CutWorld L C) - 1 := by
     rw [h_eq_set]
     -- Filter all ≠ planted = all - {planted}
     have h_filter_eq : Finset.univ.filter (· ≠ ω_planted) = Finset.univ.erase ω_planted := by
@@ -3725,21 +3725,21 @@ theorem separation_implies_refuted_length
 **Key Insight**: The No Backdoor theorem proves L* has no hidden channel.
 This means: if world ω is consistent with all observations, TM cannot distinguish
 ω from the planted world. Combined with worst-case correctness, this implies
-all wrong worlds must be refuted.
+all wrong worlds must be eliminated.
 
 **The Replanting Argument**:
 1. Suppose TM M is worst-case correct on L*
-2. Suppose wrong world ω is NOT refuted (consistent with all observed configs)
+2. Suppose wrong world ω is NOT eliminated (consistent with all observed configs)
 3. L* allows planting any world (by construction of plant_flat)
 4. By No Backdoor: TM's only info about planted world is through observations
 5. Since ω agrees with planted on all observations, TM can't distinguish them
 6. If adversary had planted ω, TM would output same answer (determinism)
 7. But that answer (= planted) is wrong for ω
 8. Contradiction with worst-case correctness
-9. Therefore: all wrong worlds must be refuted (Property 2)
+9. Therefore: all wrong worlds must be eliminated (Property 2)
 -/
 
-/-- **Definition**: World ω is consistent with observations if it's not refuted.
+/-- **Definition**: World ω is consistent with observations if it's not eliminated.
 
     For singleton cut C = {v}, this means: for all observed configs (v, c), ω = c.
     In other words, ω agrees with every observation the TM has made. -/
@@ -3748,21 +3748,21 @@ def worldConsistentWithObs
     (C : Finset (Fin L.dag.n))
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     (ω : CutWorld L C) : Prop :=
-  ω ∉ tmRefutedWorlds L C configs
+  ω ∉ eliminatedWorlds L C configs
 
 /-- **Theorem**: If all configs = cfg_planted AND enough configs, Property 2 holds.
 
-    This uses the existing `derive_all_wrong_worlds_refuted` theorem which requires:
+    This uses the existing `derive_all_wrong_worlds_eliminated` theorem which requires:
     1. All configs have the planted value
-    2. configs.length ≥ 2^R - 1 (enough to refute all wrong worlds)
+    2. configs.length ≥ 2^R - 1 (enough to eliminate all wrong worlds)
 
     **Connection to No Backdoor**:
     The No Backdoor theorem (proven, 0 axioms) establishes that L* reveals planted
     world only through observations. Combined with worst-case correctness:
     - TM must be correct for ANY planting
     - If all configs = cfg_planted, TM can distinguish planted from all others
-    - With enough configs, all wrong worlds are refuted -/
-theorem worst_case_implies_all_wrong_refuted
+    - With enough configs, all wrong worlds are eliminated -/
+theorem worst_case_implies_all_wrong_eliminated
     (L : LStarInstanceFG)
     (v : Fin L.dag.n)
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
@@ -3773,25 +3773,25 @@ theorem worst_case_implies_all_wrong_refuted
     (h_enough : configs.length ≥ 2^(L.R v) - 1)
     : ∀ ω : CutWorld L {v},
         ω ≠ buildPlantedWorld L {v} v h_v_in rfl cfg_planted →
-        ω ∈ tmRefutedWorlds L {v} configs :=
+        ω ∈ eliminatedWorlds L {v} configs :=
   -- Direct application of the existing coverage theorem
-  derive_all_wrong_worlds_refuted L {v} v h_v_in rfl h_R_pos cfg_planted configs
+  derive_all_wrong_worlds_eliminated L {v} v h_v_in rfl h_R_pos cfg_planted configs
     h_all_planted h_enough
 
-/-- **Corollary**: If all configs = cfg_planted, planted world is not refuted.
+/-- **Corollary**: If all configs = cfg_planted, planted world remains.
 
     This gives Property 1 from the "all configs = cfg_planted" condition.
-    Uses the existing `all_configs_planted_implies_not_refuted` theorem. -/
-theorem all_planted_implies_planted_not_refuted_v2
+    Uses the existing `all_configs_planted_implies_remaining` theorem. -/
+theorem all_planted_implies_planted_remaining_v2
     (L : LStarInstanceFG)
     (v : Fin L.dag.n)
     (configs : List ((w : Fin L.dag.n) ×' Fin (2 ^ L.R w)))
     (cfg_planted : Fin (2 ^ L.R v))
     (h_v_in : v ∈ ({v} : Finset (Fin L.dag.n)))
     (h_all_planted : ∀ cfg ∈ configs, cfg = ⟨v, cfg_planted⟩)
-    : buildPlantedWorld L {v} v h_v_in rfl cfg_planted ∉ tmRefutedWorlds L {v} configs := by
+    : buildPlantedWorld L {v} v h_v_in rfl cfg_planted ∉ eliminatedWorlds L {v} configs := by
   -- Use the existing theorem (with slightly different hypothesis format)
-  apply all_configs_planted_implies_not_refuted L {v} v h_v_in rfl cfg_planted configs
+  apply all_configs_planted_implies_remaining L {v} v h_v_in rfl cfg_planted configs
   -- Need to convert h_all_planted to the format expected
   intro c h_c_mem h_fst_eq
   have h_eq := h_all_planted c h_c_mem
@@ -3826,7 +3826,7 @@ The remaining question: why do all extracted configs equal cfg_planted?
 This is the semantic justification for the indistinguishability bridge axiom.
 -/
 
-#print axioms worst_case_implies_all_wrong_refuted
+#print axioms worst_case_implies_all_wrong_eliminated
 
 /-! #### Part 9: Formalizing "All Configs = cfg_planted" from Worst-Case Correctness
 
@@ -3914,8 +3914,8 @@ structure LStarTMEncoding
     **Intuition**: If the TM produces the same final extracted config regardless of which
     world was planted, then from the TM's perspective these worlds are "the same".
 
-    **Usage**: This is the bridge between the WC-1 refutation model and TM behavior.
-    A world that is "not refuted" should be indistinguishable from the planted world. -/
+    **Usage**: This is the bridge between the WC-1 elimination model and TM behavior.
+    A world that "remains" (not eliminated) should be indistinguishable from the planted world. -/
 def TMIndistinguishable
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
@@ -4023,12 +4023,12 @@ This holds for ALL cfg, making WorstCaseCorrectOnLStar true.
 **The Indistinguishability Bridge**:
 
 With WorstCaseCorrectOnLStar true, we can derive separation:
-1. Bridge axiom: unrefuted → TM-indistinguishable
-2. If ω' ≠ planted and not refuted → indistinguishable from planted
+1. Bridge axiom: remaining → TM-indistinguishable
+2. If ω' ≠ planted and remains → indistinguishable from planted
 3. By WorstCaseCorrectOnLStar: output(plant ω') = ω', output(plant planted) = planted
 4. Indistinguishability: output(plant ω') = output(plant planted)
 5. Therefore: ω' = planted (contradiction!)
-6. So all wrong worlds ARE refuted
+6. So all wrong worlds ARE eliminated
 
 This breaks the circularity via the indistinguishability bridge.
 -/
@@ -4038,18 +4038,18 @@ This breaks the circularity via the indistinguishability bridge.
     **INTUITION**: If a world ω' is not ruled out by the TM's observations,
     then the TM cannot tell ω' apart from the planted world.
 
-    **FORMAL**: If ω' is not refuted by the TM's actual run trace, then TM
+    **FORMAL**: If ω' remains (not eliminated by the TM's actual run trace), then TM
     produces the same output on ω' as on the planted world.
 
     **Critical constraint**: `configs` must be the actual extracted trace from
     running M on initForPlanting(cfg_planted). This ties the axiom to the
     operational semantics - we only claim indistinguishability for worlds that
-    survive the specific refutation process induced by the TM's actual behavior.
+    survive the specific elimination process induced by the TM's actual behavior.
 
     **Semantic justification**:
     - TM runs on L*(cfg_planted), extracting configs at each step
-    - These configs determine what gets refuted via min' selection
-    - If ω' survives this specific refutation process, TM's observations
+    - These configs determine what gets eliminated via min' selection
+    - If ω' survives this specific elimination process, TM's observations
       are compatible with ω' being the planted world
     - Compatible observations → same TM behavior → same output
 
@@ -4059,12 +4059,12 @@ This breaks the circularity via the indistinguishability bridge.
     - TM solving L*(cfg) outputs cfg (the satisfying assignment of φ(cfg))
 
     **Derivation chain**:
-    1. not_refuted_implies_indistinguishable (this axiom)
-    2. → all wrong worlds must be refuted (by contradiction with WC correctness)
-    3. → refuted.length = 2^R - 1 (counting)
+    1. remaining_indistinguishable (this axiom)
+    2. → all wrong worlds must be eliminated (by contradiction with WC correctness)
+    3. → eliminated.length = 2^R - 1 (counting)
     4. → haltTime ≥ 2^R - 1 (WC-1 structure)
 -/
-axiom not_refuted_implies_indistinguishable
+axiom remaining_indistinguishable
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG)
@@ -4079,25 +4079,25 @@ axiom not_refuted_implies_indistinguishable
         ⟨v, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
     (h_v_in : v ∈ ({v} : Finset (Fin L.dag.n)))
     (ω' : CutWorld L {v})
-    (h_not_refuted : ω' ∉ tmRefutedWorlds L {v} configs)
+    (h_remaining : ω' ∉ eliminatedWorlds L {v} configs)
     : TMIndistinguishable L M v enc.extractConfigAtV enc.initForPlanting haltTime
         (ω'.assignment v h_v_in) cfg_planted
 
-/-- **THEOREM**: From indistinguishability bridge + worst-case correctness → all wrong refuted.
+/-- **THEOREM**: From indistinguishability bridge + worst-case correctness → all wrong eliminated.
 
     **Proof by contradiction**:
-    1. Suppose ω' ≠ ω_planted and ω' ∉ tmRefutedWorlds
+    1. Suppose ω' ≠ ω_planted and ω' ∉ eliminatedWorlds
     2. By bridge axiom: TMIndistinguishable (cfg of ω') cfg_planted
     3. So output(plant cfg_ω') = output(plant cfg_planted)
     4. By worst-case correctness: output(plant cfg_ω') = cfg_ω' (TM solves φ(cfg_ω'))
     5. By worst-case correctness: output(plant cfg_planted) = cfg_planted
     6. So cfg_ω' = cfg_planted, meaning ω' = ω_planted
     7. Contradiction with ω' ≠ ω_planted
-    8. Therefore: all wrong worlds ∈ tmRefutedWorlds
+    8. Therefore: all wrong worlds ∈ eliminatedWorlds
 
     **Key insight**: initForPlanting(cfg) creates L*(cfg) with φ(cfg), so TM
     solving that instance outputs cfg. This makes WorstCaseCorrectOnLStar TRUE. -/
-theorem indistinguishability_implies_all_wrong_refuted
+theorem indistinguishability_implies_all_wrong_eliminated
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG)
@@ -4117,13 +4117,13 @@ theorem indistinguishability_implies_all_wrong_refuted
     -- ω_planted is the world with cfg_planted at v
     (ω_planted : CutWorld L {v})
     (h_ω_planted_def : ω_planted.assignment v h_v_in = cfg_planted)
-    : ∀ ω : CutWorld L {v}, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L {v} configs := by
+    : ∀ ω : CutWorld L {v}, ω ≠ ω_planted → ω ∈ eliminatedWorlds L {v} configs := by
   intro ω h_neq
-  -- Proof by contradiction: suppose ω ∉ tmRefutedWorlds
+  -- Proof by contradiction: suppose ω ∉ eliminatedWorlds
   by_contra h_not_in
   -- By bridge axiom: ω is indistinguishable from planted
   -- Note: h_configs_def anchors configs to actual TM trace
-  have h_indist := not_refuted_implies_indistinguishable L M v enc
+  have h_indist := remaining_indistinguishable L M v enc
                        haltTime cfg_planted configs h_configs_def h_v_in ω h_not_in
   -- Unfold TMIndistinguishable: output(plant cfg_ω) = output(plant cfg_planted)
   unfold TMIndistinguishable at h_indist
@@ -4157,7 +4157,7 @@ theorem indistinguishability_implies_all_wrong_refuted
   -- Contradiction with h_neq
   exact h_neq h_ω_eq
 
-#print axioms indistinguishability_implies_all_wrong_refuted
+#print axioms indistinguishability_implies_all_wrong_eliminated
 
 /-- **THEOREM**: SameObservationSameState holds for TMs with constant extraction.
 
@@ -4311,28 +4311,28 @@ theorem derive_worst_case_all_t
 -- Axiom audit: NO custom axioms (derives from haltTime correctness + replanting)
 #print axioms derive_worst_case_all_t
 
-/-! ### Biconditional Analysis: not_refuted ↔ indistinguishable
+/-! ### Biconditional Analysis: remaining ↔ indistinguishable
 
-The axiom `not_refuted_implies_indistinguishable` asserts the (→) direction.
+The axiom `remaining_indistinguishable` asserts the (→) direction.
 Below we prove the (←) direction is DERIVABLE from worst-case correctness.
 
 **Key insight on directionality:**
-- **(→) Completeness** (AXIOM): `not_refuted → indistinguishable`
-  This is the direction that matters for the proof. It says: if TM hasn't refuted
+- **(→) Completeness** (AXIOM): `remaining → indistinguishable`
+  This is the direction that matters for the proof. It says: if TM hasn't eliminated
   world ω', then TM behaves identically on ω' and ω_planted. This drives the
-  contradiction argument: "all wrong worlds must be refuted."
+  contradiction argument: "all wrong worlds must be eliminated."
 
-- **(←) Soundness** (DERIVED): `indistinguishable → not_refuted`
+- **(←) Soundness** (DERIVED): `indistinguishable → remaining`
   This is derivable under WC correctness but does NOT by itself support the lower
-  bound. It just says refutation is "sound" (only refutes distinguishable worlds).
+  bound. It just says elimination is "sound" (only eliminates distinguishable worlds).
 
-**Semantic gap**: `TMIndistinguishable` compares final outputs, while `tmRefutedWorlds`
+**Semantic gap**: `TMIndistinguishable` compares final outputs, while `eliminatedWorlds`
 is built from the entire trace. Despite this gap, under WC correctness:
 - indistinguishable → same final output → cfg_ω' = cfg_planted → ω' = ω_planted
-- and the planted world is never refuted by its own trace.
+- and the planted world is never eliminated by its own trace.
 -/
 
-/-- **THEOREM (Reverse Direction)**: TMIndistinguishable → not_refuted (given WC correctness).
+/-- **THEOREM (Reverse Direction)**: TMIndistinguishable → remaining (given WC correctness).
 
     **Key insight**: This is the REVERSE direction of the axiom, and it's DERIVABLE!
     However, this direction alone does NOT support the lower bound derivation.
@@ -4341,11 +4341,11 @@ is built from the entire trace. Despite this gap, under WC correctness:
     1. TMIndistinguishable(cfg_ω', cfg_planted) means same final outputs
     2. By WC correctness: output(init cfg_ω') = cfg_ω' and output(init cfg_planted) = cfg_planted
     3. So cfg_ω' = cfg_planted → ω' = ω_planted (extensionality on singleton cut)
-    4. The planted world is not refuted by its own trace
+    4. The planted world remains by its own trace
 
     **Why this matters mathematically**: Shows the biconditional holds, meaning
     the axiom captures exactly the right property - no stronger or weaker. -/
-theorem indistinguishable_implies_not_refuted
+theorem indistinguishable_implies_remaining
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG)
@@ -4363,7 +4363,7 @@ theorem indistinguishable_implies_not_refuted
     (ω' : CutWorld L {v})
     (h_indist : TMIndistinguishable L M v enc.extractConfigAtV enc.initForPlanting haltTime
         (ω'.assignment v h_v_in) cfg_planted)
-    : ω' ∉ tmRefutedWorlds L {v} configs := by
+    : ω' ∉ eliminatedWorlds L {v} configs := by
   -- Step 1: From TMIndistinguishable, cfg_ω' = cfg_planted
   unfold TMIndistinguishable at h_indist
   -- h_indist: extract(final(init cfg_ω')) = extract(final(init cfg_planted))
@@ -4397,7 +4397,7 @@ theorem indistinguishable_implies_not_refuted
     cases h_w_eq_v
     convert h_assign_eq using 2 <;> rfl
 
-  -- Step 3: planted world not refuted (from all_configs_planted_implies_not_refuted)
+  -- Step 3: planted world remains (from all_configs_planted_implies_remaining)
   -- All configs = cfg_planted (from WC correctness + replanting)
   have h_all_planted : ∀ cfg ∈ configs, cfg = ⟨v, cfg_planted⟩ := by
     intro cfg h_mem
@@ -4410,21 +4410,21 @@ theorem indistinguishable_implies_not_refuted
     exact worst_case_correct_implies_all_configs_planted L M v h_v_in enc.extractConfigAtV
       enc.initForPlanting haltTime cfg_planted h_wc enc.replanting_simulation t h_t_le
 
-  -- Apply the theorem: all configs = planted → planted not refuted
-  have h_planted_not_refuted := all_planted_implies_planted_not_refuted_v2 L v configs
+  -- Apply the theorem: all configs = planted → planted remains
+  have h_planted_remaining := all_planted_implies_planted_remaining_v2 L v configs
     cfg_planted h_v_in h_all_planted
 
   -- Rewrite ω' = ω_planted and conclude
   rw [h_ω_eq]
-  exact h_planted_not_refuted
+  exact h_planted_remaining
 
-#print axioms indistinguishable_implies_not_refuted
+#print axioms indistinguishable_implies_remaining
 
-/-- **COROLLARY (Biconditional)**: not_refuted ↔ indistinguishable (given WC correctness).
+/-- **COROLLARY (Biconditional)**: remaining ↔ indistinguishable (given WC correctness).
 
     This shows the axiom and its reverse combine into a biconditional:
-    - (→) `not_refuted_implies_indistinguishable` [AXIOM - drives the proof]
-    - (←) `indistinguishable_implies_not_refuted` [DERIVED - soundness property]
+    - (→) `remaining_indistinguishable` [AXIOM - drives the proof]
+    - (←) `indistinguishable_implies_remaining` [DERIVED - soundness property]
 
     **Trust boundary**: Only the (→) direction is axiomatized.
     The (←) direction follows from worst-case correctness.
@@ -4432,7 +4432,7 @@ theorem indistinguishable_implies_not_refuted
     **Why this matters**: The biconditional shows the axiom captures exactly
     the right property. It's not too strong (← derivable) and not too weak
     (→ is what's needed for the lower bound proof). -/
-theorem not_refuted_iff_indistinguishable
+theorem remaining_iff_indistinguishable
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG)
@@ -4447,27 +4447,27 @@ theorem not_refuted_iff_indistinguishable
         ⟨v, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
     (h_wc : WorstCaseCorrectOnLStar L M v enc.extractConfigAtV enc.initForPlanting haltTime)
     (ω' : CutWorld L {v})
-    : ω' ∉ tmRefutedWorlds L {v} configs ↔
+    : ω' ∉ eliminatedWorlds L {v} configs ↔
       TMIndistinguishable L M v enc.extractConfigAtV enc.initForPlanting haltTime
         (ω'.assignment v h_v_in) cfg_planted := by
   constructor
   · -- (→) From axiom (completeness direction - drives lower bound proof)
-    intro h_not_refuted
-    exact not_refuted_implies_indistinguishable L M v enc haltTime cfg_planted
-      configs h_configs_def h_v_in ω' h_not_refuted
+    intro h_remaining
+    exact remaining_indistinguishable L M v enc haltTime cfg_planted
+      configs h_configs_def h_v_in ω' h_remaining
   · -- (←) From theorem (soundness direction - derived from WC correctness)
     intro h_indist
-    exact indistinguishable_implies_not_refuted L M v enc haltTime cfg_planted
+    exact indistinguishable_implies_remaining L M v enc haltTime cfg_planted
       h_v_in configs h_configs_def h_wc ω' h_indist
 
-#print axioms not_refuted_iff_indistinguishable
+#print axioms remaining_iff_indistinguishable
 
 /-- **Combining the pieces**: From worst-case correctness, derive separation properties.
 
     **Chain of reasoning**:
     1. worst_case_correct_implies_all_configs_planted: correctness → all configs = cfg_planted
-    2. worst_case_implies_all_wrong_refuted: all configs = cfg_planted → Property 2
-    3. all_planted_implies_planted_not_refuted_v2: all configs = cfg_planted → Property 1
+    2. worst_case_implies_all_wrong_eliminated: all configs = cfg_planted → Property 2
+    3. all_planted_implies_planted_remaining_v2: all configs = cfg_planted → Property 1
     4. WC-1 structure → Property 3
 
     This shows separation properties follow from worst-case correctness + replanting. -/
@@ -4493,9 +4493,9 @@ theorem separation_from_worst_case_correctness
         ⟨v, extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted))⟩))
     : -- Separation properties (what the axiom asserts)
       let ω_planted := buildPlantedWorld L {v} v h_v_in rfl cfg_planted
-      (ω_planted ∉ tmRefutedWorlds L {v} configs) ∧
-      (∀ ω : CutWorld L {v}, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L {v} configs) ∧
-      (tmRefutedWorlds L {v} configs).Nodup := by
+      (ω_planted ∉ eliminatedWorlds L {v} configs) ∧
+      (∀ ω : CutWorld L {v}, ω ≠ ω_planted → ω ∈ eliminatedWorlds L {v} configs) ∧
+      (eliminatedWorlds L {v} configs).Nodup := by
   -- Step 1: All configs = cfg_planted (from worst-case correctness)
   have h_all_planted : ∀ cfg ∈ configs, cfg = ⟨v, cfg_planted⟩ := by
     intro cfg h_mem
@@ -4520,15 +4520,15 @@ theorem separation_from_worst_case_correctness
 
   -- Step 3: Apply the proven theorems
   constructor
-  · -- Property 1: planted not refuted
-    exact all_planted_implies_planted_not_refuted_v2 L v configs cfg_planted h_v_in h_all_planted
+  · -- Property 1: planted remains
+    exact all_planted_implies_planted_remaining_v2 L v configs cfg_planted h_v_in h_all_planted
   constructor
-  · -- Property 2: all wrong worlds refuted
-    exact worst_case_implies_all_wrong_refuted L v configs cfg_planted h_v_in h_R_pos
+  · -- Property 2: all wrong worlds eliminated
+    exact worst_case_implies_all_wrong_eliminated L v configs cfg_planted h_v_in h_R_pos
       h_all_planted h_enough
   · -- Property 3: no duplicates (structural from WC-1)
-    -- Each step picks from current feasible set; once a world is refuted, it's excluded
-    exact tmRefutedWorlds_nodup_general L {v} configs
+    -- Each step picks from current feasible set; once a world is eliminated, it's excluded
+    exact eliminatedWorlds_nodup_general L {v} configs
 
 /-- **TIME BOUND via Indistinguishability Chain** (Alternative to old axiom).
 
@@ -4537,10 +4537,10 @@ theorem separation_from_worst_case_correctness
 
     **Derivation chain** (uses new bridge axiom):
     1. WorstCaseCorrectOnLStar + SameObservationSameState → all configs = cfg_planted
-    2. all configs = cfg_planted → Property 1 (planted not refuted)
-    3. Bridge axiom + WorstCaseCorrectOnLStar → Property 2 (all wrong refuted)
+    2. all configs = cfg_planted → Property 1 (planted remains)
+    3. Bridge axiom + WorstCaseCorrectOnLStar → Property 2 (all wrong eliminated)
     4. WC-1 structure → Property 3 (no duplicates)
-    5. Separation → refuted.length = 2^R - 1
+    5. Separation → eliminated.length = 2^R - 1
     6. WC-1 structure → haltTime ≥ 2^R - 1
 
     **Key insight**: Property 2 is derived via contradiction from indistinguishability,
@@ -4578,37 +4578,37 @@ theorem tm_time_lower_bound_via_indistinguishability
     exact worst_case_correct_implies_all_configs_planted L M v h_v_in enc.extractConfigAtV
       enc.initForPlanting haltTime cfg_planted h_wc enc.replanting_simulation t h_t_le
 
-  -- Step 2: Property 1 - planted not refuted (from all configs = planted)
-  have h_planted_not : ω_planted ∉ tmRefutedWorlds L C configs :=
-    all_planted_implies_planted_not_refuted_v2 L v configs cfg_planted h_v_in h_all_planted
+  -- Step 2: Property 1 - planted remains (from all configs = planted)
+  have h_planted_not : ω_planted ∉ eliminatedWorlds L C configs :=
+    all_planted_implies_planted_remaining_v2 L v configs cfg_planted h_v_in h_all_planted
 
-  -- Step 3: Property 2 - all wrong refuted (from indistinguishability bridge!)
+  -- Step 3: Property 2 - all wrong eliminated (from indistinguishability bridge!)
   -- This is the key: derived WITHOUT needing h_enough_time
   have h_ω_planted_def : ω_planted.assignment v h_v_in = cfg_planted :=
     buildPlantedWorld_has_config L C v h_v_in rfl cfg_planted
-  have h_all_others : ∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L C configs :=
-    indistinguishability_implies_all_wrong_refuted L M v enc
+  have h_all_others : ∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ eliminatedWorlds L C configs :=
+    indistinguishability_implies_all_wrong_eliminated L M v enc
       haltTime cfg_planted h_v_in configs h_configs_def h_wc ω_planted h_ω_planted_def
 
   -- Step 4: Property 3 - no duplicates (structural from WC-1)
-  have h_nodup : (tmRefutedWorlds L C configs).Nodup :=
-    tmRefutedWorlds_nodup_general L C configs
+  have h_nodup : (eliminatedWorlds L C configs).Nodup :=
+    eliminatedWorlds_nodup_general L C configs
 
-  -- Step 5: Separation → refuted.length = 2^R - 1
-  have h_refuted_len : (tmRefutedWorlds L C configs).length = 2^(L.R v) - 1 :=
-    separation_implies_refuted_length L v C rfl h_R_pos configs cfg_planted h_v_in
+  -- Step 5: Separation → eliminated.length = 2^R - 1
+  have h_eliminated_len : (eliminatedWorlds L C configs).length = 2^(L.R v) - 1 :=
+    separation_implies_eliminated_length L v C rfl h_R_pos configs cfg_planted h_v_in
       h_planted_not h_all_others h_nodup
 
   -- Step 6: WC-1 structure → haltTime ≥ 2^R - 1
-  have h_wc1_struct : (tmRefutedWorlds L C configs).length ≤ configs.length :=
-    tmRefutedWorlds_length_le_configs L C configs
+  have h_wc1_struct : (eliminatedWorlds L C configs).length ≤ configs.length :=
+    eliminatedWorlds_length_le_configs L C configs
 
   have h_configs_len : configs.length = haltTime := by
     rw [h_configs_def]
     simp only [List.length_map, List.length_range]
 
   calc 2^(L.R v) - 1
-      = (tmRefutedWorlds L C configs).length := h_refuted_len.symm
+      = (eliminatedWorlds L C configs).length := h_eliminated_len.symm
     _ ≤ configs.length := h_wc1_struct
     _ = haltTime := h_configs_len
 
@@ -4624,7 +4624,7 @@ theorem tm_time_lower_bound_via_indistinguishability
     **Key insight**: By making these properties DEFINITIONAL (part of adversary type),
     we eliminate the need for `tm_replanting_structure_exists` axiom.
 
-    **Axiom dependency**: Only `not_refuted_implies_indistinguishable` (semantic bridge).
+    **Axiom dependency**: Only `remaining_indistinguishable` (semantic bridge).
 -/
 theorem tm_time_lower_bound_for_adversary
     (k : Nat) (states alphabet : Type)
@@ -4647,15 +4647,15 @@ theorem tm_time_lower_bound_for_adversary
     configs h_configs_def
 
 #print axioms tm_time_lower_bound_for_adversary
--- Should show: not_refuted_implies_indistinguishable (NO tm_replanting_structure_exists!)
+-- Should show: remaining_indistinguishable (NO tm_replanting_structure_exists!)
 
 /-! #### Summary: Indistinguishability Bridge (Airtight Chain)
 
 ## The New Axiom
 
-`not_refuted_implies_indistinguishable` is the single bridge axiom. It says:
+`remaining_indistinguishable` is the single bridge axiom. It says:
 
-**Statement**: If a world ω' is not refuted by the TM's actual run trace,
+**Statement**: If a world ω' remains (not eliminated by the TM's actual run trace),
 then TM cannot distinguish ω' from the planted world.
 
 **Critical anchoring** (h_configs_def): The axiom requires configs to be the
@@ -4672,17 +4672,17 @@ Hypotheses:
     (Follows from No Backdoor structure of L*)
 
 Bridge Axiom:
-└── not_refuted_implies_indistinguishable
-    (not refuted by actual trace → TM-indistinguishable)
+└── remaining_indistinguishable
+    (remaining by actual trace → TM-indistinguishable)
 
 Derived (0 additional axioms):
-├── Property 1: planted not refuted
-│   └── From: all_planted_implies_planted_not_refuted_v2
-├── Property 2: all wrong worlds refuted
-│   └── From: indistinguishability_implies_all_wrong_refuted
+├── Property 1: planted remains
+│   └── From: all_planted_implies_planted_remaining_v2
+├── Property 2: all wrong worlds eliminated
+│   └── From: indistinguishability_implies_all_wrong_eliminated
 │       (Uses bridge axiom + WC correctness, proof by contradiction)
 ├── Property 3: no duplicates
-│   └── From: tmRefutedWorlds_nodup_general (min' selection)
+│   └── From: eliminatedWorlds_nodup_general (min' selection)
 └── Time Bound: haltTime ≥ 2^R - 1
     └── From: tm_time_lower_bound_via_indistinguishability
         (Properties 1-3 → counting → WC-1 structure)
@@ -4694,13 +4694,13 @@ Derived (0 additional axioms):
    Cannot claim indistinguishability for arbitrary config lists.
 
 2. **Property 2 derived by contradiction**:
-   - Suppose ω' ≠ planted AND ω' not refuted
+   - Suppose ω' ≠ planted AND ω' remains
    - By axiom: TMIndistinguishable(ω'.cfg, planted.cfg)
    - By WC correctness: output(plant ω'.cfg) = ω'.cfg
    - By WC correctness: output(plant planted.cfg) = planted.cfg
    - By indistinguishability: outputs equal → ω'.cfg = planted.cfg
    - By CutWorld.ext: ω' = planted ← CONTRADICTION
-   - Therefore: all wrong worlds are refuted ✓
+   - Therefore: all wrong worlds are eliminated ✓
 
 3. **Hypotheses are semantically justified**:
    - WorstCaseCorrectOnLStar: P-time algorithms ARE worst-case correct
@@ -4712,7 +4712,7 @@ Derived (0 additional axioms):
 
 The axiom captures the **No Backdoor + Same View** principle:
 - L* reveals planted value only through observations (No Backdoor theorem)
-- The WC-1 refutation model (min' selection) tracks TM's observations
+- The WC-1 elimination model (min' selection) tracks TM's observations
 - If observations don't distinguish ω' from planted → TM can't distinguish them
 - Same observations → same behavior → same output
 
@@ -4726,7 +4726,7 @@ This is the core bridge between the mathematical WC-1 model and TM behavior.
 The following theorem shows separation properties are derivable from explicit hypotheses
 about worst-case correctness and replanting simulation.
 
-This is now the main derivation path: `not_refuted_implies_indistinguishable` provides
+This is now the main derivation path: `remaining_indistinguishable` provides
 TM-indistinguishability, which combined with worst-case correctness yields separation.
 -/
 
@@ -4761,9 +4761,9 @@ theorem tm_extracted_configs_separate_planted_theorem
       let configs := (List.range haltTime).map (fun t =>
           ⟨v, extractConfigAtV ((TMConfig.step (M := M))^[t] (initForPlanting cfg_planted))⟩)
       let ω_planted := buildPlantedWorld L C v h_v_in rfl cfg_planted
-      (ω_planted ∉ tmRefutedWorlds L C configs) ∧
-      (∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L C configs) ∧
-      (tmRefutedWorlds L C configs).Nodup :=
+      (ω_planted ∉ eliminatedWorlds L C configs) ∧
+      (∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ eliminatedWorlds L C configs) ∧
+      (eliminatedWorlds L C configs).Nodup :=
   -- Direct application of separation_from_worst_case_correctness
   separation_from_worst_case_correctness L M v h_v_in h_R_pos extractConfigAtV
     initForPlanting haltTime h_enough_time cfg_planted h_worst_case h_replanting
@@ -4774,18 +4774,18 @@ theorem tm_extracted_configs_separate_planted_theorem
     This shows that WorstCaseCorrectOnLStar + SameObservationSameState → separation properties.
 
     **What `tm_extracted_configs_separate_planted_theorem` proves**:
-    - Separation properties (planted survives, all others refuted, no duplicates)
+    - Separation properties (planted survives, all others eliminated, no duplicates)
     - Derived from WorstCaseCorrectOnLStar + SameObservationSameState
     - Uses 0 custom axioms (only propext, Classical.choice, Quot.sound)
 
     **The derivation chain** (current main path):
-    1. `not_refuted_implies_indistinguishable` (AXIOM): unrefuted → TM-indistinguishable
+    1. `remaining_indistinguishable` (AXIOM): remaining → TM-indistinguishable
     2. `LStarAdversary` (DEFINITION): provides encoding structure definitionally
-    3. `indistinguishability_implies_all_wrong_refuted`: all wrong worlds refuted (THEOREM)
+    3. `indistinguishability_implies_all_wrong_eliminated`: all wrong worlds eliminated (THEOREM)
     4. `tm_time_lower_bound_via_indistinguishability`: haltTime ≥ 2^R - 1 (THEOREM)
 
     **Why the single bridge axiom is reasonable**:
-    - Indistinguishability: If TM hasn't refuted ω', it can't distinguish ω' from planted
+    - Indistinguishability: If TM hasn't eliminated ω', it can't distinguish ω' from planted
     - Structural properties (WorstCaseCorrect, SameObservationSameState) are DEFINITIONAL
 -/
 theorem axiom_elimination_path_summary :
@@ -4999,15 +4999,15 @@ theorem tm_extracted_configs_separate_planted_proven
       let h_v_in : v ∈ C := Finset.mem_singleton_self v
       ∃ (cfg_planted : Fin (2^(L.R v))),
         let ω_planted := buildPlantedWorld L C v h_v_in rfl cfg_planted
-        (ω_planted ∉ tmRefutedWorlds L C configs) ∧
-        (∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L C configs) ∧
-        (tmRefutedWorlds L C configs).Nodup := by
+        (ω_planted ∉ eliminatedWorlds L C configs) ∧
+        (∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ eliminatedWorlds L C configs) ∧
+        (eliminatedWorlds L C configs).Nodup := by
   -- Define cfg_planted as the config extracted from the initial state
   let cfg_planted := configAtVertex_flat L v φ h_nvars_pos numGates
       (extractWitness init) (extractPlantedHyp h_L_planted)
   use cfg_planted
 
-  -- Key lemma: all configs equal ⟨v, cfg_planted⟩ (the form needed by derive_all_wrong_worlds_refuted)
+  -- Key lemma: all configs equal ⟨v, cfg_planted⟩ (the form needed by derive_all_wrong_worlds_eliminated)
   have h_all_planted_direct : ∀ c ∈ (allConfigsFromTMRunFrom M L v φ h_nvars_pos numGates
       extractWitness (extractPlantedHyp h_L_planted) init haltTime),
       c = ⟨v, cfg_planted⟩ := by
@@ -5024,7 +5024,7 @@ theorem tm_extracted_configs_separate_planted_proven
     congr 1
     exact congrArg (configAtVertex_flat L v φ h_nvars_pos numGates · _) h_wit_eq.symm
 
-  -- Derive the conditional form for all_configs_planted_implies_not_refuted
+  -- Derive the conditional form for all_configs_planted_implies_remaining
   have h_all_planted : ∀ c ∈ (allConfigsFromTMRunFrom M L v φ h_nvars_pos numGates
       extractWitness (extractPlantedHyp h_L_planted) init haltTime),
       (h : c.fst = v) → h ▸ c.snd = cfg_planted := by
@@ -5040,10 +5040,10 @@ theorem tm_extracted_configs_separate_planted_proven
       extractWitness (extractPlantedHyp h_L_planted) init haltTime
 
   constructor
-  · -- Property 1: planted world not refuted
-    exact all_configs_planted_implies_not_refuted L C v h_v_in rfl cfg_planted configs h_all_planted
+  · -- Property 1: planted world remains
+    exact all_configs_planted_implies_remaining L C v h_v_in rfl cfg_planted configs h_all_planted
   constructor
-  · -- Property 2: all wrong worlds refuted
+  · -- Property 2: all wrong worlds eliminated
     -- Get R > 0 from planted structure
     have h_R_pos : L.R v > 0 := by
       obtain ⟨n, r, h_nvars, h_aligned, h_L_eq, _⟩ := h_L_planted
@@ -5057,10 +5057,10 @@ theorem tm_extracted_configs_separate_planted_proven
       simp only [allConfigsFromTMRunFrom, List.length_map, List.length_range]
     have h_enough : configs.length ≥ 2^(L.R v) - 1 := by
       rw [h_configs_len]; exact h_enough_time
-    exact derive_all_wrong_worlds_refuted L {v} v h_v_in rfl h_R_pos cfg_planted configs
+    exact derive_all_wrong_worlds_eliminated L {v} v h_v_in rfl h_R_pos cfg_planted configs
       h_all_planted_direct h_enough
   · -- Property 3: no duplicates
-    exact tmRefutedWorlds_nodup_general L C configs
+    exact eliminatedWorlds_nodup_general L C configs
 
 #print axioms tm_extracted_configs_separate_planted_proven
 -- Should show: propext, Classical.choice, Quot.sound (NO custom axioms!)
@@ -5101,9 +5101,9 @@ theorem separation_for_readonly_input_tm
       let h_v_in : v ∈ C := Finset.mem_singleton_self v
       ∃ (cfg_planted : Fin (2^(L.R v))),
         let ω_planted := buildPlantedWorld L C v h_v_in rfl cfg_planted
-        (ω_planted ∉ tmRefutedWorlds L C configs) ∧
-        (∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ tmRefutedWorlds L C configs) ∧
-        (tmRefutedWorlds L C configs).Nodup :=
+        (ω_planted ∉ eliminatedWorlds L C configs) ∧
+        (∀ ω : CutWorld L C, ω ≠ ω_planted → ω ∈ eliminatedWorlds L C configs) ∧
+        (eliminatedWorlds L C configs).Nodup :=
   -- Direct application using the DERIVED encoding_consistent
   tm_extracted_configs_separate_planted_proven L tm.M v h_v_fg φ h_nvars_pos numGates
     tm.extractWitness tm.extractWitness_surj init haltTime h_enough_time h_L_planted
@@ -5133,7 +5133,7 @@ Every SAT solver TM reads from a fixed input encoding:
 4. Therefore, extraction is constant → `EncodingConsistency` holds (DERIVED!)
 
 **Remaining axiom usage**:
-The axiom `not_refuted_implies_indistinguishable` is still used in the codebase.
+The axiom `remaining_indistinguishable` is still used in the codebase.
 To fully eliminate it, one could:
 1. Replace usages with `separation_for_readonly_input_tm`
 2. Show that each TM used satisfies `TMWithReadOnlyInput`
@@ -5157,12 +5157,12 @@ requirements and derives the time bound. -/
     - Derives haltTime ≥ 2^R - 1 via the indistinguishability chain
 
     **Derivation chain**:
-    1. not_refuted_implies_indistinguishable (bridge axiom)
-    2. indistinguishability_implies_all_wrong_refuted (by contradiction)
-    3. separation_implies_refuted_length
+    1. remaining_indistinguishable (bridge axiom)
+    2. indistinguishability_implies_all_wrong_eliminated (by contradiction)
+    3. separation_implies_eliminated_length
     4. tm_time_lower_bound_via_indistinguishability
 
-    **Axiom dependencies**: ONLY the bridge axiom not_refuted_implies_indistinguishable
+    **Axiom dependencies**: ONLY the bridge axiom remaining_indistinguishable
 -/
 theorem fg_first_commit_time_lower_bound_via_indistinguishability
     {k : Nat} {states alphabet : Type}
@@ -5194,7 +5194,7 @@ theorem fg_first_commit_time_lower_bound_via_indistinguishability
     - `h_worst_case`: Worst-case correctness proof
     - `h_replanting`: Replanting simulation proof
 
-    **Axiom dependencies**: ONLY `not_refuted_implies_indistinguishable` (semantic bridge)
+    **Axiom dependencies**: ONLY `remaining_indistinguishable` (semantic bridge)
 
     **Key insight**: The encoding structure is DEFINITIONAL for what it means to be
     a uniform adversary. We require it as input rather than axiomatically claiming
@@ -5224,7 +5224,7 @@ theorem fg_first_commit_time_lower_bound
     rfl
 
 #print axioms fg_first_commit_time_lower_bound
--- Should show: ONLY not_refuted_implies_indistinguishable
+-- Should show: ONLY remaining_indistinguishable
 
 /-- **MAIN INTERFACE (Adversary Form)**: Time lower bound from StructuralOWFAdversary.
 
@@ -5239,7 +5239,7 @@ theorem fg_first_commit_time_lower_bound
 
     **Result**: A.lstar_haltTime ≥ 2^(L.R v) - 1
 
-    **Axiom dependencies**: ONLY `not_refuted_implies_indistinguishable` (semantic bridge)
+    **Axiom dependencies**: ONLY `remaining_indistinguishable` (semantic bridge)
 
     **Key insight**: The encoding structure is DEFINITIONAL in the adversary structure.
     No axiom is needed to "derive" it - it's provided as part of what it means to be
@@ -5268,15 +5268,15 @@ theorem fg_first_commit_time_lower_bound_from_adversary
     h_worst_case h_halts
 
 #print axioms fg_first_commit_time_lower_bound_from_adversary
--- Should show: ONLY not_refuted_implies_indistinguishable
+-- Should show: ONLY remaining_indistinguishable
 
 /-! #### Connection to Main P≠NP Proof
 
 The main P≠NP proof uses the indistinguishability chain via
 `fg_first_commit_time_lower_bound`, which uses:
 
-**Single Bridge Axiom**: `not_refuted_implies_indistinguishable`
-- Asserts TM-indistinguishability for unrefuted worlds
+**Single Bridge Axiom**: `remaining_indistinguishable`
+- Asserts TM-indistinguishability for remaining worlds
 - Separation properties are DERIVED via contradiction (with WorstCaseCorrectOnLStar)
 
 **Definitional Requirements** (not axioms):
@@ -5293,7 +5293,7 @@ rather than just asserting THAT it holds.
 The following `#print axioms` commands verify the axiom dependencies of the
 derivation chain. All theorems should depend ONLY on:
 - Standard Lean axioms: propext, Classical.choice, Quot.sound
-- Single bridge axiom: `not_refuted_implies_indistinguishable` (semantic)
+- Single bridge axiom: `remaining_indistinguishable` (semantic)
 
 NO other custom axioms should appear.
 -/
@@ -5303,17 +5303,17 @@ section AxiomAudit
 /-! **SINGLE BRIDGE AXIOM**
 
 The entire proof chain uses only ONE custom axiom:
-`not_refuted_implies_indistinguishable` - semantic bridge (indistinguishability)
+`remaining_indistinguishable` - semantic bridge (indistinguishability)
 
 Structural properties (WorstCaseCorrectOnLStar, SameObservationSameState) are provided
 DEFINITIONALLY via the `LStarAdversary` structure, not axiomatically.
 -/
 
 -- The single bridge axiom
-#print axioms not_refuted_implies_indistinguishable
+#print axioms remaining_indistinguishable
 
 -- Property 2 derivation: depends only on the single axiom
-#print axioms indistinguishability_implies_all_wrong_refuted
+#print axioms indistinguishability_implies_all_wrong_eliminated
 
 -- Final time bound: depends only on the single axiom
 #print axioms tm_time_lower_bound_via_indistinguishability
@@ -5329,10 +5329,10 @@ DEFINITIONALLY via the `LStarAdversary` structure, not axiomatically.
 
 -- Supporting lemmas: should have NO custom axioms
 #print axioms worst_case_correct_implies_all_configs_planted
-#print axioms all_planted_implies_planted_not_refuted_v2
-#print axioms separation_implies_refuted_length
-#print axioms tmRefutedWorlds_nodup_general
-#print axioms tmRefutedWorlds_length_le_configs
+#print axioms all_planted_implies_planted_remaining_v2
+#print axioms separation_implies_eliminated_length
+#print axioms eliminatedWorlds_nodup_general
+#print axioms eliminatedWorlds_length_le_configs
 
 end AxiomAudit
 

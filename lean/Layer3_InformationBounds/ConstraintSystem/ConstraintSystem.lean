@@ -14,7 +14,7 @@ import Layer3_InformationBounds.WorldCommit.CutWorlds
    - Source: Designated reads (observation)
    - Impact: Monotone reduction (proven), halving for balanced distributions (not generally proven)
 
-2. **UnitRefute**: "World ω is impossible"
+2. **UnitElimination**: "World ω is impossible"
    - Source: Gate digest violations (parity constraints)
    - Impact: Excludes EXACTLY 1 world (exactly -1)
 
@@ -29,17 +29,17 @@ and world exclusions. NF_C normalization proves canonicity.
 ```lean
 constraint_reduces_worlds : Filtering by constraints is monotone
 bit_determination_reduces : Bit constraints reduce world count (monotone)
-multiple_refutations_additive_reduction : n refutations → -n worlds
+multiple_eliminations_additive_reduction : n eliminations → -n worlds
 ```
 
 **Composition** (proven via product structure in SegmentReduction.lean, not by iteration):
 - m independent bit constraints on product space → 2^m cardinality
-- n refutations → at most -n worlds
+- n eliminations → at most -n worlds
 - Combined: ≤ W_initial / 2^m - n worlds (see SegmentReduction.lean for proof)
 
 **Trust Boundary**: Proven theorems (no axioms).
 
-**Paper**: §7 "Constraint System", Appendix D "BitDetermination and UnitRefute Constraints"
+**Paper**: §7 "Constraint System", Appendix D "BitDetermination and UnitElimination Constraints"
 
 See Layer3_InformationBounds/Layer3_README.md for constraint system and world reduction context.
 -/
@@ -56,12 +56,12 @@ open Classical
 - Reading a designated cell reveals one bit of emergent config
 - Multiple independent bits on product space: 2^m cardinality (via product structure, see SegmentReduction.lean)
 
-**UnitRefute** captures all "negative information" (exclusions):
+**UnitElimination** captures all "negative information" (exclusions):
 - Gate digest check rules out specific worlds
-- Multiple refutations compose additively: n exclusions → -n worlds
+- Multiple eliminations compose additively: n exclusions → -n worlds
 
 Any other constraint type (e.g., "bit i OR bit j = 1") can be decomposed
-into BitDetermination + UnitRefute. NF_C normalization proves this.
+into BitDetermination + UnitElimination. NF_C normalization proves this.
 -/
 
 /-- **Cut constraint**: Canonical information about feasible worlds.
@@ -69,7 +69,7 @@ into BitDetermination + UnitRefute. NF_C normalization proves this.
     Three types:
     1. **BitDetermination**: Bit i at node v has value b
     2. **ConfigMatch**: Full emergent config at gate v has value cfg ∈ Fin (2^R_v)
-    3. **UnitRefute**: World ω is ruled out
+    3. **UnitElimination**: World ω is ruled out
 
     **Why inductive type?** (vs. separate predicates)
     - Enables uniform handling in algorithms
@@ -94,7 +94,7 @@ inductive CutConstraint (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
       (expectedCfg : Fin (2^(L.R v))) →
       CutConstraint L C
 
-  | UnitRefute :
+  | UnitElimination :
       (ω : CutWorld L C) →  -- Specific world to exclude
       CutConstraint L C
 
@@ -106,7 +106,7 @@ namespace CutConstraint
 
 **BitDetermination**: ω's assignment at (v, bitIndex) equals value
 **ConfigMatch**: Full emergent config at node v equals expected value (INJECTIVE!)
-**UnitRefute**: ω is NOT the excluded world
+**UnitElimination**: ω is NOT the excluded world
 
 **Key insight**: All three constraints are MONOTONE (adding more constraints never
 increases feasible worlds). This monotonicity is crucial for the segment counting proof.
@@ -129,7 +129,7 @@ def extractBit {n : Nat} (val : Fin (2^n)) (i : Fin n) : Bool :=
 
     - Input: Full R-bit config (Fin 2^n)
     - Output: 1-bit parity (Bool)
-    - Usage: Constraint checking, refutation proofs
+    - Usage: Constraint checking, elimination proofs
 
     **Why 1-bit is acceptable here**:
     This computes what the algorithm OBSERVES. The actual hardness comes from
@@ -169,7 +169,7 @@ def digestMatchesConfig {R : Nat} (digest : List Bool) (cfg : Fin (2^R)) : Prop 
 
     **BitDetermination**: The specific bit equals the required value
     **ConfigMatch**: The full emergent config at node v equals expected value (INJECTIVE!)
-    **UnitRefute**: ω ≠ excluded world
+    **UnitElimination**: ω ≠ excluded world
 
     ConfigMatch checks full config equality (Fin (2^R_v)), enabling uniqueness proofs
     since full configs are injective (no collisions).
@@ -185,7 +185,7 @@ noncomputable def Satisfies {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
   | ConfigMatch v h_in expectedCfg =>
       -- Check if the emergent value at node v equals the expected full config
       ω.assignment v h_in = expectedCfg
-  | UnitRefute ω_excluded =>
+  | UnitElimination ω_excluded =>
       -- ω must be different from the excluded world
       ω ≠ ω_excluded
 
@@ -208,8 +208,8 @@ noncomputable instance decidable_satisfies {L : LStarInstanceFG} {C : Finset (Fi
     -- ConfigMatch is decidable (Fin equality on full configuration)
     unfold Satisfies
     infer_instance
-  | UnitRefute ω_excluded =>
-    -- UnitRefute is decidable (world inequality, using DecidableEq instance)
+  | UnitElimination ω_excluded =>
+    -- UnitElimination is decidable (world inequality, using DecidableEq instance)
     unfold Satisfies
     infer_instance
 
@@ -259,10 +259,10 @@ theorem configSatisfied_of_all_bits_satisfied
 uniqueness - same constraints in any order produce the same normal form.
 
 **Lexicographic order**:
-1. BitDetermination < ConfigMatch < UnitRefute (type ordering)
+1. BitDetermination < ConfigMatch < UnitElimination (type ordering)
 2. Within BitDetermination: order by (v, bitIndex, value)
 3. Within ConfigMatch: order by (v, expectedCfg)
-4. Within UnitRefute: order by world (needs CutWorld ordering)
+4. Within UnitElimination: order by world (needs CutWorld ordering)
 -/
 
 /-- **Lexicographic comparison for BitDetermination constraints**.
@@ -306,7 +306,7 @@ noncomputable def compareConfigMatch
 /-- **Ordering on CutConstraints** (for sorting in normalize).
 
     **Total order**:
-    1. BitDetermination < ConfigMatch < UnitRefute (type ordering)
+    1. BitDetermination < ConfigMatch < UnitElimination (type ordering)
     2. Within same type, use lexicographic comparison
 
     **Why needed**: Makes normalize deterministic - same constraints → same sorted list.
@@ -319,16 +319,16 @@ noncomputable instance : Ord (CutConstraint L C) where
         compareBitDetermination v1 h1 i1 b1 v2 h2 i2 b2
     | ConfigMatch v1 h1 cfg1, ConfigMatch v2 h2 cfg2 =>
         compareConfigMatch v1 h1 cfg1 v2 h2 cfg2
-    | UnitRefute ω1, UnitRefute ω2 =>
+    | UnitElimination ω1, UnitElimination ω2 =>
         compare ω1 ω2  -- Use CutWorld Ord instance (defined in CutWorlds.lean)
 
-    -- Cross-type comparisons (6 cases): BitDetermination < ConfigMatch < UnitRefute
+    -- Cross-type comparisons (6 cases): BitDetermination < ConfigMatch < UnitElimination
     | BitDetermination _ _ _ _, ConfigMatch _ _ _ => .lt
-    | BitDetermination _ _ _ _, UnitRefute _ => .lt
+    | BitDetermination _ _ _ _, UnitElimination _ => .lt
     | ConfigMatch _ _ _, BitDetermination _ _ _ _ => .gt
-    | ConfigMatch _ _ _, UnitRefute _ => .lt
-    | UnitRefute _, BitDetermination _ _ _ _ => .gt
-    | UnitRefute _, ConfigMatch _ _ _ => .gt
+    | ConfigMatch _ _ _, UnitElimination _ => .lt
+    | UnitElimination _, BitDetermination _ _ _ _ => .gt
+    | UnitElimination _, ConfigMatch _ _ _ => .gt
 
 end CutConstraint
 
@@ -379,11 +379,11 @@ theorem bit_determination_reduces
 
 **What's proven here**:
 - constraint_filtering_monotone: Iterative filtering is monotone (≤ W.card)
-- multiple_refutations_additive_reduction: n refutations reduce by ≤ n worlds
+- multiple_eliminations_additive_reduction: n eliminations reduce by ≤ n worlds
 
 **What's proven in SegmentReduction.lean** (NOT by iteration):
 - |BitsOnlyWorlds| = 2^(ρ-s) via product structure (card_pi_bits)
-- Combined with refutations: ≥ 2^(ρ-s) - 1 refutations needed
+- Combined with eliminations: ≥ 2^(ρ-s) - 1 eliminations needed
 - See SegmentReduction.lean for the actual exponential lower bound proof
 -/
 
@@ -412,22 +412,22 @@ theorem constraint_filtering_monotone
     -- Combine via transitivity
     exact Nat.le_trans h_tail h_step
 
-/-- **Multiple refutations compose additively** (bounded reduction).
+/-- **Multiple eliminations compose additively** (bounded reduction).
 
-    **Statement**: n UnitRefute constraints reduce by at most n worlds.
+    **Statement**: n UnitElimination constraints reduce by at most n worlds.
 
-    **Note**: Each UnitRefute excludes at most 1 world (exactly 1 if that world was
+    **Note**: Each UnitElimination excludes at most 1 world (exactly 1 if that world was
     feasible, 0 if it was already excluded). Refutations of already-excluded worlds
     are redundant.
 -/
-theorem multiple_refutations_additive_reduction
+theorem multiple_eliminations_additive_reduction
     {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
-    (refutations : List (CutConstraint L C))
-    (h_all_refutes : ∀ c ∈ refutations, ∃ ω, c = CutConstraint.UnitRefute ω)
+    (eliminations : List (CutConstraint L C))
+    (h_all_eliminations : ∀ c ∈ eliminations, ∃ ω, c = CutConstraint.UnitElimination ω)
     (W : Finset (CutWorld L C))
-    : W.card ≤ (refutations.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) W).card + refutations.length := by
+    : W.card ≤ (eliminations.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) W).card + eliminations.length := by
   classical
-  -- Helper: one UnitRefute removes at most one world
+  -- Helper: one UnitElimination removes at most one world
   have step_bound : ∀ (ω : CutWorld L C) (S : Finset (CutWorld L C)),
       S.card ≤ (S.filter (fun x => x ≠ ω)).card + 1 := by
     intro ω S
@@ -461,14 +461,14 @@ theorem multiple_refutations_additive_reduction
             exact hmem ha_in
       rw [h_eq]
       omega
-  -- Induction over the list of refutations
-  induction refutations generalizing W with
+  -- Induction over the list of eliminations
+  induction eliminations generalizing W with
   | nil =>
     simp [List.foldl]
   | cons c cs ih =>
-    -- Extract the ω for this UnitRefute
-    have hc : ∃ ω, c = CutConstraint.UnitRefute ω := by
-      exact h_all_refutes c (by simp)
+    -- Extract the ω for this UnitElimination
+    have hc : ∃ ω, c = CutConstraint.UnitElimination ω := by
+      exact h_all_eliminations c (by simp)
     rcases hc with ⟨ω, rfl⟩
     -- Apply one step
     have h_one : W.card ≤ (W.filter (fun x => x ≠ ω)).card + 1 := step_bound ω W
@@ -478,9 +478,9 @@ theorem multiple_refutations_additive_reduction
           (cs.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω))
             (W.filter (fun x => x ≠ ω))).card + cs.length := by
       -- Restrict the hypothesis to the tail list
-      have h_tail_all : ∀ c ∈ cs, ∃ ω, c = CutConstraint.UnitRefute ω := by
+      have h_tail_all : ∀ c ∈ cs, ∃ ω, c = CutConstraint.UnitElimination ω := by
         intro c hc
-        exact h_all_refutes c (by simp [hc])
+        exact h_all_eliminations c (by simp [hc])
       simpa using ih h_tail_all (W := W.filter (fun x => x ≠ ω))
     -- Combine the two bounds
     have : W.card ≤ (cs.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω))
@@ -502,6 +502,6 @@ No custom axioms are introduced.
 #print axioms constraint_reduces_worlds
 #print axioms bit_determination_reduces
 #print axioms constraint_filtering_monotone
-#print axioms multiple_refutations_additive_reduction
+#print axioms multiple_eliminations_additive_reduction
 
 end LStar.StructuralOWF.Foundations

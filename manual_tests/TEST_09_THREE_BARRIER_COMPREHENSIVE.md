@@ -25,7 +25,7 @@ The P ≠ NP proof relies on L* simultaneously blocking all three operational ro
 | # | Axiom | Location | Barrier Impact | Risk |
 |---|-------|----------|----------------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean:414 | All (TM model) | Very Low |
-| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 | WC-1 bridge (indistinguishability axiom) | Low |
+| 2 | `remaining_indistinguishable` | WC1Bridge.lean:4067 | WC-1 bridge (indistinguishability axiom) | Low |
 
 **Previously Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding` - Now 145-line theorem (EncodingDiscipline.lean)
@@ -1345,10 +1345,10 @@ The Resolution barrier requires that R_v bits MUST be explicitly read from desig
 **Lean Files**:
 - `Layer1_Construction/Core/Pools.lean` — `address_hermetic` (line 168-177)
 - `Layer1_Construction/Core/OAPEncoding.lean` — OAP XOR encoding/decoding
-- `Layer4_Operational/TimeBridge/WC1Bridge.lean` — `not_refuted_implies_indistinguishable` axiom (line 4067)
-  NOTE: Primary path uses `not_refuted_implies_indistinguishable`; `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` is at TMAdapterExponential.lean:2151
+- `Layer4_Operational/TimeBridge/WC1Bridge.lean` — `remaining_indistinguishable` axiom (line 4067)
+  NOTE: Primary path uses `remaining_indistinguishable`; `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` is at TMAdapterExponential.lean:2151
 
-**AXIOM ALERT**: This category relies on the WC-1 axiom (`not_refuted_implies_indistinguishable` at WC1Bridge.lean:4067). This axiom formalizes indistinguishability: without observing ALL emergent configs, a TM cannot produce a correct satisfying assignment for planted instances.
+**AXIOM ALERT**: This category relies on the WC-1 axiom (`remaining_indistinguishable` at WC1Bridge.lean:4067). This axiom formalizes indistinguishability: without observing ALL emergent configs, a TM cannot produce a correct satisfying assignment for planted instances.
 
 **Axiom Statement** (simplified):
 ```lean
@@ -1836,8 +1836,8 @@ CDT (Constraint-Digest Tagging): FG gates use R-bit identity digests to tag cons
 
 **Lean Files**:
 - `Layer3_InformationBounds/WorldCommit/WorldCommit.lean` — `world_commit_refutation_excludes_one` (line 579)
-- `Layer3_InformationBounds/WorldCommit/ConfigMatchToUnitRefute.lean` — `ConfigMatch` to `UnitRefute` conversion
-- `Layer3_InformationBounds/ConstraintSystem/ConstraintSystem.lean` — `CutConstraint` types including `UnitRefute`, `ConfigMatch`, `DigestMatch`
+- `Layer3_InformationBounds/WorldCommit/ConfigMatchToUnitElimination.lean` — `ConfigMatch` to `UnitElimination` conversion
+- `Layer3_InformationBounds/ConstraintSystem/ConstraintSystem.lean` — `CutConstraint` types including `UnitElimination`, `ConfigMatch`, `DigestMatch`
 - `Layer3_InformationBounds/SegmentReduction/SegmentReduction.lean` — `refutation_count_exponential_bound` (line 3188)
 
 **Key Theorem**: `world_commit_refutation_excludes_one` (WorldCommit.lean:579-643)
@@ -1867,19 +1867,19 @@ theorem world_commit_refutation_excludes_one
 --   | BitDetermination : ...  -- bit = value
 --   | ConfigMatch : ...       -- full config matches (injective!)
 --   | DigestMatch : ...       -- R-bit identity digest matches
---   | UnitRefute : ...        -- single world excluded (WC-1)
+--   | UnitElimination : ...        -- single world excluded (WC-1)
 
 -- Key: ConfigMatch is INJECTIVE (unlike DigestMatch which has 2^63 collisions)
 -- This enables unique identification for WC-1
 
 #check LStar.CutConstraint
-#check LStar.CutConstraint.UnitRefute
+#check LStar.CutConstraint.UnitElimination
 ```
 
 **Questions**:
 - [ ] Is `CutConstraint` type correctly defined?
 - [ ] Does `ConfigMatch` provide injectivity (unlike `DigestMatch`)?
-- [ ] Is `UnitRefute` used for WC-1 elimination?
+- [ ] Is `UnitElimination` used for WC-1 elimination?
 - [ ] Is the constraint system complete?
 
 **Pass Criteria**: CDT correctly formalized via CutConstraint types.
@@ -1906,7 +1906,7 @@ cd lean && lake env lean -c 'import Layer3_InformationBounds.ConstraintSystem.Co
 --   : (excludeWorld π.feasible ω_star).card = π.feasible.card - 1
 -- This says: excluding one world reduces cardinality by exactly 1
 
--- The key insight: UnitRefute(ω_star) excludes ONLY ω_star
+-- The key insight: UnitElimination(ω_star) excludes ONLY ω_star
 -- No cascade, no learning, no pruning
 
 #check LStar.world_commit_refutation_excludes_one
@@ -3036,7 +3036,7 @@ grep -rn "paradigm\|Paradigm\|adapter\|Adapter" lean/Layer*/*.lean
 | Axiom | Barrier(s) Affected | Why Needed |
 |-------|---------------------|------------|
 | `algspec_has_tm` | All | Church-Turing bridge for TM semantics |
-| `not_refuted_implies_indistinguishable` | Resolution | WC-1 indistinguishability (coverage requirement) |
+| `remaining_indistinguishable` | Resolution | WC-1 indistinguishability (coverage requirement) |
 
 **Note**: Previously there were 4 axioms. `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proven theorems (see README).
 

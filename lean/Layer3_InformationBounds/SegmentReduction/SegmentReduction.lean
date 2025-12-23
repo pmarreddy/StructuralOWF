@@ -11,11 +11,11 @@ import Mathlib.Logic.Equiv.Basic
 
 /-! ## SegmentReduction: The Exponential Elimination Barrier (Why Search Doesn't Help)
 
-**Main Theorem**: `refutation_count_exponential_bound` - Testing candidates eliminates at most ONE possibility each.
+**Main Theorem**: `elimination_count_exponential_bound` - Testing candidates eliminates at most ONE possibility each.
 
 **Statement**: For any algorithm trying to find the unique satisfying assignment:
 ```lean
-refutationCount ≥ 2^(ρ-s) - 1
+eliminationCount ≥ 2^(ρ-s) - 1
 ```
 where ρ = total emergence bits, s = revealed bits
 
@@ -48,7 +48,7 @@ Initial State: 2^(ρ-s) Possible Worlds
 └─────────────────────────────────────────────────────────────┘
    2^(ρ-s) - 1 possibilities remain
 
-WC-1 Property: Each refutation eliminates EXACTLY 1 world
+WC-1 Property: Each elimination eliminates EXACTLY 1 world
               (no cascade, no learning, no pruning)
 
 Result: Must test ≥ 2^(ρ-s) - 1 candidates to isolate unique solution
@@ -69,7 +69,7 @@ Test 2: Try config [0,0,0,0,0,0,0,1] → digest mismatch → eliminate 1 world
 Test 255: Try config [1,1,1,1,1,1,1,0] → digest mismatch → eliminate 1 world
           Remaining: 1 possibility (the answer!)
 
-Total refutations: 255 = 2^8 - 1 (exponential in free bits!)
+Total eliminations: 255 = 2^8 - 1 (exponential in free bits!)
 
 Key: No bulk pruning - each test eliminates exactly 1 assignment
 ```
@@ -77,7 +77,7 @@ Key: No bulk pruning - each test eliminates exactly 1 assignment
 **Common Misconceptions**:
 
 ❌ **Wrong**: "Can't we eliminate multiple worlds with one test using constraint propagation?"
-✅ **Right**: "WC-1 property proven: each refutation eliminates EXACTLY 1 world"
+✅ **Right**: "WC-1 property proven: each elimination eliminates EXACTLY 1 world"
    Reason: FG digest gives only pass/fail (parity match/mismatch)
    No structural information leaked → cannot derive implications
    This is information-theoretic: 1-bit digest cannot encode "which variables to fix"
@@ -121,10 +121,10 @@ WC-1 enforces "no feedback" property: only yes/no, not "which digit wrong"
 **Four-Phase Architecture**:
 1. **Bits-Only Universe**: Define S_bits ignoring digests → |S_bits| = 2^(ρ-s) exactly
 2. **Subset Relation**: Show FeasibleUnder ⊆ S_bits (digests only remove)
-3. **WC-1 Property**: Each refutation eliminates ≤ 1 world (proven in WorldCommit.lean)
-4. **Combine Bounds**: 2^(ρ-s) ≤ 1 + refutationCount → refutationCount ≥ 2^(ρ-s) - 1
+3. **WC-1 Property**: Each elimination eliminates ≤ 1 world (proven in WorldCommit.lean)
+4. **Combine Bounds**: 2^(ρ-s) ≤ 1 + eliminationCount → eliminationCount ≥ 2^(ρ-s) - 1
 
-**Key Theorems**: bits_only_cardinality_exact, feasible_subset_bits_only, refutation_count_exponential_bound
+**Key Theorems**: bits_only_cardinality_exact, feasible_subset_bits_only, elimination_count_exponential_bound
 
 **Dependencies**: WorldCommit (WC-1), ConstraintSystem, NormalForm, CutWorlds, CDT_Lemmas, CutProduct
 
@@ -264,7 +264,7 @@ ignoring all digest constraints.
 /-- **Bits-only constraint set**: Worlds consistent with revealed bits only.
 
     **Definition**: World ω is in S_bits iff it satisfies all BitDetermination
-    constraints, ignoring DigestMatch and UnitRefute constraints.
+    constraints, ignoring DigestMatch and UnitElimination constraints.
 
     **Cardinality**: Proven bound |S_bits| ≤ 2^ρ (see `bits_only_cardinality_upper`).
     Exact cardinality |S_bits| = 2^(ρ - s_eff) requires additional infrastructure.
@@ -443,7 +443,7 @@ Build bijection BitsOnlyWorlds ≃ PerNodeFree for Cartesian product structure.
 **Implementation status**:
 - Structure complete: forward/backward maps defined, equivalence constructed
 - Type-checks successfully: all definitions compile
-- Main theorem proven: `refutation_count_exponential_bound`
+- Main theorem proven: `elimination_count_exponential_bound`
 
 **Components** (8 well-scoped pieces):
 
@@ -2307,34 +2307,34 @@ theorem feasible_subset_bits_only
   -- ω satisfies all constraints in extractConstraints
   exact h_ω c h_c_in_all
 
-/-! ## Part 3: Refutation Counting
+/-! ## Part 3: Elimination Counting
 
-**GOAL**: Extract number of UnitRefute constraints from NormalForm.
+**GOAL**: Extract number of UnitElimination constraints from NormalForm.
 
-**WHY**: Each UnitRefute excludes ≤ 1 world (proven: multiple_refutations_additive_reduction).
+**WHY**: Each UnitElimination excludes ≤ 1 world (proven: multiple_eliminations_additive_reduction).
 
-**COUNTING**: NormalForm.refuted field contains the list of refuted worlds.
+**COUNTING**: NormalForm.eliminated field contains the list of eliminated worlds.
 
-**CONNECTION TO WORLDCOMMIT**: UnitRefute constraints are produced by the WorldCommit protocol:
+**CONNECTION TO WORLDCOMMIT**: UnitElimination constraints are produced by the WorldCommit protocol:
 1. Algorithm computes gate digest at node v
 2. CommitSelector determines ω* = lexicographic minimum feasible world
-3. If GateDigestOn(ω*, v) ≠ observed_digest, add UnitRefute(ω*)
+3. If GateDigestOn(ω*, v) ≠ observed_digest, add UnitElimination(ω*)
 4. WC-1 theorem guarantees this excludes exactly 1 world
 
 **Implementation**: The constraint extraction produces BitDetermination and DigestMatch.
-The WorldCommit protocol (WorldCommit.lean) processes these constraints to compute refutations.
+The WorldCommit protocol (WorldCommit.lean) processes these constraints to compute eliminations.
 -/
 
-/-- **Count refutations** via WorldCommit protocol execution.
+/-- **Count eliminations** via WorldCommit protocol execution.
 
-    **Definition**: Run WorldCommit protocol on observed constraints and count refuted worlds.
+    **Definition**: Run WorldCommit protocol on observed constraints and count eliminated worlds.
 
     **PROTOCOL**: Starting from all possible worlds, apply bit constraints,
-    then iteratively check digest constraints via WorldCommit (commit → check → refute if wrong).
+    then iteratively check digest constraints via WorldCommit (commit → check → eliminate if wrong).
 
-    **MEANING**: Number of worlds refuted during protocol execution.
+    **MEANING**: Number of worlds eliminated during protocol execution.
 -/
-noncomputable def refutationCount
+noncomputable def eliminationCount
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (π : ExecutionPrefixReal L)
@@ -2344,14 +2344,14 @@ noncomputable def refutationCount
   let initial_feasible := NormalForm.FeasibleUnder nf.bitDeterminations
   -- Run WorldCommit protocol on digest constraints
   let final_state := wcExecute L C nf.bitDeterminations nf.digestMatches initial_feasible
-  -- Count refuted worlds
-  final_state.refuted.length
+  -- Count eliminated worlds
+  final_state.eliminated.length
 
 /-- **Total world eliminations**: Count of ALL worlds eliminated (bits + digests).
 
     This is the semantically correct measure for monotonicity proofs.
-    refutationCount measures only digest refutations, which can decrease when
-    worlds move from "refuted by digest" to "excluded by bits".
+    eliminationCount measures only digest eliminations, which can decrease when
+    worlds move from "eliminated by digest" to "excluded by bits".
 
     totalEliminations = |AllWorlds| - |SurvivingWorlds| is always monotonic. -/
 noncomputable def totalEliminations
@@ -2447,60 +2447,60 @@ theorem totalEliminations_congr
   -- Now all three components are equal, so the whole extractConstraints is equal
   simp only [h_bits, h_configs, h_synth]
 
-/-- **Refutation bound from multiple_refutations_additive_reduction (universe version)**.
+/-- **Elimination bound from multiple_eliminations_additive_reduction (universe version)**.
 
-    **Statement**: Applying `r` UnitRefute constraints to the full universe of
+    **Statement**: Applying `r` UnitElimination constraints to the full universe of
     cut-worlds can reduce the count by at most `r`.
 
-    **Use**: Cleanly isolates the additive effect of refutations without
+    **Use**: Cleanly isolates the additive effect of eliminations without
     interacting with bit/digest constraints. -/
-theorem refutations_bound_on_universe
+theorem eliminations_bound_on_universe
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (π : ExecutionPrefixReal L)
-    : let r := refutationCount L C π
+    : let r := eliminationCount L C π
       let nf := ConstraintNF L C π
       let wc_state := wcExecute L C nf.bitDeterminations nf.digestMatches
                         (NormalForm.FeasibleUnder nf.bitDeterminations)
-      let refutes : List (CutConstraint L C) :=
-        wc_state.refuted.map CutConstraint.UnitRefute
+      let eliminations_list : List (CutConstraint L C) :=
+        wc_state.eliminated.map CutConstraint.UnitElimination
       (Finset.univ : Finset (CutWorld L C)).card
-        ≤ (refutes.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) Finset.univ).card + r := by
-  intro r nf wc_state refutes
-  -- Prove all refutes are UnitRefute constraints
-  have h_all_refutes : ∀ c ∈ refutes, ∃ ω, c = CutConstraint.UnitRefute ω := by
+        ≤ (eliminations_list.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) Finset.univ).card + r := by
+  intro r nf wc_state eliminations_list
+  -- Prove all eliminations_list are UnitElimination constraints
+  have h_all_eliminations_list : ∀ c ∈ eliminations_list, ∃ ω, c = CutConstraint.UnitElimination ω := by
     intro c hc
-    -- c comes from mapping UnitRefute over refuted list
-    simp only [refutes, List.mem_map] at hc
+    -- c comes from mapping UnitElimination over eliminated list
+    simp only [eliminations_list, List.mem_map] at hc
     rcases hc with ⟨ω, _, rfl⟩
     exact ⟨ω, rfl⟩
-  -- Apply multiple_refutations_additive_reduction with W = universe
-  have := multiple_refutations_additive_reduction (L := L) (C := C)
-    (refutations := refutes) (W := (Finset.univ : Finset (CutWorld L C)))
-    (h_all_refutes := h_all_refutes)
+  -- Apply multiple_eliminations_additive_reduction with W = universe
+  have := multiple_eliminations_additive_reduction (L := L) (C := C)
+    (eliminations := eliminations_list) (W := (Finset.univ : Finset (CutWorld L C)))
+    (h_all_eliminations_list := h_all_eliminations_list)
   -- Rearrange the result (it already has the desired shape)
   calc (Finset.univ : Finset (CutWorld L C)).card
-      ≤ (refutes.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) Finset.univ).card +
-        refutes.length := this
-    _ = (refutes.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) Finset.univ).card + r := by
-        -- r = refutationCount = wc_state.refuted.length (by definition)
-        -- refutes = wc_state.refuted.map UnitRefute, so refutes.length = wc_state.refuted.length = r
+      ≤ (eliminations_list.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) Finset.univ).card +
+        eliminations_list.length := this
+    _ = (eliminations_list.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) Finset.univ).card + r := by
+        -- r = eliminationCount = wc_state.eliminated.length (by definition)
+        -- eliminations_list = wc_state.eliminated.map UnitElimination, so eliminations_list.length = wc_state.eliminated.length = r
         congr 1
-        -- Show refutes.length = r
-        simp only [refutes, r, refutationCount, List.length_map]
+        -- Show eliminations_list.length = r
+        simp only [eliminations_list, r, eliminationCount, List.length_map]
         -- Now show wc_state = wcExecute ...
         rfl
 
-/-! ## Part 4: Segment-Refutation Correspondence
+/-! ## Part 4: Segment-Elimination Correspondence
 
-**GOAL**: Show each refutation comes from a segment boundary.
+**GOAL**: Show each elimination comes from a segment boundary.
 
 **KEY LEMMAS**:
 - CDT-1': No observations → NF unchanged
 - Contrapositive: NF changed → new observation (bit or digest)
-- WC-1: Digest observation + refutation → exactly 1 world excluded
+- WC-1: Digest observation + elimination → exactly 1 world excluded
 
-**THEOREM**: Each UnitRefute in final NF corresponds to a segment boundary.
+**THEOREM**: Each UnitElimination in final NF corresponds to a segment boundary.
 -/
 
 /-- **Segment boundary implies observation change** (CDT-1' contrapositive). -/
@@ -2522,18 +2522,18 @@ theorem boundary_implies_observation
   -- Contradiction!
   exact h_boundary h_nf_eq
 
-/-- **Refutation growth implies segment boundaries**.
+/-- **Elimination growth implies segment boundaries**.
 
-    **Statement**: If refutation count increased from π₁ to π₂, then
+    **Statement**: If elimination count increased from π₁ to π₂, then
     there exists at least one segment boundary in between.
 
     **Proof**: Contrapositive of CDT-1'. -/
-theorem refutation_growth_implies_boundaries
+theorem elimination_growth_implies_boundaries
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (π₁ π₂ : ExecutionPrefixReal L)
     (_h_prefix : isPrefixOf L π₁ π₂)
-    (h_growth : refutationCount L C π₁ < refutationCount L C π₂)
+    (h_growth : eliminationCount L C π₁ < eliminationCount L C π₂)
     : SegmentBoundary L C π₁ π₂ := by
 
   -- Proof by contradiction
@@ -2550,10 +2550,10 @@ theorem refutation_growth_implies_boundaries
     have : SegmentBoundary L C π₁ π₂ := h_ne
     contradiction
 
-  -- NF unchanged means refutation count unchanged
-  -- refutationCount uses NF.refuted.length, so equal NFs → equal counts
-  have h_count_eq : refutationCount L C π₁ = refutationCount L C π₂ := by
-    simp only [refutationCount]
+  -- NF unchanged means elimination count unchanged
+  -- eliminationCount uses NF.eliminated.length, so equal NFs → equal counts
+  have h_count_eq : eliminationCount L C π₁ = eliminationCount L C π₂ := by
+    simp only [eliminationCount]
     rw [h_no_boundary]
 
   -- Contradiction with h_growth
@@ -2567,10 +2567,10 @@ theorem refutation_growth_implies_boundaries
 1. Initial: 2^ρ worlds (initial_feasible_worlds_count)
 2. Exact bound: |S_bits| = 2^(ρ-s) (bits_only_cardinality_exact)
 3. FeasibleUnder ⊆ S_bits (feasible_subset_bits_only)
-4. Refutations: reduce by ≤ r (refutations_bound_on_universe)
+4. Eliminations: reduce by ≤ r (eliminations_bound_on_universe)
 5. At acceptance: ≥ 1 world remains (nonempty_acceptance)
 6. Therefore: 2^(ρ-s) - r ≥ 1, so r ≥ 2^(ρ-s) - 1
-7. Segments: m_seg ≥ r (refutation_growth_implies_boundaries)
+7. Segments: m_seg ≥ r (elimination_growth_implies_boundaries)
 8. Conclusion: m_seg ≥ 2^(ρ-s) - 1
 -/
 
@@ -2589,28 +2589,28 @@ theorem nonempty_acceptance
   -- Direct from Nonempty → card ≥ 1
   exact Finset.Nonempty.card_pos h_nonempty
 
-/- **WC-1 completeness lemma** (WorldCommit digest-refute completeness).
+/- **WC-1 completeness lemma** (WorldCommit digest-elimination completeness).
 
-   **Statement**: Any world satisfying bit constraints + refutations also satisfies
+   **Statement**: Any world satisfying bit constraints + eliminations also satisfies
    digest constraints. Equivalently, W_after ⊆ FeasibleUnderNF.
 
    **Why this is needed**:
    - BitsOnlyWorlds enforces only bit constraints (by design)
-   - W_after = BitsOnlyWorlds filtered by refutations (no digest tracking)
+   - W_after = BitsOnlyWorlds filtered by eliminations (no digest tracking)
    - FeasibleUnderNF includes digestMatches by definition
-   - Gap: Need to show digest violations → refutations
+   - Gap: Need to show digest violations → eliminations
 
    **Paper connection**: This is the WorldCommit completeness property (WC-1):
-   "Any world violating a digest constraint is excluded by some refutation."
+   "Any world violating a digest constraint is excluded by some elimination."
 
    **Proof strategy**:
    1. Show extractConfigConstraints produces DigestMatch from observations
    2. Prove: digest mismatch → world inconsistent with execution prefix
-   3. Use normalize: inconsistent worlds become UnitRefute in nf.refuted
-   4. Therefore: digest violation → eliminated by refutations → not in W_after
+   3. Use normalize: inconsistent worlds become UnitElimination in nf.eliminated
+   4. Therefore: digest violation → eliminated by eliminations → not in W_after
 
    **Alternative**: Could also prove via uniqueness (|FeasibleUnderNF| ≤ 1) but
-   still needs same digest→refute completeness for the cardinality argument.
+   still needs same digest→elimination completeness for the cardinality argument.
 -/
 /-- Helper lemma: Trace bit constraints through normalization pipeline.
 
@@ -2686,47 +2686,47 @@ private lemma bit_in_nf_from_extract_bits
           -- Now h_is_bit : false = true, which is impossible
           exact Bool.noConfusion h_is_bit
 
-/-- **WC-1 completeness lemma** (WorldCommit digest-refute completeness).
+/-- **WC-1 completeness lemma** (WorldCommit digest-elimination completeness).
 
-    **ARCHITECTURE**: Now that refutationCount uses wcExecute, this lemma connects
+    **ARCHITECTURE**: Now that eliminationCount uses wcExecute, this lemma connects
     the WorldCommit protocol output to FeasibleUnderNF.
 
     **Statement**: Worlds surviving WorldCommit protocol satisfy all constraints.
 
-    **KEY**: Since refutationCount now RUNS wcExecute (see above), we have direct
-    connection between refuted worlds and the protocol.
+    **KEY**: Since eliminationCount now RUNS wcExecute (see above), we have direct
+    connection between eliminated worlds and the protocol.
 -/
-lemma digest_complete_via_refutes
+lemma digest_complete_via_eliminations_list
     (L : LStarInstanceFG)
     (C : Finset (Fin L.dag.n))
     (π : ExecutionPrefixReal L)
     : let nf := ConstraintNF L C π
       let S := BitsOnlyWorlds L C π
-      -- **CORRECTED**: refutes now comes from wcExecute output!
+      -- **CORRECTED**: eliminations_list now comes from wcExecute output!
       let wc_state := wcExecute L C nf.bitDeterminations nf.digestMatches
                         (NormalForm.FeasibleUnder nf.bitDeterminations)
-      let refutes := wc_state.refuted.map CutConstraint.UnitRefute
-      let W_after := refutes.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) S
+      let eliminations_list := wc_state.eliminated.map CutConstraint.UnitElimination
+      let W_after := eliminations_list.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω)) S
       W_after ⊆ NormalForm.FeasibleUnderNF nf := by
 
-  intro nf S wc_state refutes W_after ω h_ω_in_W_after
+  intro nf S wc_state eliminations_list W_after ω h_ω_in_W_after
 
   -- ω ∈ W_after means:
   -- 1. ω ∈ BitsOnlyWorlds (satisfies bit constraints from observations)
-  -- 2. ω satisfies all refutation constraints (survived WorldCommit)
+  -- 2. ω satisfies all elimination constraints (survived WorldCommit)
   --
   -- Need to show: ω ∈ FeasibleUnderNF nf, meaning ω satisfies:
   -- - bitDeterminations (have from (1))
   -- - digestMatches (have from WorldCommit completeness via (2))
-  -- - refuted.map UnitRefute (have from (2))
+  -- - eliminated.map UnitElimination (have from (2))
 
   unfold NormalForm.FeasibleUnderNF NormalForm.FeasibleUnder
   simp only [Finset.mem_filter, Finset.mem_univ, true_and]
   rw [List.all_eq_true]
   intro c h_c_in
 
-  -- nf.refuted is empty (extractConstraints produces no UnitRefute)
-  -- So the third component (nf.refuted.map UnitRefute) is []
+  -- nf.eliminated is empty (extractConstraints produces no UnitElimination)
+  -- So the third component (nf.eliminated.map UnitElimination) is []
   -- Therefore: constraints = bitDeterminations ++ digestMatches ++ []
 
   rw [List.mem_append] at h_c_in
@@ -2753,7 +2753,7 @@ lemma digest_complete_via_refutes
               | cons c' cs' ih =>
                   simp only [List.foldl_cons]
                   exact Finset.Subset.trans (ih _) (Finset.filter_subset _ _)
-            exact foldl_subset S refutes h_ω_in_W_after
+            exact foldl_subset S eliminations_list h_ω_in_W_after
 
           -- Step 2: BitsOnlyWorlds → satisfies bit constraints
           -- ω ∈ S means ω satisfies extractBitConstraints
@@ -2802,7 +2802,7 @@ lemma digest_complete_via_refutes
                 | cons c' cs' ih =>
                     simp only [List.foldl_cons]
                     exact Finset.Subset.trans (ih _) (Finset.filter_subset _ _)
-              exact foldl_subset S refutes h_ω_in_W_after
+              exact foldl_subset S eliminations_list h_ω_in_W_after
             -- BitsOnlyWorlds ⊆ FeasibleUnder nf.bitDeterminations
             unfold S BitsOnlyWorlds at h_ω_in_bits
             unfold NormalForm.FeasibleUnder
@@ -2818,22 +2818,22 @@ lemma digest_complete_via_refutes
             have h_all := List.all_eq_true.mp h_ω_in_bits
             exact decide_eq_true (of_decide_eq_true (h_all b h_b_extract))
 
-          -- Step 2: Show ω is NOT refuted (satisfies all refute constraints)
-          have h_ω_not_refuted : ω ∉ wc_state.refuted := by
+          -- Step 2: Show ω is NOT eliminated (satisfies all elimination constraints)
+          have h_ω_not_eliminated : ω ∉ wc_state.eliminated := by
             intro h_contra
-            -- If ω ∈ wc_state.refuted, then UnitRefute ω ∈ refutes
-            have h_unit_in : CutConstraint.UnitRefute ω ∈ refutes := by
-              unfold refutes
+            -- If ω ∈ wc_state.eliminated, then UnitElimination ω ∈ eliminations_list
+            have h_unit_in : CutConstraint.UnitElimination ω ∈ eliminations_list := by
+              unfold eliminations_list
               apply List.mem_map.mpr
               exact ⟨ω, h_contra, rfl⟩
-            -- But ω ∈ W_after means ω satisfies all constraints in refutes
+            -- But ω ∈ W_after means ω satisfies all constraints in eliminations_list
             unfold W_after at h_ω_in_W_after
-            have h_foldl_sat : ∀ r ∈ refutes, r.Satisfies ω := by
+            have h_foldl_sat : ∀ r ∈ eliminations_list, r.Satisfies ω := by
               -- General lemma: foldl filter membership implies satisfaction
               suffices ∀ (cs : List (CutConstraint L C)) (W0 : Finset (CutWorld L C)),
                   ω ∈ cs.foldl (fun W' c => W'.filter (fun ω' => c.Satisfies ω')) W0 →
                   ∀ r ∈ cs, r.Satisfies ω by
-                exact this refutes S h_ω_in_W_after
+                exact this eliminations_list S h_ω_in_W_after
               intro cs
               induction cs with
               | nil =>
@@ -2862,9 +2862,9 @@ lemma digest_complete_via_refutes
                   | inr h_in_tl =>
                       -- r ∈ c_tl, use IH
                       exact ih (W0.filter (fun ω' => c_hd.Satisfies ω')) h_mem r h_in_tl
-            -- UnitRefute ω satisfies ω is False
-            have h_unit_sat := h_foldl_sat (CutConstraint.UnitRefute ω) h_unit_in
-            -- But UnitRefute ω means ω is refuted, contradiction
+            -- UnitElimination ω satisfies ω is False
+            have h_unit_sat := h_foldl_sat (CutConstraint.UnitElimination ω) h_unit_in
+            -- But UnitElimination ω means ω is eliminated, contradiction
             simp [CutConstraint.Satisfies] at h_unit_sat
 
           -- Step 3: Apply WC-1 completeness
@@ -2872,7 +2872,7 @@ lemma digest_complete_via_refutes
             -- First show ω ∈ wc_state.feasible using partition theorem
             have h_partition := wcExecute_partitions_initial L C nf.bitDeterminations nf.digestMatches
                                   (NormalForm.FeasibleUnder nf.bitDeterminations)
-            unfold wc_state at h_ω_not_refuted
+            unfold wc_state at h_ω_not_eliminated
             have h_disj := h_partition ω h_ω_in_initial
             cases h_disj with
             | inl h_feasible =>
@@ -2882,37 +2882,37 @@ lemma digest_complete_via_refutes
                 have h_all := h_complete ω h_feasible
                 intro d hd
                 exact of_decide_eq_true (List.all_eq_true.mp h_all d hd)
-            | inr h_refuted =>
-                -- Contradiction: ω ∈ refuted but h_ω_not_refuted
+            | inr h_eliminated =>
+                -- Contradiction: ω ∈ eliminated but h_ω_not_eliminated
                 exfalso
-                exact h_ω_not_refuted h_refuted
+                exact h_ω_not_eliminated h_eliminated
 
           -- Apply to c
           exact decide_eq_true (h_wc_complete c h_in_digests)
-  | inr h_in_refuted =>
-      -- c ∈ nf.refuted, but nf.refuted = [] because extractConstraints produces no UnitRefute
+  | inr h_in_eliminated =>
+      -- c ∈ nf.eliminated, but nf.eliminated = [] because extractConstraints produces no UnitElimination
       exfalso
-      -- Trace nf.refuted back to extractConstraints
-      generalize hnf3 : nf = nf_concrete at h_in_refuted
-      rw [← hnf3] at h_in_refuted
-      -- nf.refuted comes from filterMap getRefutedWorld on extractConstraints
-      have h_refuted_def : nf.refuted =
-            ((extractConstraints L C π).filterMap getRefutedWorld).dedup.toFinset.toList := by
+      -- Trace nf.eliminated back to extractConstraints
+      generalize hnf3 : nf = nf_concrete at h_in_eliminated
+      rw [← hnf3] at h_in_eliminated
+      -- nf.eliminated comes from filterMap getEliminatedWorld on extractConstraints
+      have h_eliminated_def : nf.eliminated =
+            ((extractConstraints L C π).filterMap getEliminatedWorld).dedup.toFinset.toList := by
         unfold nf ConstraintNF
         rfl
-      rw [h_refuted_def] at h_in_refuted
-      -- Show filterMap getRefutedWorld on extractConstraints is empty
-      have h_filterMap_empty : (extractConstraints L C π).filterMap getRefutedWorld = [] := by
+      rw [h_eliminated_def] at h_in_eliminated
+      -- Show filterMap getEliminatedWorld on extractConstraints is empty
+      have h_filterMap_empty : (extractConstraints L C π).filterMap getEliminatedWorld = [] := by
         unfold extractConstraints
         simp only [List.filterMap_append]
         -- All three components are empty
-        suffices h1 : (extractBitConstraints L C π.revealedBits).filterMap getRefutedWorld = [] ∧
-                      (extractConfigConstraints L C π.computedConfigs).filterMap getRefutedWorld = [] ∧
-                      (extractSyntheticConfigs L C π).filterMap getRefutedWorld = [] by
+        suffices h1 : (extractBitConstraints L C π.revealedBits).filterMap getEliminatedWorld = [] ∧
+                      (extractConfigConstraints L C π.computedConfigs).filterMap getEliminatedWorld = [] ∧
+                      (extractSyntheticConfigs L C π).filterMap getEliminatedWorld = [] by
           rw [h1.1, h1.2.1, h1.2.2]
           rfl
         constructor
-        · -- extractBitConstraints only produces BitDetermination, getRefutedWorld returns none
+        · -- extractBitConstraints only produces BitDetermination, getEliminatedWorld returns none
           apply List.eq_nil_iff_forall_not_mem.mpr
           intro x hx
           rw [List.mem_filterMap] at hx
@@ -2920,17 +2920,17 @@ lemma digest_complete_via_refutes
           unfold extractBitConstraints at hrb
           rw [List.mem_filterMap] at hrb
           obtain ⟨bit, _hbit, h_bit_map⟩ := hrb
-          -- h_bit_map shows rb came from BitDetermination, so getRefutedWorld rb = none
+          -- h_bit_map shows rb came from BitDetermination, so getEliminatedWorld rb = none
           split at h_bit_map
           · split at h_bit_map
-            · -- rb = BitDetermination ..., so getRefutedWorld rb = none
+            · -- rb = BitDetermination ..., so getEliminatedWorld rb = none
               cases h_bit_map
-              unfold getRefutedWorld at h_map
+              unfold getEliminatedWorld at h_map
               simp at h_map
             · simp at h_bit_map
           · simp at h_bit_map
         constructor
-        · -- extractConfigConstraints only produces ConfigMatch, getRefutedWorld returns none
+        · -- extractConfigConstraints only produces ConfigMatch, getEliminatedWorld returns none
           apply List.eq_nil_iff_forall_not_mem.mpr
           intro x hx
           rw [List.mem_filterMap] at hx
@@ -2944,14 +2944,14 @@ lemma digest_complete_via_refutes
           · -- v ∈ C case: dig = DigestMatch v h obs_parity
             simp only [h_v, ↓reduceDIte] at h_dig_map
             cases h_dig_map
-            -- Now dig is DigestMatch, so getRefutedWorld dig = none
-            unfold getRefutedWorld at h_map
+            -- Now dig is DigestMatch, so getEliminatedWorld dig = none
+            unfold getEliminatedWorld at h_map
             simp at h_map
           · -- v ∉ C case: filterMap returns none, contradiction
             simp only [h_v, ↓reduceDIte] at h_dig_map
             -- h_dig_map : none = some dig, which is False
             simp at h_dig_map
-        · -- extractSyntheticConfigs only produces ConfigMatch, getRefutedWorld returns none
+        · -- extractSyntheticConfigs only produces ConfigMatch, getEliminatedWorld returns none
           apply List.eq_nil_iff_forall_not_mem.mpr
           intro x hx
           rw [List.mem_filterMap] at hx
@@ -2962,14 +2962,14 @@ lemma digest_complete_via_refutes
           -- h_synth_map: filterMap result for v
           split at h_synth_map <;> try contradiction
           · split at h_synth_map <;> try contradiction
-            -- synth = ConfigMatch, so getRefutedWorld synth = none
+            -- synth = ConfigMatch, so getEliminatedWorld synth = none
             cases h_synth_map
-            unfold getRefutedWorld at h_map
+            unfold getEliminatedWorld at h_map
             simp at h_map
-      rw [h_filterMap_empty] at h_in_refuted
-      simp only [List.dedup_nil] at h_in_refuted
-      -- h_in_refuted : c ∈ [], which is False
-      simp at h_in_refuted
+      rw [h_filterMap_empty] at h_in_eliminated
+      simp only [List.dedup_nil] at h_in_eliminated
+      -- h_in_eliminated : c ∈ [], which is False
+      simp at h_in_eliminated
 
 /-! ## Information-Theoretic to Operational Bridge
 
@@ -2988,39 +2988,39 @@ advanced data structures or quantum superposition?"
 
 ## Part 1: Information-Theoretic Bound (This File - Layer 3)
 
-**What we prove**: refutationCount ≥ 2^(ρ-s) - 1
+**What we prove**: eliminationCount ≥ 2^(ρ-s) - 1
 
 **What this MEANS**:
-- **Refutation**: Testing a candidate assignment and discovering it is incorrect (digest mismatch)
+- **Elimination**: Testing a candidate assignment and discovering it is incorrect (digest mismatch)
 - **Count**: Number of distinct incorrect candidates the algorithm must explicitly test
 - **Why exponential**: FG parity blocks cascade pruning (see FrontierGate.lean)
 
 **Physical Interpretation**:
-- Each refutation corresponds to a DISTINCT PHYSICAL EVENT (computational step)
+- Each elimination corresponds to a DISTINCT PHYSICAL EVENT (computational step)
 - Algorithm computes digest for candidate α: parity(Seed_var₀^α, ..., Seed_varₙ₋₁^α)
 - Compares to expected digest
-- Discovers mismatch → refutation recorded
+- Discovers mismatch → elimination recorded
 - Notably: Learning "α is incorrect" provides no information about other candidates
   (parity is maximally non-local)
 
 **World Counting Argument**:
 ```lean
 |BitsOnlyWorlds| = 2^(ρ-s)  -- Total candidates (before eliminating via FG digest)
-Each refutation eliminates ≤ 1 world  -- WC-1 property (WorldCommit.lean)
+Each elimination eliminates ≤ 1 world  -- WC-1 property (WorldCommit.lean)
 Final feasible set: |FeasibleUnderNF| ≤ 1  -- Uniqueness (planted instance)
 
-Therefore: 2^(ρ-s) ≤ 1 + refutationCount
-           refutationCount ≥ 2^(ρ-s) - 1
+Therefore: 2^(ρ-s) ≤ 1 + eliminationCount
+           eliminationCount ≥ 2^(ρ-s) - 1
 ```
 
 **Technique**: Uses aggregate bits-only upper bound instead of per-segment halving.
 - Normal SAT: Each decision halves search space → log(2^n) = n decisions (exponential speedup!)
-- L* with FG: Each refutation eliminates ONLY 1 candidate → 2^n refutations (no speedup!)
+- L* with FG: Each elimination eliminates ONLY 1 candidate → 2^n eliminations (no speedup!)
 - Reason: Parity prevents cascade pruning (see FrontierGate.lean for full explanation)
 
 ## Part 2: Operational Bridge (Layer 4: TMToExecutionPrefix.lean)
 
-**What Layer 4 proves**: haltTime ≥ refutationCount (operational semantics)
+**What Layer 4 proves**: haltTime ≥ eliminationCount (operational semantics)
 
 **The Bridge Mechanism**:
 
@@ -3029,22 +3029,22 @@ Therefore: 2^(ρ-s) ≤ 1 + refutationCount
 - π contains: computedConfigs (tested assignments), revealedBits (observations)
 - Each TM step that tests a digest contributes to computedConfigs
 
-**Step 2: Refutation Extraction**
-- From π.computedConfigs, extract refutations (configs with digest mismatch)
-- refutationCount L C π = number of distinct refuted configs
-- Each refutation required ACTUAL COMPUTATION (TM head movement, state transitions)
+**Step 2: Elimination Extraction**
+- From π.computedConfigs, extract eliminations (configs with digest mismatch)
+- eliminationCount L C π = number of distinct eliminated configs
+- Each elimination required ACTUAL COMPUTATION (TM head movement, state transitions)
 
 **Step 3: Time Accounting**
 - TM execution model: 1 tape cell read/write = 1 time step (standard)
 - Computing digest requires reading all variable seeds (n reads minimum)
 - Comparing digest requires reading expected value (1 additional read)
-- Each refutation costs ≥ 1 step (conservative lower bound)
+- Each elimination costs ≥ 1 step (conservative lower bound)
 
 **Step 4: Lower Bound**
 ```lean
 time ≥ # of computational events
      ≥ # of digest computations
-     ≥ # of refutations
+     ≥ # of eliminations
      ≥ 2^(ρ-s) - 1   (by information-theoretic bound from this file)
 ```
 
@@ -3079,12 +3079,12 @@ time ≥ # of computational events
 - Forces exponential search space with no structure
 
 **Layer 3 (THIS FILE)**: Information-theoretic bound
-- Proves: ≥ 2^(ρ-s) refutations required (information counting)
+- Proves: ≥ 2^(ρ-s) eliminations required (information counting)
 - Semantic level: "Algorithm must distinguish this many possibilities"
 - Model-independent (applies to any correct algorithm)
 
 **Layer 4 (TMToExecutionPrefix.lean)**: Operational semantics bridge
-- Proves: TM time ≥ refutations (operational accounting)
+- Proves: TM time ≥ eliminations (operational accounting)
 - Operational level: "Each distinction requires computational step"
 - Grounds abstraction in concrete machine model (Church-Turing thesis)
 
@@ -3143,13 +3143,13 @@ For ANY algorithm A solving L* on planted instances:
 ## Technical Notes for Formalization
 
 **What Layer 3 provides** (information-theoretic, model-independent):
-- `refutation_count_exponential_bound`: r ≥ 2^(ρ-s) - 1
+- `elimination_count_exponential_bound`: r ≥ 2^(ρ-s) - 1
 - Based on: BitsOnlyWorlds cardinality (exact counting)
 - No axioms required (pure combinatorics + WorldCommit framework)
 
 **What Layer 4 needs** (operational, model-specific):
 - Bridge: TM execution → ExecutionPrefixReal (tmExecutionToPrefix)
-- Accounting: time ≥ refutations (step counting)
+- Accounting: time ≥ eliminations (step counting)
 - Minimal axioms: TM semantic correctness + observation bridge (2 axioms total)
 
 **Trust boundary**: Entire Information→Time bridge uses ONLY 2 axioms:
@@ -3160,7 +3160,7 @@ See Layer4_Operational/TimeBridge/TMAdapterExponential.lean for final axiom audi
 
 ## Algorithm Overview: Exponential Segment Reduction
 
-The main theorem `refutation_count_exponential_bound` establishes the exponential lower bound
+The main theorem `elimination_count_exponential_bound` establishes the exponential lower bound
 r ≥ 2^(ρ-s) - 1 through a four-phase argument:
 
 **Phase 1: Bits-Only Universe Construction**
@@ -3172,11 +3172,11 @@ r ≥ 2^(ρ-s) - 1 through a four-phase argument:
 - Show FeasibleUnder ⊆ S_bits (digest constraints can only remove worlds)
 - Establish |FeasibleUnder| ≥ 1 (acceptance requires non-empty feasible set)
 
-**Phase 3: Refutation Additive Reduction**
-- Apply WorldCommit framework: Each refutation eliminates ≤ 1 world (WC-1 property)
+**Phase 3: Elimination Additive Reduction**
+- Apply WorldCommit framework: Each elimination eliminates ≤ 1 world (WC-1 property)
 - Reduction formula: |S_bits| ≤ |FeasibleUnderNF| + r
-  - S_bits after r refutations has size ≤ |FeasibleUnderNF|
-  - Therefore initial size bounded by final size + refutations
+  - S_bits after r eliminations has size ≤ |FeasibleUnderNF|
+  - Therefore initial size bounded by final size + eliminations
 
 **Phase 4: Combine Bounds**
 - From hypotheses: |FeasibleUnderNF| ≤ 1 (uniqueness at normalized acceptance)
@@ -3185,7 +3185,7 @@ r ≥ 2^(ρ-s) - 1 through a four-phase argument:
 
 -/
 
-theorem refutation_count_exponential_bound
+theorem elimination_count_exponential_bound
     (L : LStarInstanceFG) (C : Finset (Fin L.dag.n))
     (π_final : ExecutionPrefixReal L)
     (h_wf : WellFormedPrefix L π_final)
@@ -3193,7 +3193,7 @@ theorem refutation_count_exponential_bound
     (h_unique_feasible : (NormalForm.FeasibleUnderNF (ConstraintNF L C π_final)).card ≤ 1)
     : let ρ := C.sum (fun v => L.R v)
       let s := effectiveRevealedCount L C π_final
-      let r := refutationCount L C π_final
+      let r := eliminationCount L C π_final
       r ≥ 2^(ρ - s) - 1 := by
   intro ρ s r
 
@@ -3212,8 +3212,8 @@ theorem refutation_count_exponential_bound
 
   -- Key inequality: |S_bits| ≤ |FeasibleUnderNF| + r
   -- Proof strategy:
-  -- 1. Apply multiple_refutations_additive_reduction to S_bits with WorldCommit refutations
-  -- 2. Show W_after (S_bits filtered by wcExecute refutes) ⊆ FeasibleUnderNF
+  -- 1. Apply multiple_eliminations_additive_reduction to S_bits with WorldCommit eliminations
+  -- 2. Show W_after (S_bits filtered by wcExecute eliminations_list) ⊆ FeasibleUnderNF
   -- 3. Use card monotonicity: |W_after| ≤ |FeasibleUnderNF|
   -- 4. Combine: |S_bits| ≤ |W_after| + r ≤ |FeasibleUnderNF| + r
   have h_ineq : (BitsOnlyWorlds L C π_final).card ≤
@@ -3221,36 +3221,36 @@ theorem refutation_count_exponential_bound
     classical
     -- Notation shortcuts
     let nf := ConstraintNF L C π_final
-    -- Refutes from wcExecute, not nf.refuted
+    -- Refutes from wcExecute, not nf.eliminated
     let wc_state := wcExecute L C nf.bitDeterminations nf.digestMatches
                       (NormalForm.FeasibleUnder nf.bitDeterminations)
-    let refutes := wc_state.refuted.map CutConstraint.UnitRefute
-    -- Every element of refutes is a UnitRefute
-    have h_all_refutes : ∀ c ∈ refutes, ∃ ω, c = CutConstraint.UnitRefute ω := by
-      intro c hc; simp [refutes] at hc; rcases hc with ⟨ω, hω, rfl⟩; exact ⟨ω, rfl⟩
+    let eliminations_list := wc_state.eliminated.map CutConstraint.UnitElimination
+    -- Every element of eliminations_list is a UnitElimination
+    have h_all_eliminations_list : ∀ c ∈ eliminations_list, ∃ ω, c = CutConstraint.UnitElimination ω := by
+      intro c hc; simp [eliminations_list] at hc; rcases hc with ⟨ω, hω, rfl⟩; exact ⟨ω, rfl⟩
     -- Apply the additive reduction bound to S_bits
-    have h_red := multiple_refutations_additive_reduction
-        (L := L) (C := C) (refutations := refutes)
-        (h_all_refutes := h_all_refutes)
+    have h_red := multiple_eliminations_additive_reduction
+        (L := L) (C := C) (eliminations := eliminations_list)
+        (h_all_eliminations_list := h_all_eliminations_list)
         (W := BitsOnlyWorlds L C π_final)
-    have href_len : refutes.length = r := by
-      simp only [refutes, r, refutationCount, List.length_map]
-      -- r = wc_state.refuted.length (by definition of refutationCount)
-      -- refutes = wc_state.refuted.map UnitRefute
-      -- So refutes.length = wc_state.refuted.length = r
+    have href_len : eliminations_list.length = r := by
+      simp only [eliminations_list, r, eliminationCount, List.length_map]
+      -- r = wc_state.eliminated.length (by definition of eliminationCount)
+      -- eliminations_list = wc_state.eliminated.map UnitElimination
+      -- So eliminations_list.length = wc_state.eliminated.length = r
       rfl
-    -- Define the set after filtering S_bits by all refutes
-    let W_after := refutes.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω))
+    -- Define the set after filtering S_bits by all eliminations_list
+    let W_after := eliminations_list.foldl (fun W' c => W'.filter (fun ω => c.Satisfies ω))
                    (BitsOnlyWorlds L C π_final)
     have h_red' : (BitsOnlyWorlds L C π_final).card ≤ W_after.card + r := by
       rw [← href_len]
       exact h_red
     -- Characterize membership in W_after via general foldl lemma
     have h_fold_char : ∀ ω, ω ∈ W_after ↔
-        ω ∈ BitsOnlyWorlds L C π_final ∧ ∀ c ∈ refutes, c.Satisfies ω := by
+        ω ∈ BitsOnlyWorlds L C π_final ∧ ∀ c ∈ eliminations_list, c.Satisfies ω := by
       intro ω
       -- Direct proof by rewriting foldl definition
-      show ω ∈ refutes.foldl (fun W' c => W'.filter (fun ω' => c.Satisfies ω')) (BitsOnlyWorlds L C π_final) ↔ _
+      show ω ∈ eliminations_list.foldl (fun W' c => W'.filter (fun ω' => c.Satisfies ω')) (BitsOnlyWorlds L C π_final) ↔ _
       -- General lemma: membership in iterated filter
       have foldl_filter_mem : ∀ (W0 : Finset (CutWorld L C)) (cs : List (CutConstraint L C)),
           ω ∈ cs.foldl (fun W' c => W'.filter (fun ω' => c.Satisfies ω')) W0 ↔
@@ -3267,9 +3267,9 @@ theorem refutation_count_exponential_bound
       rw [foldl_filter_mem]
     -- Show W_after ⊆ FeasibleUnderNF(nf) using WC-1 completeness
     have h_after_subset_nf : W_after ⊆ NormalForm.FeasibleUnderNF nf := by
-      -- Apply the digest-refute completeness lemma
+      -- Apply the digest-elimination completeness lemma
       -- This encapsulates the WorldCommit completeness property (WC-1)
-      exact digest_complete_via_refutes L C π_final
+      exact digest_complete_via_eliminations_list L C π_final
     -- Now use card monotonicity
     have h_after_le_nf : W_after.card ≤ (NormalForm.FeasibleUnderNF nf).card :=
       Finset.card_le_card h_after_subset_nf
@@ -3298,16 +3298,16 @@ theorem refutation_count_exponential_bound
 
 /-- Segment reduction bound (totalEliminations version).
 
-    This version uses total world eliminations, not digest refutation lists.
+    This version uses total world eliminations, not digest elimination lists.
 
     **Key distinction**: totalEliminations counts all worlds eliminated (bits + digests),
-    while refutationCount only counts digest refutations.
+    while eliminationCount only counts digest eliminations.
 
-    **Rationale**: The paper's "refutation count" refers to total eliminations, not the
-    specific list of digest refutations.
+    **Rationale**: The paper's "elimination count" refers to total eliminations, not the
+    specific list of digest eliminations.
 
     **Monotonicity**: totalEliminations is monotonic (ExecutionHistory.lean), while
-    refutationCount is not monotonic (worlds can move from digest-refuted to bit-excluded).
+    eliminationCount is not monotonic (worlds can move from digest-eliminated to bit-excluded).
 
     **This theorem enables AIRTIGHT proof chain** without false axioms! -/
 theorem totalEliminations_exponential_bound
@@ -3322,7 +3322,7 @@ theorem totalEliminations_exponential_bound
       e ≥ 2^(ρ - s) - 1 := by
   intro ρ s e
 
-  -- The proof uses the SAME mathematical structure as refutation_count_exponential_bound,
+  -- The proof uses the SAME mathematical structure as elimination_count_exponential_bound,
   -- but with the semantically correct measure (totalEliminations).
 
   -- Key insight: totalEliminations = |univ| - |final feasible|
@@ -3343,13 +3343,13 @@ theorem totalEliminations_exponential_bound
   have h_exact : (BitsOnlyWorlds L C π_final).card = 2^(ρ - s) :=
     bits_only_cardinality_exact L C π_final h_wf
 
-  -- Key inequality from digest_complete_via_refutes:
+  -- Key inequality from digest_complete_via_eliminations_list:
   -- wc_state.feasible ⊆ FeasibleUnderNF, so |wc_state.feasible| ≤ |FeasibleUnderNF| ≤ 1
   have h_feasible_le_one : wc_state.feasible.card ≤ 1 := by
     -- wc_state.feasible is the final feasible set after WorldCommit
     -- We show wc_state.feasible ⊆ FeasibleUnderNF nf, then use h_unique_feasible
 
-    -- FeasibleUnderNF includes all constraints: bits, digests, and refutations
+    -- FeasibleUnderNF includes all constraints: bits, digests, and eliminations
     -- wc_state processes digests starting from FeasibleUnder(bits)
     -- So wc_state.feasible ⊆ FeasibleUnder(bits ++ digests)
 
@@ -3359,26 +3359,26 @@ theorem totalEliminations_exponential_bound
         _ ≤ 1 := h_unique_feasible
 
     -- KEY INSIGHT: extractConstraints only produces BitDetermination and ConfigMatch constraints,
-    -- NO UnitRefute constraints. Therefore nf.refuted = [] after normalization.
+    -- NO UnitElimination constraints. Therefore nf.eliminated = [] after normalization.
     -- This means: FeasibleUnderNF nf = FeasibleUnder(bits ++ digests)
 
-    -- Step 1: Show that nf.refuted = [] (extractConstraints produces no UnitRefute)
-    have h_refuted_empty : nf.refuted = [] := by
-      -- Show filterMap getRefutedWorld on extractConstraints is empty
-      suffices h_filterMap_empty : (extractConstraints L C π_final).filterMap getRefutedWorld = [] by
+    -- Step 1: Show that nf.eliminated = [] (extractConstraints produces no UnitElimination)
+    have h_eliminated_empty : nf.eliminated = [] := by
+      -- Show filterMap getEliminatedWorld on extractConstraints is empty
+      suffices h_filterMap_empty : (extractConstraints L C π_final).filterMap getEliminatedWorld = [] by
         unfold nf ConstraintNF NormalForm.normalize
         simp only [h_filterMap_empty, List.dedup_nil, List.toFinset_nil, Finset.toList_empty]
 
       unfold extractConstraints
       simp only [List.filterMap_append]
       -- All three components are empty
-      suffices h1 : (extractBitConstraints L C π_final.revealedBits).filterMap getRefutedWorld = [] ∧
-                    (extractConfigConstraints L C π_final.computedConfigs).filterMap getRefutedWorld = [] ∧
-                    (extractSyntheticConfigs L C π_final).filterMap getRefutedWorld = [] by
+      suffices h1 : (extractBitConstraints L C π_final.revealedBits).filterMap getEliminatedWorld = [] ∧
+                    (extractConfigConstraints L C π_final.computedConfigs).filterMap getEliminatedWorld = [] ∧
+                    (extractSyntheticConfigs L C π_final).filterMap getEliminatedWorld = [] by
         rw [h1.1, h1.2.1, h1.2.2]
         rfl
       constructor
-      · -- extractBitConstraints only produces BitDetermination, getRefutedWorld returns none
+      · -- extractBitConstraints only produces BitDetermination, getEliminatedWorld returns none
         apply List.eq_nil_iff_forall_not_mem.mpr
         intro x hx
         rw [List.mem_filterMap] at hx
@@ -3388,14 +3388,14 @@ theorem totalEliminations_exponential_bound
         obtain ⟨bit, _hbit, h_bit_map⟩ := hrb
         split at h_bit_map
         · split at h_bit_map
-          · -- rb = BitDetermination ..., so getRefutedWorld rb = none
+          · -- rb = BitDetermination ..., so getEliminatedWorld rb = none
             cases h_bit_map
-            unfold getRefutedWorld at h_map
+            unfold getEliminatedWorld at h_map
             simp at h_map
           · simp at h_bit_map
         · simp at h_bit_map
       constructor
-      · -- extractConfigConstraints only produces ConfigMatch, getRefutedWorld returns none
+      · -- extractConfigConstraints only produces ConfigMatch, getEliminatedWorld returns none
         apply List.eq_nil_iff_forall_not_mem.mpr
         intro x hx
         rw [List.mem_filterMap] at hx
@@ -3407,13 +3407,13 @@ theorem totalEliminations_exponential_bound
         · -- v ∈ C case: dig = DigestMatch v h obs_parity
           simp only [h_v, ↓reduceDIte] at h_dig_map
           cases h_dig_map
-          -- Now dig is DigestMatch, so getRefutedWorld dig = none
-          unfold getRefutedWorld at h_map
+          -- Now dig is DigestMatch, so getEliminatedWorld dig = none
+          unfold getEliminatedWorld at h_map
           simp at h_map
         · -- v ∉ C case: filterMap returns none, contradiction
           simp only [h_v, ↓reduceDIte] at h_dig_map
           simp at h_dig_map
-      · -- extractSyntheticConfigs only produces ConfigMatch, getRefutedWorld returns none
+      · -- extractSyntheticConfigs only produces ConfigMatch, getEliminatedWorld returns none
         apply List.eq_nil_iff_forall_not_mem.mpr
         intro x hx
         rw [List.mem_filterMap] at hx
@@ -3424,15 +3424,15 @@ theorem totalEliminations_exponential_bound
         split at h_synth_map <;> try contradiction
         · split at h_synth_map <;> try contradiction
           cases h_synth_map
-          unfold getRefutedWorld at h_map
+          unfold getEliminatedWorld at h_map
           simp at h_map
 
-    -- Step 2: Use h_refuted_empty to show FeasibleUnderNF nf = FeasibleUnder(bits ++ digests)
+    -- Step 2: Use h_eliminated_empty to show FeasibleUnderNF nf = FeasibleUnder(bits ++ digests)
     have h_feasible_equiv : NormalForm.FeasibleUnderNF nf =
         (NormalForm.FeasibleUnder nf.bitDeterminations ∩
          NormalForm.FeasibleUnder nf.digestMatches) := by
       unfold NormalForm.FeasibleUnderNF
-      rw [h_refuted_empty]
+      rw [h_eliminated_empty]
       simp only [List.map_nil, List.append_nil]
       unfold NormalForm.FeasibleUnder
       ext w
@@ -3466,7 +3466,7 @@ theorem totalEliminations_exponential_bound
             exact Finset.filter_subset _ _
       have h_subset := mono nf.digestMatches
             { feasible := NormalForm.FeasibleUnder nf.bitDeterminations,
-              refuted := [], pending_digests := [] }
+              eliminated := [], pending_digests := [] }
       simp at h_subset
       exact h_subset hw
     · -- w ∈ FeasibleUnder(digests): wcExecute completeness
@@ -3533,7 +3533,7 @@ No custom axioms are introduced.
 -/
 
 #print axioms totalEliminations_exponential_bound
-#print axioms refutation_growth_implies_boundaries
+#print axioms elimination_growth_implies_boundaries
 #print axioms totalEliminations_congr
 
 end LStar.StructuralOWF.Foundations

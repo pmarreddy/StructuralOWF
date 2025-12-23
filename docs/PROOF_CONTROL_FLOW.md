@@ -430,9 +430,9 @@ theorem fg_first_commit_time_lower_bound
 - parity_requires_all_bits [5] (information-theoretic necessity)
 - visitedEncodings_card_ge_pow [6] (counting lemma)
 - correctness_implies_realizesAllValues (semantic bridge lemma)
-- [AXIOM] not_refuted_implies_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
+- [AXIOM] remaining_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
 
-**Axiomatic Content**: 1 (not_refuted_implies_indistinguishable - see Axiom 2/2 below)
+**Axiomatic Content**: 1 (remaining_indistinguishable - see Axiom 2/2 below)
 
 **Paper Reference**: §9 "Time bound derivation", §7.4 "Operational semantics bridge"
 
@@ -511,10 +511,10 @@ theorem f_is_structural_owf_exponential_flat
 **Dependencies**:
 - Randomness.assignment [8] (witness extraction via field access)
 - fg_first_commit_time_lower_bound_encoded [7] (exponential time lower bound)
-- [AXIOM] not_refuted_implies_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
+- [AXIOM] remaining_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
 - [AXIOM] algspec_has_tm (Church-Turing equivalence)
 
-**Axiomatic Content**: 2 (algspec_has_tm, not_refuted_implies_indistinguishable - see Axiom Summary)
+**Axiomatic Content**: 2 (algspec_has_tm, remaining_indistinguishable - see Axiom Summary)
 
 **Paper Reference**: §9 "OWF security proof", §9.2 "Contradiction derivation"
 
@@ -606,7 +606,7 @@ theorem P_ne_NP : ¬PeqNP_classical := pnenp_classical
 - alignedCNFFamily (concrete satisfiable CNF family)
 - f_is_structural_owf_exponential_flat [9] (used internally by [10])
 
-**Axiomatic Content**: 2 (inherited from [9]: algspec_has_tm, not_refuted_implies_indistinguishable)
+**Axiomatic Content**: 2 (inherited from [9]: algspec_has_tm, remaining_indistinguishable)
 
 **Paper Reference**: §10 "Main theorem", §10.3 Theorem 10.B "P ≠ NP (unconditional)"
 
@@ -834,22 +834,22 @@ axiom algspec_has_tm {α β : Type} [Sized α] [Sized β] [FirstNatComponent β]
 
 ### Axiom 2/2: WC-1 Indistinguishability Bridge
 
-**Name**: `not_refuted_implies_indistinguishable`
+**Name**: `remaining_indistinguishable`
 
 **Location**: `Layer4_Operational/TimeBridge/WC1Bridge.lean`
 
-**Statement**: For planted L* instances, if a world is not refuted by the TM's run trace, then the TM cannot distinguish it from the planted world.
+**Statement**: For planted L* instances, if a world remains (is not eliminated by the TM's run trace), then the TM cannot distinguish it from the planted world.
 
 **Directionality (why this direction matters)**:
-- The axiom is the “completeness” direction: `ω ∉ tmRefutedWorlds` → `TMIndistinguishable(ω, ω_planted)`. This is exactly what drives the contradiction argument “if a wrong world survives refutation, then the TM must behave identically on it”, hence *all wrong worlds are refuted*.
-- The reversed direction, `TMIndistinguishable(ω, ω_planted)` → `ω ∉ tmRefutedWorlds`, is a different property (“soundness” of the refutation procedure). Its contrapositive is `ω ∈ tmRefutedWorlds` → `¬ TMIndistinguishable(ω, ω_planted)`.
-- Even if the reversed direction held, it would not support the lower bound derivation by itself: it does not imply “all wrong worlds are refuted”, which is the key counting premise.
-- **Semantic gap**: `TMIndistinguishable` compares *final outputs*, while `tmRefutedWorlds` is built from the *entire trace*. Despite this, the reverse direction (←) is derivable under worst-case correctness: indistinguishability + correctness forces `ω = ω_planted`, and the planted world never refutes itself. See `indistinguishable_implies_not_refuted` and `not_refuted_iff_indistinguishable` in `WC1Bridge.lean`.
+- The axiom is the "completeness" direction: `ω ∉ eliminatedWorlds` → `TMIndistinguishable(ω, ω_planted)`. This is exactly what drives the contradiction argument "if a wrong world remains (survives elimination), then the TM must behave identically on it", hence *all wrong worlds are eliminated*.
+- The reversed direction, `TMIndistinguishable(ω, ω_planted)` → `ω ∉ eliminatedWorlds`, is a different property ("soundness" of the elimination procedure). Its contrapositive is `ω ∈ eliminatedWorlds` → `¬ TMIndistinguishable(ω, ω_planted)`.
+- Even if the reversed direction held, it would not support the lower bound derivation by itself: it does not imply "all wrong worlds are eliminated", which is the key counting premise.
+- **Semantic gap**: `TMIndistinguishable` compares *final outputs*, while `eliminatedWorlds` is built from the *entire trace*. Despite this, the reverse direction (←) is derivable under worst-case correctness: indistinguishability + correctness forces `ω = ω_planted`, and the planted world never eliminates itself. See `indistinguishable_implies_remaining` and `remaining_iff_indistinguishable` in `WC1Bridge.lean`.
 
 **Derivation Chain** (from axiom):
-1. `indistinguishability_implies_all_wrong_refuted`: all wrong worlds refuted (by contradiction)
-2. `separation_implies_refuted_length`: separation → `refuted.length = 2^R - 1`
-3. `tmRefutedWorlds_length_le_configs`: `refuted.length ≤ configs.length`
+1. `indistinguishability_implies_all_wrong_eliminated`: all wrong worlds eliminated (by contradiction)
+2. `separation_implies_eliminated_length`: separation → `eliminated.length = 2^R - 1`
+3. `eliminatedWorlds_length_le_configs`: `eliminated.length ≤ configs.length`
 4. `configsFromTMRun_length_le`: `configs.length ≤ haltTime`
 5. `tm_time_lower_bound_operational`: `haltTime ≥ 2^R - 1`
 

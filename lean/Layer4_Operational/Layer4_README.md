@@ -136,19 +136,19 @@ axiom church_turing_with_poly_simulation :
 
 **WC-1 Bridge** (WC1Bridge.lean):
 ```lean
-axiom not_refuted_implies_indistinguishable :
-  -- If a world is not refuted by TM's run, it is TM-indistinguishable from planted
+axiom remaining_indistinguishable :
+  -- If a world remains (is not eliminated by TM's run), it is TM-indistinguishable from planted
   -- Separation and time bound ≥ 2^R - 1 are DERIVED from indistinguishability
 ```
 
 **Core principle**: Indistinguishability implies separation (via contradiction), which implies time bound.
 
-**What the axiom asserts**: Unrefuted worlds are TM-indistinguishable from planted (→ direction).
+**What the axiom asserts**: Remaining (non-eliminated) worlds are TM-indistinguishable from planted (→ direction).
 
 **What's derived** (proven):
 - Separation properties and `haltTime ≥ 2^R - 1` via counting
-- The **reverse direction** (←): `indistinguishable_implies_not_refuted` — derivable from WC correctness
-- The **biconditional**: `not_refuted_iff_indistinguishable` — shows axiom is "tight"
+- The **reverse direction** (←): `indistinguishable_implies_remaining` — derivable from WC correctness
+- The **biconditional**: `remaining_iff_indistinguishable` — shows axiom is "tight"
 
 #### Theorems 3-5: Proven Properties
 
@@ -336,18 +336,18 @@ time ≥ 2^R
 
 **Path 2: WC-1 Bridge Route** (CURRENTLY ACTIVE)
 - Theorem: `tm_time_lower_bound_operational`
-- Strategy: Indistinguishability → separation → refuted.length = 2^R - 1 → time ≥ 2^R - 1
-- Axiom: `not_refuted_implies_indistinguishable` (WC-1 bridge: indistinguishability only)
+- Strategy: Indistinguishability → separation → eliminated.length = 2^R - 1 → time ≥ 2^R - 1
+- Axiom: `remaining_indistinguishable` (WC-1 bridge: indistinguishability only)
 - Proof chain:
   ```
-  not_refuted_implies_indistinguishable (WC1Bridge.lean - AXIOM)
-    ↓ unrefuted → TM-indistinguishable from planted
-  indistinguishability_implies_all_wrong_refuted (PROVEN)
-    ↓ all wrong worlds refuted (by contradiction with WC correctness)
-  separation_implies_refuted_length (PROVEN)
-    ↓ separation → refuted.length = 2^R - 1
-  tmRefutedWorlds_length_le_configs (PROVEN)
-    ↓ refuted.length ≤ configs.length ≤ haltTime
+  remaining_indistinguishable (WC1Bridge.lean - AXIOM)
+    ↓ remaining → TM-indistinguishable from planted
+  indistinguishability_implies_all_wrong_eliminated (PROVEN)
+    ↓ all wrong worlds eliminated (by contradiction with WC correctness)
+  separation_implies_eliminated_length (PROVEN)
+    ↓ separation → eliminated.length = 2^R - 1
+  eliminatedWorlds_length_le_configs (PROVEN)
+    ↓ eliminated.length ≤ configs.length ≤ haltTime
   tm_time_lower_bound_operational (PROVEN)
     ↓ Therefore: haltTime ≥ 2^R - 1 ✓
   ```
@@ -603,8 +603,8 @@ theorem my_proof := exponential_time_lower_bound_dual_path ...
 
 **2 axioms total**:
 1. **`algspec_has_tm`** (RandAdv.lean) — Church-Turing bridge: algorithms have TM implementations
-2. **`not_refuted_implies_indistinguishable`** (WC1Bridge.lean) — WC-1 indistinguishability bridge
-   - Asserts indistinguishability: unrefuted worlds are TM-indistinguishable from planted
+2. **`remaining_indistinguishable`** (WC1Bridge.lean) — WC-1 indistinguishability bridge
+   - Asserts indistinguishability: remaining worlds are TM-indistinguishable from planted
    - Separation and time bound `haltTime ≥ 2^R - 1` derived from indistinguishability via counting
 
 Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly.
@@ -642,7 +642,7 @@ Both axioms operate at the semantic level—neither mentions P, NP, or complexit
 
 **After refactoring**: 2 axioms total
 - algspec_has_tm (positive: algorithms → TMs)
-- not_refuted_implies_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
+- remaining_indistinguishable (WC-1 bridge: indistinguishability axiom; separation and time bound DERIVED)
 
 **Reduction**: 85%+ axiom elimination.
 
@@ -681,9 +681,9 @@ Both axioms operate at the semantic level—neither mentions P, NP, or complexit
 
 1. **WC1Bridge.lean**
    - WC-1 bridge implementation
-   - `not_refuted_implies_indistinguishable` axiom (→ direction: indistinguishability)
-   - `indistinguishable_implies_not_refuted` theorem (← direction: derivable from WC correctness)
-   - `not_refuted_iff_indistinguishable` theorem (biconditional: shows axiom is tight)
+   - `remaining_indistinguishable` axiom (→ direction: indistinguishability)
+   - `indistinguishable_implies_remaining` theorem (← direction: derivable from WC correctness)
+   - `remaining_iff_indistinguishable` theorem (biconditional: shows axiom is tight)
    - Separation and time bound derivation: `tm_time_lower_bound_operational` (PROVEN)
    - Trust boundary: 1 axiom (← direction derivable; separation and time bound DERIVED)
 

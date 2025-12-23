@@ -1399,7 +1399,7 @@ theorem scl_bounds_reachable
 
     **Proof structure**:
     1. Assume some reachable config σ is not explored
-    2. Show σ could contain witnesses (not refuted by other explored configs)
+    2. Show σ could contain witnesses (not eliminated by other explored configs)
     3. Therefore skipping σ could cause incorrectness
     4. Contradiction with correctness requirement
 

@@ -88,7 +88,7 @@ Actual digest = identity function (all R bits)
 ```
 ❌ BEFORE (parametric approach with assumption):
    Define: s = effectiveRevealedCount (individual bit reads)
-   Bound: refutationCount ≥ 2^(ρ-s)
+   Bound: eliminationCount ≥ 2^(ρ-s)
    Problem: s was ASSUMED to be 0 (via extractRevealedBitsFromWitness = [])
    Status: Architectural choice, not proven necessity
 
@@ -98,7 +98,7 @@ Actual digest = identity function (all R bits)
    Consequence: Individual bit reads provide ZERO advantage
    Therefore: s = 0 is PROVEN (not assumed!)
 
-   Bound: refutationCount ≥ 2^(ρ-0) = 2^ρ (full exponential, no reduction)
+   Bound: eliminationCount ≥ 2^(ρ-0) = 2^ρ (full exponential, no reduction)
 
 The information barrier makes s = 0 inevitable, not optional.
 ```

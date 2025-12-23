@@ -125,7 +125,7 @@ See **§1** of the paper for the full development of this perspective.
 
 ### The 2 Custom Axioms (Trust Boundary)
 1. **`algspec_has_tm`** — Church-Turing bridge
-2. **`not_refuted_implies_indistinguishable`** — WC-1 indistinguishability bridge (separation and time bound derived)
+2. **`remaining_indistinguishable`** — WC-1 indistinguishability bridge (separation and time bound derived)
 
 Both are standard CS/information-theory principles. See `docs/AXIOM_FINAL_COUNT.md`.
 
@@ -362,11 +362,11 @@ Standard academic citation norms apply. If you publish work substantially derive
 - Is the Structural OWF construction sound?
 - Are the 15 cryptographic primitives correctly derived from L* Structural OWF?
 
-**The 2 Custom Axioms** (`algspec_has_tm`, `not_refuted_implies_indistinguishable`)
+**The 2 Custom Axioms** (`algspec_has_tm`, `remaining_indistinguishable`)
 - Are these truly standard principles?
 - Could any be encoding non-trivial assumptions?
 - Are they necessary, or could they be proven?
-- Note: `not_refuted_implies_indistinguishable` only asserts indistinguishability; separation and time bound are DERIVED
+- Note: `remaining_indistinguishable` only asserts indistinguishability; separation and time bound are DERIVED
 
 ### Suggested Review Path
 ```

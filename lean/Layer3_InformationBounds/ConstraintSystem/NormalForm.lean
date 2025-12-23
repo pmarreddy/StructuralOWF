@@ -10,11 +10,11 @@ import Layer3_InformationBounds.ConstraintSystem.ConstraintExtraction
 
 **Problem**: Same constraints, different orders should have identical representations.
 ```
-[BitDet(v,0,1), BitDet(v,1,0), UnitRefute(ω₃)]  ≡  [UnitRefute(ω₃), BitDet(v,1,0), BitDet(v,0,1)]
+[BitDet(v,0,1), BitDet(v,1,0), UnitElimination(ω₃)]  ≡  [UnitElimination(ω₃), BitDet(v,1,0), BitDet(v,0,1)]
 ```
 
 **NF_C Algorithm** (from paper §7):
-1. **Separate by type**: BitDeterminations vs. UnitRefute constraints
+1. **Separate by type**: BitDeterminations vs. UnitElimination constraints
 2. **Remove redundancy**: Dedup (same bit/world twice → keep one)
 3. **Sort for canonicity**: Lexicographic on (v, bitIndex, value) / world ordering
 4. **Check consistency**: No contradictory bit values (bit i = 0 AND bit i = 1)
@@ -88,7 +88,7 @@ These invariants make equality checking trivial: just compare lists.
     **Components**:
     - `bitDeterminations`: Sorted, deduplicated BitDetermination constraints
     - `digestMatches`: Sorted, deduplicated ConfigMatch constraints
-    - `refuted`: Sorted, deduplicated world exclusions
+    - `eliminated`: Sorted, deduplicated world exclusions
 
     **Invariants**: Enforced by structure to maintain canonicity.
 -/
@@ -99,8 +99,8 @@ structure NormalForm (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) where
   /-- Canonical list of config match constraints (sorted, no dups). -/
   digestMatches : List (CutConstraint L C)
 
-  /-- Canonical list of refuted worlds (sorted, no dups). -/
-  refuted : List (CutWorld L C)
+  /-- Canonical list of eliminated worlds (sorted, no dups). -/
+  eliminated : List (CutWorld L C)
 
   /-- Invariant: bitDeterminations contains only BitDetermination constructors. -/
   h_bits_only : ∀ c ∈ bitDeterminations,
@@ -111,7 +111,7 @@ structure NormalForm (L : LStarInstanceFG) (C : Finset (Fin L.dag.n)) where
     ∃ v h_in expectedCfg, c = CutConstraint.ConfigMatch v h_in expectedCfg
 
   /-- Invariant: All three lists are duplicate-free (canonicity). -/
-  h_unique : bitDeterminations.Nodup ∧ digestMatches.Nodup ∧ refuted.Nodup
+  h_unique : bitDeterminations.Nodup ∧ digestMatches.Nodup ∧ eliminated.Nodup
 
 /--
 **Extensionality Lemma**: Two NormalForms are equal if their data fields are equal.
@@ -128,7 +128,7 @@ theorem NormalForm.ext {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
     {nf₁ nf₂ : NormalForm L C}
     (h_bits : nf₁.bitDeterminations = nf₂.bitDeterminations)
     (h_digests : nf₁.digestMatches = nf₂.digestMatches)
-    (h_refuted : nf₁.refuted = nf₂.refuted) :
+    (h_eliminated : nf₁.eliminated = nf₂.eliminated) :
     nf₁ = nf₂ := by
   cases nf₁; cases nf₂; subst_vars; rfl
 
@@ -145,7 +145,7 @@ def isBitDetermination {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
   match c with
   | CutConstraint.BitDetermination _ _ _ _ => true
   | CutConstraint.ConfigMatch _ _ _ => false
-  | CutConstraint.UnitRefute _ => false
+  | CutConstraint.UnitElimination _ => false
 
 /-- Check if constraint is a ConfigMatch (for filtering). -/
 def isConfigMatch {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
@@ -153,28 +153,28 @@ def isConfigMatch {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
   match c with
   | CutConstraint.BitDetermination _ _ _ _ => false
   | CutConstraint.ConfigMatch _ _ _ => true
-  | CutConstraint.UnitRefute _ => false
+  | CutConstraint.UnitElimination _ => false
 
-/-- Extract world from UnitRefute constraint (returns none for other types). -/
-def getRefutedWorld {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
+/-- Extract world from UnitElimination constraint (returns none for other types). -/
+def getEliminatedWorld {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
     (c : CutConstraint L C) : Option (CutWorld L C) :=
   match c with
   | CutConstraint.BitDetermination _ _ _ _ => none
   | CutConstraint.ConfigMatch _ _ _ => none
-  | CutConstraint.UnitRefute ω => some ω
+  | CutConstraint.UnitElimination ω => some ω
 
 /-! ## ConfigMatch Optimization (Enhanced Paper Design)
 
 **PAPER REFERENCE**: Algorithm NF_C:
 "c) Otherwise: discard c (not admitted to NF_C)"
 
-**PAPER**: Keeps only BitDet (unit equalities) and UnitRefute (world exclusions).
-To exclude a specific config at node v, paper would use 2^R_v - 1 UnitRefute constraints
+**PAPER**: Keeps only BitDet (unit equalities) and UnitElimination (world exclusions).
+To exclude a specific config at node v, paper would use 2^R_v - 1 UnitElimination constraints
 (one for each incorrect world).
 
 **OPTIMIZATION**: Add ConfigMatch(v, cfg) constraint type!
 - Directly specifies: "node v has config cfg"
-- Avoids exponential UnitRefute enumeration (1 constraint vs 2^R_v!)
+- Avoids exponential UnitElimination enumeration (1 constraint vs 2^R_v!)
 - With R_v ≈ 64 bits, this saves ~2^63 constraints per gate
 
 **SIMPLICITY**: No redundancy filtering needed. ConfigMatch and BitDetermination
@@ -185,14 +185,14 @@ Well-formedness is satisfaction: ConfigMatch.Satisfies ω ↔ expectedCfg = ω.a
 /-! ## Normalization Algorithm
 
 **ALGORITHM** (paper's NF_C):
-1. Partition into bits vs. configs vs. refutations
+1. Partition into bits vs. configs vs. eliminations
 2. Dedup each partition
 3. Convert to Finset, sort (canonical ordering)
 4. Package with invariant proofs
 
 **Paper alignment**: Implements type-based filtering (Step 2c: "Otherwise: discard c")
-by keeping only BitDet and UnitRefute. We ADD ConfigMatch as an optimization to avoid
-exponential UnitRefute enumeration (1 config vs 2^R_v world exclusions).
+by keeping only BitDet and UnitElimination. We ADD ConfigMatch as an optimization to avoid
+exponential UnitElimination enumeration (1 config vs 2^R_v world exclusions).
 
 **Simplification**: No redundancy filtering needed. ConfigMatch constraints don't interact
 with BitDeterminations - they're independent observations that jointly constrain worlds.
@@ -203,11 +203,11 @@ with BitDeterminations - they're independent observations that jointly constrain
     **Steps**:
     1. Filter BitDeterminations, dedup, convert to Finset, sort
     2. Filter ConfigMatches, dedup, convert to Finset, sort
-    3. Extract refuted worlds, dedup, convert to Finset, sort
+    3. Extract eliminated worlds, dedup, convert to Finset, sort
     4. Package with invariant proofs
 
-    **Paper alignment**: Paper keeps only BitDet + UnitRefute.
-    We add ConfigMatch as optimization: 1 constraint vs 2^R_v UnitRefutes!
+    **Paper alignment**: Paper keeps only BitDet + UnitElimination.
+    We add ConfigMatch as optimization: 1 constraint vs 2^R_v UnitEliminations!
 
     **Simplicity**: All ConfigMatch constraints kept (no redundancy filtering).
     They independently constrain worlds alongside BitDeterminations.
@@ -223,13 +223,13 @@ noncomputable def normalize {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
   -- Paper filters by TYPE, we add ConfigMatch as optimization
   let digestsList := digestsList_raw
 
-  let refutedList := (constraints.filterMap getRefutedWorld).dedup
+  let eliminatedList := (constraints.filterMap getEliminatedWorld).dedup
   {
     -- Convert to Finset then use toList for canonical ordering
     -- toList uses Fintype enumeration which is deterministic
     bitDeterminations := bitsList.toFinset.toList
     digestMatches := digestsList.toFinset.toList
-    refuted := refutedList.toFinset.toList
+    eliminated := eliminatedList.toFinset.toList
     h_bits_only := by
       intro c h_c
       -- c ∈ Finset.toList
@@ -245,8 +245,8 @@ noncomputable def normalize {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
       | CutConstraint.ConfigMatch _ _ _ =>
         -- Contradiction: isBitDetermination returns false for DigestMatch
         simp at h_filtered
-      | CutConstraint.UnitRefute _ =>
-        -- Contradiction: isBitDetermination returns false for UnitRefute
+      | CutConstraint.UnitElimination _ =>
+        -- Contradiction: isBitDetermination returns false for UnitElimination
         simp at h_filtered
     h_digests_only := by
       intro c h_c
@@ -263,8 +263,8 @@ noncomputable def normalize {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
         simp at h_filtered
       | CutConstraint.ConfigMatch v h_in obs =>
         exact ⟨v, h_in, obs, rfl⟩
-      | CutConstraint.UnitRefute _ =>
-        -- Contradiction: isConfigMatch returns false for UnitRefute
+      | CutConstraint.UnitElimination _ =>
+        -- Contradiction: isConfigMatch returns false for UnitElimination
         simp at h_filtered
     h_unique := by
       constructor
@@ -372,8 +372,8 @@ theorem normalize_unique
                            (c2.filter isConfigMatch).dedup.toFinset :=
     h_digests_raw_finset
 
-  have h_refuted_finset : (c1.filterMap getRefutedWorld).dedup.toFinset =
-                           (c2.filterMap getRefutedWorld).dedup.toFinset := by
+  have h_eliminated_finset : (c1.filterMap getEliminatedWorld).dedup.toFinset =
+                           (c2.filterMap getEliminatedWorld).dedup.toFinset := by
     ext ω
     simp only [List.mem_toFinset, List.mem_dedup, List.mem_filterMap]
     constructor
@@ -384,7 +384,7 @@ theorem normalize_unique
 
   -- toList is deterministic: same Finset → same toList
   -- Therefore all three components are equal
-  simp only [h_bits_finset, h_digests_finset, h_refuted_finset]
+  simp only [h_bits_finset, h_digests_finset, h_eliminated_finset]
 
 /-- **Syntactic equivalence implies List.all equivalence**.
 
@@ -433,8 +433,8 @@ theorem syntactic_equiv_implies_same_all
 /-- **Feasible worlds under normal form** (convenience wrapper). -/
 noncomputable def FeasibleUnderNF {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
     (nf : NormalForm L C) : Finset (CutWorld L C) :=
-  -- Combine bit determinations, digest matches, and refutations
-  FeasibleUnder (nf.bitDeterminations ++ nf.digestMatches ++ nf.refuted.map CutConstraint.UnitRefute)
+  -- Combine bit determinations, digest matches, and eliminations
+  FeasibleUnder (nf.bitDeterminations ++ nf.digestMatches ++ nf.eliminated.map CutConstraint.UnitElimination)
 
 /-! ## Semantic Correctness Axiom
 
@@ -507,30 +507,30 @@ theorem feasibleUnder_toFinset_toList_eq {L : LStarInstanceFG} {C : Finset (Fin 
     have h2 : c ∈ constraints := List.mem_toFinset.mp h1
     exact h c h2
 
-/-- **Lemma 3a**: If getRefutedWorld returns some, then c is UnitRefute. -/
-theorem getRefutedWorld_some_iff_unitRefute {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
+/-- **Lemma 3a**: If getEliminatedWorld returns some, then c is UnitElimination. -/
+theorem getEliminatedWorld_some_iff_unitRefute {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
     {c : CutConstraint L C} {ω' : CutWorld L C} :
-    getRefutedWorld c = some ω' → c = CutConstraint.UnitRefute ω' := by
-  unfold getRefutedWorld
+    getEliminatedWorld c = some ω' → c = CutConstraint.UnitElimination ω' := by
+  unfold getEliminatedWorld
   intro h
   cases c with
   | BitDetermination => simp at h
   | ConfigMatch => simp at h
-  | UnitRefute ω =>
+  | UnitElimination ω =>
     simp at h
     rw [h]
 
 /-- **Lemma 3**: Every constraint is exactly one of three types (exhaustive, mutually exclusive). -/
 theorem constraint_type_partition {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
     (c : CutConstraint L C) :
-    (isBitDetermination c = true ∧ isConfigMatch c = false ∧ getRefutedWorld c = none) ∨
-    (isBitDetermination c = false ∧ isConfigMatch c = true ∧ getRefutedWorld c = none) ∨
-    (isBitDetermination c = false ∧ isConfigMatch c = false ∧ ∃ ω, getRefutedWorld c = some ω) := by
-  unfold isBitDetermination isConfigMatch getRefutedWorld
+    (isBitDetermination c = true ∧ isConfigMatch c = false ∧ getEliminatedWorld c = none) ∨
+    (isBitDetermination c = false ∧ isConfigMatch c = true ∧ getEliminatedWorld c = none) ∨
+    (isBitDetermination c = false ∧ isConfigMatch c = false ∧ ∃ ω, getEliminatedWorld c = some ω) := by
+  unfold isBitDetermination isConfigMatch getEliminatedWorld
   cases c with
   | BitDetermination => left; simp
   | ConfigMatch => right; left; simp
-  | UnitRefute ω => right; right; simp
+  | UnitElimination ω => right; right; simp
 
 /-- **Lemma 4**: Filtering by constraint type preserves List.all satisfaction. -/
 theorem all_satisfies_filter_append {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
@@ -538,7 +538,7 @@ theorem all_satisfies_filter_append {L : LStarInstanceFG} {C : Finset (Fin L.dag
     constraints.all (fun c => c.Satisfies ω) =
     ((constraints.filter isBitDetermination).all (fun c => c.Satisfies ω) &&
      (constraints.filter isConfigMatch).all (fun c => c.Satisfies ω) &&
-     (constraints.filterMap getRefutedWorld).all (fun ω' => CutConstraint.UnitRefute ω' |>.Satisfies ω)) := by
+     (constraints.filterMap getEliminatedWorld).all (fun ω' => CutConstraint.UnitElimination ω' |>.Satisfies ω)) := by
   induction constraints with
   | nil => simp
   | cons c cs ih =>
@@ -554,8 +554,8 @@ theorem all_satisfies_filter_append {L : LStarInstanceFG} {C : Finset (Fin L.dag
     | inr h_other =>
       cases h_other with
       | inl h_digest =>
-        -- c is ConfigMatch (not BitDetermination, not UnitRefute)
-        -- From h_digest: isBitDetermination c = false, isConfigMatch c = true, getRefutedWorld c = none
+        -- c is ConfigMatch (not BitDetermination, not UnitElimination)
+        -- From h_digest: isBitDetermination c = false, isConfigMatch c = true, getEliminatedWorld c = none
         -- Must case split on c to make progress
         cases c with
         | BitDetermination v h_in i val =>
@@ -564,20 +564,20 @@ theorem all_satisfies_filter_append {L : LStarInstanceFG} {C : Finset (Fin L.dag
         | ConfigMatch v h_in obs =>
           -- This is the actual case: c is ConfigMatch
           -- Use full simp to handle filter behavior and decidable conditions
-          simp [isBitDetermination, isConfigMatch, getRefutedWorld, ih]
+          simp [isBitDetermination, isConfigMatch, getEliminatedWorld, ih]
           -- Boolean algebra
           ac_rfl
-        | UnitRefute ω' =>
+        | UnitElimination ω' =>
           -- Contradiction: isConfigMatch would be false
           simp [isConfigMatch] at h_digest
-      | inr h_refute =>
-        -- c is UnitRefute: isBitDetermination c = false, isConfigMatch c = false, getRefutedWorld c = some ω'
-        obtain ⟨ω', h_some⟩ := h_refute.2.2
-        -- Establish c = CutConstraint.UnitRefute ω'
-        have h_c_eq : c = CutConstraint.UnitRefute ω' := getRefutedWorld_some_iff_unitRefute h_some
+      | inr h_elim =>
+        -- c is UnitElimination: isBitDetermination c = false, isConfigMatch c = false, getEliminatedWorld c = some ω'
+        obtain ⟨ω', h_some⟩ := h_elim.2.2
+        -- Establish c = CutConstraint.UnitElimination ω'
+        have h_c_eq : c = CutConstraint.UnitElimination ω' := getEliminatedWorld_some_iff_unitRefute h_some
         rw [h_c_eq]
-        -- Simplify filters: UnitRefute doesn't pass isBitDetermination or isConfigMatch
-        simp only [isBitDetermination, isConfigMatch, getRefutedWorld]
+        -- Simplify filters: UnitElimination doesn't pass isBitDetermination or isConfigMatch
+        simp only [isBitDetermination, isConfigMatch, getEliminatedWorld]
         -- Now apply ih and simplify
         simp only [List.all_cons]
         rw [ih]
@@ -605,8 +605,8 @@ the inner property directly.
 -/
 private theorem all_map_unitRefute {L : LStarInstanceFG} {C : Finset (Fin L.dag.n)}
     (worlds : List (CutWorld L C)) (ω : CutWorld L C) :
-    (worlds.map CutConstraint.UnitRefute).all (fun c => c.Satisfies ω) =
-    worlds.all (fun ω' => (CutConstraint.UnitRefute ω').Satisfies ω) := by
+    (worlds.map CutConstraint.UnitElimination).all (fun c => c.Satisfies ω) =
+    worlds.all (fun ω' => (CutConstraint.UnitElimination ω').Satisfies ω) := by
   induction worlds with
   | nil => rfl
   | cons w ws ih =>
@@ -679,7 +679,7 @@ lemma satisfies_implies_wellFormed {L : LStarInstanceFG} {C : Finset (Fin L.dag.
   unfold DigestWellFormed
   cases c with
   | BitDetermination => trivial
-  | UnitRefute => trivial
+  | UnitElimination => trivial
   | ConfigMatch v h_in expectedCfg =>
       -- Satisfies for ConfigMatch means: ω.assignment v h_in = expectedCfg
       unfold CutConstraint.Satisfies at h
@@ -739,7 +739,7 @@ theorem normalize_semantically_faithful_wf
   -- Abbreviations matching normalize's construction
   let bits0   := constraints.filter isBitDetermination
   let dig0    := constraints.filter isConfigMatch
-  let units0  := constraints.filterMap getRefutedWorld
+  let units0  := constraints.filterMap getEliminatedWorld
 
   -- After dedup
   let bits1   := bits0.dedup
@@ -747,7 +747,7 @@ theorem normalize_semantically_faithful_wf
   let units1  := units0.dedup
 
   -- No redundancy filtering needed (ConfigMatch optimization keeps all configs)
-  -- Paper filters by TYPE (BitDet/UnitRefute only), we keep ConfigMatch as optimization
+  -- Paper filters by TYPE (BitDet/UnitElimination only), we keep ConfigMatch as optimization
   let dig2 := dig1
 
   -- After toFinset.toList (canonical ordering)
@@ -757,7 +757,7 @@ theorem normalize_semantically_faithful_wf
     Phase A: Transform constraints into partitioned form (bits + digests + units)
   ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––-/
   have h_partition : FeasibleUnder constraints =
-      FeasibleUnder (bits0 ++ dig0 ++ units0.map CutConstraint.UnitRefute) := by
+      FeasibleUnder (bits0 ++ dig0 ++ units0.map CutConstraint.UnitElimination) := by
     ext ω
     simp only [FeasibleUnder, Finset.mem_filter, Finset.mem_univ, true_and]
     -- Step 1: Partition by type using all_satisfies_filter_append
@@ -767,16 +767,16 @@ theorem normalize_semantically_faithful_wf
     rw [← h_map] at h_split
     -- Step 3: Fold appends using all_append_eq
     have h_eq : (constraints.all fun c => decide (c.Satisfies ω)) =
-                (bits0 ++ dig0 ++ units0.map CutConstraint.UnitRefute).all
+                (bits0 ++ dig0 ++ units0.map CutConstraint.UnitElimination).all
                   (fun c => decide (c.Satisfies ω)) := by
       calc (constraints.all fun c => decide (c.Satisfies ω))
           = (bits0.all (fun c => decide (c.Satisfies ω)) &&
              dig0.all (fun c => decide (c.Satisfies ω)) &&
-             (units0.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω))) := h_split
+             (units0.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω))) := h_split
         _ = ((bits0 ++ dig0).all (fun c => decide (c.Satisfies ω)) &&
-             (units0.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω))) := by
+             (units0.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω))) := by
               rw [← all_append_eq]
-        _ = (bits0 ++ dig0 ++ units0.map CutConstraint.UnitRefute).all
+        _ = (bits0 ++ dig0 ++ units0.map CutConstraint.UnitElimination).all
               (fun c => decide (c.Satisfies ω)) := by
               rw [← all_append_eq]
     simp only [h_eq]
@@ -793,14 +793,14 @@ theorem normalize_semantically_faithful_wf
   -- CRITICAL EQUALITY: Establish chain from constraints to bits1/dig1/units1 partition
   -- This will be used to derive well-formedness for dig1
   have h_constraints_to_deduped : FeasibleUnder constraints =
-      FeasibleUnder (bits1 ++ dig1 ++ units1.map CutConstraint.UnitRefute) := by
+      FeasibleUnder (bits1 ++ dig1 ++ units1.map CutConstraint.UnitElimination) := by
     calc FeasibleUnder constraints
-        = FeasibleUnder (bits0 ++ dig0 ++ units0.map CutConstraint.UnitRefute) := h_partition
-      _ = FeasibleUnder (bits1 ++ dig1 ++ units1.map CutConstraint.UnitRefute) := by
+        = FeasibleUnder (bits0 ++ dig0 ++ units0.map CutConstraint.UnitElimination) := h_partition
+      _ = FeasibleUnder (bits1 ++ dig1 ++ units1.map CutConstraint.UnitElimination) := by
             -- Apply feasibleUnder_dedup_eq to each component
             have hb := feasibleUnder_dedup_eq bits0
             have hd := feasibleUnder_dedup_eq dig0
-            have inj : Function.Injective (@CutConstraint.UnitRefute L C) := by
+            have inj : Function.Injective (@CutConstraint.UnitElimination L C) := by
               intros ω₁ ω₂ h; injection h
             have hu_map := List.dedup_map_of_injective inj units0
             ext ω
@@ -809,21 +809,21 @@ theorem normalize_semantically_faithful_wf
             have hb_mem := congr_arg (fun s => ω ∈ s) hb
             have hd_mem := congr_arg (fun s => ω ∈ s) hd
             simp only [FeasibleUnder, Finset.mem_filter, Finset.mem_univ, true_and] at hb_mem hd_mem
-            have hu_mem : ((units0.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω)) = true) =
-                          ((units1.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω)) = true) := by
-              have := feasibleUnder_dedup_eq (units0.map CutConstraint.UnitRefute)
+            have hu_mem : ((units0.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω)) = true) =
+                          ((units1.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω)) = true) := by
+              have := feasibleUnder_dedup_eq (units0.map CutConstraint.UnitElimination)
               have h_eq := congr_arg (fun s => ω ∈ s) this
               simp only [FeasibleUnder, Finset.mem_filter, Finset.mem_univ, true_and] at h_eq
-              calc ((units0.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω)) = true)
-                  = ((units0.map CutConstraint.UnitRefute).dedup.all (fun c => decide (c.Satisfies ω)) = true) := h_eq.symm
-                _ = ((units0.dedup.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω)) = true) := by rw [hu_map]
-                _ = ((units1.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω)) = true) := rfl
+              calc ((units0.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω)) = true)
+                  = ((units0.map CutConstraint.UnitElimination).dedup.all (fun c => decide (c.Satisfies ω)) = true) := h_eq.symm
+                _ = ((units0.dedup.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω)) = true) := by rw [hu_map]
+                _ = ((units1.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω)) = true) := rfl
             have : ((bits0.all (fun c => decide (c.Satisfies ω)) &&
                      dig0.all (fun c => decide (c.Satisfies ω))) &&
-                    (units0.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω))) =
+                    (units0.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω))) =
                    ((bits1.all (fun c => decide (c.Satisfies ω)) &&
                      dig1.all (fun c => decide (c.Satisfies ω))) &&
-                    (units1.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω))) := by
+                    (units1.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω))) := by
               congr 1
               · congr 1
                 · exact bool_eq_of_eq_true_eq hb_mem.symm
@@ -832,8 +832,8 @@ theorem normalize_semantically_faithful_wf
             rw [this]
 
   calc FeasibleUnder constraints
-      = FeasibleUnder (bits1 ++ dig1 ++ units1.map CutConstraint.UnitRefute) := h_constraints_to_deduped
-    _ = FeasibleUnder (bits1 ++ dig2 ++ units1.map CutConstraint.UnitRefute) := by
+      = FeasibleUnder (bits1 ++ dig1 ++ units1.map CutConstraint.UnitElimination) := h_constraints_to_deduped
+    _ = FeasibleUnder (bits1 ++ dig2 ++ units1.map CutConstraint.UnitElimination) := by
           -- dig2 = dig1 (no filtering), so this is trivial
           rfl
     _ = FeasibleUnderNF nf := by
@@ -848,7 +848,7 @@ theorem normalize_semantically_faithful_wf
           -- Apply toFinset.toList equivalences
           have hb := feasibleUnder_toFinset_toList_eq bits1
           have hd := feasibleUnder_toFinset_toList_eq dig2
-          have hu := feasibleUnder_toFinset_toList_eq (units1.map CutConstraint.UnitRefute)
+          have hu := feasibleUnder_toFinset_toList_eq (units1.map CutConstraint.UnitElimination)
           -- Extract membership equivalences - note these go from original to toFinset.toList
           have hb_mem := congr_arg (fun s => ω ∈ s) hb
           have hd_mem := congr_arg (fun s => ω ∈ s) hd
@@ -856,43 +856,43 @@ theorem normalize_semantically_faithful_wf
           simp only [FeasibleUnder, Finset.mem_filter, Finset.mem_univ, true_and] at hb_mem hd_mem hu_mem
           -- Establish FeasibleUnder equality (avoids impossible list equality proof)
           -- Key: FeasibleUnder only depends on finset membership, not list ordering
-          have hu_feasible : FeasibleUnder ((units1.toFinset.toList).map CutConstraint.UnitRefute) =
-                            FeasibleUnder ((units1.map CutConstraint.UnitRefute).toFinset.toList) := by
+          have hu_feasible : FeasibleUnder ((units1.toFinset.toList).map CutConstraint.UnitElimination) =
+                            FeasibleUnder ((units1.map CutConstraint.UnitElimination).toFinset.toList) := by
             -- Both lists represent the same finset
-            have h_finset_eq : ((units1.toFinset.toList).map CutConstraint.UnitRefute).toFinset =
-                              (units1.map CutConstraint.UnitRefute).toFinset := by
+            have h_finset_eq : ((units1.toFinset.toList).map CutConstraint.UnitElimination).toFinset =
+                              (units1.map CutConstraint.UnitElimination).toFinset := by
               rw [toFinset_map_eq_image]
               simp only [Finset.toList_toFinset]
               -- Goal: (units1.toFinset).image f = (units1.map f).toFinset
               ext c
               simp only [Finset.mem_image, List.mem_toFinset, List.mem_map]
             -- FeasibleUnder equality via toFinset round-trip
-            calc FeasibleUnder ((units1.toFinset.toList).map CutConstraint.UnitRefute)
-                = FeasibleUnder (((units1.toFinset.toList).map CutConstraint.UnitRefute).toFinset.toList) :=
+            calc FeasibleUnder ((units1.toFinset.toList).map CutConstraint.UnitElimination)
+                = FeasibleUnder (((units1.toFinset.toList).map CutConstraint.UnitElimination).toFinset.toList) :=
                     (feasibleUnder_toFinset_toList_eq _).symm
-              _ = FeasibleUnder ((units1.map CutConstraint.UnitRefute).toFinset.toList) := by
+              _ = FeasibleUnder ((units1.map CutConstraint.UnitElimination).toFinset.toList) := by
                     rw [h_finset_eq]
           -- Extract membership using FeasibleUnder equality
-          have hu_mem' : ((units1.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω)) = true) =
-                         ((units1.toFinset.toList.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω)) = true) := by
+          have hu_mem' : ((units1.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω)) = true) =
+                         ((units1.toFinset.toList.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω)) = true) := by
             -- Chain: units1.map f → (units1.map f).toFinset.toList → (units1.toFinset.toList).map f
             -- Step 1: hu_mem gives us units1.map f = (units1.map f).toFinset.toList
             -- Step 2: hu_feasible gives us (units1.toFinset.toList).map f = (units1.map f).toFinset.toList
             have h1 := congr_arg (fun s => ω ∈ s) hu_feasible
             simp only [FeasibleUnder, Finset.mem_filter, Finset.mem_univ, true_and] at h1
             -- Combine with hu_mem to get full chain
-            calc ((units1.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω)) = true)
-                = ((units1.map CutConstraint.UnitRefute).toFinset.toList.all (fun c => decide (c.Satisfies ω)) = true) := hu_mem.symm
-              _ = ((units1.toFinset.toList.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω)) = true) := h1.symm
+            calc ((units1.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω)) = true)
+                = ((units1.map CutConstraint.UnitElimination).toFinset.toList.all (fun c => decide (c.Satisfies ω)) = true) := hu_mem.symm
+              _ = ((units1.toFinset.toList.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω)) = true) := h1.symm
           -- Combine all three using boolean congruence
           -- Goal: ((A && B) && C = true) ↔ ((A' && B') && C' = true)
           -- where hb_mem, hd_mem, hu_mem' are equalities between bool propositions
           have : ((bits1.all (fun c => decide (c.Satisfies ω)) &&
                    dig2.all (fun c => decide (c.Satisfies ω))) &&
-                  (units1.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω))) =
+                  (units1.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω))) =
                  ((bits1.toFinset.toList.all (fun c => decide (c.Satisfies ω)) &&
                    dig2.toFinset.toList.all (fun c => decide (c.Satisfies ω))) &&
-                  (units1.toFinset.toList.map CutConstraint.UnitRefute).all (fun c => decide (c.Satisfies ω))) := by
+                  (units1.toFinset.toList.map CutConstraint.UnitElimination).all (fun c => decide (c.Satisfies ω))) := by
             congr 1
             · congr 1
               · exact bool_eq_of_eq_true_eq hb_mem.symm
@@ -1021,11 +1021,11 @@ theorem normalize_conservative
   -- Strategy: c came from original constraints, and ω satisfies all original
   simp only [Finset.mem_filter, Finset.mem_univ, true_and, List.all_eq_true] at h_ω_orig
 
-  -- c is in (bitDeterminations ++ digestMatches ++ refuted.map UnitRefute)
+  -- c is in (bitDeterminations ++ digestMatches ++ eliminated.map UnitElimination)
   -- All three components come from original constraints
   -- Note: ++ is left-associative, so this is ((a ++ b) ++ c)
   have h_c_in_parts : c ∈ ((normalize constraints).bitDeterminations ++ (normalize constraints).digestMatches) ∨
-                       c ∈ (normalize constraints).refuted.map CutConstraint.UnitRefute := by
+                       c ∈ (normalize constraints).eliminated.map CutConstraint.UnitElimination := by
     rw [← List.mem_append]
     exact h_c_norm
   cases h_c_in_parts with
@@ -1070,33 +1070,33 @@ theorem normalize_conservative
         exact (List.mem_filter.mp h3).left
       exact h_ω_orig c h_in_orig
   | inr h_ref =>
-    -- c ∈ refuted.map UnitRefute
+    -- c ∈ eliminated.map UnitElimination
     rw [List.mem_map] at h_ref
-    obtain ⟨ω_ref, h_ω_in_refuted, rfl⟩ := h_ref
-    -- Show UnitRefute ω_ref was in original
-    unfold normalize at h_ω_in_refuted
-    have h_in_orig_map : ω_ref ∈ constraints.filterMap getRefutedWorld := by
-      have h1 : ω_ref ∈ (constraints.filterMap getRefutedWorld).dedup.toFinset := Finset.mem_toList.mp h_ω_in_refuted
-      have h2 : ω_ref ∈ (constraints.filterMap getRefutedWorld).dedup := List.mem_toFinset.mp h1
+    obtain ⟨ω_ref, h_ω_in_eliminated, rfl⟩ := h_ref
+    -- Show UnitElimination ω_ref was in original
+    unfold normalize at h_ω_in_eliminated
+    have h_in_orig_map : ω_ref ∈ constraints.filterMap getEliminatedWorld := by
+      have h1 : ω_ref ∈ (constraints.filterMap getEliminatedWorld).dedup.toFinset := Finset.mem_toList.mp h_ω_in_eliminated
+      have h2 : ω_ref ∈ (constraints.filterMap getEliminatedWorld).dedup := List.mem_toFinset.mp h1
       exact List.mem_dedup.mp h2
-    -- This means ∃ c_orig ∈ constraints where getRefutedWorld c_orig = some ω_ref
+    -- This means ∃ c_orig ∈ constraints where getEliminatedWorld c_orig = some ω_ref
     rw [List.mem_filterMap] at h_in_orig_map
     obtain ⟨c_orig, h_c_orig_in, h_get⟩ := h_in_orig_map
-    -- c_orig must be UnitRefute ω_ref
-    unfold getRefutedWorld at h_get
+    -- c_orig must be UnitElimination ω_ref
+    unfold getEliminatedWorld at h_get
     match c_orig with
-    | CutConstraint.UnitRefute ω_orig =>
+    | CutConstraint.UnitElimination ω_orig =>
       -- some ω_orig = some ω_ref implies ω_orig = ω_ref
       injection h_get with h_eq
       rw [← h_eq]
-      exact h_ω_orig (CutConstraint.UnitRefute ω_orig) h_c_orig_in
+      exact h_ω_orig (CutConstraint.UnitElimination ω_orig) h_c_orig_in
     | CutConstraint.BitDetermination _ _ _ _ =>
-      -- Impossible: getRefutedWorld returns none
+      -- Impossible: getEliminatedWorld returns none
       contradiction
 
 /-! ## Monotonicity Lemmas
 
-These lemmas support proving refutationCount_monotone in ExecutionHistory.lean
+These lemmas support proving eliminationCount_monotone in ExecutionHistory.lean
 by showing that normalization preserves subset relationships.
 -/
 

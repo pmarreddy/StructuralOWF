@@ -285,7 +285,7 @@ This path derives the bound DIRECTLY from keyedness, not from `configsExploredAt
 - `SCL_node` (Layer 0): keyed → |State| ≥ 2^λ (0 axioms)
 - `keyedness_from_seed_injectivity` (Layer 3): L* has keyedness
 - `witness_finder_states_lower_bound` (Layer 3): keyedness → ∃ states with card ≥ 2^λ
-- `segment_reduction` (Layer 3): refutationCount ≥ 2^(ρ-s) - 1 (0 axioms, 0 sorries)
+- `segment_reduction` (Layer 3): eliminationCount ≥ 2^(ρ-s) - 1 (0 axioms, 0 sorries)
 
 These fields exist for specification completeness and potential alternative proof paths,
 but the main theorem does not depend on them.

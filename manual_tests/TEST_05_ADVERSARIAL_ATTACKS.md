@@ -29,7 +29,7 @@ This is the most aggressive test: actively try to BREAK the proof.
 | # | Axiom | File:Line | Type | Risk |
 |---|-------|-----------|------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean:414 | Church-Turing bridge | Very Low |
-| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 | WC-1 bridge (indistinguishability axiom) | Low |
+| 2 | `remaining_indistinguishable` | WC1Bridge.lean:4067 | WC-1 bridge (indistinguishability axiom) | Low |
 
 **Note**: Former axioms `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proved lemmas.
 
@@ -188,7 +188,7 @@ theorem oracle_attack :
   ∃ O : Oracle,
     (∀ n φ r h_nvars h_wf, InP_oracle O (fun L => L = plant_flat n φ r h_nvars)) ∧
     (algspec_has_tm still holds with O) ∧
-    (not_refuted_implies_indistinguishable still holds with O) := by
+    (remaining_indistinguishable still holds with O) := by
   sorry
 
 -- Key question: Does proof relativize?
@@ -352,7 +352,7 @@ theorem attack_halting : ∃ M, ∀ n, M.run n = halts_in_finite_time (tm_from_n
 
 ---
 
-### ATTACK 5.8: Exploit Axiom 2 — `not_refuted_implies_indistinguishable`
+### ATTACK 5.8: Exploit Axiom 2 — `remaining_indistinguishable`
 
 **Goal**: Find instantiation that makes axiom derive False incorrectly
 
@@ -363,7 +363,7 @@ theorem attack_halting : ∃ M, ∀ n, M.run n = halts_in_finite_time (tm_from_n
 import Layer4_Operational.TimeBridge.WC1Bridge
 
 -- Axiom signature (from AXIOM_FINAL_COUNT.md):
--- axiom not_refuted_implies_indistinguishable
+-- axiom remaining_indistinguishable
 --     States: If adversary hasn't been "refuted" (shown to produce
 --     distinguishable output from random), then adversary output IS
 --     indistinguishable from random.
@@ -893,7 +893,7 @@ For each attack:
    - Breaking the OWF → FP≠FNP → P≠NP chain
 
 2. **Where are the weak points?**
-   - The 2 axiom boundaries (algspec_has_tm, not_refuted_implies_indistinguishable)
+   - The 2 axiom boundaries (algspec_has_tm, remaining_indistinguishable)
    - Encoding choices (TMEncoding, emergent bit encoding)
    - Type parameters (Sized instances, Fintype instances)
    - The uniformity requirement in RandAdv
@@ -932,7 +932,7 @@ From verified code analysis:
 
 **Axiom-Specific Protections**:
 - Axiom 1 (algspec_has_tm): Protected by Lean computability
-- Axiom 2 (not_refuted_implies_indistinguishable): Protected by uniformity + planted requirement
+- Axiom 2 (remaining_indistinguishable): Protected by uniformity + planted requirement
 
 **Barrier Analysis**:
 - Natural Proofs: NOT natural - constructs specific hard instance, not distinguisher
@@ -1130,7 +1130,7 @@ theorem attack_injectivity : Function.Injective bad_injection := by
   2. Information-theoretic bounds (do NOT relativize!)
   3. Specific construction (plant_flat, FG gates)
 
-- Key insight: The not_refuted_implies_indistinguishable axiom encodes an information-theoretic claim:
+- Key insight: The remaining_indistinguishable axiom encodes an information-theoretic claim:
   - "Correctness requires exhaustive coverage of all 2^R configurations"
   - This is NOT about what oracles can compute
   - It's about what information is REQUIRED for correctness
@@ -1198,7 +1198,7 @@ Run these to verify the trust boundary:
 -- Expected output (plus Lean's standard axioms):
 -- [propext, Classical.choice, Quot.sound,
 --  LStar.Complexity.algspec_has_tm,
---  LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable]
+--  LStar.StructuralOWF.Foundations.remaining_indistinguishable]
 ```
 
 ---
@@ -1221,7 +1221,7 @@ Run these to verify the trust boundary:
 | `LStarInstanceFG` | FrontierGate.lean:1301 |
 | `RandAdv` | RandAdv.lean:79 |
 | `algspec_has_tm` | RandAdv.lean:414 |
-| `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 |
+| `remaining_indistinguishable` | WC1Bridge.lean:4067 |
 | `fg_first_commit_time_lower_bound` | WC1Bridge.lean:5052 |
 | `satisfies_A3` | A3_Emergence.lean |
 | `NodeData` (SCL) | NodeData.lean |

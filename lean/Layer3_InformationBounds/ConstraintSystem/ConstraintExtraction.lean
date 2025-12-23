@@ -20,7 +20,7 @@ TrackedRun (execution) → ExecutionPrefix (observations) → extractConstraints
 **Main Components**:
 
 1. **ExecutionPrefixReal**: Tracks revealed bits, computed seeds, gate digests
-2. **extractConstraints**: Converts observations → formal constraints (BitDetermination, UnitRefute)
+2. **extractConstraints**: Converts observations → formal constraints (BitDetermination, UnitElimination)
 3. **Monotonicity**: Later time → more constraints (never fewer, crucial for segment boundaries)
 
 **Key Theorem**: `extractConstraints_monotonic`
@@ -165,10 +165,10 @@ properties, not derivation mechanics from TrackedRun.
    - If v ∈ C (cut nodes only)
    - Create BitDetermination(v, i, b)
 
-2. **UnitRefute constraints** (from gate digests):
+2. **UnitElimination constraints** (from gate digests):
    - For each (v_gate, digest) in computedDigests
    - Find worlds ω where parity(ω, v_gate) ≠ digest
-   - Create UnitRefute(ω) for each violated world
+   - Create UnitElimination(ω) for each violated world
 
 **Output**: List of constraints (possibly with duplicates, unsorted)
 **Next step**: normalize (NormalForm.lean) will dedup + sort
@@ -566,11 +566,11 @@ with no interaction between them. Well-formedness is ensured by satisfaction alo
     is also extractable from π₂.
 
     **Proof Structure**:
-    1. Constraints = bitConstraints ++ refuteConstraints
+    1. Constraints = bitConstraints ++ eliminationConstraints
     2. π₁ prefix of π₂ → π₁.revealedBits <+: π₂.revealedBits (by definition)
     3. List prefix → filterMap preserves membership
     4. Therefore bitConstraints(π₁) ⊆ bitConstraints(π₂)
-    5. Similarly for refuteConstraints
+    5. Similarly for eliminationConstraints
     6. Therefore extractConstraints(π₁) ⊆ extractConstraints(π₂)
 
     **Why important**: This justifies using NF equality for segment detection.

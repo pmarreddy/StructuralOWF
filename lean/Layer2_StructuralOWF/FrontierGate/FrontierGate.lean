@@ -85,7 +85,7 @@ digest_fg = identityDigestVec(cfg)  -- full R-bit configuration
 
 **Scenario**: Algorithm tests candidate assignment α = (v₀, v₁, ..., vₙ₋₁) and discovers:
 ```
-expected_digest ≠ computed_digest(α)  -- Digest mismatch → refutation
+expected_digest ≠ computed_digest(α)  -- Digest mismatch → elimination
 ```
 
 **Question**: Can the algorithm prune other assignments based on this failure?
@@ -100,7 +100,7 @@ expected_digest ≠ computed_digest(α)  -- Digest mismatch → refutation
    - No correlation between failure of α and failure of similar assignments
    - Must test each candidate independently
 
-3. **Information bottleneck**: Each refutation eliminates exactly 1 configuration
+3. **Information bottleneck**: Each elimination eliminates exactly 1 configuration
    - "α is not the planted assignment"
    - Does not constrain any other assignment's validity
    - Cannot deduce properties of unexplored assignments
@@ -119,7 +119,7 @@ If test (x,y,z): Learn only that THIS specific config is wrong
 
 - Planted instance has R emergent bits at the cut → 2^R possible configurations
 - Algorithm must distinguish the unique planted config from 2^R candidates
-- Each refutation eliminates exactly 1 candidate (no cascade)
+- Each elimination eliminates exactly 1 candidate (no cascade)
 - Therefore: Must test ≥ 2^R - 1 candidates → exponential work
 
 **Why the Cut Creates Hardness**:
@@ -197,8 +197,8 @@ impossible due to information flow constraints, independent of algorithmic appro
 
 **Information→Time Bridge**:
 - Layer 2 (here): FG creates exponential information barrier
-- Layer 3 (SegmentReduction.lean): Proves ≥ 2^R refutations required
-- Layer 4 (TMToExecutionPrefix.lean): Proves time ≥ refutations (operational semantics)
+- Layer 3 (SegmentReduction.lean): Proves ≥ 2^R eliminations required
+- Layer 4 (TMToExecutionPrefix.lean): Proves time ≥ eliminations (operational semantics)
 - Layer 5 (Security.lean): OWF exists → P≠NP (complexity theory)
 
 **Trust Boundary**: FG mechanism uses ZERO custom axioms - all proven from first principles

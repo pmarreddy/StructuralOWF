@@ -25,7 +25,7 @@ grep -rn "sorry" --include="*.lean" | grep -v ".lake" | grep -v "-- sorry" | gre
 
 **Expected Axioms (2 total)**:
 1. `algspec_has_tm` - Church-Turing bridge (RandAdv.lean:414)
-2. `not_refuted_implies_indistinguishable` - WC-1 bridge (indistinguishability axiom; WC1Bridge.lean:4067)
+2. `remaining_indistinguishable` - WC-1 bridge (indistinguishability axiom; WC1Bridge.lean:4067)
 
 **Note**: Former axioms `plant_flat_wf_transfer` and `fg_lossless_encoding` are now proved lemmas; the dependency list has been reduced accordingly.
 
@@ -174,7 +174,7 @@ import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
  Classical.choice,
  Quot.sound,
  LStar.Complexity.algspec_has_tm,
- LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable]
+ LStar.StructuralOWF.Foundations.remaining_indistinguishable]
 ```
 
 **Manual Trace**:
@@ -191,7 +191,7 @@ P_ne_NP (Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean)
 │   │   ├── f_is_structural_owf_exponential_flat (Layer2)
 │   │   │   ├── fg_first_commit_time_lower_bound (WC1Bridge)
 │   │   │   │   ├── visitedEncodings_card_ge_pow
-│   │   │   │   ├── not_refuted_implies_indistinguishable [AXIOM]
+│   │   │   │   ├── remaining_indistinguishable [AXIOM]
 │   │   │   │   └── ...
 │   │   │   ├── tmOutputWitness extraction (Layer2)
 │   │   │   └── algspec_has_tm [AXIOM]
@@ -201,7 +201,7 @@ P_ne_NP (Layer5_Applications/PvsNP/PrimaryPath/StructuralOWFBridge.lean)
 
 AXIOMS IN CHAIN (2 total):
 ├── [1] algspec_has_tm (RandAdv.lean:414) - Church-Turing bridge
-└── [2] not_refuted_implies_indistinguishable (WC1Bridge.lean:4067) - WC-1 bridge
+└── [2] remaining_indistinguishable (WC1Bridge.lean:4067) - WC-1 bridge
 ```
 
 ---
@@ -556,7 +556,7 @@ _card_ge_pow      _all_bits        (RanksExponential.lean)
          correctness_implies_realizesAllValues
                      │
                      ▼
-         not_refuted_implies_indistinguishable
+         remaining_indistinguishable
          [AXIOM] (WC1Bridge.lean:4067)
 
                      SCL Foundation (Layer 0)
@@ -571,7 +571,7 @@ AXIOMS IN P_ne_NP CHAIN (2 total):
     Nature: Church-Turing bridge
     Risk: Very Low (universally accepted CS principle)
 
-[2] not_refuted_implies_indistinguishable (WC1Bridge.lean:4067)
+[2] remaining_indistinguishable (WC1Bridge.lean:4067)
     Nature: WC-1 bridge (indistinguishability axiom)
     Risk: Low (indistinguishability from random; separation and time bound derived)
 ═══════════════════════════════════════════════════════════════════

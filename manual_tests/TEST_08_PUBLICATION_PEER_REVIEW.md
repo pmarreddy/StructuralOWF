@@ -60,8 +60,8 @@ The most common failure mode for formalized proofs: the paper claims one thing, 
 → Expected output:
    - propext, Classical.choice, Quot.sound (standard Lean)
    - algspec_has_tm (Church-Turing bridge, positive) - RandAdv.lean:414
-   - not_refuted_implies_indistinguishable (WC-1 bridge) - WC1Bridge.lean:4067
-   NOTE: Primary path uses not_refuted_implies_indistinguishable; tm_correctness_implies_realizesAllValuesFrom_flat_encoded is at TMAdapterExponential.lean:2151
+   - remaining_indistinguishable (WC-1 bridge) - WC1Bridge.lean:4067
+   NOTE: Primary path uses remaining_indistinguishable; tm_correctness_implies_realizesAllValuesFrom_flat_encoded is at TMAdapterExponential.lean:2151
 → Reference: docs/AXIOM_FINAL_COUNT.md for authoritative count
 
 **Note**: `fg_lossless_encoding` was previously an axiom but is now fully proven (145-line theorem).
@@ -172,7 +172,7 @@ def PeqNP_classical : Prop :=
 
 2. Layer 3-4: Information bounds + TM bridge
    → `SCL_node` (SCLNode.lean:316) - per-node bound
-   → `not_refuted_implies_indistinguishable` (WC1Bridge.lean:4067) - WC-1 axiom
+   → `remaining_indistinguishable` (WC1Bridge.lean:4067) - WC-1 axiom
 
 3. Layer 5: OWFBridge proving chain
    → `structural_owf_implies_fpnefnp` (StructuralOWFBridge.lean:2864)
@@ -194,7 +194,7 @@ def PeqNP_classical : Prop :=
 ```lean
 -- Paper claims 2 axioms (AXIOM_FINAL_COUNT.md):
 -- 1. algspec_has_tm (Church-Turing bridge, positive) - RandAdv.lean:414
--- 2. not_refuted_implies_indistinguishable (WC-1 bridge) - WC1Bridge.lean:4067
+-- 2. remaining_indistinguishable (WC-1 bridge) - WC1Bridge.lean:4067
 
 -- Verify via:
 #print axioms P_ne_NP
@@ -202,7 +202,7 @@ def PeqNP_classical : Prop :=
 -- Expected output includes exactly these 2 custom axioms plus standard Lean:
 -- [propext, Classical.choice, Quot.sound,
 --  LStar.Complexity.algspec_has_tm,
---  LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable]
+--  LStar.StructuralOWF.Foundations.remaining_indistinguishable]
 
 -- Check:
 -- 1. Same names and meanings? Verify against docs/AXIOM_FINAL_COUNT.md
@@ -215,7 +215,7 @@ def PeqNP_classical : Prop :=
 | # | Axiom | File | Line |
 |---|-------|------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean | 414 |
-| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean | 4067 |
+| 2 | `remaining_indistinguishable` | WC1Bridge.lean | 4067 |
 
 ---
 
@@ -371,7 +371,7 @@ Each axiom is independently justifiable (see docs/AXIOM_FINAL_COUNT.md):
    - Every polynomial-time algorithmic specification has TM implementation
    - Risk: Very Low (definitional, universally accepted)
 
-2. **not_refuted_implies_indistinguishable**: WC-1 bridge (indistinguishability axiom)
+2. **remaining_indistinguishable**: WC-1 bridge (indistinguishability axiom)
    - From A2 injectivity: correctness on planted instances requires visiting
      all 2^R emergent configurations
    - Information-theoretic collision argument (different configs → different seeds)
@@ -496,7 +496,7 @@ See docs/AXIOM_FINAL_COUNT.md for authoritative documentation.
 
 1. **Uniform model enforced**:
    - RandAdv structure requires fixed constants C, k for ALL inputs
-   - `not_refuted_implies_indistinguishable` axiom (WC1Bridge.lean:4067) has uniformity requirement
+   - `remaining_indistinguishable` axiom (WC1Bridge.lean:4067) has uniformity requirement
      that blocks non-uniform "lucky TMs" that need different parameters per instance
    - This blocks non-uniform "lucky TMs" that need different C, k per instance
 
@@ -935,7 +935,7 @@ Passing this test means the paper is ready for peer review submission.
 | # | Axiom | Location | Nature | Risk |
 |---|-------|----------|--------|------|
 | 1 | `algspec_has_tm` | RandAdv.lean:414 | Church-Turing bridge | Very Low |
-| 2 | `not_refuted_implies_indistinguishable` | WC1Bridge.lean:4067 | WC-1 bridge (indistinguishability axiom) | Low |
+| 2 | `remaining_indistinguishable` | WC1Bridge.lean:4067 | WC-1 bridge (indistinguishability axiom) | Low |
 
 **Previously Eliminated Axioms** (now proven/removed):
 - `fg_lossless_encoding`: 145-line theorem (EncodingDiscipline.lean:344-489)

@@ -138,7 +138,7 @@ This is UNAVOIDABLE - not "we haven't found a fast algorithm yet"
 1. **Layer 0 (here)**: Abstract cut bound 2^(Σλᵢ) (this theorem)
 2. **Layer 1**: Apply to L* construction (A2 + A3 ensure independence)
 3. **Layer 2**: FG gates set R_v = n → min-cut has Σλᵢ = n
-4. **Layer 3**: SegmentReduction uses cut bound → 2^(ρ-s) refutations required
+4. **Layer 3**: SegmentReduction uses cut bound → 2^(ρ-s) eliminations required
 5. **Layer 4**: TM time bound → haltTime ≥ 2^n (from state counting)
 6. **Layer 5**: Contradiction with polynomial time → P≠NP ∎
 

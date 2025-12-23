@@ -3176,7 +3176,7 @@ theorem planted_instances_have_uniqueness_flat
     For singleton cuts C = {v}, two worlds with the same v-config are equal.
     This is the flat-mode version of TMToExecutionPrefix.planted_config_uniqueness.
 
-    **Purpose**: Enable ConfigMatchToUnitRefute.lean to work with IsPlantedFlat.
+    **Purpose**: Enable ConfigMatchToUnitElimination.lean to work with IsPlantedFlat.
     The WC-1 callback needs this lemma to prove +1 elimination at boundaries.
 
     **Proof**: Uses extensionality on singleton cuts.

@@ -12,10 +12,10 @@
 
 The WC-1 Bridge introduces a new axiom architecture replacing the previous
 `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` axiom with a weaker,
-more semantic `not_refuted_implies_indistinguishable` axiom.
+more semantic `remaining_indistinguishable` axiom.
 
 **Key Changes in This Branch**:
-1. New axiom: `not_refuted_implies_indistinguishable` (indistinguishability bridge)
+1. New axiom: `remaining_indistinguishable` (indistinguishability bridge)
 2. Unified `algspec_has_tm` with `UniformityStructure` typeclass
 3. `SameObservationSameState` property (renamed from ReplantingSimulation)
 4. `WorstCaseCorrectOnLStar` property for TM correctness
@@ -24,7 +24,7 @@ more semantic `not_refuted_implies_indistinguishable` axiom.
 
 **Trust Boundary**: 2 axioms total
 - `algspec_has_tm`: Church-Turing bridge with uniformity
-- `not_refuted_implies_indistinguishable`: Indistinguishability bridge
+- `remaining_indistinguishable`: Indistinguishability bridge
 
 ---
 
@@ -32,9 +32,9 @@ more semantic `not_refuted_implies_indistinguishable` axiom.
 
 | Aspect | Main Branch | WC-1 Bridge Branch |
 |--------|-------------|-------------------|
-| Primary axiom | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | `not_refuted_implies_indistinguishable` |
+| Primary axiom | `tm_correctness_implies_realizesAllValuesFrom_flat_encoded` | `remaining_indistinguishable` |
 | Time bound | 2^R (asserted) | 2^R - 1 (derived from WC-1 counting) |
-| Semantic content | "Correct TM visits all values" | "Unrefuted worlds are indistinguishable" |
+| Semantic content | "Correct TM visits all values" | "Remaining worlds are indistinguishable" |
 | Separation proof | Part of axiom | Derived via contradiction |
 | Church-Turing | `algspec_has_tm` | `algspec_has_tm` + `UniformityStructure` |
 
@@ -44,12 +44,12 @@ more semantic `not_refuted_implies_indistinguishable` axiom.
 
 ### ATTACK 11.1: Axiom Strength Analysis
 
-**Goal**: Verify `not_refuted_implies_indistinguishable` doesn't secretly assume P≠NP
+**Goal**: Verify `remaining_indistinguishable` doesn't secretly assume P≠NP
 
 **Location**: `Layer4_Operational/TimeBridge/WC1Bridge.lean:4067`
 
 ```lean
-axiom not_refuted_implies_indistinguishable
+axiom remaining_indistinguishable
     {k : Nat} {states alphabet : Type}
     [Fintype states] [DecidableEq states] [Fintype alphabet] [DecidableEq alphabet]
     (L : LStarInstanceFG)
@@ -63,7 +63,7 @@ axiom not_refuted_implies_indistinguishable
         ⟨v, enc.extractConfigAtV ((TMConfig.step (M := M))^[t] (enc.initForPlanting cfg_planted))⟩))
     (h_v_in : v ∈ ({v} : Finset (Fin L.dag.n)))
     (ω' : CutWorld L {v})
-    (h_not_refuted : ω' ∉ tmRefutedWorlds L {v} configs)
+    (h_remaining : ω' ∉ eliminatedWorlds L {v} configs)
     : TMIndistinguishable L M v enc.extractConfigAtV enc.initForPlanting haltTime
         (ω'.assignment v h_v_in) cfg_planted
 ```
@@ -72,7 +72,7 @@ axiom not_refuted_implies_indistinguishable
 - [ ] Does this axiom restrict what TMs can compute?
   - **Analysis**: No - it says IF a world wasn't refuted, THEN TM can't distinguish it
 - [ ] Could a poly-time SAT solver violate this axiom?
-  - **Analysis**: No - if SAT is poly-time solvable, all worlds get refuted quickly, making h_not_refuted vacuously false
+  - **Analysis**: No - if SAT is poly-time solvable, all worlds get eliminated quickly, making h_remaining vacuously false
 - [ ] Does this axiom assert any time bounds?
   - **Analysis**: No - time bounds are DERIVED from the axiom + WC-1 counting
 - [ ] Is this axiom information-theoretically sound?
@@ -85,15 +85,15 @@ cd /Volumes/Ddrive/PNePNP-Publication/lean
 # Print axiom dependencies of the bridge axiom
 cat > /tmp/bridge_axiom.lean << 'EOF'
 import Layer4_Operational.TimeBridge.WC1Bridge
-#print axioms LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable
+#print axioms LStar.StructuralOWF.Foundations.remaining_indistinguishable
 EOF
 lake env lean /tmp/bridge_axiom.lean 2>&1
 ```
 
 **Expected Output**:
 ```
-'LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable' depends on axioms:
-[..., LStar.StructuralOWF.Foundations.not_refuted_implies_indistinguishable]
+'LStar.StructuralOWF.Foundations.remaining_indistinguishable' depends on axioms:
+[..., LStar.StructuralOWF.Foundations.remaining_indistinguishable]
 ```
 
 **Red Flags**:
@@ -111,7 +111,7 @@ lake env lean /tmp/bridge_axiom.lean 2>&1
 
 ### ATTACK 11.2: WC-1 "+1 Per Step" Verification
 
-**Goal**: Verify WorldCommit-1 theorem proves exactly +1 elimination per UnitRefute step
+**Goal**: Verify WorldCommit-1 theorem proves exactly +1 elimination per UnitElimination step
 
 **Location**: `Layer3_InformationBounds/WorldCommit/WorldCommit.lean`
 
@@ -119,7 +119,7 @@ lake env lean /tmp/bridge_axiom.lean 2>&1
 
 **Attack Questions**:
 - [ ] Does WC-1 actually prove +1 (not +0 or +2)?
-- [ ] Is UnitRefute defined as excluding exactly one world?
+- [ ] Is UnitElimination defined as excluding exactly one world?
 - [ ] Is the feasible set properly finite?
 
 **Verification Commands**:
@@ -134,8 +134,8 @@ import Layer3_InformationBounds.WorldCommit.WorldCommit
 EOF
 lake env lean /tmp/wc1_check.lean 2>&1
 
-# Check UnitRefute definition (it's an inductive constructor in CutConstraint, not a structure)
-grep -A 5 "| UnitRefute" Layer3_InformationBounds/ConstraintSystem/ConstraintSystem.lean
+# Check UnitElimination definition (it's an inductive constructor in CutConstraint, not a structure)
+grep -A 5 "| UnitElimination" Layer3_InformationBounds/ConstraintSystem/ConstraintSystem.lean
 ```
 
 **Expected**: WC-1 theorem depends only on standard axioms (propext, Classical.choice, Quot.sound)
@@ -143,7 +143,7 @@ grep -A 5 "| UnitRefute" Layer3_InformationBounds/ConstraintSystem/ConstraintSys
 **Verification Checklist**:
 - [ ] `world_commit_refutation_excludes_one` is PROVEN (not axiom)
 - [ ] Feasible set cardinality decreases by exactly 1
-- [ ] UnitRefute constraint is `ω ≠ ω₀` (excludes exactly one world)
+- [ ] UnitElimination constraint is `ω ≠ ω₀` (excludes exactly one world)
 - [ ] No hidden axioms in WC-1 proof chain
 
 ---
@@ -243,7 +243,7 @@ def WorstCaseCorrectOnLStar
 
 **Proof Chain**:
 ```
-not_refuted_implies_indistinguishable (axiom)
+remaining_indistinguishable (axiom)
     ↓
 all wrong worlds must be refuted (by contradiction + WC correctness)
     ↓
@@ -286,21 +286,21 @@ lake env lean /tmp/timebound_check.lean 2>&1
 
 ---
 
-### ATTACK 11.6: tmRefutedWorlds and Nodup Property
+### ATTACK 11.6: eliminatedWorlds and Nodup Property
 
 **Goal**: Verify refuted worlds are correctly determined and counted
 
 **Location**: `Layer4_Operational/TimeBridge/WC1Bridge.lean:726`
 
 **Key Definitions**:
-- `tmRefutedWorlds`: Builds list of refuted worlds from TM config trace
+- `eliminatedWorlds`: Builds list of refuted worlds from TM config trace
 - `extractViolatorsForConfig`: Returns the world that violates a given config observation
-- `buildRefutedWorlds`: Constructs refuted worlds list incrementally
+- `buildEliminatedWorlds`: Constructs refuted worlds list incrementally
 
-**Why Nodup Matters**: The time bound proof counts refuted worlds. If the list has duplicates, the count would be wrong. The `tmRefutedWorlds_nodup` theorem proves no duplicates.
+**Why Nodup Matters**: The time bound proof counts refuted worlds. If the list has duplicates, the count would be wrong. The `eliminatedWorlds_nodup` theorem proves no duplicates.
 
 **Attack Questions**:
-- [ ] Is tmRefutedWorlds correctly defined from TM trace?
+- [ ] Is eliminatedWorlds correctly defined from TM trace?
 - [ ] Does extractViolatorsForConfig return exactly one violator?
 - [ ] Is nodup proven (not assumed)?
 - [ ] Does the counting argument use nodup correctly?
@@ -309,23 +309,23 @@ lake env lean /tmp/timebound_check.lean 2>&1
 ```bash
 cd /Volumes/Ddrive/PNePNP-Publication/lean
 
-# Check tmRefutedWorlds definition
-grep -A 15 "noncomputable def tmRefutedWorlds" Layer4_Operational/TimeBridge/WC1Bridge.lean
+# Check eliminatedWorlds definition
+grep -A 15 "noncomputable def eliminatedWorlds" Layer4_Operational/TimeBridge/WC1Bridge.lean
 
 # Check nodup theorem
-grep -n "theorem tmRefutedWorlds_nodup" Layer4_Operational/TimeBridge/WC1Bridge.lean
+grep -n "theorem eliminatedWorlds_nodup" Layer4_Operational/TimeBridge/WC1Bridge.lean
 
 # Check extractViolatorsForConfig returns single element
 grep -n "extractViolatorsForConfig_length_le_one" Layer4_Operational/TimeBridge/WC1Bridge.lean
 ```
 
 **Key Theorems**:
-- `tmRefutedWorlds_nodup_general` (line 1185)
+- `eliminatedWorlds_nodup_general` (line 1185)
 - `extractViolatorsForConfig_length_le_one` (line 740)
-- `buildRefutedWorlds_nodup` (line 1131)
+- `buildEliminatedWorlds_nodup` (line 1131)
 
 **Verification Checklist**:
-- [ ] tmRefutedWorlds built from actual TM trace
+- [ ] eliminatedWorlds built from actual TM trace
 - [ ] extractViolatorsForConfig returns ≤1 element
 - [ ] nodup property is PROVEN
 - [ ] Counting in time bound uses nodup
@@ -457,7 +457,7 @@ def TMIndistinguishable L M v extractConfigAtV initForPlanting haltTime cfg1 cfg
 ```
 algspec_has_tm (Church-Turing + uniformity)
     ↓
-not_refuted_implies_indistinguishable (indistinguishability bridge)
+remaining_indistinguishable (indistinguishability bridge)
     ↓
 derive_all_wrong_worlds_refuted (by contradiction)
     ↓
@@ -483,7 +483,7 @@ lake env lean /tmp/final_check.lean 2>&1
 **Expected Axioms**:
 - propext, Classical.choice, Quot.sound (standard)
 - algspec_has_tm (Church-Turing)
-- not_refuted_implies_indistinguishable (indistinguishability bridge)
+- remaining_indistinguishable (indistinguishability bridge)
 
 **Verification Checklist**:
 - [ ] Exactly 2 custom axioms in P_ne_NP chain
@@ -534,12 +534,12 @@ lake env lean /tmp/mono_check.lean 2>&1
 
 ### Critical Checks (Must All Pass):
 
-- [ ] `not_refuted_implies_indistinguishable` doesn't assume P≠NP
+- [ ] `remaining_indistinguishable` doesn't assume P≠NP
 - [ ] WC-1 theorem (`world_commit_refutation_excludes_one`) is PROVEN, not axiom
 - [ ] Time bound 2^R - 1 is correctly derived
 - [ ] SameObservationSameState captures "TM oblivious to planting"
 - [ ] WorstCaseCorrectOnLStar is standard TM correctness
-- [ ] tmRefutedWorlds nodup property is PROVEN
+- [ ] eliminatedWorlds nodup property is PROVEN
 - [ ] LStarTMEncoding structure prevents cheating encodings
 - [ ] algspec_has_tm includes uniformityProp
 - [ ] TMIndistinguishable is operationally sound
@@ -572,7 +572,7 @@ cat > /tmp/axiom_full.lean << 'EOF'
 import Layer5_Applications.PvsNP.PrimaryPath.StructuralOWFBridge
 #print axioms LStar.Complexity.StructuralOWFBridge.P_ne_NP
 EOF
-lake env lean /tmp/axiom_full.lean 2>&1 | grep -E "algspec_has_tm|not_refuted_implies_indistinguishable|tm_correctness"
+lake env lean /tmp/axiom_full.lean 2>&1 | grep -E "algspec_has_tm|remaining_indistinguishable|tm_correctness"
 
 # Check for sorries
 grep -rn "\bsorry\b" --include="*.lean" Layer4_Operational/TimeBridge/ | grep -v -- "-- sorry"

@@ -346,7 +346,7 @@ theorem f_is_parity_owf_exponential_true : ...
 
 ### Axiom Summary (2 axioms total)
 1. `algspec_has_tm` (RandAdv.lean) — Church-Turing bridge
-2. `not_refuted_implies_indistinguishable` (WC1Bridge.lean) — WC-1 indistinguishability bridge
+2. `remaining_indistinguishable` (WC1Bridge.lean) — WC-1 indistinguishability bridge
    - Asserts indistinguishability; separation and time bound `≥ 2^R - 1` derived via counting
 
 Both axioms operate at the semantic level—neither mentions P, NP, or complexity bounds directly.
@@ -451,7 +451,7 @@ h_single_gate : gateDigests.length = 1
    - Multi-gate (k gates): Cut containing k gates → Σ R_v = k·R_fg > R_fg ✗
 
 2. **Singleton Cut Requirement**: Planted instance uniqueness proofs assume C.card = 1
-   - Core reduction (ConfigMatch→UnitRefute) requires singleton structure
+   - Core reduction (ConfigMatch→UnitElimination) requires singleton structure
    - Multi-gate extension requires ~1500-2600 lines of refactoring
 
 **Current State**: Single-gate restriction is sufficient for P≠NP proof and enables clean SCL bounds.

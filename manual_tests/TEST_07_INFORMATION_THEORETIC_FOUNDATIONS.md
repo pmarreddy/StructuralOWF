@@ -879,9 +879,9 @@ The final step converts state-space bounds to time bounds:
 
 The proof uses ONE information-theoretic axiom: `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`. This category verifies its soundness.
 
-**Axiom Location**: TMAdapterExponential.lean:2151 (alternative: WC1Bridge.lean:4067 for `not_refuted_implies_indistinguishable`)
+**Axiom Location**: TMAdapterExponential.lean:2151 (alternative: WC1Bridge.lean:4067 for `remaining_indistinguishable`)
 
-**NOTE**: The primary path now uses `not_refuted_implies_indistinguishable` (WC1Bridge.lean:4067) instead of `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`. See docs/AXIOM_FINAL_COUNT.md.
+**NOTE**: The primary path now uses `remaining_indistinguishable` (WC1Bridge.lean:4067) instead of `tm_correctness_implies_realizesAllValuesFrom_flat_encoded`. See docs/AXIOM_FINAL_COUNT.md.
 
 **Axiom Statement** (simplified):
 ```lean
@@ -1233,7 +1233,7 @@ Passing all categories confirms the information-theoretic foundation is sound.
 | incomplete_obs_has_collision | Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean | 614 |
 | fg_correctness_requires_complete_observation | Layer3_InformationBounds/WorldCommit/FGIndistinguishability.lean | 371 |
 | tm_correctness_implies_realizesAllValuesFrom_flat_encoded axiom | Layer4_Operational/TimeBridge/TMAdapterExponential.lean | 2151 |
-| not_refuted_implies_indistinguishable axiom (primary) | Layer4_Operational/TimeBridge/WC1Bridge.lean | 4067 |
+| remaining_indistinguishable axiom (primary) | Layer4_Operational/TimeBridge/WC1Bridge.lean | 4067 |
 | time_bound_from_coverage | Layer4_Operational/TimeBridge/TMAdapterExponential.lean | 321+ |
 | ObservationModel | Layer3_InformationBounds/Support/ObservationModel.lean | All |
 | StructuralLowerBound | Layer3_InformationBounds/SegmentReduction/StructuralLowerBound.lean | All |

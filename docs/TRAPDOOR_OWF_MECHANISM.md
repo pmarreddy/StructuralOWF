@@ -746,7 +746,7 @@ Could an algorithm rule out multiple candidates at once?
    - To use DigestMatch (bulk elimination), must KNOW the correct digest
    - To know the correct digest, must compute full configuration
    - To compute full configuration, must VISIT that world
-   - Each visit = 1 world checked = 1 potential UnitRefute
+   - Each visit = 1 world checked = 1 potential UnitElimination
 
 **Result**: Even if bulk elimination were theoretically possible, the algorithm must DO THE WORK of visiting each world first. Linear progress through exponential space. Each step eliminates exactly 1 candidate (WC-1 property).
 

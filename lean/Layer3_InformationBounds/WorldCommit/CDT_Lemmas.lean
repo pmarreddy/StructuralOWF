@@ -251,26 +251,26 @@ theorem fg_gate_digest_work_bound
     fg_emergence_size_from_instance L v
   use W_min, c_lower, h_W_pos, h_c_lower_pos, h_R_lower
 
-/-! ## Polynomial Work Bounds Refutation Count
+/-! ## Polynomial Work Bounds Elimination Count
 
-**THEOREM**: Polynomial time budget → polynomial refutations < exponential threshold.
+**THEOREM**: Polynomial time budget → polynomial eliminations < exponential threshold.
 
 **Chain**:
 1. Poly work → poly segments (CDT-3: each segment costs Ω(n/W_min))
-2. Poly segments → poly refutations (refutation_growth_implies_boundaries)
+2. Poly segments → poly eliminations (elimination_growth_implies_boundaries)
 3. R_v = Θ(log² n) → 2^(R_v-1) is super-polynomial
-4. Therefore: poly refutations < 2^(R_v-1) ✓
+4. Therefore: poly eliminations < 2^(R_v-1) ✓
 
 This proves the hypothesis needed for bit_independence_from_A3.
 -/
 
-/-- **Polynomial work bounds refutation count** (for plant_flat instances).
+/-- **Polynomial work bounds elimination count** (for plant_flat instances).
 
     **Result**: Fully proven (parametric design)
 
     **What's proven**:
     1. R_v values from plant_flat construction
-    2. Refutations bounded by polynomial work budget
+    2. Eliminations bounded by polynomial work budget
     3. Theorem structure: caller proves exponential dominates for their specific parameters
 
     **Design rationale** (parametric is BETTER than inline proof):
@@ -285,29 +285,29 @@ This proves the hypothesis needed for bit_independence_from_A3.
     - Cleaner API: separates concerns (this theorem extracts R_v; caller handles their parameters)
     - More flexible: caller can use simplest proof for their specific case
     - Mathematically standard: like how sort takes a comparison function parameter -/
-theorem polynomial_work_bounds_refutations_for_plant
+theorem polynomial_work_bounds_eliminations_for_plant
     (n_sec : Nat) (φ : CNF) (r : Randomness φ.nvars) (h_nvars : φ.nvars ≥ 4)
     (h_aligned : AlignedCNFConstraints φ)
     (v : {v // (plant_flat n_sec φ r h_nvars h_aligned).fg.gateReq v})
     (W_total : Nat)
     (h_work_poly : ∃ (c k : Nat), W_total ≤ c * (plant_flat n_sec φ r h_nvars h_aligned).n ^ k)
-    (refutation_count : Nat)
-    (h_refutations_bounded_by_work : refutation_count ≤ W_total)
+    (elimination_count : Nat)
+    (h_eliminations_bounded_by_work : elimination_count ≤ W_total)
     (R_v : Nat)
     (h_R_eq : (plant_flat n_sec φ r h_nvars h_aligned).R v.val = R_v)
     (h_exp_dominates : ∀ c k, W_total ≤ c * φ.nvars ^ k →
       c * φ.nvars ^ k < 2^(R_v - 1))  -- Caller proves for their (c,k,n)
-    : refutation_count < 2^((plant_flat n_sec φ r h_nvars h_aligned).R v.val - 1) := by
+    : elimination_count < 2^((plant_flat n_sec φ r h_nvars h_aligned).R v.val - 1) := by
   -- Use the provided R_v equation
   have h_n_eq : (plant_flat n_sec φ r h_nvars h_aligned).n = φ.nvars := plant_flat_n n_sec φ r h_nvars h_aligned
 
   -- Extract polynomial constants
   obtain ⟨c_poly, k_poly, h_W_bound⟩ := h_work_poly
 
-  -- Bound refutations by polynomial
-  have h_refut_poly : refutation_count ≤ c_poly * φ.nvars ^ k_poly := by
-    calc refutation_count
-      _ ≤ W_total := h_refutations_bounded_by_work
+  -- Bound eliminations by polynomial
+  have h_elim_poly : elimination_count ≤ c_poly * φ.nvars ^ k_poly := by
+    calc elimination_count
+      _ ≤ W_total := h_eliminations_bounded_by_work
       _ ≤ c_poly * (plant_flat n_sec φ r h_nvars h_aligned).n ^ k_poly := h_W_bound
       _ = c_poly * φ.nvars ^ k_poly := by rw [h_n_eq]
 
@@ -318,8 +318,8 @@ theorem polynomial_work_bounds_refutations_for_plant
     exact h_W_bound
 
   -- Combine bounds
-  calc refutation_count
-    _ ≤ c_poly * φ.nvars ^ k_poly := h_refut_poly
+  calc elimination_count
+    _ ≤ c_poly * φ.nvars ^ k_poly := h_elim_poly
     _ < 2^(R_v - 1) := h_gap
     _ = 2^((plant_flat n_sec φ r h_nvars h_aligned).R v.val - 1) := by rw [← h_R_eq]
 
@@ -330,14 +330,14 @@ theorem polynomial_work_bounds_refutations_for_plant
 - **Helper predicates**: Observation change detection (NoNewDesignatedReads, NoNewGateDigests)
 - **CDT-1'**: No observations → NF unchanged (fully proven, used by SegmentReduction.lean)
 - **FG work bound**: FG digest computation requires Ω(n/W_min) work (fully proven)
-- **Polynomial work bounds refutations**: Polynomial work → exponentially bounded refutations
+- **Polynomial work bounds eliminations**: Polynomial work → exponentially bounded eliminations
   * Parametric design: caller provides R_v and proves exponential-polynomial gap
   * Defers only exponential-polynomial gap (standard asymptotic fact)
 
 **Usage**:
 - `cdt1_no_unbacked_progress`: Used by SegmentReduction.lean for segment boundary analysis
 - `fg_gate_digest_work_bound`: Work lower bound for FG gates
-- `polynomial_work_bounds_refutations_for_plant`: Proves polynomial work bounds refutations for plant_flat instances
+- `polynomial_work_bounds_eliminations_for_plant`: Proves polynomial work bounds eliminations for plant_flat instances
 
 -/
 
@@ -352,6 +352,6 @@ No custom axioms are introduced.
 #print axioms NoNewObservations
 #print axioms cdt1_no_unbacked_progress
 #print axioms fg_gate_digest_work_bound
-#print axioms polynomial_work_bounds_refutations_for_plant
+#print axioms polynomial_work_bounds_eliminations_for_plant
 
 end LStar.StructuralOWF.Foundations

@@ -22252,7 +22252,7 @@ Constraint family and normalization (scope over C).
   \item
     Bit determinations (unit equalities) that increase q on C; and
   \item
-    UnitRefute(\(\omega\)): a unit exclusion of a single cut-world
+    UnitElimination(\(\omega\)): a unit exclusion of a single cut-world
     \(\omega\) (fixed assignment to unresolved cut bits). General
     overlay/gate constraints may exist globally but are not admitted
     into NF\_C unless they reduce to (1) or (2) over C.
@@ -22278,7 +22278,7 @@ Procedure:
   Filter to canonical forms: For each constraint c \(\in\)
   Cons\_C(\(\pi\)): a) If c is a unit equality (v\_i = b for v\_i
   \(\in\) C, b \(\in\) \{0,1\}): Add (i, b) to BitDet // bit
-  determination b) If c is a canonical UnitRefute(\(\omega\)) over C
+  determination b) If c is a canonical UnitElimination(\(\omega\)) over C
   (unit exclusion of a single cut-world \(\omega\)): Add w to Refuted //
   w is a fixed assignment to unresolved cut bits c) Otherwise: discard c
   (not admitted to NF\_C)
@@ -22346,10 +22346,10 @@ For the published constraint family and normalization NF\_C defined
 above, if a cut-level consequence becomes derivable from transcript
 prefix \(\pi\) without additional designated artifacts being revealed or
 produced, then it must be either (i) a bit determination already
-reflected as \(\Delta\)q on C, or (ii) a UnitRefute(\(\omega\)) for some
+reflected as \(\Delta\)q on C, or (ii) a UnitElimination(\(\omega\)) for some
 world \(\omega\) already present in NF\_C. Hence NF\_C can only grow
 when (i) \(\Delta\)q on C increases, or (ii) a new designated artifact
-is produced (gate/digest) that supports a new UnitRefute or bit
+is produced (gate/digest) that supports a new UnitElimination or bit
 determination, implying a tag change and designated cost.
 
 \emph{Proof.} We prove this by analyzing the three sources from which
@@ -22447,7 +22447,7 @@ revealed bits, proves that a specific cut-world assignment w is
 \item
   Seed/consistency propagation: a digest fixing a child seed/value
   forces a cut assignment incompatible with w. The verifier checks such
-  a proof object and admits it as UnitRefute(\(\omega\)) into NF\_C.
+  a proof object and admits it as UnitElimination(\(\omega\)) into NF\_C.
 \end{itemize}
 
 Crucially, producing such a proof requires:
@@ -22467,7 +22467,7 @@ Crucially, producing such a proof requires:
 If GateDigest\_v is \textbf{fresh} (differs from the previous value on
 the current seed chain), then by Lemma C.2.2 the seed-chain tag changes,
 ending the segment and pricing the digest computation. If GateDigest\_v
-is unchanged but leads to a new UnitRefute(\(\omega\)), this refutation
+is unchanged but leads to a new UnitElimination(\(\omega\)), this refutation
 updates NF\_C \(\to\) ConstraintDigest\_C changes \(\to\) tag changes
 \(\to\) segment ends. {[}YES{]}
 
@@ -22512,7 +22512,7 @@ Verifier check. The NP verifier:
   certificate is a standardized object referencing at least one
   designated gate/digest artifact and proving that the committed world
   contradicts these artifacts given NF\_C and revealed bits. The
-  certificate is admitted into NF\_C only as a UnitRefute for that
+  certificate is admitted into NF\_C only as a UnitElimination for that
   world, excluding exactly one world over C. The verifier checks all
   conditions in polynomial time.
 \end{itemize}
@@ -22553,7 +22553,7 @@ Lemma index (C.2):
 
 \textbf{NF\_C scope note.} The feasible-world count for SC is computed
 vs. NF\_C \(\cup\) \{q\}, where NF\_C admits only (i) unit equalities
-(bit determinations) and (ii) UnitRefute(\(\omega\)) operations. This is
+(bit determinations) and (ii) UnitElimination(\(\omega\)) operations. This is
 an over-approximation of the true semantic feasible set - the actual set
 of consistent worlds may be smaller due to additional constraints not
 captured in NF\_C. Using an over-approximation only strengthens the
@@ -22584,7 +22584,7 @@ the algorithm produces a valid Refute(WorldCommit\_C) certificate. Then:
   \(\omega\)* and no other worlds from the feasible set \ensuremath{\mathcal{U}}(\(\pi\)).
 \item
   \textbf{NF\_C update:} The certificate is admitted into NF\_C as a
-  UnitRefute(\(\omega\)*) entry, which updates ConstraintDigest\_C and
+  UnitElimination(\(\omega\)*) entry, which updates ConstraintDigest\_C and
   ends the segment.
 \item
   \textbf{Verifier-checkable:} The NP verifier checks that the
@@ -22626,13 +22626,13 @@ therefore is not excluded. The verifier then:
 \item
   Checks that referenced artifacts contradict \(\omega\)*
 \item
-  Admits UnitRefute(\(\omega\)*) into NF\_C, excluding exactly this one
+  Admits UnitElimination(\(\omega\)*) into NF\_C, excluding exactly this one
   world
 \end{itemize}
 
 Therefore the refutation excludes exactly one world from \ensuremath{\mathcal{U}}(\(\pi\)),
 namely \(\omega\)*, and the NF\_C update (adding
-UnitRefute(\(\omega\)*)) changes ConstraintDigest\_C, forcing a new
+UnitElimination(\(\omega\)*)) changes ConstraintDigest\_C, forcing a new
 segment by Lemma C.2.2. \(\blacksquare\)
 
 \textbf{Lemma C.2.3 (One extra elimination per segment beyond
@@ -22654,7 +22654,7 @@ fixed on C between \(\pi\)\_last and the terminal action, the feasible
 set cannot shrink in the suffix: \ensuremath{\mathcal{U}}(\(\pi\)\_out\^{}\(-\)) =
 \ensuremath{\mathcal{U}}(\(\pi\)\_last). By WC-1, the terminal action refutes exactly one
 committed world (WorldCommit\_C), excluding at most one additional world
-at that boundary (which also updates NF\_C as a UnitRefute and ends the
+at that boundary (which also updates NF\_C as a UnitElimination and ends the
 segment). Hence \textbar{}\ensuremath{\mathcal{U}}(\(\pi\)\_out)\textbar{} \(\geq\)
 \textbar{}\ensuremath{\mathcal{U}}(\(\pi\)\_in)\textbar/2\^{}t \(-\) 1. \(\blacksquare\)
 
@@ -25718,7 +25718,7 @@ Verification (NP membership)
 \item
   Verifier recomputes Seeds and GateDigest\_v; recomputes NF\_C and
   WorldCommit\_C at boundaries; checks ConstraintDigest\_C and
-  UnitRefute certificates; all in polynomial time
+  UnitElimination certificates; all in polynomial time
 \item
   Complexity bound: O(n log n) with caching, O(n²) naive (see Lemma
   10.2.1)
