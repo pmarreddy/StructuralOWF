@@ -3857,27 +3857,37 @@ This is the semantic justification for the indistinguishability bridge axiom.
     **Formal Property**:
     - `replanting_simulation`: The No Backdoor property lifted to TM level
 
-    **PROOF OBLIGATION (Canonical Initialization)**:
+    **PROOF OBLIGATION (Canonical Initialization = Uniform TM Initial State)**:
+
+    The canonical initialization IS the standard initial configuration for a **uniform**
+    Turing machine. This is what distinguishes P (uniform poly-time) from P/poly
+    (non-uniform poly-time with advice). A uniform TM:
+    - Has a single fixed program for all inputs (no per-input "advice")
+    - Starts in the same initial state regardless of input
+    - Has no precomputed data on work tapes
+    - Must actually COMPUTE the answer (cannot have it "baked in")
+
     Any valid instantiation MUST satisfy these properties (enforced at construction site):
 
     1. `init_state`: ∀ cfg, (initForPlanting cfg).state = M.q0
        All plantings start in the SAME control state.
-       Blocks state-stuffing attack.
+       Blocks state-stuffing attack (non-uniform advice via state).
 
     2. `init_heads`: ∀ cfg i, (initForPlanting cfg).heads i = 0
        All heads start at position 0.
-       Blocks head-position smuggling attack.
+       Blocks head-position smuggling attack (non-uniform advice via position).
 
     3. `init_work_tapes_blank`: ∀ cfg (i : Fin k), i ≠ 0 →
          (initForPlanting cfg).tapes i = fun _ => M.blank
-       Work tapes start blank. Only tape0 varies.
-       Blocks work-tape smuggling attack.
+       Work tapes start blank. Only tape0 (input tape) varies.
+       Blocks work-tape smuggling attack (non-uniform advice via precomputed data).
 
     4. `extract_from_tape0`: extractConfigAtV depends only on tape0 contents
        Blocks extractor bypass attack.
 
     These are verified at construction via `lstar_encoding_coherence` in
     StructuralOWFAdversary, which proves initForPlanting = initWithEncodingBase.
+    The function `initWithEncodingBase` enforces the uniform TM initial state.
 
     **Why this is the right abstraction**:
     - L* reveals planted config only through FG gate observations (No Backdoor theorem)
